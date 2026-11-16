@@ -598,6 +598,38 @@ test('Variables page: inline saves, cancellation, live snapshots and persistent 
         await page.click('#vals');
         await page.setViewport({ width: 375, height: 700 });
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'reference tables do not leak horizontally on mobile');
+        await page.setViewport({ width: 1366, height: 768 });
+        await page.goto(`${origin}/placeholders.html#variables`);
+        await page.waitForSelector('#vars-list [data-n]');
+        for (const [type, value, updated] of [
+            ['date', '2026-12-10', '2026-12-11'],
+            ['time', '18:30', '19:45'],
+            ['datetime', '2026-12-10T18:30', '2026-12-11T19:45'],
+            ['duration', '45m', '1:30:00']
+        ]) {
+            const name = `show_${type}`;
+            await page.type('#var-name', name);
+            await page.select('#var-type', type);
+            await page.click('#var-add');
+            await page.waitForFunction(name => document.querySelector('#variable-inspector h3')?.textContent === name, {}, name);
+            assert.equal(await page.$eval('#variable-inspector [name="value"]', input => input.type), type === 'datetime' ? 'datetime-local' : type === 'duration' ? 'text' : type);
+            await page.$eval('#variable-inspector [name="value"]', (input, value) => {
+                input.value = value; input.dispatchEvent(new Event('input', { bubbles: true }));
+            }, value);
+            await page.click('#variable-inspector [type="submit"]');
+            await page.waitForFunction(({ name, value }) => document.querySelector(`[data-n="${name}"] [data-inline-edit]`)?.textContent.includes(value), {}, { name, value });
+            await page.click('[data-inspector-close]');
+            await edit(name, updated);
+            await page.keyboard.press('Enter');
+            await page.waitForFunction(({ name, updated }) => document.querySelector(`[data-n="${name}"] [data-inline-edit]`)?.textContent.includes(updated), {}, { name, updated });
+            assert.equal(getVar(store, name).type, type);
+            assert.equal(getVar(store, name).value, updated);
+            await page.select('#var-type-filter', type);
+            assert.deepEqual(await page.$$eval('#vars-list [data-n]', rows => rows.map(row => row.dataset.n)), [name]);
+            await page.select('#var-type-filter', 'all');
+        }
+        store.reload();
+        assert.equal(getVar(store, 'show_datetime').value, '2026-12-11T19:45', 'local date/time survives persistence without timezone conversion');
         assert.deepEqual(errors, []);
     } finally {
         await browser?.close();
@@ -1164,7 +1196,7 @@ test('Linked Variable Sets: ref materialization (1-hop, shorthand, named slot) a
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('Linked Variable Sets: syncSlot updates targetSet slot and guards against cycles', async () => {
+test('Linked Variable Sets: links follow source selections without changing target live slots', async () => {
     const dir = makeTmpDir();
     const store = createVariablesStore({ dataDir: dir });
     try {
@@ -1180,7 +1212,7 @@ test('Linked Variable Sets: syncSlot updates targetSet slot and guards against c
             slotsCount: 1,
             fields: [
                 { key: 'name', type: 'text' },
-                { key: 'char', type: 'ref', targetSet: 'chars', syncSlot: 2 }
+                { key: 'char', type: 'ref', targetSet: 'chars' }
             ],
             roster: [
                 { id: 'p1', values: { name: 'Alex', char: 'mario' } },
@@ -1188,37 +1220,38 @@ test('Linked Variable Sets: syncSlot updates targetSet slot and guards against c
             ]
         });
 
+        store.assignSetSlot('chars', 2, 'luigi');
         store.assignSetSlot('players', 1, 'p1');
-        assert.equal(getSet(store, 'chars').slots[1], 'mario');
-        assert.equal(store.values().chars_2_name, 'Mario');
+        assert.equal(getSet(store, 'chars').slots[1], 'luigi');
+        assert.equal(store.values().players_char_name, 'Mario');
 
         store.cycleSetSlot('players', 1, 1);
         assert.equal(getSet(store, 'chars').slots[1], 'luigi');
-        assert.equal(store.values().chars_2_name, 'Luigi');
+        assert.equal(store.values().players_char_name, 'Luigi');
 
         store.clearSetSlot('players', 1);
-        assert.equal(getSet(store, 'chars').slots[1], '');
-        assert.equal(store.values().chars_2_name, '');
+        assert.equal(getSet(store, 'chars').slots[1], 'luigi');
+        assert.equal(store.values().players_char_name, '');
 
-        // Mutual cycle A <-> B with syncSlot must terminate cleanly
+        // Cyclic link definitions never activate another set.
         store.upsertSet('cycle_a', {
             slotsCount: 1,
-            fields: [{ key: 'b', type: 'ref', targetSet: 'cycle_b', syncSlot: 1 }],
+            fields: [{ key: 'b', type: 'ref', targetSet: 'cycle_b' }],
             roster: [{ id: 'a1', values: { b: 'b1' } }]
         });
         store.upsertSet('cycle_b', {
             slotsCount: 1,
-            fields: [{ key: 'a', type: 'ref', targetSet: 'cycle_a', syncSlot: 1 }],
+            fields: [{ key: 'a', type: 'ref', targetSet: 'cycle_a' }],
             roster: [{ id: 'b1', values: { a: 'a1' } }]
         });
         store.assignSetSlot('cycle_a', 1, 'a1');
         assert.equal(getSet(store, 'cycle_a').slots[0], 'a1');
-        assert.equal(getSet(store, 'cycle_b').slots[0], 'b1');
+        assert.equal(getSet(store, 'cycle_b').slots[0], '');
 
-        // Self-referencing set with syncSlot must also terminate cleanly
+        // Self-reference remains bounded to one-hop materialization.
         store.upsertSet('self_ref', {
             slotsCount: 1,
-            fields: [{ key: 'next', type: 'ref', targetSet: 'self_ref', syncSlot: 1 }],
+            fields: [{ key: 'next', type: 'ref', targetSet: 'self_ref' }],
             roster: [{ id: 's1', values: { next: 's1' } }]
         });
         store.assignSetSlot('self_ref', 1, 's1');
@@ -1226,6 +1259,156 @@ test('Linked Variable Sets: syncSlot updates targetSet slot and guards against c
 
         store.dispose();
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('Linked Variable Sets: item levels survive owner edits, validate targets and reset independently', async () => {
+    const dir = makeTmpDir();
+    const store = createVariablesStore({ dataDir: dir });
+    try {
+        store.upsertSet('equipment', {
+            fields: [{ key: 'name', type: 'text' }],
+            roster: [
+                { id: 'sword', values: { name: 'Sword' }, tiers: [{ label: 'Wood' }, { label: 'Steel' }, { label: 'Legendary', image: '/legendary.png' }] },
+                { id: 'badge', values: { name: 'Badge' } }
+            ]
+        });
+        store.upsertSet('people', {
+            fields: [{ key: 'name', type: 'text' }, { key: 'gear', type: 'checklist', targetSet: 'equipment', maxTier: 1 }],
+            roster: [{ id: 'alex', values: { name: 'Alex' } }, { id: 'sam', values: { name: 'Sam' } }]
+        });
+        let response = await callApi(store, 'POST', '/api/variables/sets/people/checklist/set', { entry: 'alex', field: 'gear', target: 'sword', value: 3 });
+        assert.equal(response.status, 200);
+        store.upsertSet('people', { name: 'Renamed' });
+        store.upsertSet('people', { roster: getSet(store, 'people').roster });
+        store.reload();
+        assert.equal(getSet(store, 'people').roster[0].values.gear.sword, 3);
+        const owner = getSet(store, 'people');
+        const catalog = getSet(store, 'equipment');
+        await callApi(store, 'DELETE', '/api/variables/sets/equipment');
+        const imported = await callApi(store, 'POST', '/api/variables/import', { sets: [owner, catalog] });
+        assert.equal(imported.status, 200);
+        assert.equal(getSet(store, 'people').roster[0].values.gear.sword, 3, 'bundle order cannot discard custom levels');
+        response = await callApi(store, 'GET', '/api/variables/sets/people/checklist/set?entry=sam&field=gear&target=badge&value=9');
+        assert.equal(response.json.roster[1].values.gear.badge, 1);
+        response = await callApi(store, 'GET', '/api/variables/sets/people/checklist/set?entry=sam&field=gear&target=missing&value=1');
+        assert.equal(response.status, 400);
+        response = await callApi(store, 'POST', '/api/variables/sets/people/checklist/reset', { entry: 'alex', field: 'gear' });
+        assert.deepEqual(response.json.roster[0].values.gear, {});
+        assert.deepEqual(response.json.roster[1].values.gear, { badge: 1 });
+        response = await callApi(store, 'GET', '/api/variables/sets/people/checklist/reset?field=gear&all=true');
+        assert.deepEqual(response.json.roster.map(entry => entry.values.gear), [{}, {}]);
+    } finally { store.dispose(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('Linked Variable Sets: editors and Operator share link controls and preserve edits before tracker actions', async () => {
+    const { createServer } = require('node:http');
+    const puppeteer = (await import('puppeteer')).default;
+    const dir = makeTmpDir();
+    const store = createVariablesStore({ dataDir: dir });
+    store.upsertSet('equipment', {
+        fields: [{ key: 'name', label: 'Name', type: 'text' }],
+        roster: [
+            { id: 'sword', label: 'Sword', values: { name: 'Sword' }, tiers: [{ label: 'Wood' }, { label: 'Steel' }, { label: 'Legendary' }] },
+            { id: 'badge', label: 'Badge', values: { name: 'Badge' } }
+        ]
+    });
+    store.upsertSet('people', {
+        fields: [
+            { key: 'name', label: 'Name', type: 'text' },
+            { key: 'favorite', label: 'Favorite', type: 'ref', targetSet: 'equipment' },
+            { key: 'choices', label: 'Choices', type: 'ref_list', targetSet: 'equipment' },
+            { key: 'date', label: 'Date', type: 'date' },
+            { key: 'gear', label: 'Gear', type: 'checklist', targetSet: 'equipment', maxTier: 1 }
+        ],
+        roster: [{ id: 'alex', label: 'Alex', values: { name: 'Alex', gear: { sword: 2 } } }, { id: 'sam', label: 'Sam', values: { name: 'Sam', gear: { badge: 1 } } }]
+    });
+    store.setModuleEnabled(true);
+    const publicRoot = path.resolve(__dirname, '../public');
+    const requests = [];
+    const server = createServer(async (req, res) => {
+        const pathname = new URL(req.url, 'http://fixture').pathname;
+        if (pathname.startsWith('/api/variables')) {
+            if (req.method !== 'GET') requests.push(pathname);
+            if (req.method === 'PUT') await new Promise(resolve => setTimeout(resolve, 100));
+            await store.handleApi(req, res, pathname, async request => {
+                const chunks = [];
+                for await (const chunk of request) chunks.push(chunk);
+                return Buffer.concat(chunks).toString();
+            });
+        } else if (pathname.startsWith('/api/')) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(pathname === '/api/custom-overlays' ? [] : {}));
+        } else {
+            const mapped = pathname === '/placeholders.html' ? '/tools/placeholders.html' : pathname === '/variable-set-operator.html' ? '/tools/variable-set-operator.html' : pathname === '/overlay-shared.js' ? '/js/overlay-shared.js' : pathname;
+            const file = path.resolve(publicRoot, `.${mapped}`);
+            res.writeHead(200, { 'Content-Type': pathname.endsWith('.js') ? 'text/javascript' : pathname.endsWith('.css') ? 'text/css' : 'text/html' });
+            res.end(file.startsWith(`${publicRoot}${path.sep}`) && fs.existsSync(file) && fs.statSync(file).isFile() ? fs.readFileSync(file) : '');
+        }
+    });
+    let browser;
+    try {
+        await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+        browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
+        const page = await browser.newPage();
+        const errors = [];
+        page.on('pageerror', error => errors.push(error.message));
+        await page.evaluateOnNewDocument(() => { window.WebSocket = class extends window.EventTarget {}; });
+        const origin = `http://127.0.0.1:${server.address().port}`;
+        await page.setRequestInterception(true);
+        page.on('request', request => request.url().startsWith(origin) || request.url().startsWith('data:') ? request.continue() : request.abort());
+        await page.goto(`${origin}/variable-set-operator.html#people`);
+        await page.waitForSelector('[data-op-open-matrix="gear"]');
+        assert.equal(await page.$eval('[data-op-type="date"]', input => input.type), 'date');
+        await page.select('[data-op-entry="alex"][data-op-type="ref"]', 'sword');
+        await page.click('[data-link-control] summary');
+        await page.click('[data-link-option] input[value="badge"]');
+        await page.waitForFunction(async () => (await (await fetch('/api/variables/sets/people')).json()).roster[0].values.choices.includes('badge'));
+        assert.deepEqual(getSet(store, 'people').roster[0].values.choices, ['badge']);
+        await page.$eval('[data-op-entry="alex"][data-op-key="name"]', input => {
+            input.value = 'Updated Alex'; input.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        await page.click('[data-op-open-matrix="gear"][data-op-owner="alex"]');
+        await page.click('[data-op-matrix-step][data-op-entry="alex"][data-op-target="sword"]');
+        await page.waitForFunction(() => document.querySelector('[data-op-entry="alex"][data-op-target="sword"]')?.textContent.includes('Legendary'));
+        assert.equal(getSet(store, 'people').roster[0].values.name, 'Updated Alex');
+        assert.equal(getSet(store, 'people').roster[0].values.gear.sword, 3);
+        assert.equal(requests.at(-2), '/api/variables/sets/people');
+        assert.equal(requests.at(-1), '/api/variables/sets/people/checklist/step');
+        page.once('dialog', dialog => dialog.accept());
+        await page.click('[data-op-reset-entry="alex"]');
+        await page.waitForFunction(() => document.querySelector('[data-op-entry="alex"][data-op-target="sword"]')?.textContent.includes('Lv.0'));
+        assert.deepEqual(getSet(store, 'people').roster[0].values.gear, {});
+        assert.deepEqual(getSet(store, 'people').roster[1].values.gear, { badge: 1 });
+        await page.click('[data-op-filter="slotted"]');
+        assert.equal(await page.$('[data-op-matrix-step]'), null, 'empty on-air selection must not show every owner');
+        await page.click('[data-op-filter="all"]');
+        page.once('dialog', dialog => dialog.accept());
+        await page.click('[data-op-reset-all]');
+        await page.waitForFunction(() => document.querySelector('[data-op-entry="sam"][data-op-target="badge"]')?.classList.contains('is-dim'));
+        assert.deepEqual(getSet(store, 'people').roster[1].values.gear, {});
+        await page.goto(`${origin}/placeholders.html#sets`);
+        await page.waitForSelector('[data-select-set="people"]');
+        await page.click('[data-select-set="people"]');
+        await page.waitForSelector('[data-set-card="people"]');
+        await page.click('[data-set-act="edit-entry"][data-entry="alex"]');
+        await page.waitForSelector('#vp-entry-form');
+        assert.equal(await page.$eval('[data-entry-field="favorite"]', input => input.value), 'sword');
+        await page.click('#vp-entry-form [data-link-control] summary');
+        await page.click('#vp-entry-form [data-link-option] input[value="sword"]');
+        await page.$eval('[data-entry-check-item="sword"]', select => {
+            select.value = '3'; select.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        await page.click('[form="vp-entry-form"][type="submit"]');
+        await page.waitForFunction(() => !document.querySelector('#vp-entry-form'));
+        assert.deepEqual(getSet(store, 'people').roster[0].values.choices, ['sword', 'badge']);
+        assert.deepEqual(getSet(store, 'people').roster[0].values.gear, { sword: 3 });
+        assert.deepEqual(errors, []);
+    } finally {
+        await browser?.close();
+        await new Promise(resolve => server.close(resolve));
+        store.dispose();
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
 });
 
 test('Linked Variable Sets: checklist schema, set/toggle/step endpoints, clamping, wrapping, and persistence', async () => {

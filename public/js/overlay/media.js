@@ -4,6 +4,7 @@ import { ensureFontAwesome, sanitizeIconClass } from './icons.js';
 import { applyBorderEffects, applyTextAnimation, decorationStyle, gradientStyle, textEffectStyle } from './styles.js';
 import { expandVariables, resolveColorToken, resolveStyleVariables } from './variables.js';
 import numericBindings from '../../../shared/numeric-bindings.cjs';
+import { trackerMax, linkedSourceFields } from '../../../shared/variable-links.cjs';
 
 function parseYouTubeUrl(urlStr) {
     if (!urlStr || typeof urlStr !== 'string') return null;
@@ -123,104 +124,17 @@ function cleanupGroupStrip(container) {
     });
 }
 
-function resolveChecklistState(checklistSource = {}, status = {}) {
-    const cs = checklistSource || {};
-    if (!cs.setId) return { map: {}, maxTier: 1 };
-    const sets = status?.variableSets || [];
-    const srcSet = sets.find(s => s && s.id === cs.setId);
-    if (!srcSet) return { map: {}, maxTier: 1 };
-    const fields = Array.isArray(srcSet.fields) ? srcSet.fields : [];
-    const fieldDef = (cs.field ? fields.find(f => f && f.key === cs.field) : null) || fields.find(f => f && f.type === 'checklist') || null;
-    const fieldKey = cs.field || fieldDef?.key || '';
-    const maxTier = Math.max(1, Number(fieldDef?.maxTier) || 1);
-    if (!fieldKey) return { map: {}, maxTier };
-
-    const selector = String(cs.selector || '').trim();
-    let entryId = '';
-    if (selector.startsWith('slot:')) {
-        const idx = parseInt(selector.slice(5), 10) - 1;
-        const slotVal = Array.isArray(srcSet.slots) && idx >= 0 ? srcSet.slots[idx] : '';
-        entryId = typeof slotVal === 'string' ? slotVal : (slotVal?.entryId || slotVal?.id || '');
-    } else if (selector.startsWith('entry:')) {
-        entryId = selector.slice(6);
-    } else if (!selector || selector === 'active') {
-        if ((srcSet.slotsCount || 0) > 0 && Array.isArray(srcSet.slots)) {
-            const firstSlot = srcSet.slots[0];
-            entryId = typeof firstSlot === 'string' ? firstSlot : (firstSlot?.entryId || firstSlot?.id || '');
-        } else {
-            entryId = srcSet.activeEntry || srcSet.activeEntryId || srcSet.selectedEntryId || '';
-        }
-    } else {
-        entryId = selector;
-    }
-
-    const list = Array.isArray(srcSet.roster) ? srcSet.roster : (Array.isArray(srcSet.entries) ? srcSet.entries : []);
-    const srcEntry = list.find(e => e && e.id === entryId);
-    if (!srcEntry) return { map: {}, maxTier };
-
-    let rawMap = srcEntry.values?.[fieldKey] ?? srcEntry[fieldKey];
-    if (typeof rawMap === 'string') {
-        const trimmed = rawMap.trim();
-        if (trimmed.startsWith('{')) {
-            try { rawMap = JSON.parse(trimmed); } catch { rawMap = {}; }
-        } else {
-            rawMap = {};
-        }
-    }
-    const map = {};
-    if (rawMap && typeof rawMap === 'object' && !Array.isArray(rawMap)) {
-        for (const [k, v] of Object.entries(rawMap)) {
-            const lvl = Math.max(0, Math.floor(Number(v) || 0));
-            if (lvl > 0) map[k] = lvl;
-        }
-    }
-    return { map, maxTier };
-}
-
-function splitTierImages(raw) {
-    const str = String(raw ?? '').trim();
-    if (!str) return [];
-    const lines = str.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-    if (lines.length > 1) return lines;
-    if (/^data:image\//i.test(str)) {
-        const parts = str.split(/,(?=\s*(?:https?:\/\/|\/assets\/|\/uploads\/|data:image\/))/i).map(s => s.trim()).filter(Boolean);
-        return parts.length > 1 ? parts : [str];
-    }
-    const parts = str.split(',').map(s => s.trim()).filter(Boolean);
-    return parts.length > 1 ? parts : [str];
-}
-
 function resolveTieredValue(member, baseKey, level, isImage = false) {
     if (!member || !baseKey) return '';
     const vals = member.values || {};
     if (level >= 1 && Array.isArray(member.tiers) && member.tiers.length) {
-        const tierObj = member.tiers.find(t => Number(t.level) === level) || member.tiers[level - 1];
+        const tierObj = member.tiers.find(t => Number(t.level) === level);
         if (tierObj) {
             const direct = isImage ? tierObj.image : (tierObj.label || tierObj.description);
             if (direct && String(direct).trim()) return String(direct).trim();
         }
     }
-    if (level >= 1) {
-        const candidates = [
-            `${baseKey}_tier_${level}`,
-            `${baseKey}_${level}`,
-            `tier_${level}_${baseKey}`,
-            `tier${level}_${baseKey}`,
-            ...(isImage ? [`tier_${level}_image`, `tier${level}_image`, `tier${level}Image`] : [`tier_${level}_label`, `tier${level}_label`, `tier${level}Label`])
-        ];
-        for (const k of candidates) {
-            const v = String(vals[k] ?? member[k] ?? '').trim();
-            if (v) return v;
-        }
-    }
     const baseVal = String(vals[baseKey] ?? member[baseKey] ?? '').trim();
-    if (isImage && baseVal) {
-        const imgs = splitTierImages(baseVal);
-        if (imgs.length > 1) {
-            const idx = level >= 1 ? Math.min(level - 1, imgs.length - 1) : 0;
-            return imgs[idx];
-        }
-    }
     return baseVal;
 }
 
@@ -745,22 +659,41 @@ function renderImageGroupStrip(container, element, status, options = {}) {
     const primarySpec = fieldSpecs[0] || { key: cfg.labelField || '', role: 'title' };
     const subSpec = fieldSpecs.find((f, i) => f.role === 'subtitle' || i === 1) || (cfg.subField ? { key: cfg.subField, role: 'subtitle' } : null);
 
-    const filterMode = cfg.filterMode || (cfg.checklistSource?.setId ? 'checklist' : (cfg.inGroupOnly === false ? 'all' : 'inGroup'));
+    const filterMode = cfg.filterMode || 'inGroup';
     const showMode = cfg.showMode === 'dim' ? 'dim' : 'active';
-    const checklistState = filterMode === 'checklist' ? resolveChecklistState(cfg.checklistSource, status) : { map: {}, maxTier: 1 };
-    const rawMembers = resolveGroupMembers(cfg.setId, status, cfg.onlySelected === true, filterMode);
+    const linked = linkedSourceFields(status.variableSets, cfg.linkedSource, filterMode === 'checklist' ? ['checklist'] : ['ref', 'ref_list']);
+    const trackerField = filterMode === 'checklist' ? linked.fields[0] : null;
+    const map = linked.entry?.values?.[trackerField?.key] || {};
+    const targetId = ['linked', 'checklist'].includes(filterMode) ? linked.fields[0]?.targetSet : cfg.setId;
+    const followsLinks = ['linked', 'checklist'].includes(filterMode);
+    let rawMembers = followsLinks && !linked.entry ? [] : resolveGroupMembers(targetId, status, !followsLinks && cfg.onlySelected === true, followsLinks ? 'all' : filterMode);
+    if (filterMode === 'linked') {
+        const ids = linked.fields.filter(field => field.targetSet === targetId).flatMap(field => {
+            const value = linked.entry?.values?.[field.key];
+            return field.type === 'ref_list' ? (Array.isArray(value) ? value : []) : value ? [value] : [];
+        });
+        const byId = new Map(rawMembers.map(member => [member.id, member]));
+        rawMembers = [...new Set(ids)].map(id => byId.get(id)).filter(Boolean);
+    }
     let items = rawMembers.map(m => {
-        const vals = m.values || {};
-        const level = filterMode === 'checklist' ? Math.max(0, Number(checklistState.map[m.id]) || 0) : 0;
+        const level = filterMode === 'checklist' ? Math.max(0, Math.min(trackerMax(trackerField, m), Number(map[m.id]) || 0)) : 0;
+        const tier = filterMode === 'checklist' ? m.tiers?.find(candidate => candidate.level === level) : null;
+        const vals = { ...(m.values || {}) };
+        if (tier?.image) vals[imgField] = tier.image;
+        if (tier?.label && primarySpec.key) vals[primarySpec.key] = tier.label;
+        for (const key of ['description', 'color', 'icon']) {
+            if (tier?.[key] && Object.hasOwn(vals, key)) vals[key] = tier[key];
+        }
+        m = { ...m, values: vals, label: tier?.label || m.label };
         const rawImgField = String(vals[imgField] ?? m[imgField] ?? m.image ?? '').trim();
-        const hasTierImages = splitTierImages(rawImgField).length > 1;
+        const hasTierImages = (m.tiers || []).some(tier => tier.image);
         const imgUrl = (filterMode === 'checklist' ? resolveTieredValue(m, imgField, level, true) : '') || rawImgField;
         const autoFallbackLabel = String(m.text || m.label || Object.values(vals).find(v => typeof v === 'string' && v.trim() && v.trim() !== imgUrl && v.trim() !== rawImgField) || '').trim();
         const tieredLabel = (filterMode === 'checklist' && primarySpec.key) ? resolveTieredValue(m, primarySpec.key, level, false) : '';
         const labelText = primarySpec.key ? (tieredLabel || readMemberFieldValue(m, primarySpec.key, '')) : autoFallbackLabel;
         const subText = subSpec && subSpec.key ? readMemberFieldValue(m, subSpec.key, '') : '';
         const hasAnyText = Boolean(labelText || subText || fieldSpecs.some(s => readMemberFieldValue(m, s.key, '')));
-        return { id: m.id, raw: m, imgUrl, labelText, subText, hasAnyText, level, hasTierImages, isInactive: filterMode === 'checklist' && level <= 0 };
+        return { id: m.id, raw: m, imgUrl, labelText, subText, hasAnyText, level, hasTierImages, maxTier: trackerMax(trackerField, m), isInactive: filterMode === 'checklist' && level <= 0 };
     }).filter(item => {
         if (filterMode === 'checklist' && showMode !== 'dim' && item.level <= 0) return false;
         return !showAvatar ? (item.hasAnyText || item.imgUrl !== '') : (fallbackMode === 'initials' ? (item.imgUrl !== '' || item.labelText !== '') : item.imgUrl !== '');
@@ -778,7 +711,7 @@ function renderImageGroupStrip(container, element, status, options = {}) {
 
     const st = resolveStyleVariables(element.style || {}, status, {});
     if (typeof loadGoogleFont === 'function' && st.fontFamily) loadGoogleFont(st.fontFamily);
-    const setObj = (status?.variableSets || []).find(s => s && s.id === cfg.setId) || null;
+    const setObj = (status?.variableSets || []).find(s => s && s.id === targetId) || null;
     const setFieldTypes = new Map((setObj?.fields || []).map(f => [f.key, f.type]));
     const setFieldIcons = new Map((setObj?.fields || []).filter(f => f.icon).map(f => [f.key, f.icon]));
     const resolveMemberColor = (val, member, fallback = '') => resolveColorToken(val, status, {}, member) || fallback;
@@ -1150,7 +1083,7 @@ function renderImageGroupStrip(container, element, status, options = {}) {
             if (slotBuckets[ck].length) card.appendChild(buildCornerGroupContainer(ck, slotBuckets[ck], fieldGap, cornerInset));
         }
 
-        if (filterMode === 'checklist' && item.level >= 1 && (checklistState.maxTier > 1 || item.hasTierImages)) {
+        if (filterMode === 'checklist' && item.level >= 1 && (item.maxTier > 1 || item.hasTierImages)) {
             const tierBadge = document.createElement('span');
             tierBadge.className = 'sp-image-group-tier-badge';
             tierBadge.textContent = `Lv.${item.level}`;

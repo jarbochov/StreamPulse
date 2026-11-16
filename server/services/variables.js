@@ -4,8 +4,9 @@ const fs = require('fs');
 const path = require('path');
 
 const NAME_RE = /^[a-z0-9_]{1,40}$/;
-const VALID_TYPES = ['counter', 'number', 'text', 'list', 'image', 'icon', 'toggle', 'color', 'template', 'font'];
+const VALID_TYPES = ['counter', 'number', 'text', 'list', 'image', 'icon', 'toggle', 'color', 'template', 'font', 'date', 'time', 'datetime', 'duration'];
 const normalizeNumber = require('./variable-numbers');
+const { trackerMax } = require('../../shared/variable-links.cjs');
 const VALID_SET_FIELD_TYPES = ['text', 'number', 'counter', 'image', 'icon', 'color', 'toggle', 'font', 'list', 'template', 'date', 'time', 'datetime', 'duration', 'ref', 'ref_list', 'checklist'];
 
 function defaultSetFieldValue(type) {
@@ -227,7 +228,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         return set(name, { value });
     }
 
-    function normalizeChecklistMap(rawVal, maxTier = 1) {
+    function normalizeChecklistMap(rawVal, field, deferLimits = false) {
         let obj = {};
         if (rawVal && typeof rawVal === 'object' && !Array.isArray(rawVal)) {
             obj = rawVal;
@@ -237,18 +238,18 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
                 if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) obj = parsed;
             } catch { /* ignore invalid JSON */ }
         }
-        const cap = Math.max(1, parseInt(maxTier, 10) || 1);
+        const catalog = sets[field.targetSet];
         const out = {};
         for (const [k, v] of Object.entries(obj)) {
             const cleanKey = normSetId(k);
             if (!cleanKey) continue;
             const num = Math.round(Number(v));
-            if (Number.isFinite(num) && num >= 1) out[cleanKey] = Math.min(cap, num);
+            if (Number.isFinite(num) && num >= 1) out[cleanKey] = Math.min(deferLimits ? 100 : trackerMax(field, catalog?.roster?.find(item => item.id === cleanKey)), num);
         }
         return out;
     }
 
-    function normalizeSetPayload(rawId, patch, cur) {
+    function normalizeSetPayload(rawId, patch, cur, deferTrackerLimits = false) {
         const id = normSetId(rawId);
         if (!id || !NAME_RE.test(id)) throw new Error('Set ID must be letters, numbers or underscore');
         const name = String(patch?.name ?? cur?.name ?? id).trim().slice(0, 60) || id;
@@ -273,10 +274,6 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             if (type === 'ref' || type === 'ref_list' || type === 'checklist') {
                 const targetSet = normSetId(f?.targetSet || '');
                 if (targetSet) extra.targetSet = targetSet;
-            }
-            if (type === 'ref') {
-                const parsedSync = parseInt(f?.syncSlot, 10);
-                if (Number.isFinite(parsedSync) && parsedSync >= 1) extra.syncSlot = Math.min(24, parsedSync);
             }
             if (type === 'checklist') {
                 const parsedMax = parseInt(f?.maxTier, 10);
@@ -312,9 +309,9 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
                 else if (f.type === 'ref') valuesMap[f.key] = normSetId(rawVal || '');
                 else if (f.type === 'ref_list') {
                     const arr = Array.isArray(rawVal) ? rawVal : (typeof rawVal === 'string' && rawVal.trim().startsWith('[') ? (() => { try { return JSON.parse(rawVal); } catch { return []; } })() : String(rawVal || '').split(',').map(s => s.trim()).filter(Boolean));
-                    valuesMap[f.key] = [...new Set(arr.map(x => normSetId(x)).filter(Boolean))].slice(0, 40);
+                    valuesMap[f.key] = [...new Set((Array.isArray(arr) ? arr : []).map(x => normSetId(x)).filter(Boolean))].slice(0, 60);
                 }
-                else if (f.type === 'checklist') valuesMap[f.key] = normalizeChecklistMap(rawVal, f.maxTier || 1);
+                else if (f.type === 'checklist') valuesMap[f.key] = normalizeChecklistMap(rawVal, f, deferTrackerLimits);
                 else valuesMap[f.key] = String(rawVal).slice(0, 500);
             }
             const firstVal = valuesMap[fields[0].key];
@@ -323,7 +320,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             const inGroup = r.inGroup !== false && r.inGroup !== 'false' && r.inGroup !== 0 && r.inGroup !== '0';
             const tiers = Array.isArray(r.tiers)
                 ? r.tiers.slice(0, 20).map((t, tIdx) => ({
-                    level: Math.max(1, parseInt(t?.level, 10) || (tIdx + 1)),
+                    level: tIdx + 1,
                     label: String(t?.label || '').trim().slice(0, 80),
                     image: String(t?.image || '').trim().slice(0, 1000),
                     description: String(t?.description || '').trim().slice(0, 300),
@@ -537,43 +534,6 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         }
     }
 
-    function syncRefSlots(setObj, changedSlotIdx = null, visited = new Set([setObj.id])) {
-        const refFields = (setObj.fields || []).filter(f => f.type === 'ref' && f.targetSet && (f.syncSlot || 0) >= 1);
-        if (!refFields.length) return;
-
-        const byId = new Map((setObj.roster || []).map(r => [r.id, r]));
-        let sourceEntryId = '';
-        if (setObj.slotsCount === 0) {
-            sourceEntryId = setObj.activeEntry || '';
-        } else {
-            const idx = (changedSlotIdx !== null && changedSlotIdx >= 0 && changedSlotIdx < setObj.slotsCount) ? changedSlotIdx : 0;
-            sourceEntryId = setObj.slots?.[idx] || '';
-        }
-        const sourceEntry = sourceEntryId ? byId.get(sourceEntryId) || null : null;
-
-        for (const f of refFields) {
-            const targetSetId = normSetId(f.targetSet);
-            if (!targetSetId || visited.has(targetSetId)) continue;
-            const targetSet = sets[targetSetId];
-            if (!targetSet) continue;
-
-            const rawTargetEntryId = sourceEntry ? normSetId(sourceEntry.values?.[f.key] || '') : '';
-            const targetEntryId = rawTargetEntryId && (targetSet.roster || []).some(r => r.id === rawTargetEntryId) ? rawTargetEntryId : '';
-
-            if (targetSet.slotsCount === 0) {
-                targetSet.activeEntry = targetEntryId;
-            } else {
-                const targetIdx = f.syncSlot - 1;
-                if (targetIdx < 0 || targetIdx >= targetSet.slotsCount) continue;
-                targetSet.slots[targetIdx] = targetEntryId;
-            }
-            targetSet.updatedAt = Date.now();
-            materializeSetVars(targetSet);
-            visited.add(targetSetId);
-            syncRefSlots(targetSet, targetSet.slotsCount === 0 ? null : (f.syncSlot - 1), visited);
-        }
-    }
-
     function upsertSetRaw(setId, patch) {
         const cleanId = normSetId(setId);
         const cur = sets[cleanId];
@@ -581,9 +541,6 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         const nextSet = normalizeSetPayload(cleanId, patch, cur);
         sets[nextSet.id] = nextSet;
         materializeSetVars(nextSet);
-        if (patch?.slots !== undefined || patch?.activeEntry !== undefined) {
-            syncRefSlots(nextSet, null);
-        }
         for (const other of Object.values(sets)) {
             if (other.id !== nextSet.id && (other.fields || []).some(f => f.type === 'ref' && normSetId(f.targetSet) === nextSet.id)) {
                 materializeSetVars(other);
@@ -632,17 +589,14 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             if (!found) throw new Error(`Roster entry "${rawEntry}" not found`);
             nextId = found.id;
         }
-        let changedIdx = null;
         if (setObj.slotsCount === 0) {
             setObj.activeEntry = nextId;
         } else {
             const idx = parseSlotIndex(setObj, slotParam);
             setObj.slots[idx] = nextId;
-            changedIdx = idx;
         }
         setObj.updatedAt = Date.now();
         materializeSetVars(setObj);
-        syncRefSlots(setObj, changedIdx);
         saveSets({ saveVarsAlso: true });
         return setObj;
     }
@@ -653,7 +607,6 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         const cleanId = normSetId(setId);
         const setObj = sets[cleanId];
         if (!setObj) throw new Error('Set not found');
-        let changedIdx = null;
         if (setObj.slotsCount === 0) {
             setObj.activeEntry = '';
         } else if (String(slotParam).toLowerCase() === 'all') {
@@ -661,11 +614,9 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         } else {
             const idx = parseSlotIndex(setObj, slotParam);
             setObj.slots[idx] = '';
-            changedIdx = idx;
         }
         setObj.updatedAt = Date.now();
         materializeSetVars(setObj);
-        syncRefSlots(setObj, changedIdx);
         saveSets({ saveVarsAlso: true });
         return setObj;
     }
@@ -679,7 +630,6 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         const pool = setObj.roster.filter(r => r.enabled !== false);
         if (!pool.length) return setObj;
 
-        let changedIdx = null;
         if (setObj.slotsCount === 0) {
             const curPos = pool.findIndex(r => r.id === setObj.activeEntry);
             const nextPos = curPos === -1
@@ -688,7 +638,6 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             setObj.activeEntry = pool[nextPos].id;
         } else {
             const idx = parseSlotIndex(setObj, slotParam);
-            changedIdx = idx;
             if (!Array.isArray(setObj.slotQueues)) setObj.slotQueues = Array.from({ length: setObj.slotsCount }, () => []);
             const queue = setObj.slotQueues[idx];
             let chosenFromQueue = '';
@@ -720,7 +669,6 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
 
         setObj.updatedAt = Date.now();
         materializeSetVars(setObj);
-        syncRefSlots(setObj, changedIdx);
         saveSets({ saveVarsAlso: true });
         return setObj;
     }
@@ -810,7 +758,6 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         }
         setObj.updatedAt = Date.now();
         materializeSetVars(setObj);
-        syncRefSlots(setObj, 0);
         saveSets({ saveVarsAlso: true });
         return setObj;
     }
@@ -884,7 +831,6 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         setObj.slots[toIdx] = tmp;
         setObj.updatedAt = Date.now();
         materializeSetVars(setObj);
-        syncRefSlots(setObj, 0);
         saveSets({ saveVarsAlso: true });
         return setObj;
     }
@@ -947,16 +893,17 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             return setObj;
         }
 
-        if (!targetId) throw new Error('Target entry is required');
+        if (!targetId) throw new Error('Choose an item to track');
         let targetEntry = null;
         if (targetSet) {
             targetEntry = (targetSet.roster || []).find(r => r.id === targetId || r.label.toLowerCase() === rawTarget.toLowerCase()) || null;
             if (targetEntry) targetId = targetEntry.id;
         }
 
-        const maxTier = Math.max(1, parseInt(field.maxTier, 10) || 1, targetEntry?.tiers?.length || 1);
+        if (!targetSet || !targetEntry) throw new Error('Tracked item was not found in the linked set');
+        const maxTier = trackerMax(field, targetEntry);
         if (!entry.values || typeof entry.values !== 'object') entry.values = {};
-        const curMap = normalizeChecklistMap(entry.values[field.key], maxTier);
+        const curMap = normalizeChecklistMap(entry.values[field.key], field);
         const curVal = curMap[targetId] || 0;
 
         let nextVal = curVal;
@@ -1007,11 +954,17 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         }
         for (const s of importedSets) {
             if (!s?.id) continue;
-            const nextSet = normalizeSetPayload(s.id, s, sets[normSetId(s.id)]);
+            const nextSet = normalizeSetPayload(s.id, s, sets[normSetId(s.id)], true);
             sets[nextSet.id] = nextSet;
-            materializeSetVars(nextSet);
             setCount++;
         }
+        // All linked catalogs must exist before applying item-specific limits.
+        for (const s of importedSets) {
+            if (!s?.id) continue;
+            const id = normSetId(s.id);
+            sets[id] = normalizeSetPayload(id, sets[id], sets[id]);
+        }
+        for (const s of Object.values(sets)) materializeSetVars(s);
         saveSets({ saveVarsAlso: true });
         for (const id of Object.keys(sets)) scheduleRotation(id);
         return { ok: true, importedVars: varCount, importedSets: setCount, variables: list(), groups: listGroups(), sets: listSets() };

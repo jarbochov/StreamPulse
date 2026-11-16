@@ -1,6 +1,7 @@
 // Dedicated live operator console for inline-editing all items and fields of a Variable Set
 import { connectLiveSocket } from '../shared/client-core.js';
 import { api, esc, pickImage, slugId, state, toast } from './variables-state.js';
+import { bindLinkControls, linkControl } from './variables-links.js';
 
 const STORAGE_KEY = 'streampulse_operator_set';
 const LAYOUTS_PREFIX = 'streampulse_operator_layouts_';
@@ -39,6 +40,10 @@ let filterMode = 'all';
 let saveTimer = null;
 let saveBadgeTimer = null;
 let activeLayoutName = '';
+let pendingSave = null;
+let saveQueue = Promise.resolve();
+let saveError = null;
+let trackerBusy = false;
 
 function parseChecklistMap(raw) {
     if (raw && typeof raw === 'object' && !Array.isArray(raw)) return { ...raw };
@@ -214,18 +219,19 @@ function renderFieldCell(entry, f) {
     if (f.type === 'list') {
         return `<textarea class="op-cell-textarea" data-op-entry="${eid}" data-op-key="${fk}" data-op-type="list" placeholder="One item per line">${esc(val)}</textarea>`;
     }
-    if (f.type === 'ref') {
-        const targetSet = (state.sets || []).find(s => s.id === f.targetSet);
-        const opts = (targetSet?.roster || []).map(r => `<option value="${esc(r.id)}" ${val === r.id ? 'selected' : ''}>${esc(r.label || r.id)}</option>`).join('');
-        return `<select class="op-cell-input" data-op-entry="${eid}" data-op-key="${fk}" data-op-type="ref">
-            <option value="">${targetSet ? '-- None --' : `(Missing: ${esc(f.targetSet || 'unset')})`}</option>
-            ${opts}
-        </select>`;
+    if (f.type === 'ref' || f.type === 'ref_list') {
+        return linkControl(f, val, state.sets || [], `class="op-cell-input" data-op-entry="${eid}" data-op-key="${fk}" data-op-type="${f.type}"`);
+    }
+    if (['date', 'time', 'datetime'].includes(f.type)) {
+        return `<input type="${f.type === 'datetime' ? 'datetime-local' : f.type}" class="op-cell-input" data-op-entry="${eid}" data-op-key="${fk}" data-op-type="${f.type}" value="${esc(val)}">`;
+    }
+    if (f.type === 'duration') {
+        return `<input type="text" class="op-cell-input" data-op-entry="${eid}" data-op-key="${fk}" data-op-type="duration" value="${esc(val)}" placeholder="45m or 1:30:00" aria-label="${esc(f.label)}">`;
     }
     if (f.type === 'checklist') {
         const map = parseChecklistMap(entry.values?.[f.key]);
         const activeCount = Object.values(map).filter(v => Number(v) >= 1).length;
-        return `<button type="button" class="op-btn sm" data-op-open-matrix="${fk}" title="Open Matrix View">${activeCount} active</button>`;
+        return `<button type="button" class="op-btn sm" data-op-open-matrix="${fk}" data-op-owner="${eid}" title="Open tracker">${activeCount} tracked · Manage</button>`;
     }
     const placeholder = f.type === 'template' ? '@field or {{var.x}}' : f.type === 'font' ? 'Inter, sans-serif' : f.label;
     return `<input type="text" class="op-cell-input" data-op-entry="${eid}" data-op-key="${fk}" data-op-type="${esc(f.type)}" value="${esc(val)}" placeholder="${esc(placeholder)}">`;
@@ -313,12 +319,10 @@ function renderMatrixView(setObj, host) {
     const activeField = getMatrixField(setObj);
     if (!activeField) return;
     const targetSet = (state.sets || []).find(s => s.id === activeField.targetSet);
-    const maxTier = Math.max(1, Number(activeField.maxTier) || 1);
     const roster = setObj.roster || [];
     let colEntries = roster.filter(r => r.enabled !== false);
     if (filterMode === 'slotted') {
-        const slotted = roster.filter(r => slotAssignmentsForEntry(setObj, r.id).length > 0);
-        if (slotted.length) colEntries = slotted;
+        colEntries = colEntries.filter(r => slotAssignmentsForEntry(setObj, r.id).length > 0);
     } else if (filterMode === 'group') {
         colEntries = colEntries.filter(r => r.inGroup !== false);
     } else if (filterMode === 'all' && !colEntries.length) {
@@ -338,10 +342,10 @@ function renderMatrixView(setObj, host) {
         <div class="op-matrix-bar-left">
             ${fieldPickerHtml}
             <span>&rarr; ${targetSet ? `${esc(targetSet.name)} (${targetItems.length})` : `Missing target set: ${esc(activeField.targetSet || 'unset')}`}</span>
-            ${maxTier > 1 ? `<span>· Max Tier: ${maxTier}</span>` : ''}
         </div>
         <div class="op-matrix-bar-left">
-            <span>Left-click: cycle · Right-click: -1</span>
+            <span>Click / Enter: next level · Right-click / Shift+Enter: previous · 0 = not started</span>
+            <button type="button" class="op-btn sm danger" data-op-reset-all>Reset everyone</button>
         </div>
     </div>`;
 
@@ -363,10 +367,11 @@ function renderMatrixView(setObj, host) {
         const slotTag = slots.length
             ? `<span class="op-matrix-slot-tag">${slots[0] === 0 ? 'Active' : `Slot ${slots.join(',')}`}</span>`
             : '';
-        return `<th><div class="op-matrix-col-head"><span>${esc(col.label || col.id)}</span>${slotTag}</div></th>`;
+        return `<th><div class="op-matrix-col-head"><span>${esc(col.label || col.id)}</span>${slotTag}<button type="button" class="op-btn sm" data-op-reset-entry="${esc(col.id)}" aria-label="Reset ${esc(col.label)}">Reset</button></div></th>`;
     }).join('');
 
     const rowsHtml = targetItems.map(item => {
+        const maxTier = window.OverlayShared.trackerMax(activeField, item);
         const thumb = getEntryThumbUrl(targetSet, item);
         const rowLabel = `<div class="op-matrix-item">${thumb ? `<img src="${esc(thumb)}" alt="" class="op-thumb">` : ''}<span>${esc(item.label || item.id)}</span></div>`;
         const cells = colEntries.map(col => {
@@ -380,9 +385,9 @@ function renderMatrixView(setObj, host) {
                     data-op-entry="${esc(col.id)}"
                     data-op-field="${esc(activeField.key)}"
                     data-op-target="${esc(item.id)}"
-                    title="${esc(title)}">
-                    ${level >= 1 ? SVG_CHECK : SVG_DOT}
-                    ${maxTier > 1 ? `<span class="op-tier-badge">Lv.${level}</span>` : ''}
+                    title="${esc(title)}" aria-label="${esc(title)}">
+                    ${item.tiers?.find(tier => tier.level === level)?.image ? `<img class="op-thumb" src="${esc(item.tiers.find(tier => tier.level === level).image)}" alt="">` : level >= 1 ? SVG_CHECK : SVG_DOT}
+                    ${maxTier > 1 ? `<span class="op-tier-badge">${esc(item.tiers?.find(tier => tier.level === level)?.label || `Lv.${level}`)}</span>` : ''}
                 </button>
             </td>`;
         }).join('');
@@ -485,32 +490,52 @@ function renderOperator() {
     </table>`;
 }
 
-async function persistRoster(setObj) {
+function persistRoster(setObj) {
+    const roster = JSON.stringify(setObj.roster);
     setSaveBadge('Saving…');
-    try {
-        const res = await api(`/api/variables/sets/${encodeURIComponent(setObj.id)}`, 'PUT', { roster: setObj.roster });
+    const saving = saveQueue.then(async () => {
+        const res = await api(`/api/variables/sets/${encodeURIComponent(setObj.id)}`, 'PUT', { roster: JSON.parse(roster) });
         if (res?.set) {
             const idx = state.sets.findIndex(s => s.id === res.set.id);
-            if (idx >= 0) state.sets[idx] = res.set;
+            if (idx >= 0 && JSON.stringify(state.sets[idx].roster) === roster) state.sets[idx] = res.set;
         }
+        saveError = null;
         setSaveBadge('Saved');
-    } catch (err) {
+    });
+    saveQueue = saving.catch(err => {
+        saveError = err;
         setSaveBadge('Save failed', true);
         toast(err.message, 'error');
-    }
+    });
+    return saveQueue;
 }
 
 function scheduleSave(setObj, immediate = false) {
     clearTimeout(saveTimer);
-    if (immediate) return persistRoster(setObj);
-    saveTimer = setTimeout(() => persistRoster(setObj), 280);
+    if (pendingSave && pendingSave.id !== setObj.id) persistRoster(pendingSave);
+    pendingSave = setObj;
+    if (immediate) return flushSaves();
+    saveTimer = setTimeout(() => flushSaves(), 280);
+}
+
+async function flushSaves() {
+    clearTimeout(saveTimer);
+    if (pendingSave) {
+        const setObj = pendingSave;
+        pendingSave = null;
+        persistRoster(setObj);
+    }
+    await saveQueue;
 }
 
 async function loadData(preserveFocus = false) {
     const activeEl = preserveFocus ? document.activeElement : null;
     const focusEntry = activeEl?.dataset?.opEntry;
     const focusKey = activeEl?.dataset?.opKey;
+    if (pendingSave || trackerBusy) return;
+    await saveQueue;
     const data = await api('/api/variables');
+    if (pendingSave || trackerBusy) return;
     state.sets = data.sets || [];
     state.variables = data.variables || [];
     if (focusEntry && focusKey) return; // Don't clobber active cell while user is typing
@@ -690,6 +715,7 @@ function bindEvents() {
 
     const host = document.getElementById('op-table-host');
     if (!host) return;
+    bindLinkControls(host);
 
     host.addEventListener('input', e => {
         const t = e.target;
@@ -701,7 +727,7 @@ function bindEvents() {
             if (input) input.value = t.value;
             const entry = setObj.roster.find(r => r.id === t.dataset.opSwatch);
             if (entry) {
-                entry.values = { ...(entry.values || {}), [t.dataset.opKey]: t.value };
+                entry.values = { ...(entry.values || {}), [t.dataset.opKey]: t.dataset.opType === 'ref_list' ? JSON.parse(t.value) : t.value };
                 scheduleSave(setObj, false);
             }
             return;
@@ -709,7 +735,7 @@ function bindEvents() {
         if (t.dataset.opEntry && t.dataset.opKey && t.dataset.opType !== 'toggle') {
             const entry = setObj.roster.find(r => r.id === t.dataset.opEntry);
             if (!entry) return;
-            entry.values = { ...(entry.values || {}), [t.dataset.opKey]: t.value };
+            entry.values = { ...(entry.values || {}), [t.dataset.opKey]: t.dataset.opType === 'ref_list' ? JSON.parse(t.value) : t.value };
             if (t.dataset.opKey === (setObj.fields?.[0]?.key || 'name')) {
                 entry.label = String(t.value || entry.label).trim() || entry.label;
             }
@@ -720,7 +746,7 @@ function bindEvents() {
     host.addEventListener('change', e => {
         const t = e.target;
         const setObj = getActiveSet();
-        if (!setObj) return;
+        if (!setObj || trackerBusy) return;
         if (t.id === 'op-matrix-field') {
             setMatrixField(setObj, t.value);
             renderOperator();
@@ -739,20 +765,23 @@ function bindEvents() {
             renderOperator();
             scheduleSave(setObj, true);
         } else if (t.dataset.opKey) {
-            entry.values = { ...(entry.values || {}), [t.dataset.opKey]: t.value };
+            entry.values = { ...(entry.values || {}), [t.dataset.opKey]: t.dataset.opType === 'ref_list' ? JSON.parse(t.value) : t.value };
             scheduleSave(setObj, true);
         }
     });
 
     const stepMatrixCell = async (btn, delta = null) => {
         const setObj = getActiveSet();
-        if (!setObj) return;
+        if (!setObj || trackerBusy) return;
         const entry = btn.dataset.opEntry;
         const field = btn.dataset.opField;
         const target = btn.dataset.opTarget;
         const body = delta === null ? { entry, field, target } : { entry, field, target, delta };
         setSaveBadge('Saving…');
+        trackerBusy = true;
         try {
+            await flushSaves();
+            if (saveError) throw saveError;
             const res = await api(`/api/variables/sets/${encodeURIComponent(setObj.id)}/checklist/step`, 'POST', body);
             const updated = res?.set || (res?.id ? res : null);
             if (updated) {
@@ -764,9 +793,18 @@ function bindEvents() {
         } catch (err) {
             setSaveBadge('Save failed', true);
             toast(err.message, 'error');
+        } finally {
+            trackerBusy = false;
         }
     };
 
+    host.addEventListener('keydown', e => {
+        const btn = e.target.closest('[data-op-matrix-step]');
+        if (btn && e.shiftKey && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault();
+            stepMatrixCell(btn, -1);
+        }
+    });
     host.addEventListener('contextmenu', e => {
         const matrixBtn = e.target.closest('[data-op-matrix-step]');
         if (!matrixBtn) return;
@@ -780,12 +818,33 @@ function bindEvents() {
 
         const setObj = getActiveSet();
         if (!setObj) return;
+        const reset = t.closest('[data-op-reset-entry], [data-op-reset-all]');
+        if (reset) {
+            if (trackerBusy) return;
+            const field = getMatrixField(setObj);
+            const entry = reset.dataset.opResetEntry;
+            const owner = setObj.roster.find(item => item.id === entry);
+            if (!window.confirm(`Reset ${field.label} for ${owner ? owner.label : 'everyone (including hidden entries)'}? This clears current progress.`)) return;
+            trackerBusy = true;
+            try {
+                await flushSaves();
+                if (saveError) throw saveError;
+                await api(`/api/variables/sets/${encodeURIComponent(setObj.id)}/checklist/reset`, 'POST', { field: field.key, ...(entry ? { entry } : { all: true }) });
+                trackerBusy = false;
+                await loadData();
+                setSaveBadge('Saved');
+            } catch (err) {
+                toast(err.message, 'error');
+            } finally { trackerBusy = false; }
+            return;
+        }
 
         const openMatrixBtn = t.closest('[data-op-open-matrix]');
         if (openMatrixBtn) {
             setMatrixField(setObj, openMatrixBtn.dataset.opOpenMatrix);
             setViewMode(setObj, 'matrix');
             renderOperator();
+            host.querySelector(`[data-op-matrix-step][data-op-entry="${CSS.escape(openMatrixBtn.dataset.opOwner)}"]`)?.focus();
             return;
         }
 
@@ -881,6 +940,6 @@ bindEvents();
 loadData(false).catch(err => toast(err.message, 'error'));
 connectLiveSocket({
     onMessage: msg => {
-        if (msg.type === 'variables' || msg.type === 'status') loadData(true);
+        if (msg.type === 'variables' || msg.type === 'variables-update' || msg.type === 'status') loadData(true);
     }
 });

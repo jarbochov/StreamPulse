@@ -1,6 +1,7 @@
 // Variable Sets & Output Slots UI (supports 0-slot preset mode and 1-N multi-slot output channels)
 
 import { api, esc, pickImage, slugId, state, toast } from './variables-state.js';
+import { bindLinkControls, linkControl } from './variables-links.js';
 
 const SVG_PLUS = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
 const SVG_EDIT = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
@@ -680,10 +681,10 @@ export function renderSets() {
                                 ${(() => {
                                     const hasChecklist = (activeSet.fields || []).some(f => f.type === 'checklist');
                                     if (hasChecklist) {
-                                        return `<a class="b sm" href="/variable-set-operator.html#${encodeURIComponent(activeSet.id)}/matrix" style="text-decoration:none;">Checklist Matrix</a>`;
+                                        return `<a class="b sm" href="/variable-set-operator.html#${encodeURIComponent(activeSet.id)}/matrix" style="text-decoration:none;">Open Tracker</a>`;
                                     }
                                     const matrixOwner = (state.variableSets || []).find(s => s.id !== activeSet.id && (s.fields || []).some(f => f.type === 'checklist' && f.targetSet === activeSet.id));
-                                    return matrixOwner ? `<a class="b sm" href="/variable-set-operator.html#${encodeURIComponent(matrixOwner.id)}/matrix" style="text-decoration:none;">Matrix: ${esc(matrixOwner.name)}</a>` : '';
+                                    return matrixOwner ? `<a class="b sm" href="/variable-set-operator.html#${encodeURIComponent(matrixOwner.id)}/matrix" style="text-decoration:none;">Tracker: ${esc(matrixOwner.name)}</a>` : '';
                                 })()}
                                 <a class="b sm" href="/variable-set-operator.html#${encodeURIComponent(activeSet.id)}" style="text-decoration:none;">Operator Grid</a>
                                 <a class="b sm" href="/api/variables/sets/${encodeURIComponent(activeSet.id)}/export?format=csv" download="${esc(activeSet.id)}-roster.csv" style="text-decoration:none;">Export CSV</a>
@@ -752,37 +753,12 @@ export function openSetModal(existing = null) {
     const renderFieldRows = host => {
         if (fields.some(f => f.icon)) window.IconPicker?.ensureFont?.();
         host.innerHTML = fields.map((f, idx) => {
-            const targetOptions = `<option value="">Select target set…</option>${availableTargets.map(s => `<option value="${esc(s.id)}" ${f.targetSet === s.id ? 'selected' : ''}>${esc(s.name)} (${esc(s.id)})</option>`).join('')}`;
-            const subConfig = f.type === 'ref'
-                ? `<div class="vp-field-subrow" style="grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; padding: .2rem 0 .25rem .6rem; border-left: 2px solid var(--border); font-size: .78rem;">
-                    <label style="display:inline-flex;align-items:center;gap:.35rem;flex:1;min-width:160px;">
-                        <span class="muted">Target Set</span>
-                        <select data-f-prop="targetSet" style="flex:1;">${targetOptions}</select>
-                    </label>
-                    <label style="display:inline-flex;align-items:center;gap:.35rem;" title="0 = off, 1..N = when active, also update Target Set slot">
-                        <span class="muted">Also set Target Slot</span>
-                        <input type="number" min="0" max="24" data-f-prop="syncSlot" value="${Number(f.syncSlot) || 0}" style="width:4.5rem;">
-                    </label>
-                </div>`
-                : f.type === 'ref_list'
-                    ? `<div class="vp-field-subrow" style="grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; padding: .2rem 0 .25rem .6rem; border-left: 2px solid var(--border); font-size: .78rem;">
-                        <label style="display:inline-flex;align-items:center;gap:.35rem;flex:1;min-width:160px;">
-                            <span class="muted">Target Set</span>
-                            <select data-f-prop="targetSet" style="flex:1;">${targetOptions}</select>
-                        </label>
-                    </div>`
-                    : f.type === 'checklist'
-                    ? `<div class="vp-field-subrow" style="grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; padding: .2rem 0 .25rem .6rem; border-left: 2px solid var(--border); font-size: .78rem;">
-                        <label style="display:inline-flex;align-items:center;gap:.35rem;flex:1;min-width:160px;">
-                            <span class="muted">Target Set</span>
-                            <select data-f-prop="targetSet" style="flex:1;">${targetOptions}</select>
-                        </label>
-                        <label style="display:inline-flex;align-items:center;gap:.35rem;" title="1 = on/off toggle, >1 = tiered levels 0..maxTier">
-                            <span class="muted">Max Tier</span>
-                            <input type="number" min="1" max="99" data-f-prop="maxTier" value="${Math.max(1, Number(f.maxTier) || 1)}" style="width:4.5rem;">
-                        </label>
-                    </div>`
-                    : '';
+            const targetOptions = `<option value="">Choose a linked set...</option>${availableTargets.map(s => `<option value="${esc(s.id)}" ${f.targetSet === s.id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}`;
+            const subConfig = ['ref', 'ref_list', 'checklist'].includes(f.type)
+                ? `<div class="vp-link-config"><label>${f.type === 'checklist' ? 'Track items from' : 'Choose entries from'}<select data-f-prop="targetSet">${targetOptions}</select></label>${f.type === 'checklist'
+                    ? `<label title="For items without custom levels. Items with levels use their own level count. Zero is always Not started / Not owned.">Default levels<input type="number" min="1" max="100" data-f-prop="maxTier" value="${Math.max(1, Number(f.maxTier) || 1)}"></label><p class="muted">Each owner keeps separate progress. Define item upgrade labels and images in the linked set.</p>`
+                    : `<p class="muted">Choose ${f.type === 'ref' ? 'one reusable entry' : 'several reusable entries'}. Links never change live slots.</p>`}</div>`
+                : '';
             return `
             <div class="vp-field-row" data-f-idx="${idx}">
                 <input type="text" data-f-prop="label" value="${esc(f.label)}" placeholder="Label (e.g. Name)">
@@ -802,9 +778,9 @@ export function openSetModal(existing = null) {
                     <option value="time" ${f.type === 'time' ? 'selected' : ''}>Time</option>
                     <option value="datetime" ${f.type === 'datetime' ? 'selected' : ''}>Date &amp; Time</option>
                     <option value="duration" ${f.type === 'duration' ? 'selected' : ''}>Duration</option>
-                    <option value="ref" ${f.type === 'ref' ? 'selected' : ''}>Reference</option>
-                    <option value="ref_list" ${f.type === 'ref_list' ? 'selected' : ''}>Reference List</option>
-                    <option value="checklist" ${f.type === 'checklist' ? 'selected' : ''}>Checklist</option>
+                    <option value="ref" ${f.type === 'ref' ? 'selected' : ''}>Linked entry</option>
+                    <option value="ref_list" ${f.type === 'ref_list' ? 'selected' : ''}>Linked entries</option>
+                    <option value="checklist" ${f.type === 'checklist' ? 'selected' : ''}>Tracker</option>
                 </select>
                 <button type="button" class="b sm vp-f-icon-btn" data-f-icon="${idx}" title="${f.icon ? `Field icon: ${esc(f.icon)}` : 'Optional icon (e.g. fa-brands fa-twitch)'}">${f.icon ? `<i class="${esc(f.icon)}"></i>` : 'Icon'}</button>
                 <button type="button" class="b sm danger" data-f-remove="${idx}" ${fields.length <= 1 ? 'disabled' : ''}>${SVG_TRASH}</button>
@@ -829,7 +805,7 @@ export function openSetModal(existing = null) {
             </label>
             <div class="vp-fields-box">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem;">
-                    <span class="muted" style="font-weight:600;">Fields Schema</span>
+                    <span class="muted" style="font-weight:600;">Entry fields</span>
                     <button type="button" class="b sm" id="vp-add-field">${SVG_PLUS} Add Field</button>
                 </div>
                 <div id="vp-fields-list" class="vp-fields-list"></div>
@@ -905,8 +881,6 @@ export function openSetModal(existing = null) {
                     const base = { key: slugId(f.key) || 'field', label: f.label.trim() || f.key, type: f.type, ...(f.icon ? { icon: f.icon } : {}) };
                     if (f.type === 'ref') {
                         base.targetSet = String(f.targetSet || '').trim();
-                        const syncSlot = parseInt(f.syncSlot, 10);
-                        if (Number.isFinite(syncSlot) && syncSlot > 0) base.syncSlot = syncSlot;
                     } else if (f.type === 'ref_list') {
                         base.targetSet = String(f.targetSet || '').trim();
                     } else if (f.type === 'checklist') {
@@ -1041,88 +1015,27 @@ function openEntryModal(setObj, existingEntry = null) {
             `;
         }
         if (f.type === 'ref_list') {
-            const targetSet = (state.variableSets || []).find(s => s.id === f.targetSet);
-            const selectedIds = Array.isArray(values[f.key]) ? values[f.key] : (() => { try { const p = JSON.parse(val || '[]'); return Array.isArray(p) ? p : []; } catch { return []; } })();
-            const items = targetSet?.roster || [];
-            const chipsHtml = items.length
-                ? items.map(item => {
-                    const on = selectedIds.includes(item.id);
-                    return `<button type="button" class="b sm" data-entry-reflist-item="${esc(item.id)}" data-entry-reflist-field="${esc(f.key)}" style="${on ? 'border-color:var(--accent);color:var(--text);' : 'opacity:.55;'}">${esc(item.label || item.id)}</button>`;
-                }).join('')
-                : `<span class="muted" style="font-size:.8rem;">${targetSet ? 'Target set has no items yet.' : `Target set "${esc(f.targetSet || '')}" not found.`}</span>`;
-            return `
-                <div class="${spanCls}" data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">
-                    ${head}
-                    <input type="hidden" data-entry-field="${esc(f.key)}" value="${esc(JSON.stringify(selectedIds))}">
-                    <div style="display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.35rem;">${chipsHtml}</div>
-                </div>
-            `;
-        }
-        if (f.type === 'date' || f.type === 'time' || f.type === 'datetime') {
-            const inputType = f.type === 'datetime' ? 'datetime-local' : f.type;
-            return `
-                <label data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">
-                    ${head}
-                    <input type="${inputType}" data-entry-field="${esc(f.key)}" value="${esc(val)}">
-                </label>
-            `;
-        }
-        if (f.type === 'duration') {
-            return `
-                <label data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">
-                    ${head}
-                    <input type="text" data-entry-field="${esc(f.key)}" value="${esc(val)}" placeholder="e.g. 45m or 1:30:00">
-                </label>
-            `;
-        }
-        if (f.type === 'ref_list') {
-            const targetSet = (state.variableSets || []).find(s => s.id === f.targetSet);
-            const selectedIds = Array.isArray(values[f.key]) ? values[f.key] : (() => { try { const p = JSON.parse(val || '[]'); return Array.isArray(p) ? p : []; } catch { return []; } })();
-            const items = targetSet?.roster || [];
-            const chipsHtml = items.length
-                ? items.map(item => {
-                    const on = selectedIds.includes(item.id);
-                    return `<button type="button" class="b sm" data-entry-reflist-item="${esc(item.id)}" data-entry-reflist-field="${esc(f.key)}" style="${on ? 'border-color:var(--accent);color:var(--text);' : 'opacity:.55;'}">${esc(item.label || item.id)}</button>`;
-                }).join('')
-                : `<span class="muted" style="font-size:.8rem;">${targetSet ? 'Target set has no items yet.' : `Target set "${esc(f.targetSet || '')}" not found.`}</span>`;
-            return `
-                <div class="${spanCls}" data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">
-                    ${head}
-                    <input type="hidden" data-entry-field="${esc(f.key)}" value="${esc(JSON.stringify(selectedIds))}">
-                    <div style="display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.35rem;">${chipsHtml}</div>
-                </div>
-            `;
+            return `<div class="${spanCls}" data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">${head}${linkControl(f, values[f.key], state.variableSets || [], `data-entry-field="${esc(f.key)}"`)}</div>`;
         }
         if (f.type === 'ref') {
-            const targetSet = (state.variableSets || []).find(s => s.id === f.targetSet);
-            const opts = (targetSet?.roster || []).map(r => `<option value="${esc(r.id)}" ${val === r.id ? 'selected' : ''}>${esc(r.label || r.id)}</option>`).join('');
-            return `
-                <label data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">
-                    ${head}
-                    <select data-entry-field="${esc(f.key)}">
-                        <option value="">${targetSet ? '-- None --' : `(Target set "${esc(f.targetSet || '')}" not found)`}</option>
-                        ${opts}
-                    </select>
-                </label>
-            `;
+            return `<label data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">${head}${linkControl(f, val, state.variableSets || [], `data-entry-field="${esc(f.key)}"`)}</label>`;
         }
         if (f.type === 'checklist') {
             const targetSet = (state.variableSets || []).find(s => s.id === f.targetSet);
-            const maxTier = Math.max(1, Number(f.maxTier) || 1);
             const map = parseChecklistMap(values[f.key]);
             const items = targetSet?.roster || [];
-            const chipsHtml = items.length
+            const itemsHtml = items.length
                 ? items.map(item => {
+                    const maxTier = window.OverlayShared.trackerMax(f, item);
                     const lvl = Math.max(0, Math.min(maxTier, Number(map[item.id]) || 0));
-                    const tierText = maxTier > 1 ? ` <span class="muted" style="font-size:.72rem;">Lv.${lvl}</span>` : '';
-                    return `<button type="button" class="b sm" data-entry-check-item="${esc(item.id)}" data-entry-check-field="${esc(f.key)}" data-max-tier="${maxTier}" style="${lvl >= 1 ? 'border-color:var(--accent);color:var(--text);' : 'opacity:.55;'}">${esc(item.label || item.id)}${tierText}</button>`;
+                    return `<label data-tracker-item><span>${esc(item.label)}</span><select data-entry-check-item="${esc(item.id)}" data-entry-check-field="${esc(f.key)}" aria-label="${esc(item.label)} level">${Array.from({ length: maxTier + 1 }, (_, level) => `<option value="${level}"${lvl === level ? ' selected' : ''}>${esc(level === 0 ? '0 - Not started' : item.tiers?.find(tier => tier.level === level)?.label || (maxTier === 1 ? '1 - Active' : `Level ${level}`))}</option>`).join('')}</select></label>`;
                 }).join('')
                 : `<span class="muted" style="font-size:.8rem;">${targetSet ? 'Target set has no items yet.' : `Target set "${esc(f.targetSet || '')}" not found.`}</span>`;
             return `
                 <div class="${spanCls}" data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">
                     ${head}
                     <input type="hidden" data-entry-field="${esc(f.key)}" value="${esc(JSON.stringify(map))}">
-                    <div style="display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.35rem;">${chipsHtml}</div>
+                    <details class="variable-link-picker"><summary>${Object.keys(map).length} tracked · Edit levels</summary><input type="search" data-tracker-search aria-label="Search ${esc(f.label)} items" placeholder="Search items..."><div class="vp-tracker-items">${itemsHtml}</div></details>
                 </div>
             `;
         }
@@ -1148,9 +1061,10 @@ function openEntryModal(setObj, existingEntry = null) {
             </div>
             <details id="vp-entry-tiers-wrap" style="margin-top:.75rem;border:1px solid var(--border);border-radius:8px;padding:.5rem .7rem;" ${(existingEntry?.tiers?.length) ? 'open' : ''}>
                 <summary style="cursor:pointer;font-size:.8rem;font-weight:600;display:flex;justify-content:space-between;align-items:center;">
-                    <span>Levels / Tiers (Optional)</span>
+                    <span>Item upgrade levels (optional)</span>
                     <button type="button" class="b sm" id="vp-add-tier">${SVG_PLUS} Add Level</button>
                 </summary>
+                <p class="muted">Define levels here once if this entry is used as a tracked item. Each person keeps their own current level; 0 means not owned / not completed.</p>
                 <div id="vp-entry-tiers-list" style="display:grid;gap:.45rem;margin-top:.55rem;"></div>
             </details>
         </form>
@@ -1158,6 +1072,7 @@ function openEntryModal(setObj, existingEntry = null) {
         <button type="button" class="b" data-vp-close>Cancel</button>
         <button type="submit" form="vp-entry-form" class="b primary">${isEdit ? 'Save Entry' : 'Add Entry'}</button>
     `, (modal, close) => {
+        bindLinkControls(modal);
         const filterInput = modal.querySelector('#vp-entry-filter');
         if (filterInput) {
             filterInput.addEventListener('input', () => {
@@ -1202,56 +1117,39 @@ function openEntryModal(setObj, existingEntry = null) {
                 if (text) text.value = picker.value;
             });
         });
-        const stepChecklistChip = (btn, delta) => {
-            const key = btn.dataset.entryCheckField;
-            const targetId = btn.dataset.entryCheckItem;
-            const maxTier = Math.max(1, Number(btn.dataset.maxTier) || 1);
+        modal.addEventListener('input', event => {
+            if (!event.target.matches('[data-tracker-search]')) return;
+            const query = event.target.value.trim().toLowerCase();
+            event.target.closest('details').querySelectorAll('[data-tracker-item]').forEach(item => {
+                item.hidden = !item.querySelector('span').textContent.toLowerCase().includes(query);
+            });
+        });
+        modal.querySelectorAll('[data-entry-check-item]').forEach(select => select.addEventListener('change', () => {
+            const key = select.dataset.entryCheckField;
+            const targetId = select.dataset.entryCheckItem;
             const input = modal.querySelector(`[data-entry-field="${CSS.escape(key)}"]`);
             if (!input) return;
             const map = parseChecklistMap(input.value);
-            const cur = Math.max(0, Math.min(maxTier, Number(map[targetId]) || 0));
-            const next = (cur + delta + (maxTier + 1)) % (maxTier + 1);
+            const next = Number(select.value);
             if (next > 0) map[targetId] = next;
             else delete map[targetId];
             input.value = JSON.stringify(map);
-            btn.style.opacity = next >= 1 ? '1' : '.55';
-            btn.style.borderColor = next >= 1 ? 'var(--accent)' : '';
-            btn.style.color = next >= 1 ? 'var(--text)' : '';
-            const tierSpan = btn.querySelector('span');
-            if (tierSpan) tierSpan.textContent = `Lv.${next}`;
-        };
-        modal.querySelectorAll('[data-entry-check-item]').forEach(btn => {
-            btn.addEventListener('click', () => stepChecklistChip(btn, 1));
-            btn.addEventListener('contextmenu', e => { e.preventDefault(); stepChecklistChip(btn, -1); });
-        });
-        modal.querySelectorAll('[data-entry-reflist-item]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const key = btn.dataset.entryReflistField;
-                const targetId = btn.dataset.entryReflistItem;
-                const input = modal.querySelector(`[data-entry-field="${CSS.escape(key)}"]`);
-                if (!input) return;
-                let arr = [];
-                try { arr = JSON.parse(input.value || '[]'); } catch { arr = []; }
-                if (!Array.isArray(arr)) arr = [];
-                const exists = arr.includes(targetId);
-                arr = exists ? arr.filter(id => id !== targetId) : [...arr, targetId];
-                input.value = JSON.stringify(arr);
-                btn.style.opacity = !exists ? '1' : '.55';
-                btn.style.borderColor = !exists ? 'var(--accent)' : '';
-                btn.style.color = !exists ? 'var(--text)' : '';
-            });
-        });
+            select.closest('details').querySelector('summary').textContent = `${Object.keys(map).length} tracked · Edit levels`;
+        }));
         const tiersState = (existingEntry?.tiers || []).map((t, i) => ({
             level: t.level || (i + 1),
             label: t.label || '',
             image: t.image || '',
-            description: t.description || ''
+            description: t.description || '',
+            color: t.color || '',
+            icon: t.icon || ''
         }));
         const tiersHost = modal.querySelector('#vp-entry-tiers-list');
         const renderTiers = () => {
             if (!tiersHost) return;
+            modal.querySelector('#vp-add-tier').disabled = tiersState.length >= 20;
             tiersHost.innerHTML = tiersState.length ? tiersState.map((t, idx) => `
-                <div data-tier-idx="${idx}" style="display:grid;grid-template-columns:4rem 1fr 1.2fr 1fr auto;gap:.35rem;align-items:center;">
+                <div data-tier-idx="${idx}" class="vp-tier-row">
                     <span class="badge" style="justify-self:start;">Lv.${idx + 1}</span>
                     <input type="text" data-tier-prop="label" value="${esc(t.label)}" placeholder="Level name">
                     <div class="vp-img-row">
@@ -1309,8 +1207,8 @@ function openEntryModal(setObj, existingEntry = null) {
                 }
             }
             const nextTiers = tiersState
-                .map((t, idx) => ({ level: idx + 1, label: t.label.trim(), image: t.image.trim(), description: t.description.trim() }))
-                .filter(t => t.label || t.image || t.description);
+                .filter(t => t.label || t.image || t.description || t.color || t.icon)
+                .map((t, idx) => ({ ...t, level: idx + 1, label: t.label.trim(), image: t.image.trim(), description: t.description.trim() }));
             const nextEnabled = modal.querySelector('#vp-entry-enabled')?.checked !== false;
             const firstKey = fields[0]?.key || 'name';
             const label = String(nextValues[firstKey] || existingEntry?.label || `Entry ${(setObj.roster?.length || 0) + 1}`).trim();

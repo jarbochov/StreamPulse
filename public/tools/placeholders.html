@@ -4,6 +4,7 @@
     <link rel="stylesheet" href="/admin.css">
     <link rel="stylesheet" href="/css/variable-groups.css">
     <link rel="stylesheet" href="/css/variable-sets.css">
+    <link rel="stylesheet" href="/css/variable-links.css">
     <link rel="stylesheet" href="/css/placeholders-studio.css">
     <script src="/appearance.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -435,6 +436,10 @@
                     <option value="font">Font (family)</option>
                     <option value="template">Template (expression)</option>
                     <option value="list">List (rotating items)</option>
+                    <option value="date">Date</option>
+                    <option value="time">Time</option>
+                    <option value="datetime">Date &amp; time</option>
+                    <option value="duration">Duration</option>
                 </select>
                 <button type="button" class="b primary" id="var-add">+ Add Variable</button>
             </div>
@@ -455,6 +460,10 @@
                     <option value="font">Font</option>
                     <option value="template">Template</option>
                     <option value="list">List</option>
+                    <option value="date">Date</option>
+                    <option value="time">Time</option>
+                    <option value="datetime">Date &amp; time</option>
+                    <option value="duration">Duration</option>
                 </select>
                 <label class="muted" style="display:flex; align-items:center; gap:.35rem; cursor:pointer;">
                     <input type="checkbox" id="var-show-set"> Show set-managed variables

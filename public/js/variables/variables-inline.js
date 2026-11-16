@@ -86,8 +86,9 @@ export function bindInlineEditing(container, getVariable, onFinished) {
         input.setAttribute('aria-label', `${name} value`);
         if (multiline) input.rows = 2;
         else {
-            input.type = numeric ? 'number' : 'text';
+            input.type = numeric ? 'number' : variable.type === 'datetime' ? 'datetime-local' : ['date', 'time'].includes(variable.type) ? variable.type : 'text';
             if (numeric) input.step = 'any';
+            if (variable.type === 'duration') input.placeholder = '45m or 1:30:00';
         }
         if (!numeric) input.maxLength = variable.type === 'image' ? 1000 : variable.type === 'font' ? 120 : 500;
         input.value = String(variable.value ?? '');
@@ -110,7 +111,7 @@ export function bindInlineEditing(container, getVariable, onFinished) {
         });
         input.addEventListener('blur', () => { void save(edit); });
         input.focus();
-        input.select();
+        if (!['date', 'time', 'datetime'].includes(variable.type)) input.select();
     };
     container.addEventListener('click', onClick);
     return {

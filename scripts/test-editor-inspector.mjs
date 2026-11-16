@@ -104,6 +104,32 @@ try {
         });
     };
     await setup();
+    const linkedConfig = await page.evaluate(() => {
+        const { state, select, renderProperties } = window.fixture;
+        state.liveStatus = { variableSets: [
+            { id: 'people', fields: [{ key: 'name', label: 'Name', type: 'text' }, { key: 'avatar', label: 'Avatar', type: 'image' }], roster: [] },
+            { id: 'schedule', slotsCount: 1, slotNames: ['Main Event'], fields: [
+                { key: 'player', label: 'Player', type: 'ref', targetSet: 'people' },
+                { key: 'guests', label: 'Guests', type: 'ref_list', targetSet: 'people' }
+            ], roster: [{ id: 'first', label: 'Opening' }] }
+        ] };
+        select('image', { imageGroup: { enabled: true, filterMode: 'linked', linkedSource: { setId: 'schedule', selector: 'slot:1', fields: [] } } });
+        const player = document.querySelector('[data-linked-fields][value="player"]');
+        player.checked = true; player.dispatchEvent(new Event('change', { bubbles: true }));
+        const guests = document.querySelector('[data-linked-fields][value="guests"]');
+        guests.checked = true; guests.dispatchEvent(new Event('change', { bubbles: true }));
+        const source = state.overlay.elements[0].imageGroup;
+        const choices = [...document.querySelector('[data-path="imageGroup.imageField"]').options].map(option => option.value);
+        renderProperties();
+        return { source, choices };
+    });
+    assert.deepEqual(linkedConfig.source.linkedSource.fields, ['player', 'guests']);
+    assert.ok(linkedConfig.choices.includes('avatar'), 'badge fields come from linked catalog, not the schedule');
+    const persistedLinked = overlays.normalizeOverlayElement({ type: 'image', imageGroup: { ...linkedConfig.source, showMode: 'dim' } }, 0).imageGroup;
+    assert.deepEqual(persistedLinked.linkedSource, { setId: 'schedule', selector: 'slot:1', fields: ['player', 'guests'] });
+    assert.equal(persistedLinked.filterMode, 'linked');
+    assert.equal(persistedLinked.showMode, 'dim');
+    await setup();
     await page.evaluate(() => {
         const { state, prefs, select } = window.fixture;
         prefs.live = true;

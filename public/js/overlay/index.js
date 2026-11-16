@@ -18,10 +18,12 @@ import { createVarRotationEngine } from './var-rotation.js';
 import { FORMAT_PRESETS, LIST_FORMAT_PRESETS, VARIABLE_GROUPS, applyFormat, expandVariables, formatDate, formatDuration, hasTicking, isDateKey, isListFormat, isListKey, loadLiveExtras, resolveColorToken, resolveStyleVariables, variableGroups, variableSnapshot, variableTable } from './variables.js';
 import { matchesPeriodFilter, matchesPeriodToken, renderGameList, renderProgress } from './widgets.js';
 import numericBindings from '../../../shared/numeric-bindings.cjs';
+import variableLinks from '../../../shared/variable-links.cjs';
 
 
 root.OverlayShared = Object.assign(root.OverlayShared || {}, { cleanupMedia, cleanupNode, alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, TEXT_ANIM_TYPES, applyBorderGradient, applyTextAnimation, resolveBorderRadius, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, pruneSourceCaches, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, playSoundValue, resolveSoundUrl, zzfxSamples, BUILTIN_SOUNDS, renderGameList, renderSpeakerBadge, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, mountPattern, mountTextCycle, resolveCycleLines, createVarRotationEngine, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, resolveColorToken, resolveStyleVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, renderImageGroupStrip, applyMediaFilter: root.OverlayFilters?.applyMediaFilter || applyMediaFilter, shadowClipStyle });
 root.OverlayShared.borderPlacement = borderPlacement;
 Object.assign(root.OverlayShared, { ALERT_PRESENTATION_KEYS, resolveAlertLook, renderInlineText, sanitizeIconClass });
 Object.assign(root.OverlayShared, numericBindings);
+Object.assign(root.OverlayShared, variableLinks);
 Object.defineProperty(root.OverlayShared, Symbol.for('StreamPulse.OverlayShared'), { value: true });

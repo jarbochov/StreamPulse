@@ -1300,3 +1300,6 @@ body.is-scrubbing, body.is-scrubbing * {
 .field .range-field.has-number.has-reset.has-number-binding { grid-template-columns: minmax(0, 1fr) 4.2rem 28px 51px; }
 .number-binding-actions { display: inline-grid; grid-template-columns: repeat(2, 24px); align-items: center; gap: 3px; flex: none; }
 .range-reset-slot { width: 28px; min-height: 26px; }
+.ig-linked-roles { display: grid; gap: 8px; padding: 8px 0; }
+.ig-linked-roles > label { display: flex; align-items: center; gap: 8px; }
+.ig-linked-roles input { width: auto; margin: 0; }

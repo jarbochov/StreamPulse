@@ -25,6 +25,12 @@ Manage global variables in **Admin -> Variables** (or open the Variables drawer 
 | **color** | Hex / Hex-Alpha color (`#RRGGBB` or `#RRGGBBAA`) | Team color, theme accent, alert border tint |
 | **template** | Composite text formula referencing other `{{var.*}}` tokens | Scoreboards (`{{var.home}} - {{var.away}}`) |
 | **font** | Font family name for dynamic typography | Per-segment theme font switching |
+| **date** | Local calendar date, with a date picker | Broadcast date or deadline |
+| **time** | Local time of day, with a time picker | Doors open or show start |
+| **datetime** | Local date and time, with a combined picker | Scheduled event start |
+| **duration** | Fixed duration text such as `45m` or `1:30:00` | Estimated run time or segment length |
+
+These temporal types are available both here and in Variable Sets. Create one from **Add Variable**, edit its value inline, or select its name to open the inspector. The type filter includes each type. Values stay as entered (no automatic timezone conversion or countdown); `{{var.show_date}}` or `{{var.run_duration}}` can be inserted through the usual placeholder picker. Links and trackers belong to Variable Sets, not standalone Variables.
 
 ### Using Variables in Overlays & Alerts
 
@@ -80,8 +86,11 @@ Each Variable Set defines its own custom fields:
 | **font** | Per-member font family override |
 | **list** | Multi-line item list (one entry per line) |
 | **template** | Dynamic text composed from other fields via `@fieldKey` (e.g., `@name (@role)`) |
-| **ref** | Links an entry to an entry in another Variable Set (`targetSet`, optional `syncSlot` 1..N) |
-| **checklist** | Tracks per-item completion/tier state (`{ [entryId]: level }`) against a `targetSet` (`maxTier >= 1`) |
+| **date / time / datetime** | Calendar date, local time, or local date and time |
+| **duration** | Duration such as `45m` or `1:30:00` |
+| **Linked entry (`ref`)** | Choose one reusable entry from a linked set (`targetSet`); stores its entry ID |
+| **Linked entries (`ref_list`)** | Search and select several reusable entries; stores an array of entry IDs |
+| **Tracker (`checklist`)** | Each owner keeps a current level map `{ "item_id": 2 }` for items in a linked set. Zero is not owned / not completed; no history is stored |
 
 You can import and export Variable Set entries via **CSV** directly from the Variable Sets panel (`GET /api/variables/sets/:setId/export` and `POST /api/variables/sets/:setId/import`).
 
@@ -89,8 +98,8 @@ You can import and export Variable Set entries via **CSV** directly from the Var
 
 For fast live-show updates, open **Operator Grid** on any Variable Set (or navigate to `/variable-set-operator.html#<setId>`) to edit all entries and fields in a dense, spreadsheet-style console with live WebSocket sync:
 
-- **Inline Field Editing**: Update `text`, `number`, `counter` (`-1` / `+1` steppers), `image`, `icon`, `color`, `toggle`, `font`, `list`, `template`, and `ref` (target entry dropdown) fields directly in the table, plus 1-click slot assignment and **In Group** toggles.
-- **Matrix View (`checklist` fields)**: When a set includes a `checklist` field, toggle **Matrix View** to display target-set items as rows against active entries/slots as columns. Left-click cycles `0 -> 1 -> ... -> maxTier -> 0` (`POST /api/variables/sets/:setId/checklist/step`) and right-click decrements (`delta: -1`).
+- **Inline Field Editing**: Edit values directly, including native date/time controls, a Linked entry dropdown, and a searchable checkbox picker for Linked entries.
+- **Tracker**: Select the tracker field to see reusable items as rows and their owners as columns. Click / Enter cycles `0 -> 1 -> ... -> maximum -> 0`; right-click or Shift+Enter decrements. Each item's explicit upgrade levels determine its maximum; **Default levels** applies to items without custom levels. **Reset** clears one owner's selected tracker, while **Reset everyone** clears it for all owners, including hidden owners, after confirmation. Other trackers and item definitions are untouched.
 - **Column Chooser & Reordering**: Click **Columns** to show/hide specific schema fields or built-in columns (Entry, Slots, Group, Enabled) and move columns up or down.
 - **Sorting**: Click any sortable column header to cycle ascending/descending order across entry names, slot assignments, numeric counters, booleans, and text fields.
 - **Saved Layouts**: Save named column visibility, column order, and sort configurations per Variable Set (`localStorage`) and switch between operator presets in one click.
@@ -107,7 +116,7 @@ For a set with ID `squad` and fields `name`, `avatar`, `role`, and `accent`, Str
 - **Numbered Slot Tokens**: `{{var.squad_1_name}}`, `{{var.squad_1_avatar}}`, `{{var.squad_1_slot_name}}`, `{{var.squad_1_active}}`
 - **Slot 1 Shorthand**: `{{var.squad_name}}`, `{{var.squad_avatar}}` (mirrors Slot 1 for quick single-spotlight overlays)
 - **Named Slot Aliases**: If Slot 2 is named `Guest`, you can reference `{{var.squad_guest_name}}` and `{{var.squad_guest_avatar}}`
-- **Linked `ref` Tokens (1-hop)**: For a `ref` field `partner`, StreamPulse materializes `{{var.squad_1_partner_<targetField>}}` and the Slot 1/active shorthand `{{var.squad_partner_<targetField>}}`. Setting `syncSlot` on a `ref` field also syncs the target set's slot when the source slot/active entry changes.
+- **Linked `ref` Tokens (1-hop)**: For a `ref` field `partner`, StreamPulse materializes `{{var.squad_1_partner_<targetField>}}` and the Slot 1/active shorthand `{{var.squad_partner_<targetField>}}`. Named slots also work: `{{var.squad_guest_partner_name}}`. Linked target edits refresh these tokens. Nested links are not expanded. Links never change the linked set's slots.
 - **Group Summary Tokens**:
   - `{{var.squad_group}}`: Formatted text list of all entries marked **In Group**
   - `{{var.squad_group_count}}`: Total count of active **In Group** entries
@@ -130,16 +139,61 @@ Add an **Image Group** element in **Custom Overlay Editor** and bind it to a Var
 
 ![Member Badge Builder Studio](images/badge-builder-studio.png)
 
-### Filtering & Linked Checklists
+### Linked sources & trackers
 
-In the Image Group properties, set **Filter / State Source** to:
+In the Image Group Content panel, choose **People / items to display**:
 
 - **All**: Render every entry in the Variable Set.
 - **In Group**: Render only entries toggled **In Group** (default).
-- **Linked Checklist**: Bind visibility and tier state to a `checklist` field on another Variable Set (`checklistSource: { setId, selector, field }`). Choose **Show Mode**:
+- **Linked entries**: Follow a source set's active entry, a named/numbered slot, or a fixed entry. Check one or more linked role fields pointing to the same set. The overlay derives that linked catalog automatically and reads the selected people/items directly, including entries not marked In Group. Repeated links display once.
+- **Tracker items**: Choose an owner's source set, active/slot/fixed entry, and tracker field. Choose **Show Mode**:
   - **Only Active Items**: Hides items at level `0` (default).
   - **Fixed Grid (Dim Inactive)**: Keeps level `0` items in place, rendered dimmed/grayscale.
-  - **Tiered Items (`level >= 1`)**: Supports comma/newline-separated tier images, tier-specific `tier-N` image/label fields, and automatically displays a `Lv.N` tier badge when `maxTier > 1` or multiple tier images exist.
+  - **Upgrade levels**: Edit an item's **Item upgrade levels** once to supply each level's label, image and description. The exact current level overrides its base display; missing overrides use the base values. There are no special field-name conventions or comma-separated image URLs.
+
+An empty or deleted source entry shows no linked entries, rather than falling back to the full catalog. Editing a shared person's avatar or an item's level definition updates every consumer; assignments and per-owner progress remain separate.
+
+#### Example: schedule roles or production assignments
+
+1. Create a **People** set (`people`) with Name and Avatar fields and add your reusable people.
+2. Create a **Schedule** set (`schedule`) with Date, Time, Duration, Game, Image and Linked entry fields `player_1`, `player_2`, `host`, each pointing to People. Add Linked entries `guests` if needed. Assign people in the entry editor or Operator table.
+3. Give Schedule one live slot and activate an event. In an Image Group choose **Linked entries**, **Follow links from: Schedule**, **Follow active entry**, and check Player 1 / Player 2 (or Host in a separate strip).
+4. Choose Name / Avatar in the Badge Builder, save, and add the overlay's browser URL to OBS. Activating another event updates its people without touching People's slots.
+5. For a single Text element, use the placeholder picker: `{{var.schedule_player_1_name}}`. An Image element can use `{{var.schedule_host_avatar}}`. A slot named Main Event also exposes `{{var.schedule_main_event_host_name}}`.
+
+The same model works for a production rundown's presenters, a team's roster, or a project's assigned equipment.
+
+#### Example: reusable equipment, achievements or badges
+
+1. Create an **Equipment** set with Name and Image. Add Sword, Shield and Badge entries. In Sword's entry editor, add Wood / Steel / Legendary upgrade levels with their own images.
+2. Add a **Tracker** field `gear` to People, linked to Equipment. Default levels `1` makes ordinary items on/off; Sword uses its three custom levels.
+3. Open People's **Tracker** view. Click Alex's Sword cell to advance its level; Sam's Sword remains independent.
+4. In an Image Group choose **Tracker items**, People, a fixed person (or Follow active entry), and Gear. Select **Fixed Grid (Dim Inactive)** for an equipment board, or **Only Active Items** for earned badges.
+5. Use the per-person Reset before a new run, or Reset everyone. There is deliberately no historical/run record.
+
+### Linked data & Companion API
+
+Create/update a set with `PUT` or `POST /api/variables/sets/:setId` (JSON); `GET` returns the complete set and `DELETE` removes it. Field definitions use `{ "key": "host", "label": "Host", "type": "ref", "targetSet": "people" }`, `type: "ref_list"` for several links, or `{ "key": "gear", "label": "Gear", "type": "checklist", "targetSet": "equipment", "maxTier": 1 }`.
+
+Entry values are `{ "host": "alex", "guests": ["sam"], "gear": { "sword": 2 } }`. Item definitions optionally include `tiers: [{ "level": 1, "label": "Wood", "image": "/assets/wood.png", "description": "Starter" }]`; levels are saved consecutively from 1. `maxTier` is the fallback item maximum (1–100); explicit item definitions support up to 20 levels.
+
+Tracker endpoints support **POST JSON and GET query parameters**, with the same names:
+
+| Endpoint suffix after `/api/variables/sets/:setId` | Parameters | Behavior |
+| --- | --- | --- |
+| `/checklist/set` | `field`, `target`, `value`, `entry` or `slot` | Set a level, clamped to 0–item maximum |
+| `/checklist/step` | `field`, `target`, optional `delta`, `entry` or `slot` | Without delta, cycle and wrap; explicit delta adds/subtracts and clamps |
+| `/checklist/toggle` | Same as step | Same cycling behavior |
+| `/checklist/reset` | `field`, `entry` or `slot`; or `field`, `all=true` | Clear the selected tracker for one owner or every owner |
+
+`field` may be omitted only when there is exactly one tracker. `target` must be an existing entry ID (or label) in the linked catalog. `entry` accepts the owner ID or label; otherwise `slot` defaults to 1, or the active entry for a slotless set. Empty selections, missing items and invalid values return HTTP 400 `{ "error": "..." }`. Success returns the full updated set object directly: `{ "id": "people", "fields": [...], "roster": [{ "id": "alex", "values": { "gear": { "sword": 2 } } }], "slots": [...], ... }`; zero-level items are omitted from the map. A `variables-update` WebSocket message refreshes operators and overlays.
+
+For Companion, use discovered **Tracker** actions or an HTTP GET trigger:
+`/api/variables/sets/people/checklist/step?entry=alex&field=gear&target=sword`.
+For an explicit level, POST `/api/variables/sets/people/checklist/set` with `{ "entry": "alex", "field": "gear", "target": "sword", "value": 2 }`.
+Reset everyone with `/api/variables/sets/people/checklist/reset?field=gear&all=true`.
+
+Overlay JSON uses `imageGroup.filterMode: "linked"` or `"checklist"` and `linkedSource: { "setId": "schedule", "selector": "active", "fields": ["player_1", "player_2"] }`. Selectors are `active` (Slot 1 for slotted sets), `slot:N`, or `entry:ID`; tracker sources select exactly one checklist field. `showMode: "active"` hides level zero, while `"dim"` keeps unearned items visible. Other badge, typography, animation and styling options are unchanged.
 
 Enable **Filter to selected roster entry only** when using `All` or `In Group` to restrict output to slotted/active entries. Overlays wait for hydrated `variableSets` status before rendering filtered strips, preventing unselected entries from flashing on initial load.
 

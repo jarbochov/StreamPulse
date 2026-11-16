@@ -3,6 +3,7 @@
 <head>
     <link rel="stylesheet" href="/admin.css">
     <link rel="stylesheet" href="/css/variable-set-operator.css">
+    <link rel="stylesheet" href="/css/variable-links.css">
     <script src="/appearance.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
@@ -19,7 +20,7 @@
         <div class="op-header-actions">
             <a class="op-btn" href="/placeholders.html#sets">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
-                Schema &amp; Placeholders
+                Edit Sets &amp; Fields
             </a>
             <button type="button" class="op-btn primary" id="op-add-entry">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -41,7 +42,7 @@
                 </div>
                 <div class="op-filter-seg" id="op-view-seg" role="group" aria-label="View mode" hidden>
                     <button type="button" class="op-filter-btn active" data-op-view="table">Table</button>
-                    <button type="button" class="op-filter-btn" data-op-view="matrix">Matrix</button>
+                    <button type="button" class="op-filter-btn" data-op-view="matrix">Tracker</button>
                 </div>
                 <div class="op-layout-bar" aria-label="Column layouts">
                     <select id="op-layout-select" class="op-layout-select" aria-label="Saved column layouts"></select>
@@ -76,6 +77,7 @@
     <script src="/nav.js"></script>
     <script src="/js/image-picker.js"></script>
     <script src="/icon-picker.js"></script>
+    <script src="/js/overlay-shared.js"></script>
     <script type="module" src="/js/variables/variable-set-operator.js"></script>
 </body>
 </html>

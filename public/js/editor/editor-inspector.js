@@ -81,7 +81,7 @@ export const RERENDER_PATHS = new Set([
     'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.showStatusBadge',
     'speakerBadge.reaction.visualizer', 'speakerBadge.reaction.highlightBorder', 'speakerBadge.reaction.dimWhenIdle',
     'speakerBadge.autoSize',
-    'imageGroup.setId', 'imageGroup.filterMode', 'imageGroup.checklistSource.setId', 'imageGroup.checklistSource.selector', 'imageGroup.checklistSource.field', 'imageGroup.showMode',
+    'imageGroup.setId', 'imageGroup.filterMode', 'imageGroup.linkedSource.setId', 'imageGroup.linkedSource.selector', 'imageGroup.showMode',
     'imageGroup.onlySelected', 'imageGroup.showLabels', 'imageGroup.showAvatar', 'imageGroup.layout',
     'imageGroup.shape', 'imageGroup.wrap', 'imageGroup.fallbackMode', 'imageGroup.maxItems',
     'imageGroup.avatarBorderWidth', 'imageGroup.cardFrame', 'imageGroup.cardBorderWidth',
@@ -610,7 +610,9 @@ const IG_CARD_ALIGNS = [['top', 'Top'], ['center', 'Center'], ['bottom', 'Bottom
 
 function imageGroupFieldMeta(ig = {}) {
     const sets = Array.isArray(state.liveStatus?.variableSets) ? state.liveStatus.variableSets : [];
-    const setObj = sets.find(s => s.id === ig.setId) || sets[0] || null;
+    const linked = window.OverlayShared.linkedSourceFields(sets, ig.linkedSource, ig.filterMode === 'checklist' ? ['checklist'] : ['ref', 'ref_list']);
+    const targetId = ['linked', 'checklist'].includes(ig.filterMode) ? linked.fields[0]?.targetSet : ig.setId;
+    const setObj = sets.find(s => s.id === targetId) || null;
     const fields = setObj?.fields || [];
     return {
         sets,
@@ -638,7 +640,7 @@ export function mediaSourceBlock(el) {
         const activeFields = resolveImageGroupFields(ig);
 
         let body = '<div class="sub-head">Roster &amp; Filtering</div>';
-        body += sets.length
+        body += ['linked', 'checklist'].includes(ig.filterMode) ? '' : sets.length
             ? F.select('imageGroup.setId', 'Variable Set', setId, [['', 'Choose a set…'], ...setOptions])
             : '<p class="hint">Create a Variable Set in Variables &amp; Placeholders and toggle entries <strong>In Group</strong> to populate this strip.</p>';
         body += F.check('imageGroup.showAvatar', 'Show primary image (optional)', ig.showAvatar !== false);
@@ -656,53 +658,50 @@ export function mediaSourceBlock(el) {
         } else {
             body += '<p class="hint">Text-only stacks need no primary image field. Additional image/icon fields remain available in the Badge Builder.</p>';
         }
-        const filterMode = ig.filterMode || (ig.checklistSource?.setId ? 'checklist' : (ig.inGroupOnly === false ? 'all' : 'inGroup'));
-        body += F.select('imageGroup.filterMode', 'Filter / State Source', filterMode, [
-            ['all', 'All'],
-            ['inGroup', 'In Group'],
-            ['checklist', 'Linked Checklist']
+        const filterMode = ig.filterMode || 'inGroup';
+        body += F.select('imageGroup.filterMode', 'People / items to display', filterMode, [
+            ['all', 'All entries from this set'],
+            ['inGroup', 'Entries marked In Group'],
+            ['linked', 'Linked entries (follow an event or other entry)'],
+            ['checklist', 'Tracker items (owned, completed or upgraded)']
         ]);
-        if (filterMode === 'checklist') {
-            const cs = ig.checklistSource || {};
-            const checklistSets = sets.filter(s => (s.fields || []).some(f => f.type === 'checklist'));
-            const sourceSetChoices = (checklistSets.length ? checklistSets : sets).map(s => [s.id, s.label || s.name || s.id]);
+        if (filterMode === 'checklist' || filterMode === 'linked') {
+            const cs = ig.linkedSource || {};
+            const types = filterMode === 'checklist' ? ['checklist'] : ['ref', 'ref_list'];
+            const sourceSets = sets.filter(s => (s.fields || []).some(f => types.includes(f.type)));
+            const sourceSetChoices = sourceSets.map(s => [s.id, s.label || s.name || s.id]);
             const srcSet = sets.find(s => s.id === cs.setId) || null;
-            const checklistFields = (srcSet?.fields || []).filter(f => f.type === 'checklist');
-            const defaultSel = (srcSet?.slotsCount || 0) > 0 ? 'slot:1' : 'active';
-            const selectorOpts = [];
+            const sourceFields = (srcSet?.fields || []).filter(f => types.includes(f.type));
+            const primary = sourceFields.find(f => cs.fields?.includes(f.key));
+            const selectorOpts = [['active', 'Follow active entry']];
             if (srcSet) {
                 if ((srcSet.slotsCount || 0) > 0) {
                     for (let i = 0; i < srcSet.slotsCount; i++) {
                         const sName = srcSet.slotNames?.[i];
                         selectorOpts.push([`slot:${i + 1}`, sName ? `Slot ${i + 1}: ${sName}` : `Slot ${i + 1}`]);
                     }
+                }
+                for (const r of (srcSet.roster || [])) {
+                    selectorOpts.push([`entry:${r.id}`, `Fixed: ${r.label || r.id}`]);
+                }
+            }
+            body += F.select('imageGroup.linkedSource.setId', 'Follow links from', cs.setId || '', [['', 'Choose a set...'], ...sourceSetChoices]);
+            if (srcSet) {
+                body += F.select('imageGroup.linkedSource.selector', 'Which entry?', cs.selector || 'active', selectorOpts);
+                if (filterMode === 'linked') {
+                    body += `<div class="ig-linked-roles"><span class="hint">Roles / linked fields</span>${sourceFields.filter(field => !primary || primary.targetSet === field.targetSet).map(field => `<label><input type="checkbox" data-linked-fields value="${esc(field.key)}"${cs.fields?.includes(field.key) ? ' checked' : ''}>${esc(field.label)} <span class="hint">(${esc(sets.find(s => s.id === field.targetSet)?.name || 'missing linked set')})</span></label>`).join('')}<span class="hint">Select one or more roles from the same linked set. Uncheck all roles to choose another linked set.</span></div>`;
                 } else {
-                    selectorOpts.push(['active', 'Active Entry']);
+                    body += `<label class="field"><span>Tracker</span><select data-linked-fields><option value="">Choose a tracker...</option>${sourceFields.map(field => `<option value="${esc(field.key)}"${cs.fields?.includes(field.key) ? ' selected' : ''}>${esc(field.label)}</option>`).join('')}</select></label>`;
                 }
-                for (const r of (srcSet.roster || srcSet.entries || [])) {
-                    selectorOpts.push([`entry:${r.id}`, r.label || r.id]);
-                }
-            } else {
-                selectorOpts.push(['active', 'Active Entry']);
+                body += '<p class="hint">Reads reusable entries directly. Changing the active entry updates this overlay without changing another set\'s live slots.</p>';
             }
-            const fieldOpts = checklistFields.length
-                ? checklistFields.map(f => [f.key, f.label ? `${f.label} (${f.key})` : f.key])
-                : [['', 'No checklist fields']];
-            body += sets.length
-                ? F.select('imageGroup.checklistSource.setId', 'Checklist Set', cs.setId || '', [['', 'Choose source set…'], ...sourceSetChoices])
-                : F.text('imageGroup.checklistSource.setId', 'Checklist Set ID', cs.setId || '', 'placeholder="e.g. players"');
-            if (cs.setId || !sets.length) {
-                const selHtml = F.select('imageGroup.checklistSource.selector', 'Slot / Entry', cs.selector || defaultSel, selectorOpts);
-                const fldHtml = checklistFields.length
-                    ? F.select('imageGroup.checklistSource.field', 'Checklist Field', cs.field || checklistFields[0].key, fieldOpts)
-                    : F.text('imageGroup.checklistSource.field', 'Checklist Field Key', cs.field || '', 'placeholder="checklist"');
-                body += `<div class="grid2">${selHtml}${fldHtml}</div>`;
-            }
+        }
+        if (filterMode === 'checklist') {
             body += F.select('imageGroup.showMode', 'Show Mode', ig.showMode || 'active', [
                 ['active', 'Only Active Items'],
                 ['dim', 'Fixed Grid (Dim Inactive)']
             ]);
-        } else {
+        } else if (filterMode !== 'linked') {
             body += F.check('imageGroup.onlySelected', 'Filter to selected roster entry only', ig.onlySelected === true);
         }
         body += `<div class="grid2">${F.select('imageGroup.sortOrder', 'Order', ig.sortOrder || 'roster', [
@@ -1070,7 +1069,7 @@ export function renderGroupBadgePreview(el) {
     const liveStatus = effectiveLiveStatus() || {};
     const fields = resolveImageGroupFields(ig);
     const { setObj, fields: setFields } = imageGroupFieldMeta(ig);
-    const roster = (setObj?.roster || setObj?.entries || []).filter(r => r && r.inGroup !== false);
+    const roster = (setObj?.roster || setObj?.entries || []).filter(r => r && ((ig.filterMode || 'inGroup') !== 'inGroup' || r.inGroup !== false));
     const stripMode = $('ig-fields-dialog')?.dataset.builderTab === 'strip';
     const memberSelect = $('ig-preview-member');
     if (memberSelect) {
@@ -2816,6 +2815,26 @@ export function initInspectorEvents() {
     const propEl = $('properties');
     if (propEl) {
         propEl.addEventListener('change', event => {
+            if (event.target.matches('[data-linked-fields]')) {
+                for (const el of selectedElements()) {
+                    if (!el.imageGroup) continue;
+                    el.imageGroup.linkedSource.fields = event.target.type === 'checkbox'
+                        ? [...propEl.querySelectorAll('[data-linked-fields]:checked')].map(input => input.value)
+                        : event.target.value ? [event.target.value] : [];
+                    const ig = el.imageGroup;
+                    const { fields } = imageGroupFieldMeta(ig);
+                    if (!fields.some(field => field.key === ig.imageField)) ig.imageField = fields.find(field => field.type === 'image')?.key || '';
+                    if (!ig.fields?.length || ig.fields.every(field => !fields.some(def => def.key === field.key))) {
+                        const textField = fields.find(field => field.type === 'text');
+                        ig.fields = textField ? [normalizeGroupFieldItem({ key: textField.key, role: 'title' }, 0)] : [];
+                        syncLegacyGroupFields(ig);
+                    }
+                }
+                renderProperties();
+                renderCanvas();
+                changed(true);
+                return;
+            }
             const lr = event.target.closest('[data-look-rule]');
             if (lr) {
                 for (const el of selectedElements()) {
@@ -3078,31 +3097,12 @@ export function initInspectorEvents() {
                 changed(true);
                 return;
             }
-            if (path === 'imageGroup.filterMode' || path === 'imageGroup.checklistSource.setId') {
+            if (path === 'imageGroup.filterMode' || path === 'imageGroup.linkedSource.setId') {
                 const sets = Array.isArray(state.liveStatus?.variableSets) ? state.liveStatus.variableSets : [];
                 for (const targetEl of selectedElements()) {
                     const ig = targetEl.imageGroup;
                     if (!ig) continue;
-                    if (ig.filterMode === 'checklist') {
-                        ig.checklistSource = ig.checklistSource || {};
-                        if (path === 'imageGroup.filterMode' && !ig.checklistSource.setId) {
-                            const firstWithChecklist = sets.find(s => (s.fields || []).some(f => f.type === 'checklist'));
-                            if (firstWithChecklist) ig.checklistSource.setId = firstWithChecklist.id;
-                        }
-                        const srcSet = sets.find(s => s.id === ig.checklistSource.setId);
-                        if (srcSet) {
-                            if (path === 'imageGroup.checklistSource.setId' || !ig.checklistSource.selector) {
-                                ig.checklistSource.selector = (srcSet.slotsCount || 0) > 0 ? 'slot:1' : 'active';
-                            }
-                            const firstChecklistField = (srcSet.fields || []).find(f => f.type === 'checklist');
-                            if (path === 'imageGroup.checklistSource.setId' || !ig.checklistSource.field) {
-                                ig.checklistSource.field = firstChecklistField?.key || '';
-                            }
-                            if (!ig.setId && firstChecklistField?.targetSet) {
-                                ig.setId = firstChecklistField.targetSet;
-                            }
-                        }
-                    }
+                    ig.linkedSource = { setId: ig.linkedSource?.setId || '', selector: 'active', fields: [] };
                 }
                 renderCanvas();
                 renderProperties();
@@ -3110,7 +3110,7 @@ export function initInspectorEvents() {
                 return;
             }
             if (path === 'imageGroup.delimiter' && event?.type === 'change') renderProperties();
-            if (path === 'style.borderWidth' || path === 'style.borderStyle' || path === 'style.borderRadiusCorners.enabled' || path === 'style.borderGlow.enabled' || path === 'style.borderAnimation.type' || path === 'style.borderAnimation.mode' || path === 'style.shadow.blur' || path === 'style.innerShadow.blur' || path === 'style.innerShadow.spread' || path === 'style.textAnimation.type' || path === 'imageGroup.setId' || path === 'imageGroup.filterMode' || path === 'imageGroup.checklistSource.setId' || path === 'imageGroup.checklistSource.selector' || path === 'imageGroup.checklistSource.field' || path === 'imageGroup.showMode' || path === 'imageGroup.onlySelected' || path === 'imageGroup.showLabels' || path === 'imageGroup.showAvatar' || path === 'imageGroup.layout' || path === 'imageGroup.shape' || path === 'imageGroup.wrap' || path === 'imageGroup.fallbackMode' || path === 'imageGroup.maxItems' || path === 'imageGroup.avatarBorderWidth' || path === 'imageGroup.avatarBorderGlow.enabled' || path === 'imageGroup.avatarBorderAnimation.type' || path === 'imageGroup.avatarBorderAnimation.mode' || path === 'imageGroup.cardFrame' || path === 'imageGroup.cardWidthMode' || path === 'imageGroup.cardBorderWidth' || path === 'imageGroup.cardBorderGlow.enabled' || path === 'imageGroup.cardBorderAnimation.type' || path === 'imageGroup.cardBorderAnimation.mode') renderProperties();
+            if (path === 'style.borderWidth' || path === 'style.borderStyle' || path === 'style.borderRadiusCorners.enabled' || path === 'style.borderGlow.enabled' || path === 'style.borderAnimation.type' || path === 'style.borderAnimation.mode' || path === 'style.shadow.blur' || path === 'style.innerShadow.blur' || path === 'style.innerShadow.spread' || path === 'style.textAnimation.type' || path === 'imageGroup.setId' || path === 'imageGroup.filterMode' || path === 'imageGroup.linkedSource.setId' || path === 'imageGroup.linkedSource.selector' || path === 'imageGroup.showMode' || path === 'imageGroup.onlySelected' || path === 'imageGroup.showLabels' || path === 'imageGroup.showAvatar' || path === 'imageGroup.layout' || path === 'imageGroup.shape' || path === 'imageGroup.wrap' || path === 'imageGroup.fallbackMode' || path === 'imageGroup.maxItems' || path === 'imageGroup.avatarBorderWidth' || path === 'imageGroup.avatarBorderGlow.enabled' || path === 'imageGroup.avatarBorderAnimation.type' || path === 'imageGroup.avatarBorderAnimation.mode' || path === 'imageGroup.cardFrame' || path === 'imageGroup.cardWidthMode' || path === 'imageGroup.cardBorderWidth' || path === 'imageGroup.cardBorderGlow.enabled' || path === 'imageGroup.cardBorderAnimation.type' || path === 'imageGroup.cardBorderAnimation.mode') renderProperties();
             if (path === 'speakerBadge.layout') {
                 const el = primary();
                 if (el?.speakerBadge) {

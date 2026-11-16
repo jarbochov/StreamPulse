@@ -634,7 +634,7 @@
                     method: 'GET', path: '/api/variables',
                     desc: 'List all custom variables and counters',
                     companion: true,
-                    details: 'Returns variables, groups (including empty groups), sets and variableSetsEnabled. Variables support number, text, list, image, toggle, color, template and font. Legacy counter records remain supported. Ordinary variables may have an organization-only group. Number values stay numeric; overlay formatting never changes them.'
+                    details: 'Returns variables, groups (including empty groups), sets and variableSetsEnabled. Variables support number, text, list, image, toggle, color, template, font, date, time, datetime and duration. Legacy counter records remain supported. Temporal values are strings: date "2026-12-10", time "18:30", datetime "2026-12-10T18:30" (local, no timezone conversion), duration "45m" or "1:30:00" (static text, not a countdown). Create/update with PUT or POST /api/variables/:name and JSON { type: "date", value: "2026-12-10" }; a subsequent { value: "2026-12-11" } preserves type. GET /api/variables/:name returns { name, type, value, updatedAt, ... }; tokens such as {{var.show_date}} work in existing Text elements. Ordinary variables may have an organization-only group. Linked entries and Trackers belong to Variable Sets. Number values stay numeric; overlay formatting never changes them.'
                 },
                 {
                     method: 'GET', path: '/api/variables/:name',
@@ -705,7 +705,31 @@
                     method: 'GET', path: '/api/variables/sets/:setId',
                     desc: 'Inspect, create/update, or delete a Variable Set',
                     companion: true,
-                    details: 'GET returns the full set object (including slots[0] for Slot 1, slotNames, slotQueues, roster, and rotation). PUT/POST creates or updates the set; DELETE removes it.'
+                    details: 'GET returns the full set object (including slots[0] for Slot 1, activeEntry, slotNames, slotQueues, roster, and rotation). PUT/POST accepts JSON and creates/updates it; DELETE removes it. Linked field definitions: { key: "host", label: "Host", type: "ref", targetSet: "people" }, type "ref_list" for several entries, or { key: "gear", type: "checklist", targetSet: "equipment", maxTier: 1 } for per-owner tracking. Entry values: { host: "alex", guests: ["sam"], gear: { sword: 2 } }. Item entries optionally define tiers: [{ level: 1, label: "Wood", image: "/assets/wood.png", description: "Starter" }] (up to 20, saved consecutively from 1). Explicit levels determine each item maximum; maxTier (1–100) applies only without custom levels. Zero-level items are omitted. Links do not change target slots. ref tokens expand one hop as var.schedule_1_host_name, var.schedule_host_name and named-slot aliases such as var.schedule_main_event_host_name; ref_list/checklist field tokens contain JSON.'
+                },
+                {
+                    method: 'POST', path: '/api/variables/sets/:setId/checklist/set',
+                    desc: 'Set an owner’s tracked item level',
+                    companion: true,
+                    details: 'GET query or POST JSON: field, target, value, entry or slot. Example GET /api/variables/sets/people/checklist/set?entry=alex&field=gear&target=sword&value=2; equivalent POST body { "entry": "alex", "field": "gear", "target": "sword", "value": 2 }. target must exist in the tracker field’s targetSet (ID or label). value is clamped to 0–item maximum; true/false mean 1/0. entry is an owner ID or label; otherwise slot defaults to 1, or the active entry for a slotless set. field may be omitted only if there is exactly one tracker. Success returns the full updated set directly: { id, fields, roster: [{ id, values: { gear: { sword: 2 } } }], slots, ... }. Errors return HTTP 400 { error }. Broadcasts variables-update.'
+                },
+                {
+                    method: 'POST', path: '/api/variables/sets/:setId/checklist/step',
+                    desc: 'Advance or decrement a tracked item',
+                    companion: true,
+                    details: 'GET query or POST JSON accepts field, target, entry or slot, and optional delta. Without delta, cycles 0 → 1 → ... → item maximum → 0. With delta (e.g. -1), adds and clamps rather than wrapping. Example GET /api/variables/sets/people/checklist/step?entry=alex&field=gear&target=sword. Same owner/field/target validation and full updated set response as /checklist/set; HTTP 400 { error } for invalid input. Broadcasts variables-update.'
+                },
+                {
+                    method: 'POST', path: '/api/variables/sets/:setId/checklist/toggle',
+                    desc: 'Cycle an owner’s tracked item',
+                    companion: true,
+                    details: 'GET query or POST JSON: field, target, entry or slot, optional delta. Same behavior, validation, full updated set response and variables-update event as /checklist/step; with a single-level item it toggles off/on.'
+                },
+                {
+                    method: 'POST', path: '/api/variables/sets/:setId/checklist/reset',
+                    desc: 'Reset one owner or everyone',
+                    companion: true,
+                    details: 'GET query or POST JSON: field and entry/slot; or field and all=true to clear every owner, including disabled/hidden entries. Example GET /api/variables/sets/people/checklist/reset?field=gear&all=true; POST { field: "gear", entry: "alex" } resets only Alex. Clears only that tracker map to {}; other fields, trackers and linked item definitions remain unchanged. No historical run data is stored. Success returns the complete updated set directly; invalid owner/field returns HTTP 400 { error }. Broadcasts variables-update. Operator confirms resets; API callers must confirm before triggering if needed.'
                 },
                 {
                     method: 'GET', path: '/api/variables/sets/:setId/export',
@@ -974,7 +998,7 @@
                 {
                     method: 'PUT', path: '/api/custom-overlays/:id',
                     desc: 'Update an overlay and push it live',
-                    details: 'Saves the definition, keeps the replaced version in revision history (last 30), and broadcasts a custom-overlay-update message to connected overlays.'
+                    details: 'Saves the definition, keeps the replaced version in revision history (last 30), and broadcasts a custom-overlay-update message to connected overlays. An Image Group is an image element with imageGroup.enabled=true. imageGroup.filterMode supports "all", "inGroup", "linked", "checklist". Linked modes use linkedSource: { setId: "schedule", selector: "active", fields: ["player_1", "player_2"] }; selectors are "active" (first slot for slotted sets), "slot:N" or "entry:ID". Linked entry fields must target the same catalog; it is derived from the source fields, independently of imageGroup.setId or target live slots. Tracker mode selects one checklist field and uses showMode "active" (hide zero) or "dim" (show zero dimmed). Empty source entries show nothing. Explicit item tiers supply labels/images with base fallbacks; existing badge, typography and styling settings still apply.'
                 },
                 {
                     method: 'DELETE', path: '/api/custom-overlays/:id',

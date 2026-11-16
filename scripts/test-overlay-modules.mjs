@@ -49,7 +49,7 @@ try {
     for (const path of ['/', '/?legacy=1']) {
         await page.goto(`${origin}${path}`);
         assert.equal(await page.evaluate(() => window.fixtureImmediate), 'Hello Fictional show', 'blocking classic consumers receive the API immediately');
-        assert.deepEqual(await page.evaluate(() => Object.keys(window.OverlayShared).sort()), publicKeys, 'facade preserves the complete public contract through both aliases');
+        assert.deepEqual(await page.evaluate(() => Object.keys(window.OverlayShared).sort()), [...publicKeys, 'trackerMax', 'linkedSourceEntry', 'linkedSourceFields'].sort(), 'facade preserves the complete public contract through both aliases');
     }
     await page.addScriptTag({ url: `${origin}/js/overlay-retro.js` });
     await page.addScriptTag({ url: `${origin}/js/overlay-filters.js` });
@@ -74,6 +74,58 @@ try {
         extension: window.OverlayShared.fixtureExtension
     })), { same: true, pause: true, filter: true, extension: 'preserved' }, 'repeated classic loads retain singleton state, functions and extensions');
     console.log('PASS classic aliases, synchronous facade and filter/pattern extensions');
+
+    const linkedRendering = await page.evaluate(() => {
+        const sets = [
+            { id: 'people', slotsCount: 1, slots: ['sam'], fields: [{ key: 'name', type: 'text' }], roster: [
+                { id: 'alex', label: 'Alex', inGroup: false, values: { name: 'Alex' } },
+                { id: 'sam', label: 'Sam', values: { name: 'Sam' } }
+            ] },
+            { id: 'events', slotsCount: 0, activeEntry: 'first', fields: [
+                { key: 'player', type: 'ref', targetSet: 'people' },
+                { key: 'guests', type: 'ref_list', targetSet: 'people' }
+            ], roster: [
+                { id: 'first', values: { player: 'alex', guests: ['sam', 'alex'] } },
+                { id: 'second', values: { player: 'sam', guests: [] } }
+            ] },
+            { id: 'items', fields: [{ key: 'name', type: 'text' }, { key: 'image', type: 'image' }], roster: [
+                { id: 'sword', label: 'Sword', values: { name: 'Sword', image: '/base.png' }, tiers: [{ level: 1, label: 'Wood', image: '/wood.png' }, { level: 2, label: 'Steel', image: '/steel.png' }] },
+                { id: 'badge', label: 'Badge', values: { name: 'Badge', image: '/badge.png' } }
+            ] },
+            { id: 'owners', slotsCount: 0, activeEntry: 'alex', fields: [{ key: 'gear', type: 'checklist', targetSet: 'items', maxTier: 1 }], roster: [{ id: 'alex', values: { gear: { sword: 2 } } }] }
+        ];
+        const container = document.createElement('div');
+        document.body.append(container);
+        const render = config => {
+            window.OverlayShared.renderImageGroupStrip(container, { type: 'imageGroup', imageGroup: { enabled: true, showLabels: true, labelField: 'name', showAvatar: false, ...config } }, { variableSets: sets });
+            return container.textContent;
+        };
+        const config = { setId: 'wrong_catalog', onlySelected: true, filterMode: 'linked', linkedSource: { setId: 'events', selector: 'active', fields: ['player', 'guests'] } };
+        const first = render(config);
+        sets[1].activeEntry = 'second';
+        const second = render(config);
+        sets[1].activeEntry = '';
+        const empty = render(config);
+        const tracker = render({ filterMode: 'checklist', imageField: 'image', showAvatar: true, linkedSource: { setId: 'owners', selector: 'entry:alex', fields: ['gear'] } });
+        const image = container.querySelector('img')?.getAttribute('src');
+        const dimmed = render({ filterMode: 'checklist', showMode: 'dim', linkedSource: { setId: 'owners', selector: 'active', fields: ['gear'] } });
+        sets[3].activeEntry = '';
+        const emptyTracker = render({ filterMode: 'checklist', showMode: 'dim', linkedSource: { setId: 'owners', selector: 'active', fields: ['gear'] } });
+        container.remove();
+        return { first, second, empty, tracker, image, dimmed, emptyTracker, targetSlots: sets[0].slots };
+    });
+    assert.match(linkedRendering.first, /Alex.*Sam/);
+    assert.equal(linkedRendering.first.indexOf('Alex'), linkedRendering.first.lastIndexOf('Alex'), 'repeated links appear once');
+    assert.match(linkedRendering.second, /Sam/);
+    assert.doesNotMatch(linkedRendering.second, /Alex/);
+    assert.equal(linkedRendering.empty, '', 'empty active source never falls back to all catalog entries');
+    assert.match(linkedRendering.tracker, /Steel/);
+    assert.doesNotMatch(linkedRendering.tracker, /Badge/);
+    assert.equal(linkedRendering.image, '/steel.png');
+    assert.match(linkedRendering.dimmed, /Badge/);
+    assert.equal(linkedRendering.emptyTracker, '', 'empty owner does not show an unassigned tracker board');
+    assert.deepEqual(linkedRendering.targetSlots, ['sam']);
+    console.log('PASS linked sources, independent target slots and explicit tracker level rendering');
 
     const sources = await page.evaluate(async () => {
         const shared = window.OverlayShared;

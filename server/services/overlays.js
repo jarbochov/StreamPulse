@@ -1147,6 +1147,13 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
                 numberBindings: normalizeNumericBindings(ig.numberBindings, 'imageGroup'),
                 enabled: ig.enabled === true,
                 setId: normKey(ig.setId),
+                filterMode: ['all', 'inGroup', 'linked', 'checklist'].includes(ig.filterMode) ? ig.filterMode : 'inGroup',
+                linkedSource: {
+                    setId: normKey(ig.linkedSource?.setId),
+                    selector: /^(active|slot:\d{1,2}|entry:[a-z0-9_]{1,24})$/.test(ig.linkedSource?.selector || '') ? ig.linkedSource.selector : 'active',
+                    fields: Array.isArray(ig.linkedSource?.fields) ? [...new Set(ig.linkedSource.fields.map(normKey).filter(Boolean))].slice(0, 12) : []
+                },
+                showMode: ig.showMode === 'dim' ? 'dim' : 'active',
                 imageField: normKey(ig.imageField || 'image') || 'image',
                 labelField: fields[0]?.key || normKey(ig.labelField),
                 subField: fields[1]?.key || normKey(ig.subField),
