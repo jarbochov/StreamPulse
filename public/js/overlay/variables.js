@@ -1,4 +1,6 @@
 import numericBindings from '../../../shared/numeric-bindings.cjs';
+import variablePaths from '../../../shared/variable-paths.cjs';
+const { variableKey } = variablePaths;
 import { loadDisplayLibrary } from './displays.js';
 import { linkedPlaceholders } from './linked-placeholders.js';
 const VARIABLE_GROUPS = [
@@ -325,9 +327,10 @@ function variableGroups(status = {}) {
     for (const v of customVars) {
         const label = v.group && !v.setId ? `Variables: ${v.group}` : 'Variables and counters';
         if (!customGroups.has(label)) customGroups.set(label, []);
-        customGroups.get(label).push([`var.${v.name}`, `${v.name} (${v.type})`, { type: v.type, preview: v.value, search: v.group || '' }]);
-        if (v.type === 'list') customGroups.get(label).push([`var.${v.name}.random`, `${v.name}, random item each time`]);
-        if (v.icon) customGroups.get(label).push([`var.${v.name}.icon`, `${v.name} icon (${v.icon})`]);
+        const key = variableKey(v);
+        customGroups.get(label).push([`var.${key}`, `${v.group ? `${v.group} / ` : ''}${v.name} (${v.type})`, { type: v.type, preview: v.value, search: v.group || '' }]);
+        if (v.type === 'list') customGroups.get(label).push([`var.${key}.random`, `${v.name}, random item each time`]);
+        if (v.icon) customGroups.get(label).push([`var.${key}.icon`, `${v.name} icon (${v.icon})`]);
     }
     for (const [label, items] of customGroups) groups.push({ label, items });
     if (setsEnabled) groups.push(...linkedPlaceholders(status).groups);
@@ -683,7 +686,8 @@ function variableTable(status = {}, context = {}, now = Date.now()) {
     for (const list of status.gamePlan?.lists || []) lists[`plan.list.${list.id}`] = planItems.filter(item => inPlanList(item, list.id)).map(item => item.name);
     Object.assign(lists, linked.lists);
     Object.defineProperty(table, '__lists', { value: lists, enumerable: false });
-    Object.defineProperty(table, '__types', { value: linked.types, enumerable: false });
+    const types = Object.fromEntries((status.customVars || []).filter(v => !v.setId).map(v => [`var.${variableKey(v)}`, v.type]));
+    Object.defineProperty(table, '__types', { value: { ...types, ...linked.types }, enumerable: false });
     return table;
 }
 
@@ -775,15 +779,15 @@ function customVarValues(status, linked = { values: {}, lists: {}, types: {} }, 
         const field = match && (sets.get(v.setId)?.fields || []).find(f => f.key === match[1]);
         return Boolean(field && !['ref', 'ref_list', 'checklist'].includes(field.type));
     };
-    const entries = { ...Object.fromEntries(vars.filter(safeMaterialized).map(v => [`var.${v.name}`, v.value])), ...linked.values };
+    const entries = { ...Object.fromEntries(vars.filter(safeMaterialized).map(v => [`var.${variableKey(v)}`, v.value])), ...linked.values };
     for (const v of vars) {
         if (v.type === 'list' && v.items?.length) {
-            entries[`var.${v.name}.random`] = v.items[Math.floor(Math.random() * v.items.length)];
+            entries[`var.${variableKey(v)}.random`] = v.items[Math.floor(Math.random() * v.items.length)];
         }
-        if (v.icon) entries[`var.${v.name}.icon`] = v.icon;
+        if (v.icon) entries[`var.${variableKey(v)}.icon`] = v.icon;
     }
     // Templates may reference other templates in any order; depth 3, cycles resolve empty.
-    const templates = new Map(vars.filter(v => v.type === 'template' && !v.setId).map(v => [`var.${v.name}`, String(v.value ?? '')]));
+    const templates = new Map(vars.filter(v => v.type === 'template' && !v.setId).map(v => [`var.${variableKey(v)}`, String(v.value ?? '')]));
     for (const [key, type] of Object.entries(linked.types)) if (type === 'template') templates.set(key, String(linked.values[key] ?? ''));
     const done = new Map();
     const resolving = new Set();
@@ -803,7 +807,7 @@ function customVarValues(status, linked = { values: {}, lists: {}, types: {} }, 
                 const setVar = (status.customVars || []).some(v => v.setId && (ref === v.name || ref.startsWith(`${v.name}.`)));
                 return setVar && !linked.types[refKey] && isListFormat(format) ? '' : format;
             }
-            const type = linked.types[refKey] || vars.find(v => `var.${v.name}` === refKey)?.type;
+            const type = linked.types[refKey] || vars.find(v => `var.${variableKey(v)}` === refKey)?.type;
             if (['number', 'counter'].includes(type)) return formatNumberVariable(val, format) ?? str;
             return String(applyFormat(refKey, val, format, now));
         });
@@ -838,11 +842,11 @@ function expandVariables(value, status, context = {}, keepEmpty = false, _depth 
     const now = Date.now();
     const table = variableTable(status, context, now);
     const enabledVars = (status.customVars || []).filter(v => status.modules?.variableSets !== false || !v.setId);
-    const tplMap = new Map(enabledVars.filter(v => v.type === 'template' && !v.setId).map(v => [`var.${v.name}`, v.value]));
-    for (const [key, type] of Object.entries(table.__types)) if (type === 'template') tplMap.set(key, table[key]);
-    const numberNames = new Set(enabledVars.filter(v => v.type === 'number' || v.type === 'counter').map(v => `var.${v.name}`));
+    const tplMap = new Map(enabledVars.filter(v => v.type === 'template' && !v.setId).map(v => [`var.${variableKey(v)}`, v.value]));
+    for (const [key, type] of Object.entries(table.__types)) if (type === 'template' && !tplMap.has(key)) tplMap.set(key, table[key]);
+    const numberNames = new Set(enabledVars.filter(v => v.type === 'number' || v.type === 'counter').map(v => `var.${variableKey(v)}`));
     return String(value ?? '').replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*(?:\|([^{}]*?))?\s*\}\}/g, (match, name, format) => {
-        if (name.startsWith('var.') && name.endsWith('.icon')) {
+        if (name.startsWith('var.') && name.endsWith('.icon') && !table.__types[name]) {
             const iconCls = String(table[name] || '').trim();
             if (iconCls) return context?.inlineIcons ? `{{icon:${iconCls}}}` : iconCls;
             if (format !== undefined) {

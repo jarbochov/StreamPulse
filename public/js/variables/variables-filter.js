@@ -47,5 +47,5 @@ export function matchesVariableQuery(variable, query) {
         } else if (!query.groups.includes(variable.group)) return false;
     }
     const type = variable.type === 'counter' ? 'counter number' : variable.type;
-    return !query.text || `${variable.name} ${type} ${variable.value} ${variable.group || ''}`.toLowerCase().includes(query.text.toLowerCase());
+    return !query.text || `${variable.key || variable.name} ${variable.name} ${type} ${variable.value} ${variable.group || ''}`.toLowerCase().includes(query.text.toLowerCase());
 }

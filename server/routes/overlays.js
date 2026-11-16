@@ -854,7 +854,7 @@ function createOverlayRoutes({
                 const varRefs = new Set();
                 for (const el of (elements || [])) {
                     const hay = `${el.content || ''} ${(el.items || []).join(' ')} ${el.src || ''} ${el.embedUrl || ''} ${el.qrText || ''} ${el.progress?.label || ''}`;
-                    for (const m of hay.matchAll(/\{\{var\.([a-z0-9_]+)/gi)) {
+                    for (const m of hay.matchAll(/\{\{\s*var\.([a-z0-9_.]+)/gi)) {
                         varRefs.add(m[1].toLowerCase());
                     }
                 }

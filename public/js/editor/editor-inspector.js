@@ -138,7 +138,7 @@ export function renderSettings() {
 export function fontOptions(current) {
     const uploaded = (shared.assetFonts || []).map(font => [`'${font.family}', sans-serif`, font.family]);
     const variables = (state.liveStatus?.customVars || []).filter(v => v.type === 'font' && !v.hidden && !v.setId)
-        .map(v => [`{{var.${v.name}|sans-serif}}`, `${v.group ? `${v.group} / ` : ''}${v.name}`]);
+        .map(v => [`{{var.${shared.variableKey(v)}|sans-serif}}`, `${v.group ? `${v.group} / ` : ''}${v.name}`]);
     const known = [...SYSTEM_FONTS, ...GOOGLE_FONT_OPTIONS, ...uploaded, ...variables];
     const custom = known.some(([v]) => v === current) ? '' : `<option value="${esc(current)}" selected>${esc(String(current).split(',')[0].replace(/['"]/g, ''))} (custom)</option>`;
     const opt = ([v, l]) => `<option value="${esc(v)}" style="font-family:${esc(v)}"${v === current ? ' selected' : ''}>${esc(l)}</option>`;

@@ -113,7 +113,7 @@ export async function loadVars() {
         updateCounts();
         const inp = 'padding:.25rem;background:var(--bg-inset);border:1px solid var(--border);border-radius:6px;color:var(--text)';
         varsEl.innerHTML = variables.length ? variables.map(v => {
-            const head = `<b>${esc(v.name)}</b> <span class="meta">${v.type === 'counter' ? 'number' : v.type} · {{var.${esc(v.name)}}}</span>`;
+            const head = `<b>${esc(window.OverlayShared.variableKey(v))}</b> <span class="meta">${v.type === 'counter' ? 'number' : v.type} · {{var.${esc(window.OverlayShared.variableKey(v))}}}</span>`;
             let body = '';
             if (v.type === 'number' || v.type === 'counter') body = `<span>${esc(v.value)}</span><button type="button" class="btn small" data-v="edit-number">Edit</button>`;
             else if (v.type === 'text') body = `<input data-v="value" value="${esc(v.value)}" style="width:14rem;${inp}">`;

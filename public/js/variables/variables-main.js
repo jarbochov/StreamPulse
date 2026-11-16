@@ -101,7 +101,7 @@ export function renderVars() {
     }
     container.innerHTML = filtered.length ? `<div class="variable-table-heading"><span>Variable</span><span>Type</span><span>Value</span></div>` + filtered.map(variable =>
         `<div class="var-row variable-studio-row${variableInspector?.selected() === variable.name ? ' is-selected' : ''}" data-n="${esc(variable.name)}" data-type="${esc(variable.type)}">
-            <button type="button" class="variable-name" data-select-variable="${esc(variable.name)}"${variable.setId ? '' : ` draggable="true" data-drag-variable="${esc(variable.name)}"`} title="Open variable inspector${variable.setId ? '' : '; drag to a group'}">${esc(variable.name)}${variable.group && !q.hasGroup ? `<small>${esc(variable.group)}</small>` : ''}</button>
+            <button type="button" class="variable-name" data-select-variable="${esc(variable.name)}"${variable.setId ? '' : ` draggable="true" data-drag-variable="${esc(variable.name)}"`} title="Open variable inspector${variable.setId ? '' : '; drag to a group'}">${esc(S.variableKey(variable))}${variable.group && !q.hasGroup ? `<small>${esc(variable.group)}</small>` : ''}</button>
             <span class="variable-type">${esc(variable.type === 'counter' ? 'number' : variable.type === 'datetime' ? 'date & time' : variable.type)}</span>
             <div class="var-controls">${variable.type === 'toggle' ? renderVarControls(variable) : inlineValue(variable)}${['number', 'counter'].includes(variable.type) ? numberControls(variable) : variable.type === 'list' ? '<button type="button" class="b sm" data-act="roll">Next</button>' : ''}</div>
         </div>`).join('') : '<p class="muted">This group is empty. Drag a variable here or use Manage members.</p>';

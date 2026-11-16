@@ -659,13 +659,13 @@
                     method: 'GET', path: '/api/variables',
                     desc: 'List all custom variables and counters',
                     companion: true,
-                    details: 'Returns variables, groups (including empty groups), sets and variableSetsEnabled. Variables support number, text, list, image, toggle, color, template, font, date, time, datetime and duration. Legacy counter records remain supported. Temporal values are strings: date "2026-12-10", time "18:30", datetime "2026-12-10T18:30" (local, no timezone conversion), duration "45m" or "1:30:00" (static text, not a countdown). Create/update with PUT or POST /api/variables/:name and JSON { type: "date", value: "2026-12-10" }; a subsequent { value: "2026-12-11" } preserves type. GET /api/variables/:name returns { name, type, value, updatedAt, ... }; tokens such as {{var.show_date}} work in existing Text elements. Ordinary variables may have an organization-only group. Linked entries and Trackers belong to Variable Sets. Number values stay numeric; overlay formatting never changes them.'
+                    details: 'Returns {variables,groups,sets,variableSetsEnabled}. Records include name (stable API/storage identity), key (derived placeholder path), group?, type, value, updatedAt and type options. Example: {name:"accent",key:"theme.accent",group:"Theme",type:"color",value:"#38bdf8"}. Grouped tokens use {{var.theme.accent}}; no flat aliases or automatic rewrites. Ungrouped and set-generated tokens are unchanged. Types: number, counter, text, list, image, icon, toggle, color, template, font, date, time, datetime, duration. Temporal values stay local strings; Number values stay numeric. Pickers and bindings use key, but API actions use name. No query parameters. Example: create accent with PUT /api/variables/accent and {type:"color",group:"Theme",value:"#38bdf8"}, then insert {{var.theme.accent}} in an overlay color field. Companion labels show key; IDs remain var_accent.'
                 },
                 {
                     method: 'GET', path: '/api/variables/:name',
                     desc: 'Read a single variable or counter',
                     companion: true,
-                    details: 'Returns { name, type, value, initial?, items?, mode? } or 404 if not found. Append ?raw=1, ?plain=1, or ?format=text for plain text. Variable Set slots generate variables named <setId>_<slotNum>_<fieldKey> (e.g. hosts_1_name), <setId>_<slotNum>_slot_name, and <setId>_<slotNum>_active.'
+                    details: 'Returns { name, key, group?, type, value, updatedAt, initial?, items?, mode? } or 404. Use the unprefixed API name, e.g. /api/variables/accent even when key is theme.accent. Append ?raw=1, ?plain=1, or ?format=text for plain text. Set-generated names/keys and tokens stay unchanged: <setId>_<slotNum>_<fieldKey>, <setId>_<slotNum>_slot_name and <setId>_<slotNum>_active.'
                 },
                 {
                     method: 'PUT', path: '/api/variables/:name',
@@ -677,7 +677,7 @@
                 {
                     method: 'POST', path: '/api/variables/groups/manage',
                     desc: 'Create, rename or update a Variable Group',
-                    details: 'Body: name, variables (ordinary variable names), optional createOnly (reject existing groups), or originalName (rename/update an existing group). Empty membership creates or preserves an empty group. Selected variables move to the group; omitted current members become ungrouped. Variable names, values and bindings stay unchanged. Missing groups, duplicate names and invalid members reject the entire edit. Renaming requires bookmarked group links to use the new name.'
+                    details: 'POST JSON {name,variables:[API names],createOnly?} or {name,originalName,variables}. Example: {name:"Theme",variables:["accent"],createOnly:true}. Empty membership preserves an empty group; selected variables move in and omitted members become ungrouped. Success returns {group,variables,groups}; invalid edits return 400 {error} atomically. Namespaces lowercase names, remove common accents, replace space/punctuation runs with underscores, trim edges and limit to60 characters. Empty/duplicate namespaces and roots shadowing ungrouped/set variables are rejected. Values/API names stay unchanged, but derived key, placeholder and Number-binding paths change immediately. No aliases, rewrites or migration: update existing saved references and group bookmarks manually. GET is not supported as a mutation trigger.'
                 },
                 {
                     method: 'POST', path: '/api/variables/:name/increment',

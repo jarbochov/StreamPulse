@@ -588,7 +588,7 @@ const dummyVariablesPayload = {
         { name: 'coop_mode', type: 'toggle', value: true, group: 'Broadcast', description: 'Squad overlay active' },
         { name: 'team_accent', type: 'color', value: '#38bdf8', group: 'Theme', description: 'Primary broadcast accent' },
         { name: 'title_size', type: 'number', value: 48, resetValue: 48, min: 8, max: 120, step: 2, group: 'Theme' },
-        { name: 'scoreboard', type: 'template', value: '{{var.current_map}} | Retries: {{var.deaths}}', group: 'Broadcast', description: 'Formatted header ticker' }
+        { name: 'scoreboard', type: 'template', value: '{{var.broadcast.current_map}} | Retries: {{var.broadcast.deaths}}', group: 'Broadcast', description: 'Formatted header ticker' }
     ],
     sets: [
         {

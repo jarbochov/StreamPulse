@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { variableGroupKey } = require('../../shared/variable-paths.cjs');
 
 const normalizeGroup = value => String(value ?? '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 60);
 
@@ -15,6 +16,13 @@ module.exports = function createVariableGroups(dataDir) {
         saved = JSON.stringify([...names]);
     }
     reload();
+    function validate(name, previous = '') {
+        const key = variableGroupKey(name);
+        if (!key) throw new Error('Group names must include letters or numbers for their placeholder namespace');
+        if ([...names].some(group => group !== name && group !== previous && variableGroupKey(group) === key)) {
+            throw new Error(`Another group already uses the "${key}" placeholder namespace`);
+        }
+    }
     return {
         normalize: normalizeGroup,
         list: () => [...names],
@@ -23,6 +31,7 @@ module.exports = function createVariableGroups(dataDir) {
         add(value) {
             const name = normalizeGroup(value);
             if (!name) throw new Error('Group name is required');
+            validate(name);
             if (!names.has(name) && names.size >= 100) throw new Error('Too many Variable Groups');
             names.add(name);
             return name;
@@ -30,6 +39,7 @@ module.exports = function createVariableGroups(dataDir) {
         rename(previous, value) {
             const name = normalizeGroup(value);
             if (!name) throw new Error('Group name is required');
+            validate(name, previous);
             if (!names.has(previous)) throw new Error('Variable Group not found');
             if (previous !== name && names.has(name)) throw new Error('A group with this name already exists');
             names = new Set([...names].map(group => group === previous ? name : group));

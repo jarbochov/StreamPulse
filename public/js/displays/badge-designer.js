@@ -29,7 +29,7 @@ const TEMPLATE = "        <div class=\"tabs-nav ig-builder-tabs\" role=\"tablist
 function fontOptions(current) {
     const uploaded = (shared.assetFonts || []).map(font => [`'${font.family}', sans-serif`, font.family]);
     const variables = (state.liveStatus?.customVars || []).filter(v => v.type === 'font' && !v.hidden && !v.setId)
-        .map(v => [`{{var.${v.name}|sans-serif}}`, `${v.group ? `${v.group} / ` : ''}${v.name}`]);
+        .map(v => [`{{var.${shared.variableKey(v)}|sans-serif}}`, `${v.group ? `${v.group} / ` : ''}${v.name}`]);
     const known = [...SYSTEM_FONTS, ...GOOGLE_FONT_OPTIONS, ...uploaded, ...variables];
     const custom = known.some(([v]) => v === current) ? '' : `<option value="${esc(current)}" selected>${esc(String(current).split(',')[0].replace(/['"]/g, ''))} (custom)</option>`;
     const opt = ([v, l]) => `<option value="${esc(v)}" style="font-family:${esc(v)}"${v === current ? ' selected' : ''}>${esc(l)}</option>`;
@@ -644,8 +644,8 @@ function renderImageGroupFieldsModal() {
                 if (/^#[0-9a-f]{6}$/i.test(sample)) return sample;
             }
             if (raw.includes('{{var.')) {
-                const m = raw.match(/\{\{\s*var\.([a-z0-9_]+)\s*\}\}/i);
-                const cv = m && (state.liveStatus?.customVars || []).find(v => v.name === m[1]);
+                const m = raw.match(/\{\{\s*var\.([a-z0-9_.]+)\s*\}\}/i);
+                const cv = m && (state.liveStatus?.customVars || []).find(v => shared.variableKey(v) === m[1]);
                 if (cv && /^#[0-9a-f]{6}$/i.test(cv.value || '')) return cv.value;
             }
             return fallback;

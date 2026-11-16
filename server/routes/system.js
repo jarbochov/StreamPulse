@@ -4,6 +4,7 @@ const { execFile } = require('child_process');
 const { readRequestBody, sendJson, sendText, sendError } = require('./helpers');
 const { normalizeSsnSessionId } = require('../ssn-config');
 const { normalizeObsConfig } = require('../services/obs');
+const { variableKey } = require('../../shared/variable-paths.cjs');
 
 const EXT_LIMITS = { array: 50, string: 500, keys: 100, depth: 8 };
 function limitExternalValue(value, depth, flag) {
@@ -304,7 +305,7 @@ function createSystemRoutes({
                 }
             } else if (field.startsWith('counter_') || field.startsWith('var_')) {
                 const varName = field.replace(/^(counter|var)_/, '');
-                const item = (status.customVars || []).find(v => v.name.toLowerCase() === varName);
+                const item = (status.customVars || []).find(v => variableKey(v).toLowerCase() === varName);
                 val = item ? String(item.value ?? '') : '';
             } else if (status[field] !== undefined && typeof status[field] !== 'object') {
                 val = String(status[field]);

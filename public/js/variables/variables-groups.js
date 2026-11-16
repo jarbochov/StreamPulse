@@ -18,8 +18,8 @@ export function openGroupEditor(onSaved, name = '') {
     dialog.innerHTML = `<form>
         <h2>${name ? 'Manage group' : 'New Variable Group'}</h2>
         <label>Group name<input name="name" value="${esc(name)}" maxlength="60" required placeholder="e.g. Broadcast Theme"></label>
-        ${name ? '<p class="muted">Renaming preserves variable names, values and bindings. Bookmarked group links must use the new name.</p>' : ''}
-        <p class="muted">Select variables to include. Adding a variable moves it from its previous group; unchecking removes it from this group. Values and placeholders stay unchanged.</p>
+        <p class="muted">Grouped placeholders use {{var.group_name.variable_name}}. Renaming a group or moving members changes their paths. Update existing placeholders and Number bindings yourself; old paths are not retained. Values and API names stay unchanged.</p>
+        <p class="muted">Select variables to include. Adding a variable moves it from its previous group; unchecking removes it from this group.</p>
         <input type="search" aria-label="Search variables" placeholder="Search variables…">
         <div class="variable-group-members">${variables.map(v => `<label data-search="${esc(`${v.name} ${v.type} ${v.group || ''}`.toLowerCase())}">
             <input type="checkbox" name="member" value="${esc(v.name)}"${name && v.group === name ? ' checked' : ''}>

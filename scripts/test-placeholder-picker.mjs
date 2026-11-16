@@ -34,7 +34,9 @@ try {
     await page.evaluate(() => {
         window.fixtureStatus = { weather: { enabled: true, extras: { harbor: { ok: true, city: 'Harbor' } } }, customVars: [
             { name: 'schedule_1_count', type: 'number', setId: 'schedule', value: '5' },
-            { name: 'logo', type: 'image', value: '/fictional-logo.svg' },
+            { name: 'logo', type: 'image', group: 'Theme', value: '/fictional-logo.svg' },
+            { name: 'accent', type: 'color', group: 'Theme', value: '#123456' },
+            { name: 'size', type: 'number', group: 'Theme', value: 42 },
             { name: 'image_named_text', type: 'text', value: '/not-an-image-variable.png' },
             { name: 'hidden_logo', type: 'image', hidden: true, value: '/hidden.svg' }
         ], variableSets: [
@@ -65,11 +67,13 @@ try {
         window.PlaceholderPicker.open({ filter: 'color', getStatus: () => window.fixtureStatus, onPick() {} });
     });
     assert.ok(await page.$('#sp-list [data-token="var.schedule_1_player.field.color"]'));
+    assert.ok(await page.$('#sp-list [data-token="var.theme.accent"]'));
+    assert.equal(await page.$('#sp-list [data-token="var.accent"]'), null);
     assert.equal(await page.$eval('#sp-list [data-token="var.schedule_2_player.field.color"] .preview', el => el.textContent.trim()), 'Unassigned');
     assert.equal(await page.evaluate(() => window.nativeBefore === document.querySelector('#native')), true);
     await page.click('#sp-close');
     await page.evaluate(() => window.PlaceholderPicker.open({ filter: 'image', getStatus: () => window.fixtureStatus, onPick() {} }));
-    for (const token of ['game.cover', 'music.cover', 'tier_list.item_image', 'weather.icon.url', 'weather.h1.icon.url', 'weather.harbor.d1.icon.url', 'var.logo', 'var.schedule_1_player.field.avatar']) {
+    for (const token of ['game.cover', 'music.cover', 'tier_list.item_image', 'weather.icon.url', 'weather.h1.icon.url', 'weather.harbor.d1.icon.url', 'var.theme.logo', 'var.schedule_1_player.field.avatar']) {
         assert.ok(await page.$(`#sp-list [data-token="${token}"]`), `image picker offers ${token}`);
     }
     for (const token of ['stream.title', 'now', 'weather.icon', 'var.image_named_text', 'var.hidden_logo', 'var.schedule_1_count', 'var.schedule_1_player.field.name', 'var.schedule_1_player.field.color', 'var.schedule_1_items.field.avatar']) {
@@ -86,6 +90,8 @@ try {
     await page.click('#sp-close');
     await page.evaluate(() => window.PlaceholderPicker.open({ filter: 'number', getStatus: () => window.fixtureStatus, onPick() {} }));
     assert.ok(await page.$('#sp-list [data-token="var.schedule_1_count"]'));
+    assert.ok(await page.$('#sp-list [data-token="var.theme.size"]'));
+    assert.equal(await page.$('#sp-list [data-token="var.size"]'), null, 'number bindings do not offer old flat grouped paths');
     assert.equal(await page.$('#sp-list [data-token="var.schedule_1_player.field.score"]'), null, 'unsupported numeric bindings are not offered');
     assert.equal(await page.$('#sp-list [data-token="var.schedule_1_player.field.color"]'), null);
     await page.click('#sp-close');

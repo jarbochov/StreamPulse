@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { isDeepStrictEqual } = require('node:util');
+const { variableKey, variableGroupKey } = require('../../shared/variable-paths.cjs');
 
 const NAME_RE = /^[a-z0-9_]{1,40}$/;
 const VALID_TYPES = ['counter', 'number', 'text', 'list', 'image', 'icon', 'toggle', 'color', 'template', 'font', 'date', 'time', 'datetime', 'duration'];
@@ -43,7 +44,7 @@ function resolveSetFieldValue(field, entry) {
 const ROTATION_TRANSITIONS = ['none', 'fade', 'slide-up', 'flip'];
 const MAX_USER_VARS = 500;
 const MAX_SET_VARS = 25000;
-const TEMPLATE_RE = /\{\{\s*var\.([a-z0-9_]+)\s*(?:\|([^{}]*?))?\s*\}\}/gi;
+const TEMPLATE_RE = /\{\{\s*var\.([a-z0-9_.]+)\s*(?:\|([^{}]*?))?\s*\}\}/gi;
 
 function sanitizeIcon(raw) {
     const cls = String(raw || '').trim()
@@ -77,6 +78,7 @@ module.exports = function createVariables({ dataDir, onChange = null, getDepende
     }
 
     function save() {
+        validateNamespaces();
         variableGroups.save();
         fs.mkdirSync(dataDir, { recursive: true });
         fs.writeFileSync(`${file}.tmp`, JSON.stringify(vars, null, 2));
@@ -85,6 +87,7 @@ module.exports = function createVariables({ dataDir, onChange = null, getDepende
     }
 
     function saveSets({ saveVarsAlso = false } = {}) {
+        validateNamespaces();
         variableGroups.save();
         fs.mkdirSync(dataDir, { recursive: true });
         fs.writeFileSync(`${setsFile}.tmp`, JSON.stringify(sets, null, 2));
@@ -98,30 +101,41 @@ module.exports = function createVariables({ dataDir, onChange = null, getDepende
 
     const normName = name => String(name || '').toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 40);
     const normSetId = id => String(id || '').toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/^_+|_+$/g, '').slice(0, 24);
-    const list = () => Object.entries(vars).map(([name, v]) => ({ name, ...v }));
+    const list = () => Object.entries(vars).map(([name, v]) => ({ name, ...v, key: variableKey({ name, ...v }) }));
     const listSets = () => Object.entries(sets).map(([id, s]) => ({ id, ...s }));
     const listGroups = () => [...new Set([...variableGroups.list(), ...list().filter(v => !v.setId && !v.hidden && v.group).map(v => v.group)])];
 
-    // Flat map for placeholders: {{var.name}}. Templates may reference other templates in any order (depth 3, cycles resolve empty).
+    function validateNamespaces(candidateName, candidate) {
+        for (const group of new Set([...variableGroups.list(), candidate?.group].filter(Boolean))) {
+            const key = variableGroupKey(group);
+            const record = key === candidateName ? candidate : vars[key];
+            if (record && variableKey({ name: key, ...record }) === key) {
+                throw new Error(`Group namespace "${key}" conflicts with an ungrouped or set-managed variable of that name`);
+            }
+        }
+    }
+
+    // Group-qualified keys are derived; names remain the stable API/storage identity.
     function values() {
-        const out = Object.fromEntries(Object.entries(vars).map(([name, v]) => [name, v.value]));
+        const records = new Map(list().map(v => [v.key, v]));
+        const out = Object.fromEntries([...records].map(([key, v]) => [key, v.value]));
         const resolving = new Set();
         const resolved = new Map();
         const resolve = (name, depth) => {
-            const v = vars[name];
+            const v = records.get(name);
             if (v?.type !== 'template') return out[name];
             if (resolved.has(name)) return resolved.get(name);
             if (depth > 3 || resolving.has(name)) return '';
             resolving.add(name);
             const text = String(v.value ?? '').replace(TEMPLATE_RE, (_m, ref, fallback) => {
-                const val = resolve(normName(ref), depth + 1);
+                const val = resolve(ref.toLowerCase(), depth + 1);
                 return (val !== undefined && val !== null && String(val) !== '') ? String(val) : (fallback !== undefined ? fallback.trim() : '');
             });
             resolving.delete(name);
             resolved.set(name, text);
             return text;
         };
-        for (const name of Object.keys(vars)) if (vars[name]?.type === 'template') out[name] = resolve(name, 0);
+        for (const [key, v] of records) if (v.type === 'template') out[key] = resolve(key, 0);
         return out;
     }
 
@@ -146,6 +160,7 @@ module.exports = function createVariables({ dataDir, onChange = null, getDepende
         const setId = patch.setId !== undefined ? (normSetId(patch.setId) || undefined) : cur?.setId;
         const isHidden = patch.hidden !== undefined ? Boolean(patch.hidden) : Boolean(cur?.hidden);
         const group = setId || isHidden ? '' : variableGroups.normalize(patch.group ?? cur?.group ?? '');
+        if (persist) validateNamespaces(name, { group, setId, hidden: isHidden });
         const icon = sanitizeIcon(patch.icon !== undefined ? patch.icon : cur?.icon);
         const number = type === 'number' ? normalizeNumber(patch, cur?.type === 'number' || cur?.type === 'counter' ? cur : {}) : null;
         if (!cur) {
@@ -161,7 +176,7 @@ module.exports = function createVariables({ dataDir, onChange = null, getDepende
             if (!items.includes(value)) value = items[0] || '';
             vars[name] = { type, items, mode, value, ...(setId ? { setId } : {}), ...(group ? { group } : {}), ...(icon ? { icon } : {}), ...(isHidden ? { hidden: true } : {}), updatedAt: Date.now() };
             if (persist) save();
-            return { name, ...vars[name] };
+            return { name, ...vars[name], key: variableKey({ name, ...vars[name] }) };
         }
         let value = patch.value ?? cur?.value ?? (type === 'counter' ? 0 : type === 'toggle' ? 'false' : type === 'color' ? '#3b82f6' : '');
         if (type === 'counter') {
@@ -188,7 +203,7 @@ module.exports = function createVariables({ dataDir, onChange = null, getDepende
             updatedAt: Date.now()
         };
         if (persist) save();
-        return { name, ...vars[name] };
+        return { name, ...vars[name], key: variableKey({ name, ...vars[name] }) };
     }
 
     function set(name, patch) {
@@ -1462,7 +1477,7 @@ module.exports = function createVariables({ dataDir, onChange = null, getDepende
                     res.end(v ? String(v.value ?? '') : '');
                     return true;
                 }
-                return json(v ? 200 : 404, v ? { name: normName(name), ...v } : { error: 'Not found' }), true;
+                return json(v ? 200 : 404, v ? { name: normName(name), ...v, key: variableKey({ name: normName(name), ...v }) } : { error: 'Not found' }), true;
             }
         } catch (err) {
             return json(err.status || 400, { error: err.message, ...(err.code ? { code: err.code } : {}),

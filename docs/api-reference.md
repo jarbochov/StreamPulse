@@ -947,6 +947,23 @@ Manage global Custom Variables (`counter`, `number`, `text`, `list`, `image`, `t
 
 ### Global Variables
 
+Ordinary grouped variables use `{{var.<group_namespace>.<name>}}`: **Theme / accent** is `{{var.theme.accent}}`. Read/create/update responses include `name` (unchanged globally unique API/storage identity), `key` (derived placeholder path), `group`, `type`, `value`, `updatedAt` and type-specific metadata. Use `/api/variables/accent`, not `/api/variables/theme.accent`, for all value actions.
+
+```sh
+curl -X PUT http://localhost:3000/api/variables/accent \
+  -H 'Content-Type: application/json' \
+  -d '{"type":"color","group":"Theme","value":"#38bdf8"}'
+curl http://localhost:3000/api/variables/accent
+```
+
+The record includes `{"name":"accent","key":"theme.accent","group":"Theme","type":"color","value":"#38bdf8",...}`. Text/image/color/font/template fields insert the full `{{var.theme.accent}}` token; Number style bindings store `theme.size` without `var.`. Use the typed picker rather than hand-entering paths. Companion uses qualified labels but retains `$(streampulse:var_accent)` IDs and API-name actions.
+
+Namespaces lowercase group names, remove common accent marks, replace space/punctuation runs with underscores, trim edge underscores and limit to 60 characters. Empty or duplicate normalized namespaces and collisions with ungrouped/set-generated roots fail with HTTP 400 `{error}`. Names remain globally unique, including across groups.
+
+Group management is **POST only**, body `{"name":"Theme","variables":["accent"],"createOnly":true}` for a new group or `{"name":"Broadcast Theme","originalName":"Theme","variables":["accent"]}` for rename. `variables` contains API names: selected members move in and omitted members become ungrouped. Success returns `{group,variables,groups}`; invalid names/members/namespaces return HTTP 400 `{error}` without partial changes.
+
+**Breaking:** moving a variable or renaming its group changes `key` immediately. Old grouped flat tokens and old group paths no longer resolve; no aliases, automatic rewrites or migration are provided. Update saved overlay/template/chat references and Number bindings manually. Numeric bindings fall back to their saved static value when unresolved. Values, API names, ungrouped tokens and Variable Set paths remain unchanged.
+
 | Endpoint | Methods | Description |
 | --- | --- | --- |
 | `/api/variables` | `GET` | Return `{ variables, groups, sets, variableSetsEnabled }` |

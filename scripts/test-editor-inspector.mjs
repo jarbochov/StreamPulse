@@ -928,12 +928,12 @@ try {
             { name: 'theme_font', type: 'font', value: 'serif', group: 'Theme' },
             { name: 'badge_font', type: 'font', value: 'monospace' }
         ];
-        stripImg.style.fontFamily = '{{var.theme_font}}';
+        stripImg.style.fontFamily = '{{var.theme.theme_font}}';
         stripImg.imageGroup.badgeFontFamily = '{{var.badge_font}}';
         stripImg.imageGroup.fields[0].fontFamily = 'system-ui';
         renderProperties();
         canvas.renderCanvas();
-        const fontVariableOption = Boolean(document.querySelector('option[value="{{var.theme_font|sans-serif}}"]'));
+        const fontVariableOption = Boolean(document.querySelector('option[value="{{var.theme.theme_font|sans-serif}}"]'));
         const fonts = [...state.nodes.get('strip-img').querySelectorAll('.sp-image-group-card')[0].querySelectorAll('.sp-image-group-field')].map(n => n.style.fontFamily);
         stripImg.imageGroup.fields[0].fontFamily = '';
         canvas.renderCanvas();
@@ -1009,7 +1009,7 @@ try {
     assert.deepEqual(imageChecks.fonts.slice(0, 2), ['system-ui', 'monospace'], 'Field overrides take precedence over role and base font bindings');
     assert.equal(imageChecks.inheritedFont, 'serif', 'Unset field font inherits the bound base font');
     assert.equal(imageChecks.updatedFont, 'monospace', 'Variable changes update inherited fonts live');
-    assert.equal(imageChecks.savedFontToken, '{{var.theme_font}}', 'Preview resolution never overwrites saved bindings');
+    assert.equal(imageChecks.savedFontToken, '{{var.theme.theme_font}}', 'Preview resolution never overwrites saved bindings');
     assert.deepEqual(imageChecks.textOnlyControls, { primaryField: false, missingImage: false, primaryStyle: false, labels: 3 }, 'Text-only stacks include members without images and hide primary image controls');
     assert.equal(await page.$('#ig-fields-dialog'), null, 'Badge Builder moved out of the Overlay Editor');
     assert.ok(await page.$('a[href="/variable-displays.html?id=fixture-badge"]'), 'Saved badge links to its shared design');

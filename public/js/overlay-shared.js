@@ -2652,9 +2652,25 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     }
   });
 
+  // shared/variable-paths.cjs
+  var require_variable_paths = __commonJS({
+    "shared/variable-paths.cjs"(exports, module) {
+      function variableGroupKey(group) {
+        return String(group || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 60);
+      }
+      function variableKey2(variable) {
+        const group = !variable.setId && !variable.hidden && variableGroupKey(variable.group);
+        return group ? `${group}.${variable.name}` : variable.name;
+      }
+      var isVariableKey = (key) => typeof key === "string" && /^(?:[a-z0-9_]{1,60}\.)?[a-z0-9_]{1,40}$/.test(key);
+      module.exports = { variableGroupKey, variableKey: variableKey2, isVariableKey };
+    }
+  });
+
   // shared/numeric-bindings.cjs
   var require_numeric_bindings = __commonJS({
     "shared/numeric-bindings.cjs"(exports, module) {
+      var { variableKey: variableKey2, isVariableKey } = require_variable_paths();
       var style = {
         fontSize: [8, 400],
         borderWidth: [0, 40],
@@ -2718,7 +2734,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         const out = {};
         if (!bindings || typeof bindings !== "object" || Array.isArray(bindings)) return out;
         for (const [key, name] of Object.entries(bindings)) {
-          if (Object.hasOwn(domains[domain] || {}, key) && typeof name === "string" && /^[a-z0-9_]{1,40}$/.test(name)) out[key] = name;
+          if (Object.hasOwn(domains[domain] || {}, key) && isVariableKey(name)) out[key] = name;
         }
         return out;
       }
@@ -2729,7 +2745,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         if (!Array.isArray(vars)) return config;
         let lookup = variableMaps.get(vars);
         if (!lookup) {
-          lookup = new Map(vars.map((variable) => [variable.name, variable]));
+          lookup = new Map(vars.map((variable) => [variableKey2(variable), variable]));
           variableMaps.set(vars, lookup);
         }
         let out = config;
@@ -3654,9 +3670,10 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     for (const v of customVars) {
       const label = v.group && !v.setId ? `Variables: ${v.group}` : "Variables and counters";
       if (!customGroups.has(label)) customGroups.set(label, []);
-      customGroups.get(label).push([`var.${v.name}`, `${v.name} (${v.type})`, { type: v.type, preview: v.value, search: v.group || "" }]);
-      if (v.type === "list") customGroups.get(label).push([`var.${v.name}.random`, `${v.name}, random item each time`]);
-      if (v.icon) customGroups.get(label).push([`var.${v.name}.icon`, `${v.name} icon (${v.icon})`]);
+      const key = variableKey(v);
+      customGroups.get(label).push([`var.${key}`, `${v.group ? `${v.group} / ` : ""}${v.name} (${v.type})`, { type: v.type, preview: v.value, search: v.group || "" }]);
+      if (v.type === "list") customGroups.get(label).push([`var.${key}.random`, `${v.name}, random item each time`]);
+      if (v.icon) customGroups.get(label).push([`var.${key}.icon`, `${v.name} icon (${v.icon})`]);
     }
     for (const [label, items] of customGroups) groups.push({ label, items });
     if (setsEnabled) groups.push(...linkedPlaceholders(status).groups);
@@ -3986,7 +4003,8 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     for (const list of status.gamePlan?.lists || []) lists[`plan.list.${list.id}`] = planItems.filter((item) => inPlanList(item, list.id)).map((item) => item.name);
     Object.assign(lists, linked.lists);
     Object.defineProperty(table, "__lists", { value: lists, enumerable: false });
-    Object.defineProperty(table, "__types", { value: linked.types, enumerable: false });
+    const types = Object.fromEntries((status.customVars || []).filter((v) => !v.setId).map((v) => [`var.${variableKey(v)}`, v.type]));
+    Object.defineProperty(table, "__types", { value: { ...types, ...linked.types }, enumerable: false });
     return table;
   }
   function formatDate(date, format) {
@@ -4075,14 +4093,14 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       const field = match && (sets.get(v.setId)?.fields || []).find((f) => f.key === match[1]);
       return Boolean(field && !["ref", "ref_list", "checklist"].includes(field.type));
     };
-    const entries = { ...Object.fromEntries(vars.filter(safeMaterialized).map((v) => [`var.${v.name}`, v.value])), ...linked.values };
+    const entries = { ...Object.fromEntries(vars.filter(safeMaterialized).map((v) => [`var.${variableKey(v)}`, v.value])), ...linked.values };
     for (const v of vars) {
       if (v.type === "list" && v.items?.length) {
-        entries[`var.${v.name}.random`] = v.items[Math.floor(Math.random() * v.items.length)];
+        entries[`var.${variableKey(v)}.random`] = v.items[Math.floor(Math.random() * v.items.length)];
       }
-      if (v.icon) entries[`var.${v.name}.icon`] = v.icon;
+      if (v.icon) entries[`var.${variableKey(v)}.icon`] = v.icon;
     }
-    const templates = new Map(vars.filter((v) => v.type === "template" && !v.setId).map((v) => [`var.${v.name}`, String(v.value ?? "")]));
+    const templates = new Map(vars.filter((v) => v.type === "template" && !v.setId).map((v) => [`var.${variableKey(v)}`, String(v.value ?? "")]));
     for (const [key, type] of Object.entries(linked.types)) if (type === "template") templates.set(key, String(linked.values[key] ?? ""));
     const done = /* @__PURE__ */ new Map();
     const resolving = /* @__PURE__ */ new Set();
@@ -4102,7 +4120,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           const setVar = (status.customVars || []).some((v) => v.setId && (ref === v.name || ref.startsWith(`${v.name}.`)));
           return setVar && !linked.types[refKey] && isListFormat(format) ? "" : format;
         }
-        const type = linked.types[refKey] || vars.find((v) => `var.${v.name}` === refKey)?.type;
+        const type = linked.types[refKey] || vars.find((v) => `var.${variableKey(v)}` === refKey)?.type;
         if (["number", "counter"].includes(type)) return formatNumberVariable(val, format) ?? str;
         return String(applyFormat(refKey, val, format, now));
       });
@@ -4140,11 +4158,11 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     const now = Date.now();
     const table = variableTable(status, context, now);
     const enabledVars = (status.customVars || []).filter((v) => status.modules?.variableSets !== false || !v.setId);
-    const tplMap = new Map(enabledVars.filter((v) => v.type === "template" && !v.setId).map((v) => [`var.${v.name}`, v.value]));
-    for (const [key, type] of Object.entries(table.__types)) if (type === "template") tplMap.set(key, table[key]);
-    const numberNames = new Set(enabledVars.filter((v) => v.type === "number" || v.type === "counter").map((v) => `var.${v.name}`));
+    const tplMap = new Map(enabledVars.filter((v) => v.type === "template" && !v.setId).map((v) => [`var.${variableKey(v)}`, v.value]));
+    for (const [key, type] of Object.entries(table.__types)) if (type === "template" && !tplMap.has(key)) tplMap.set(key, table[key]);
+    const numberNames = new Set(enabledVars.filter((v) => v.type === "number" || v.type === "counter").map((v) => `var.${variableKey(v)}`));
     return String(value ?? "").replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*(?:\|([^{}]*?))?\s*\}\}/g, (match, name, format) => {
-      if (name.startsWith("var.") && name.endsWith(".icon")) {
+      if (name.startsWith("var.") && name.endsWith(".icon") && !table.__types[name]) {
         const iconCls = String(table[name] || "").trim();
         if (iconCls) return context?.inlineIcons ? `{{icon:${iconCls}}}` : iconCls;
         if (format !== void 0) {
@@ -4300,12 +4318,14 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     }
     return out;
   }
-  var import_numeric_bindings2, VARIABLE_GROUPS, CLOCK_ITEMS, GAME_ITEMS, WEATHER_ITEMS, PLAN_ITEMS, EVENT_ITEMS, MILESTONE_ITEMS, MATCHUP_ITEMS, TOURNAMENT_ITEMS, TRIVIA_ITEMS, TIER_LIST_ITEMS, SUBATHON_ITEMS, TICKING, isTicking, hasTicking, inPlanList, LIST_FORMAT_PRESETS, FORMAT_PRESETS, isDateKey, ordinal, isListFormat, isListKey, numberFormatters, pendingSets, retrySetsAt;
+  var import_numeric_bindings2, import_variable_paths, variableKey, VARIABLE_GROUPS, CLOCK_ITEMS, GAME_ITEMS, WEATHER_ITEMS, PLAN_ITEMS, EVENT_ITEMS, MILESTONE_ITEMS, MATCHUP_ITEMS, TOURNAMENT_ITEMS, TRIVIA_ITEMS, TIER_LIST_ITEMS, SUBATHON_ITEMS, TICKING, isTicking, hasTicking, inPlanList, LIST_FORMAT_PRESETS, FORMAT_PRESETS, isDateKey, ordinal, isListFormat, isListKey, numberFormatters, pendingSets, retrySetsAt;
   var init_variables = __esm({
     "public/js/overlay/variables.js"() {
       import_numeric_bindings2 = __toESM(require_numeric_bindings());
+      import_variable_paths = __toESM(require_variable_paths());
       init_displays();
       init_linked_placeholders();
+      ({ variableKey } = import_variable_paths.default);
       VARIABLE_GROUPS = [
         { label: "Viewers", items: [["viewers.current", "Current viewers"], ["viewers.peak", "Peak viewers"], ["viewers.average", "Average viewers"]] },
         { label: "Chat", items: [["chatters", "Chatters"], ["messages", "Messages"], ["followers", "Followers (current total)"], ["followers.session", "New followers this session"], ["subscribers", "Subscribers (current total)"], ["subscribers.session", "Subscribers seen this session"], ["emotes", "Different emotes used this session"], ["raids", "Raids this session"], ["highlights", "Saved highlights"], ["clips.pending", "Clip candidates waiting"]] },
@@ -9259,6 +9279,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       var import_variable_links4 = __toESM(require_variable_links());
       var import_variable_displays2 = __toESM(require_variable_displays());
       var import_display_table4 = __toESM(require_display_table());
+      var import_variable_paths2 = __toESM(require_variable_paths());
       init_displays();
       root.OverlayShared = Object.assign(root.OverlayShared || {}, { cleanupMedia, cleanupNode, alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, TEXT_ANIM_TYPES, applyBorderGradient, applyTextAnimation, resolveBorderRadius, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, pruneSourceCaches, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, playSoundValue, resolveSoundUrl, zzfxSamples, BUILTIN_SOUNDS, renderGameList, renderSpeakerBadge, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, mountPattern, mountTextCycle, resolveCycleLines, createVarRotationEngine, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, resolveColorToken, resolveStyleVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, renderImageGroupStrip, applyMediaFilter: root.OverlayFilters?.applyMediaFilter || applyMediaFilter, shadowClipStyle });
       root.OverlayShared.borderPlacement = borderPlacement;
@@ -9267,6 +9288,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       Object.assign(root.OverlayShared, import_variable_links4.default);
       Object.assign(root.OverlayShared, import_variable_displays2.default, { renderVariableDisplay, setDisplayLibrary });
       Object.assign(root.OverlayShared, import_display_table4.default);
+      Object.assign(root.OverlayShared, { variableKey: import_variable_paths2.default.variableKey });
       Object.defineProperty(root.OverlayShared, Symbol.for("StreamPulse.OverlayShared"), { value: true });
     }
   });

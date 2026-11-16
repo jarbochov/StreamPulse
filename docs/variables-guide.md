@@ -34,6 +34,26 @@ These temporal types are available both here and in Variable Sets. Create one fr
 
 ### Using Variables in Overlays & Alerts
 
+#### Group-qualified paths
+
+Ordinary grouped variables use `{{var.<group_namespace>.<name>}}`. For example, `accent` in **Theme** becomes `{{var.theme.accent}}`; **Broadcast Theme** becomes `broadcast_theme`. Namespaces lowercase the group name, remove common accent marks, replace runs of spaces/punctuation with underscores, trim edge underscores and limit the result to 60 characters. Group namespaces must contain ASCII letters/numbers/underscores, cannot be empty or duplicate another group's namespace, and cannot shadow an ungrouped or set-generated variable root. Variable names remain globally unique.
+
+The Variables list, inspector, reference and all typed placeholder pickers show the qualified path and search its group/name. Image, Color and Font bindings use that same token; Number bindings store `theme.size` without `var.`. List random and icon suffixes follow the path: `{{var.theme.topic.random}}`, `{{var.theme.accent.icon}}`. Templates can reference grouped paths.
+
+**Breaking change:** grouped variables no longer expose `{{var.accent}}`. Moving a variable or renaming its group changes its path immediately, with no aliases, automatic reference rewrites or migration. Update saved overlay text, image/color/font tokens, templates, chat messages and Number bindings yourself. Existing values are not changed. Ungrouped `{{var.name}}` and Variable Set tokens are unchanged.
+
+API records expose `name` (unchanged storage/control identity) and `key` (derived placeholder path). For example:
+
+```json
+{ "name": "accent", "key": "theme.accent", "group": "Theme", "type": "color", "value": "#38bdf8" }
+```
+
+1. Create **Theme** through **New Group**, then create a Color variable with API name `accent` in that group.
+2. Select it in an overlay's color placeholder picker to insert `{{var.theme.accent}}`; use the image/font/Number pickers for their respective types. OBS overlay URLs do not change.
+3. Use `PUT` or `POST /api/variables/accent` with JSON `{"value":"#a78bfa"}` (or `GET /api/variables/accent?plain=1` to read it). Never put the group prefix in this API name.
+4. Manage group membership/renaming with `POST /api/variables/groups/manage`, e.g. `{"name":"Theme","variables":["accent"],"createOnly":true}` for creation or `{"name":"New Theme","originalName":"Theme","variables":["accent"]}` for rename. GET is not a group-mutation trigger. Success returns `{group,variables,groups}`; invalid names, namespace collisions or members return HTTP 400 `{error}` without a partial group edit.
+5. In Companion, select the variable whose label shows `theme.accent`; its module ID remains `$(streampulse:var_accent)` and actions take `accent`. Generic placeholder lookup uses `var.theme.accent`. After a move/rename, manually update any StreamPulse placeholder references.
+
 Insert any variable into a **Text** element, **Image** URL, or **Color** field using double curly braces:
 
 ```text

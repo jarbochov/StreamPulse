@@ -1,6 +1,7 @@
 // Shared {{placeholder}} chooser used by the overlay editor and the chat bot page.
 // PlaceholderPicker.open({ getStatus, getContext, onPick(token), extraGroups?, extraValues? })
 (function (root) {
+    const variableKey = variable => root.OverlayShared.variableKey(variable);
     const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
     const matches = (query, text) => query.split(/\s+/).every(term => text.toLowerCase().includes(term));
     let dialog = null, options = null;
@@ -81,9 +82,9 @@
             groups.push({
                 label: 'Global Color Variables',
                 items: customColorVars.map(v => ({
-                    key: `var.${v.name}`,
-                    label: v.label || v.name,
-                    preview: v.value || table[`var.${v.name}`] || ''
+                    key: `var.${variableKey(v)}`,
+                    label: v.group ? `${v.group} / ${v.name}` : v.label || v.name,
+                    preview: v.value || table[`var.${variableKey(v)}`] || ''
                 }))
             });
         }
@@ -105,8 +106,8 @@
         const imageMode = options.filter === 'image';
         if (options.filter === 'number') {
             const vars = (status.customVars || []).filter(v => !v.hidden && !v.setId && ['number', 'counter'].includes(v.type));
-            const bindable = new Set((status.customVars || []).filter(v => !v.hidden && ['number', 'counter'].includes(v.type)).map(v => `var.${v.name}`));
-            const groups = [{ label: 'Custom Numbers', items: vars.map(v => [`var.${v.name}`, v.name, { preview: v.value, search: v.group }]) },
+            const bindable = new Set((status.customVars || []).filter(v => !v.hidden && ['number', 'counter'].includes(v.type)).map(v => `var.${variableKey(v)}`));
+            const groups = [{ label: 'Custom Numbers', items: vars.map(v => [`var.${variableKey(v)}`, v.group ? `${v.group} / ${v.name}` : v.name, { preview: v.value, search: v.group }]) },
                 ...shared.variableGroups(status).map(group => ({ ...group, items: group.items.filter(([key, , meta]) => bindable.has(key) && ['number', 'counter'].includes(meta?.type) && !meta.list) }))];
             dialog.querySelector('#sp-list').innerHTML = groups.map(group => {
                 const items = group.items.filter(([key, label, meta]) => !query || matches(query, `${group.label} ${key} ${label} ${meta.preview ?? ''} ${meta.search || ''}`));
@@ -179,7 +180,7 @@
                 const value = dated ? shared.applyFormat(key, table[key], format, Date.now(), table) : table[key];
                 const preview = value === undefined || value === null || value === '' ? meta?.state || 'Empty' : String(value);
                 const token = dated ? `${key}|${format}` : key;
-                const numeric = !listed && ((status.customVars || []).find(v => `var.${v.name}` === key && ['number', 'counter'].includes(v.type)) || (['number', 'counter'].includes(meta?.type) ? meta : null));
+                const numeric = !listed && ((status.customVars || []).find(v => `var.${variableKey(v)}` === key && ['number', 'counter'].includes(v.type)) || (['number', 'counter'].includes(meta?.type) ? meta : null));
                 const numberOptions = numeric ? `<details class="sp-number-format"><summary>Number formatting</summary><div class="sp-number-fields">
                     <label>Decimal places<select name="digits">${Array.from({ length: 13 }, (_, i) => `<option value="${i}"${i === (numeric.precision ?? 0) ? ' selected' : ''}>${i}</option>`).join('')}</select></label>
                     <label>Separators<select name="separator"><option value="comma">1,234.56</option><option value="period">1.234,56</option><option value="space">1 234.56</option><option value="none">1234.56</option></select></label>

@@ -1,3 +1,4 @@
+const { variableKey, isVariableKey } = require('./variable-paths.cjs');
 const style = {
     fontSize: [8, 400], borderWidth: [0, 40], borderRadius: [0, 200],
     padding: [0, 200], opacity: [0, 100, 0.01], rotate: [-180, 180],
@@ -36,7 +37,7 @@ function normalizeNumericBindings(bindings, domain) {
     const out = {};
     if (!bindings || typeof bindings !== 'object' || Array.isArray(bindings)) return out;
     for (const [key, name] of Object.entries(bindings)) {
-        if (Object.hasOwn(domains[domain] || {}, key) && typeof name === 'string' && /^[a-z0-9_]{1,40}$/.test(name)) out[key] = name;
+        if (Object.hasOwn(domains[domain] || {}, key) && isVariableKey(name)) out[key] = name;
     }
     return out;
 }
@@ -47,7 +48,7 @@ function resolveNumericConfig(config, domain, status) {
     const vars = status?.customVars;
     if (!Array.isArray(vars)) return config;
     let lookup = variableMaps.get(vars);
-    if (!lookup) { lookup = new Map(vars.map(variable => [variable.name, variable])); variableMaps.set(vars, lookup); }
+    if (!lookup) { lookup = new Map(vars.map(variable => [variableKey(variable), variable])); variableMaps.set(vars, lookup); }
     let out = config;
     for (const [key, name] of Object.entries(config.numberBindings)) {
         const field = numericBindingField(`${domain}.${key}`);

@@ -26,7 +26,7 @@ test('Numbers: counter actions clamp, round, reset explicitly and preserve metad
     const store = createVariablesStore({ dataDir: dir });
     try {
         store.set('score', { type: 'number', value: 1.005, resetValue: 2, min: 0.07, max: 10, step: 0.25, precision: 2, group: 'Scores' });
-        assert.equal(store.values().score, 1.01);
+        assert.equal(store.values()['scores.score'], 1.01);
         assert.equal(store.change('score', 'increment').value, 1.26);
         assert.equal(store.change('score', 'decrement', 100).value, 0.07);
         assert.equal((await callApi(store, 'GET', '/api/variables/score/set?value=100')).json.value, 10);
@@ -110,7 +110,7 @@ test('Numbers: each placeholder formats independently without changing numeric v
     assert.equal(status.customVars[0].value, 1234.5);
 });
 
-test('Variable Groups: membership survives edits, export/import and restart without changing placeholders', async () => {
+test('Variable Groups: membership and qualified placeholders survive edits, export/import and restart', async () => {
     const dir = makeTmpDir();
     const otherDir = makeTmpDir();
     const store = createVariablesStore({ dataDir: dir });
@@ -125,21 +125,80 @@ test('Variable Groups: membership survives edits, export/import and restart with
         assert.equal(getVar(store, 'names').group, 'Broadcast Theme');
         const res = await callApi(imported, 'POST', '/api/variables/import', { version: 2, variables: store.list() });
         assert.equal(res.status, 200);
-        assert.equal(imported.values().titles, "'Montserrat', sans-serif");
-        assert.equal(OverlayShared.expandVariables('{{var.brand}}', { customVars: imported.list() }), '#123456');
+        assert.equal(imported.values()['broadcast_theme.titles'], "'Montserrat', sans-serif");
+        assert.equal(OverlayShared.expandVariables('{{var.broadcast_theme.brand}}', { customVars: imported.list() }), '#123456');
+        assert.equal(OverlayShared.expandVariables('{{var.brand}}', { customVars: imported.list() }), '', 'grouped variables do not keep flat aliases');
         imported.reload();
         assert.equal(getVar(imported, 'titles').group, 'Broadcast Theme');
         imported.set('titles', { group: '' });
         assert.equal(getVar(imported, 'titles').group, undefined);
         assert.equal(getVar(imported, 'titles').value, "'Montserrat', sans-serif");
         const groups = OverlayShared.variableGroups({ customVars: store.list() });
-        assert.ok(groups.find(g => g.label === 'Variables: Broadcast Theme').items.some(([key]) => key === 'var.titles'));
+        assert.ok(groups.find(g => g.label === 'Variables: Broadcast Theme').items.some(([key]) => key === 'var.broadcast_theme.titles'));
     } finally {
         store.dispose();
         imported.dispose();
         fs.rmSync(dir, { recursive: true, force: true });
         fs.rmSync(otherDir, { recursive: true, force: true });
     }
+});
+
+test('Grouped paths resolve typed values, templates and bindings; moves and renames discard old paths', async () => {
+    const dir = makeTmpDir();
+    const store = createVariablesStore({ dataDir: dir });
+    try {
+        store.set('accent', { type: 'color', group: 'Theme', value: '#123456', icon: 'fa-solid fa-star' });
+        store.set('size', { type: 'number', group: 'Theme', value: 42 });
+        store.set('heading', { type: 'font', group: 'Theme', value: 'monospace' });
+        store.set('logo', { type: 'image', group: 'Theme', value: '/fictional.svg' });
+        store.set('topic', { type: 'list', group: 'Theme', items: ['Only choice'] });
+        store.set('message', { type: 'template', group: 'Theme', value: '{{var.theme.size}} / {{var.theme.logo}}' });
+        store.set('outer', { type: 'template', value: '{{var.theme.message}}' });
+        const status = () => ({ customVars: store.list() });
+        assert.equal(getVar(store, 'accent').key, 'theme.accent');
+        assert.equal((await callApi(store, 'GET', '/api/variables/accent')).json.key, 'theme.accent');
+        assert.equal(store.values().outer, '42 / /fictional.svg');
+        assert.equal(OverlayShared.expandVariables('{{var.theme.message}}', status()), '42 / /fictional.svg');
+        assert.equal(OverlayShared.expandVariables('{{var.theme.topic.random}}', status()), 'Only choice');
+        assert.equal(OverlayShared.expandVariables('{{var.theme.accent.icon}}', status()), 'fa-solid fa-star');
+        assert.equal(OverlayShared.expandVariables('{{var.theme.size|number:1:none::}}', status()), '42.0');
+        assert.equal(OverlayShared.expandVariables('{{var.size|Missing}}', status()), 'Missing');
+        store.set('pending', { type: 'template', group: 'Theme', value: '{{var.theme.missing}}' });
+        assert.equal(OverlayShared.expandVariables('{{var.theme.pending}}', status(), {}, true), '{{var.theme.missing}}', 'unresolved template contents survive editor preview expansion');
+        const style = { color: '{{var.theme.accent}}', fontFamily: '{{var.theme.heading}}', fontSize: 16, numberBindings: { fontSize: 'theme.size' } };
+        const normalized = normalizeCustomOverlay({ id: 'fictional', elements: [{ id: 'label', type: 'text', style }] }).elements[0].style;
+        const resolved = OverlayShared.resolveStyleVariables(normalized, status());
+        assert.equal(resolved.fontSize, 42);
+        assert.equal(resolved.color, '#123456');
+        assert.equal(resolved.fontFamily, 'monospace');
+        store.manageGroup('New Theme', ['accent', 'size', 'heading', 'logo', 'topic', 'message'], { originalName: 'Theme' });
+        assert.equal(OverlayShared.expandVariables('{{var.theme.accent}}', status()), '');
+        assert.equal(OverlayShared.expandVariables('{{var.new_theme.accent}}', status()), '#123456');
+        assert.equal(OverlayShared.resolveStyleVariables(normalized, status()).fontSize, 16, 'old Number paths fall back instead of silently rebinding');
+        store.set('accent', { group: '' });
+        assert.equal(OverlayShared.expandVariables('{{var.new_theme.accent}}', status()), '');
+        assert.equal(OverlayShared.expandVariables('{{var.accent}}', status()), '#123456');
+        store.reload();
+        assert.equal(getVar(store, 'size').key, 'new_theme.size');
+        assert.equal(store.change('size', 'increment').key, 'new_theme.size', 'API mutations still use the stable name');
+    } finally { store.dispose(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('Group namespace collisions are rejected atomically without hiding ordinary or generated tokens', () => {
+    const dir = makeTmpDir(), store = createVariablesStore({ dataDir: dir });
+    try {
+        store.manageGroup('Broadcast Theme', []);
+        assert.throws(() => store.manageGroup('broadcast-theme', []), /namespace/);
+        assert.throws(() => store.manageGroup('!!!', []), /letters or numbers/);
+        assert.throws(() => store.set('broadcast_theme', { type: 'list', items: ['A'] }), /namespace/);
+        assert.equal(getVar(store, 'broadcast_theme'), null);
+        store.set('theme', { type: 'text', value: 'Reserved root' });
+        assert.throws(() => store.manageGroup('Theme', []), /conflicts/);
+        assert.ok(!store.listGroups().includes('Theme'));
+        assert.equal(store.values().theme, 'Reserved root');
+        store.set('icon', { type: 'text', group: 'Broadcast Theme', value: 'A literal icon field' });
+        assert.equal(OverlayShared.expandVariables('{{var.broadcast_theme.icon}}', { customVars: store.list() }), 'A literal icon field');
+    } finally { store.dispose(); fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('Font bindings: styles resolve without mutating saved values and use a safe missing-variable fallback', () => {
@@ -590,8 +649,8 @@ test('Variables page: inline saves, cancellation, live snapshots and persistent 
         const toolbarHeights = await page.$$eval('.placeholder-toolbar input[type="search"], .placeholder-toolbar select, .placeholder-toolbar button',
             controls => controls.map(control => control.getBoundingClientRect().height));
         assert.equal(new Set(toolbarHeights).size, 1, 'reference toolbar controls share one height');
-        await page.$eval('#q', input => { input.value = 'var.score'; input.dispatchEvent(new Event('input', { bubbles: true })); });
-        assert.equal(await page.$eval('#out [data-copy]', code => code.dataset.copy), '{{var.score}}', 'reference search still finds Number placeholders');
+        await page.$eval('#q', input => { input.value = 'var.theme.score'; input.dispatchEvent(new Event('input', { bubbles: true })); });
+        assert.equal(await page.$eval('#out [data-copy]', code => code.dataset.copy), '{{var.theme.score}}', 'reference search finds qualified Number placeholders');
         await page.click('#vals');
         assert.equal(await page.$$eval('#out tr:first-child td', cells => cells.length), 2, 'hiding live values retains token and description columns');
         await page.$eval('#q', input => { input.value = ''; input.dispatchEvent(new Event('input', { bubbles: true })); });
