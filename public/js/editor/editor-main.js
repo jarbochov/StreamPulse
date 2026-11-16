@@ -32,7 +32,7 @@ import {
 
 import {
     renderSettings, renderProperties, syncGeometryInputs, refreshNumericControls,
-    initInspectorEvents, registerInspectorCallbacks, loadAssetTags
+    initInspectorEvents, registerInspectorCallbacks, loadAssetTags, libraryAssets as inspectorAssets
 } from './editor-inspector.js';
 import { loadStylePresets } from './editor-style-presets.js';
 import { alignmentOffset } from '../editor-geometry.js';
@@ -378,16 +378,8 @@ export async function addMediaFiles(files, point) {
 
 // ---- Asset Picker Dialog ----------------------------------------------------------
 const assetDialog = $('asset-dialog'), assetGrid = $('asset-grid'), assetSearch = $('asset-search');
-let libraryAssets = [], pickerTarget = null, pickerOnPick = null, assetTagFilter = '';
+let libraryAssets = [], pickerTarget = null, pickerOnPick = null, assetBrowser = null, slideBrowser = null;
 let pickerSession = 0;
-const tagFilterMatch = window.TagChips?.matches || (() => true);
-
-function renderTagChips(container, assets, active, query) {
-    if (!container || !window.TagChips) return;
-    container.innerHTML = assets.some(asset => (asset.tags || []).length)
-        ? window.TagChips.html(assets, { active, query })
-        : '';
-}
 
 export function renderAssetGrid() {
     const el = state.overlay.elements.find(item => item.id === pickerTarget);
@@ -396,8 +388,8 @@ export function renderAssetGrid() {
     const query = assetSearch ? assetSearch.value.trim().toLowerCase() : '';
     const wanted = TEXT_TYPES.has(el.type) ? 'text' : el.type === 'video' ? 'video' : 'image';
     const current = TEXT_TYPES.has(el.type) ? el.source?.path : el.type === 'alert' ? el.alert?.sampleImage : el.src;
-    const matches = libraryAssets.filter(asset => asset.kind === wanted && asset.label.toLowerCase().includes(query) && tagFilterMatch(asset, assetTagFilter));
-    renderTagChips($('asset-tags'), libraryAssets.filter(asset => asset.kind === wanted), assetTagFilter, $('asset-tag-q')?.value || '');
+    const pool = libraryAssets.filter(asset => asset.kind === wanted);
+    const matches = assetBrowser ? assetBrowser.filter(pool) : pool.filter(asset => asset.label.toLowerCase().includes(query));
     assetGrid.innerHTML = matches.length
         ? matches.map(asset => `
             <div class="asset-tile" data-url="${esc(asset.url)}" ${asset.url === current ? 'aria-current="true"' : ''} title="${esc(asset.label)}" role="button" tabindex="0">
@@ -410,21 +402,22 @@ export function renderAssetGrid() {
                 </span>
                 <span class="cap">${esc(asset.label)}</span>
             </div>`).join('')
-        : `<p class="hint">No ${wanted} assets${query ? ' match your filter' : ' uploaded yet — use the Upload field'}.</p>`;
+        : `<p class="hint">No ${wanted} assets${pool.length ? ' match these filters' : ' uploaded yet — use the Upload field'}.</p>`;
 }
 
 export async function openAssetPicker(targetId, onPick = null) {
     const el = targetId ? byId(targetId) : primary();
     if (!el || !['image', 'video', 'pattern', 'alert', 'speaker-badge', ...TEXT_TYPES].includes(el.type)) return;
+    if (!assetBrowser) {
+        const { mountAssetBrowser } = await import('../asset-browser.js');
+        assetBrowser = mountAssetBrowser({ search: assetSearch, key: 'overlay-assets', onChange: renderAssetGrid });
+    }
     pickerTarget = el.id;
     const session = ++pickerSession;
     pickerOnPick = typeof onPick === 'function' ? onPick : null;
     if (typeof window !== 'undefined' && typeof openImageCropper === 'function') window.openImageCropper = openImageCropper;
     const titleEl = $('asset-title');
     if (titleEl) titleEl.textContent = TEXT_TYPES.has(el.type) ? 'Choose a text or Markdown file' : `Choose ${el.type === 'video' ? 'a video' : 'an image'}`;
-    if (assetSearch) assetSearch.value = '';
-    if ($('asset-tag-q')) $('asset-tag-q').value = '';
-    assetTagFilter = '';
     if (assetGrid) {
         if (shared.cleanupMedia) shared.cleanupMedia(assetGrid);
         assetGrid.innerHTML = '<p class="hint">Loading…</p>';
@@ -445,7 +438,7 @@ export async function openAssetPicker(targetId, onPick = null) {
 
 // ---- Slideshow Picker Dialog ------------------------------------------------------
 const slideDialog = $('slide-dialog'), slideGrid = $('slide-grid');
-let slideTagFilter = '', slidePicked = new Set(), slideShown = [];
+let slidePicked = new Set(), slideShown = [];
 
 export function renderSlideGrid() {
     const el = state.overlay.elements.find(item => item.id === pickerTarget);
@@ -454,8 +447,7 @@ export function renderSlideGrid() {
     const kinds = el.slideshow?.kinds || 'image';
     const pool = libraryAssets.filter(asset => kinds === 'both' ? ['image', 'video'].includes(asset.kind) : asset.kind === (kinds === 'video' ? 'video' : 'image'));
     const query = $('slide-search')?.value.trim().toLowerCase() || '';
-    slideShown = pool.filter(asset => asset.label.toLowerCase().includes(query) && tagFilterMatch(asset, slideTagFilter));
-    renderTagChips($('slide-tags'), pool, slideTagFilter, $('slide-tag-q')?.value || '');
+    slideShown = slideBrowser ? slideBrowser.filter(pool) : pool.filter(asset => asset.label.toLowerCase().includes(query));
     slideGrid.innerHTML = slideShown.length
         ? slideShown.map(asset => `<button type="button" class="asset-tile" data-name="${esc(asset.name)}" aria-pressed="${slidePicked.has(asset.name)}" title="${esc(asset.label)}"><span class="thumb">${asset.kind === 'video' ? `<video src="${esc(asset.url)}" muted preload="none"></video>` : `<img src="${esc(asset.url)}" loading="lazy" decoding="async" alt="">`}</span><span class="cap">${esc(asset.label)}</span></button>`).join('')
         : '<p class="hint">Nothing here. Upload in the Asset Library, or change the filter.</p>';
@@ -465,17 +457,19 @@ export function renderSlideGrid() {
 export async function openSlidePicker() {
     const el = primary();
     if (!el || el.type !== 'slideshow') return;
+    if (!slideBrowser) {
+        const { mountAssetBrowser } = await import('../asset-browser.js');
+        slideBrowser = mountAssetBrowser({ search: $('slide-search'), key: 'overlay-slideshows', onChange: renderSlideGrid });
+    }
     pickerTarget = el.id;
     slidePicked = new Set(el.slideshow?.files || []);
-    slideTagFilter = '';
-    if ($('slide-search')) $('slide-search').value = '';
-    if ($('slide-tag-q')) $('slide-tag-q').value = '';
     if (slideGrid) {
         if (shared.cleanupMedia) shared.cleanupMedia(slideGrid);
         slideGrid.innerHTML = '<p class="hint">Loading…</p>';
     }
     if (slideDialog) slideDialog.showModal();
     await loadAssetTags();
+    libraryAssets = inspectorAssets;
     renderSlideGrid();
 }
 
@@ -1433,16 +1427,9 @@ function initEventListeners() {
     $('preset-name')?.addEventListener('keydown', event => { if (event.key === 'Enter') saveSelectionAsPreset(); });
 
     // Asset Picker Listeners
-    $('asset-tags')?.addEventListener('click', event => {
-        const button = event.target.closest('[data-tag-filter]');
-        if (!button) return;
-        assetTagFilter = button.dataset.tagFilter;
-        renderAssetGrid();
-    });
-    assetSearch?.addEventListener('input', renderAssetGrid);
-    $('asset-tag-q')?.addEventListener('input', renderAssetGrid);
     $('asset-close')?.addEventListener('click', () => assetDialog?.close());
     assetDialog?.addEventListener('close', () => {
+        assetBrowser?.cancel();
         pickerSession++;
         pickerOnPick = null;
         if (assetGrid) {
@@ -1736,12 +1723,6 @@ function initEventListeners() {
     });
 
     // Slideshow Picker Listeners
-    $('slide-search')?.addEventListener('input', renderSlideGrid);
-    $('slide-tag-q')?.addEventListener('input', renderSlideGrid);
-    $('slide-tags')?.addEventListener('click', event => {
-        const button = event.target.closest('[data-tag-filter]');
-        if (button) { slideTagFilter = button.dataset.tagFilter; renderSlideGrid(); }
-    });
     slideGrid?.addEventListener('click', event => {
         const tile = event.target.closest('[data-name]');
         if (!tile) return;
@@ -1761,6 +1742,7 @@ function initEventListeners() {
     });
     $('slide-close')?.addEventListener('click', () => slideDialog?.close());
     slideDialog?.addEventListener('close', () => {
+        slideBrowser?.cancel();
         if (slideGrid) {
             if (shared.cleanupMedia) shared.cleanupMedia(slideGrid);
             slideGrid.innerHTML = '';

@@ -1285,7 +1285,7 @@
                 {
                     method: 'GET', path: '/api/custom-overlays/assets',
                     desc: 'List uploaded assets',
-                    details: 'Returns every asset (images, video, audio, fonts) with name, kind, url, size, modifiedAt, and usedBy (overlays and timer sounds that reference it).'
+                    details: 'Returns an array of assets (images, video, audio, fonts and text) with name, label, kind, url, size, modifiedAt (ISO timestamp), tags (string array), caption and usedBy. Fonts also expose family. Library pickers search all space-separated terms across name/label/family/tags/caption, filter tags case-insensitively and sort locally: Recent first uses modifiedAt descending, Oldest first ascending, Name A-Z uses natural label ordering. Recent includes new uploads and overwrites, not last selection. Preferences persist per picker in browser storage; no new query parameters, polling, API or Companion actions. Example: fetch this array, keep kind=image and tag=brand, sort by modifiedAt, then assign the chosen url as an image source.'
                 },
                 {
                     method: 'POST', path: '/api/custom-overlays/assets',

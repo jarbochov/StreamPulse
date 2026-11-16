@@ -711,7 +711,7 @@ export function ruleWarnings(r) {
 }
 
 // Asset Library Modal
-let libTarget = null, libKinds = [];
+let libTarget = null, libKinds = [], libBrowser = null;
 export function cleanupLibMedia() {
     const grid = $('lib-grid');
     if (!grid) return;
@@ -726,7 +726,8 @@ export function cleanupLibMedia() {
 
 export function renderLib() {
     const q = $('lib-q')?.value.toLowerCase() || '';
-    const list = assets.filter(a => libKinds.includes(a.kind) && (a.label || a.name).toLowerCase().includes(q));
+    const pool = assets.filter(a => libKinds.includes(a.kind));
+    const list = libBrowser ? libBrowser.filter(pool) : pool.filter(a => (a.label || a.name).toLowerCase().includes(q));
     cleanupLibMedia();
     const grid = $('lib-grid');
     if (grid) {
@@ -1293,7 +1294,10 @@ export function setupEditorEvents(renderAll) {
             libTarget = btn.dataset.library;
             libKinds = btn.dataset.kinds.split(',');
             const libQ = $('lib-q');
-            if (libQ) libQ.value = '';
+            if (!libBrowser) {
+                const { mountAssetBrowser } = await import('../asset-browser.js');
+                libBrowser = mountAssetBrowser({ search: libQ, key: 'alerts', onChange: renderLib });
+            }
             renderLib();
             $('lib')?.showModal();
             libQ?.focus();
@@ -1505,9 +1509,9 @@ export function setupEditorEvents(renderAll) {
     }));
 
     // Asset library dialog events
-    $('lib-q')?.addEventListener('input', renderLib);
     $('lib-close')?.addEventListener('click', () => $('lib')?.close());
     $('lib')?.addEventListener('close', () => {
+        libBrowser?.cancel();
         cleanupLibMedia();
         const grid = $('lib-grid');
         if (grid) grid.innerHTML = '';

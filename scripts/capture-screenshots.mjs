@@ -721,10 +721,19 @@ async function run() {
     page.on('dialog', async d => { await d.accept(); });
 
     // Enable request interception to guarantee zero real streamer or chatter data
+    let captureAssetPicker = false;
     await page.setRequestInterception(true);
     page.on('request', req => {
         const url = req.url();
-        if (page.url().includes('overlay-control.html') && new URL(url).pathname.startsWith('/api/')) {
+        if (new URL(url).pathname === '/api/custom-overlays/assets' && captureAssetPicker) {
+            const names = ['Moon Harbor', 'Silver Meadow', 'Star Valley', 'Cloud Ridge', 'Aurora Coast', 'Lunar Summit', 'Orbit Garden', 'Violet Lagoon'];
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(names.map((label, index) => ({
+                name: `fictional-picker-${index}.svg`, label, kind: 'image', size: 1536,
+                url: `/custom-overlay-assets/fictional-picker-${index}.svg`,
+                tags: index % 2 ? ['backgrounds'] : ['artwork'], caption: `Fictional ${label} scene`,
+                modifiedAt: new Date(Date.UTC(2026, 2, 20 - index)).toISOString()
+            }))) });
+        } else if (page.url().includes('overlay-control.html') && new URL(url).pathname.startsWith('/api/')) {
             const badge = { id: 'fictional-host', name: 'Host badge', page: 'main', speakerBadge: {
                 speaker: { name: 'Fictional Host', handle: '@fictionalhost', pronouns: 'they/them',
                     avatarSrc: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path fill="#233654" d="M0 0h64v64H0z"/><circle cx="32" cy="24" r="12" fill="#93b9ec"/><path d="M9 64v-5a23 23 0 0 1 46 0v5" fill="#93b9ec"/></svg>')}`,
@@ -772,6 +781,8 @@ async function run() {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(pathname === '/api/promos' ? [dummyPromo] : dummyPromo) });
         } else if (new URL(url).pathname === '/api/custom-overlays') {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify([dummyCustomOverlay]) });
+        } else if (new URL(url).pathname.startsWith('/custom-overlay-assets/fictional-picker-')) {
+            req.respond({ status: 200, contentType: 'image/svg+xml', body: dummyPromoImage });
         } else if (new URL(url).pathname === '/api/custom-overlays/assets') {
             req.respond({ status: 200, contentType: 'application/json', body: '[]' });
         } else if (url.includes('/custom-overlay-assets/promo-fictional-scene.svg')) {
@@ -1024,6 +1035,23 @@ async function run() {
                 });
                 await p.click('[data-inspector-tab="content"]');
                 await p.waitForFunction(() => document.querySelector('.canvas-element img[src*="promo-fictional-scene"]')?.naturalWidth > 0);
+            }
+        },
+        {
+            url: `${baseUrl}/custom-overlay-editor.html?id=border-showcase`,
+            file: 'asset-picker.png',
+            wait: 1500,
+            action: async p => {
+                await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+                await p.evaluate(async () => {
+                    const { state, createElementData } = await import('/js/editor/editor-state.js');
+                    const { openAssetPicker } = await import('/js/editor/editor-main.js');
+                    const element = createElementData('image', { id: 'fictional-picker-art', name: 'Scene artwork', page: 'page-1' });
+                    state.overlay.elements.push(element);
+                    await openAssetPicker(element.id);
+                });
+                await p.waitForFunction(() => document.querySelectorAll('#asset-grid .asset-tile').length === 8);
+                await p.waitForFunction(() => [...document.querySelectorAll('#asset-grid img')].every(img => img.complete && img.naturalWidth > 0));
             }
         },
         {
@@ -1428,6 +1456,7 @@ async function run() {
     const failures = [];
     for (const target of selectedTargets) {
         try {
+            captureAssetPicker = target.file === 'asset-picker.png';
             console.log(`Capturing ${target.url} -> ${target.file}...`);
             await page.goto(target.url, { waitUntil: 'networkidle2', timeout: 30000 });
             if (target.wait) {

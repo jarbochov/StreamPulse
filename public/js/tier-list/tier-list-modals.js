@@ -7,6 +7,7 @@ import { getState, $, esc, showToast, fetchState, saveItem, updateTiers, batchAd
 import { TierAudio } from './tier-list-audio.js';
 
 let libraryAssets = [];
+let assetBrowser = null, shownAssets = [];
 let selectedAssetUrls = new Set();
 
 export function openModal(id) {
@@ -15,6 +16,7 @@ export function openModal(id) {
 }
 
 export function closeModal(id) {
+    if (id === 'modal-assets') assetBrowser?.cancel();
     const el = $(id);
     if (el) el.classList.remove('open');
 }
@@ -128,7 +130,13 @@ export function initModalListeners() {
 
     // ── Asset Library Modal ──────────────────────────────────────────────────
     $('btn-asset-library')?.addEventListener('click', async () => {
+        if (!assetBrowser) {
+            const { mountAssetBrowser } = await import('../asset-browser.js');
+            assetBrowser = mountAssetBrowser({ search: $('asset-search'), key: 'tier-list-images', onChange: renderAssetGrid });
+        }
         openModal('modal-assets');
+        libraryAssets = [];
+        shownAssets = [];
         selectedAssetUrls.clear();
         $('selected-asset-count').textContent = '0 selected';
         const grid = $('asset-grid');
@@ -151,8 +159,6 @@ export function initModalListeners() {
         }
     });
 
-    $('asset-search')?.addEventListener('input', renderAssetGrid);
-
     $('asset-grid')?.addEventListener('click', (e) => {
         const card = e.target.closest('.asset-card');
         if (!card) return;
@@ -170,7 +176,7 @@ export function initModalListeners() {
     });
 
     $('btn-select-all-assets')?.addEventListener('click', () => {
-        libraryAssets.forEach(a => selectedAssetUrls.add(a.url));
+        shownAssets.forEach(a => selectedAssetUrls.add(a.url));
         renderAssetGrid();
         $('selected-asset-count').textContent = `${selectedAssetUrls.size} selected`;
     });
@@ -323,10 +329,11 @@ function renderAssetGrid() {
     const state = getState();
     const grid = $('asset-grid');
     const query = ($('asset-search').value || '').trim().toLowerCase();
-    const filtered = libraryAssets.filter(a => {
+    const filtered = assetBrowser ? assetBrowser.filter(libraryAssets) : libraryAssets.filter(a => {
         if (!query) return true;
         return (a.label || a.name || '').toLowerCase().includes(query) || (a.tags || []).some(t => t.toLowerCase().includes(query));
     });
+    shownAssets = filtered;
 
     if (filtered.length === 0) {
         grid.innerHTML = '<div style="grid-column:1/-1;padding:1.5rem;text-align:center;color:var(--text-muted);">No matching images found</div>';

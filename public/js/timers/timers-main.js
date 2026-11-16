@@ -396,9 +396,10 @@ function previewSound(url) {
     state.previewAudio.play().catch(() => toast('Could not play that file', 'error'));
 }
 
+let soundBrowser = null;
 function renderSoundList() {
     const query = $('sound-search').value.trim().toLowerCase();
-    const matches = state.soundLibrary.filter(asset => asset.label.toLowerCase().includes(query));
+    const matches = soundBrowser ? soundBrowser.filter(state.soundLibrary) : state.soundLibrary.filter(asset => asset.label.toLowerCase().includes(query));
     $('sound-list').innerHTML = matches.length ? matches.map(asset => `
         <div class="sound-row" ${asset.url === state.soundValues[state.soundTarget] ? 'aria-current="true"' : ''}>
             <button class="btn sm" type="button" data-play="${escapeAttr(asset.url)}" title="Preview" aria-label="Play sound preview"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg></button>
@@ -409,8 +410,11 @@ function renderSoundList() {
 }
 
 async function openSoundPicker(target) {
+    if (!soundBrowser) {
+        const { mountAssetBrowser } = await import('../asset-browser.js');
+        soundBrowser = mountAssetBrowser({ search: $('sound-search'), key: 'timer-sounds', onChange: renderSoundList });
+    }
     state.soundTarget = target;
-    $('sound-search').value = '';
     $('sound-list').innerHTML = '<div class="empty-note">Loading…</div>';
     $('sound-dialog').showModal();
     try {
@@ -601,8 +605,7 @@ document.addEventListener('click', async event => {
 });
 
 $('sound-close').addEventListener('click', () => $('sound-dialog').close());
-$('sound-dialog').addEventListener('close', stopPreview);
-$('sound-search').addEventListener('input', renderSoundList);
+$('sound-dialog').addEventListener('close', () => { soundBrowser?.cancel(); stopPreview(); });
 $('sound-upload').addEventListener('change', async event => {
     const file = event.target.files[0];
     event.target.value = '';

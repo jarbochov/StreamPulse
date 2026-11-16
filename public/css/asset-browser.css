@@ -1,0 +1,32 @@
+.asset-browser-controls {
+    display: flex;
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    max-width: 100%;
+}
+.asset-browser-controls input[type="search"] {
+    flex: 1 1 180px;
+    min-width: 0;
+    width: auto;
+}
+.asset-browser-controls select {
+    flex: 0 1 160px;
+    min-width: 0;
+    max-width: 100%;
+}
+.asset-browser-controls input[type="search"],
+.asset-browser-controls select {
+    padding: 7px 9px;
+    border: 1px solid var(--border, #30363d);
+    border-radius: 6px;
+    background: var(--bg-inset, #0d1117);
+    color: var(--text, #e6edf3);
+    font: inherit;
+}
+@media (max-width: 480px) {
+    .asset-browser-controls input[type="search"] { flex-basis: 100%; }
+    .asset-browser-controls select { flex: 1 1 110px; }
+}

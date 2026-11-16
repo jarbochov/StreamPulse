@@ -10,7 +10,7 @@
 .mp-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 100000; display: flex; align-items: center; justify-content: center; padding: 16px; }
 .mp-dialog { background: var(--bg-card, #1c2128); color: var(--text, #e6edf3); border: 1px solid var(--border, #30363d); border-radius: 10px; width: min(720px, 100%); max-height: min(640px, 90vh); display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
 .mp-head, .mp-foot { display: flex; gap: 8px; padding: 12px; align-items: center; }
-.mp-head { border-bottom: 1px solid var(--border, #30363d); }
+.mp-head { flex-wrap: wrap; border-bottom: 1px solid var(--border, #30363d); }
 .mp-foot { border-top: 1px solid var(--border, #30363d); font-size: 12px; color: var(--text-muted, #8b949e); }
 .mp-head input[type=search] { flex: 1; min-width: 0; padding: 8px 10px; background: var(--bg-inset, #0d1117); border: 1px solid var(--border, #30363d); border-radius: 6px; color: inherit; font: inherit; }
 .mp-dialog button, .mp-upload { background: var(--bg-raised, #21262d); color: inherit; border: 1px solid var(--border, #30363d); border-radius: 6px; padding: 7px 12px; cursor: pointer; font: inherit; }
@@ -50,10 +50,18 @@
         const grid = backdrop.querySelector('.mp-grid');
         const status = backdrop.querySelector('.mp-status');
         let assets = [];
+        let closed = false, loaded = false, browser = null;
+        import('/js/asset-browser.js').then(({ mountAssetBrowser }) => {
+            if (closed) return;
+            browser = mountAssetBrowser({ search: input, key: 'images', onChange: draw });
+            if (loaded) draw();
+        }).catch(() => {
+            if (!closed) grid.innerHTML = '<div class="mp-empty">Could not load browsing controls. Close and try again.</div>';
+        });
 
-        let drawTimer = null;
         const close = () => {
-            clearTimeout(drawTimer);
+            closed = true;
+            browser?.destroy();
             grid.innerHTML = '';
             assets = [];
             backdrop.remove();
@@ -63,9 +71,9 @@
         function onKey(e) { if (e.key === 'Escape') { e.stopPropagation(); close(); } }
 
         function draw() {
-            const q = input.value.trim().toLowerCase();
-            const list = assets.filter(a => !q || (a.label || a.name).toLowerCase().includes(q));
-            grid.innerHTML = list.length ? '' : '<div class="mp-empty">No images found. Upload one from your computer.</div>';
+            if (!browser) return;
+            const list = browser.filter(assets);
+            grid.innerHTML = list.length ? '' : '<div class="mp-empty">No images match. Change the search or tag, or upload an image.</div>';
             list.forEach(a => {
                 const b = document.createElement('button');
                 b.type = 'button';
@@ -79,8 +87,8 @@
 
         fetch('/api/custom-overlays/assets', { cache: 'no-store' })
             .then(r => r.json())
-            .then(list => { assets = list.filter(a => a.kind === 'image'); draw(); })
-            .catch(() => { grid.innerHTML = '<div class="mp-empty">Could not load the Asset Library.</div>'; });
+            .then(list => { if (!closed) { assets = list.filter(a => a.kind === 'image'); loaded = true; draw(); } })
+            .catch(() => { if (!closed) grid.innerHTML = '<div class="mp-empty">Could not load the Asset Library.</div>'; });
 
         file.addEventListener('change', async () => {
             const f = file.files[0];
@@ -94,13 +102,12 @@
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Upload failed');
-                pick(data.url);
+                if (!closed) pick(data.url);
             } catch (err) {
-                status.textContent = err.message;
+                if (!closed) status.textContent = err.message;
             }
         });
 
-        input.addEventListener('input', () => { clearTimeout(drawTimer); drawTimer = setTimeout(draw, 120); });
         backdrop.querySelector('[data-clear]').onclick = () => pick('');
         backdrop.querySelector('[data-close]').onclick = close;
         backdrop.addEventListener('mousedown', e => { if (e.target === backdrop) close(); });

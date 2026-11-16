@@ -76,20 +76,24 @@ test('Game Plan cover library lists real asset API images, filters, saves select
     await page.waitForFunction(() => document.querySelector('#dlg').open);
     const open = async () => {
         await page.click('#cover-library');
-        await page.waitForFunction(() => !document.querySelector('#asset-status').textContent.startsWith('Loading'));
+        await page.waitForFunction(() => document.querySelector('#asset-dlg').open && !document.querySelector('#asset-status').textContent.startsWith('Loading'));
     };
     await open();
     assert.equal(await page.$$eval('.asset-card', cards => cards.length), 2, 'images are selected by kind from the actual array response');
     assert.deepEqual((await page.$$eval('.asset-name', nodes => nodes.map(n => n.textContent))).sort(), ['fictional-cover', 'second-cover']);
     await page.waitForFunction(() => [...document.querySelectorAll('.asset-card img')].every(img => img.complete && img.naturalWidth > 0));
     await page.type('#asset-search', 'fictional');
+    await page.waitForFunction(() => document.querySelectorAll('.asset-card').length === 1);
     assert.equal(await page.$$eval('.asset-card', cards => cards.length), 1);
     await page.$eval('#asset-search', input => { input.value = ''; input.dispatchEvent(new Event('input', { bubbles: true })); });
     await page.select('#asset-tag-filter', 'other');
+    await page.waitForFunction(() => document.querySelectorAll('.asset-card').length === 1 && document.querySelector('.asset-name')?.textContent === 'second-cover');
     assert.equal(await page.$$eval('.asset-card', cards => cards.length), 1);
     await page.click('#asset-dlg-close');
     await open();
-    assert.equal(await page.$$eval('.asset-card', cards => cards.length), 2, 'reopening clears stale filters');
+    assert.equal(await page.$$eval('.asset-card', cards => cards.length), 1, 'reopening preserves browsing preferences');
+    await page.select('#asset-tag-filter', '');
+    await page.waitForFunction(() => document.querySelectorAll('.asset-card').length === 2);
     const selected = '/custom-overlay-assets/abcdefg-fictional-cover.svg';
     const saveResponse = page.waitForResponse(response => response.url().endsWith('/api/game-plan') && response.request().method() === 'PUT');
     await page.click(`[data-asset-url="${selected}"]`);

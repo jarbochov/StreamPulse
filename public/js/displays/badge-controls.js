@@ -94,26 +94,35 @@ export async function uploadBadgeAsset(file) {
 }
 
 export async function pickBadgeAsset(onPick) {
+    const { mountAssetBrowser } = await import('../asset-browser.js');
     const dialog = document.createElement('dialog');
     dialog.className = 'badge-assets-dialog';
     dialog.innerHTML = '<div class="builder-card-heading"><h3>Image assets</h3><button class="btn" type="button" data-close>Close</button></div><label class="field">Upload image<input type="file" accept="image/*" data-upload></label><div class="badge-assets-grid">Loading assets…</div>';
     document.body.append(dialog);
-    dialog.addEventListener('close', () => dialog.remove(), { once: true });
+    dialog.addEventListener('close', () => { browser.destroy(); dialog.remove(); }, { once: true });
     dialog.querySelector('[data-close]').onclick = () => dialog.close();
     dialog.showModal();
+    let files = [];
+    const browser = mountAssetBrowser({ container: dialog, key: 'badge-images', onChange: render });
+    dialog.querySelector('.builder-card-heading').after(browser.element);
+    function render() {
+        const list = browser.filter(files);
+        dialog.querySelector('.badge-assets-grid').innerHTML = list.map(asset => `<button type="button" data-url="${esc(asset.url)}"><img src="${esc(asset.url)}" loading="lazy" decoding="async" alt=""><span>${esc(asset.label || asset.name || 'Image')}</span></button>`).join('') || '<p>No matching images. Upload one or change the filters.</p>';
+    }
     const choose = url => { onPick(url); dialog.close(); };
     dialog.querySelector('[data-upload]').onchange = async event => {
         const file = event.target.files[0];
         if (file) {
-            try { choose((await uploadBadgeAsset(file)).url); }
-            catch (error) { dialog.querySelector('.badge-assets-grid').textContent = error.message; }
+            try { const result = await uploadBadgeAsset(file); if (dialog.isConnected) choose(result.url); }
+            catch (error) { if (dialog.isConnected) dialog.querySelector('.badge-assets-grid').textContent = error.message; }
         }
     };
     try {
         const response = await fetch('/api/custom-overlays/assets', { cache: 'no-store' });
         const data = await response.json();
-        const files = Array.isArray(data) ? data : data.assets || [];
-        dialog.querySelector('.badge-assets-grid').innerHTML = files.filter(asset => asset.type === 'image' || /\.(png|jpe?g|gif|webp|svg)$/i.test(asset.name || asset.url || '')).map(asset => `<button type="button" data-url="${esc(asset.url)}"><img src="${esc(asset.url)}" alt=""><span>${esc(asset.name || 'Image')}</span></button>`).join('') || '<p>No images uploaded yet.</p>';
+        if (!dialog.isConnected) return;
+        files = (Array.isArray(data) ? data : data.assets || []).filter(asset => asset.kind === 'image' || asset.type === 'image' || /\.(png|jpe?g|gif|webp|svg)$/i.test(asset.name || asset.url || ''));
+        render();
         dialog.querySelector('.badge-assets-grid').onclick = event => { const button = event.target.closest('[data-url]'); if (button) choose(button.dataset.url); };
-    } catch (error) { dialog.querySelector('.badge-assets-grid').textContent = error.message; }
+    } catch (error) { if (dialog.isConnected) dialog.querySelector('.badge-assets-grid').textContent = error.message; }
 }

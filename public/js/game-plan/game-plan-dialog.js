@@ -239,13 +239,14 @@ export function openDialog(item, initialTab = 'details') {
     if (!$('dlg').open) $('dlg').showModal();
 }
 
+let assetBrowser = null;
 export function renderAssetGrid() {
     const grid = $('asset-grid');
     const status = $('asset-status');
     if (!grid || !status) return;
     const q = ($('asset-search')?.value || '').trim().toLowerCase();
     const tag = $('asset-tag-filter')?.value || '';
-    const filtered = cachedAssets.filter(asset => {
+    const filtered = assetBrowser ? assetBrowser.filter(cachedAssets) : cachedAssets.filter(asset => {
         if (tag && !(asset.tags || []).includes(tag)) return false;
         if (q && !(asset.label || asset.name || '').toLowerCase().includes(q) && !(asset.name || '').toLowerCase().includes(q) && !(asset.tags || []).some(t => t.toLowerCase().includes(q))) return false;
         return true;
@@ -592,9 +593,11 @@ export function initDialogHandlers(commitCallback, renderCallback, scheduleSaveC
 
     $('cover-library')?.addEventListener('click', async () => {
         if (!state.editing) return;
+        if (!assetBrowser) {
+            const { mountAssetBrowser } = await import('../asset-browser.js');
+            assetBrowser = mountAssetBrowser({ search: $('asset-search'), tag: $('asset-tag-filter'), key: 'game-plan-covers', onChange: renderAssetGrid });
+        }
         cachedAssets = [];
-        $('asset-search').value = '';
-        $('asset-tag-filter').innerHTML = '<option value="">All tags</option>';
         $('asset-status').textContent = 'Loading Asset Library…';
         $('asset-grid').innerHTML = '';
         if (!$('asset-dlg').open) $('asset-dlg').showModal();
@@ -604,16 +607,13 @@ export function initDialogHandlers(commitCallback, renderCallback, scheduleSaveC
             const data = await response.json();
             if (!Array.isArray(data)) throw new Error('Invalid Asset Library response');
             cachedAssets = data.filter(asset => asset.kind === 'image');
-            const allTags = [...new Set(cachedAssets.flatMap(a => a.tags || []))].sort();
-            $('asset-tag-filter').innerHTML = '<option value="">All tags</option>' + allTags.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
             renderAssetGrid();
         } catch (e) {
             $('asset-status').textContent = `Could not load assets: ${e.message}`;
         }
     });
 
-    $('asset-search')?.addEventListener('input', renderAssetGrid);
-    $('asset-tag-filter')?.addEventListener('change', renderAssetGrid);
+    $('asset-dlg')?.addEventListener('close', () => assetBrowser?.cancel());
     $('asset-dlg-close')?.addEventListener('click', () => $('asset-dlg')?.close());
     $('asset-grid')?.addEventListener('click', event => {
         const card = event.target.closest('[data-asset-url]');

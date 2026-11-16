@@ -900,7 +900,12 @@ export async function populateFontDatalist() {
         fontEntries = [];
     }
 
-    setCachedAssetFontsList(fontEntries.filter(e => e.source === 'asset' && e.raw).map(e => e.raw));
+    let assetFonts = fontEntries.filter(e => e.source === 'asset' && e.raw).map(e => e.raw);
+    try {
+        const allAssets = await window.OverlayFonts?.getAssetFonts?.();
+        if (Array.isArray(allAssets)) assetFonts = allAssets;
+    } catch {}
+    setCachedAssetFontsList(assetFonts);
 
     list.innerHTML = '';
     fontEntries.forEach(entry => {
@@ -952,15 +957,23 @@ export function updateAssetFontBadges() {
     }
 }
 
-export function openAssetFontPicker(target) {
+let fontBrowser = null;
+export async function openAssetFontPicker(target) {
     setActiveFontPickerTarget(target || 'matchup');
     const modal = $('modal-asset-font-picker');
     if (!modal) return;
+    const { mountAssetBrowser } = await import('../asset-browser.js');
+    if (!fontBrowser) {
+        const controls = document.createElement('div');
+        $('asset-font-picker-list').before(controls);
+        fontBrowser = mountAssetBrowser({ container: controls, key: 'versus-fonts', onChange: renderAssetFontPickerList });
+    }
     renderAssetFontPickerList();
     modal.style.display = 'flex';
 }
 
 export function closeAssetFontPicker() {
+    fontBrowser?.cancel();
     const modal = $('modal-asset-font-picker');
     if (modal) modal.style.display = 'none';
 }
@@ -976,7 +989,7 @@ export function renderAssetFontPickerList() {
     if (!container) return;
 
     const fontMap = new Map();
-    (cachedAssetFontsList || []).forEach(a => {
+    (fontBrowser ? fontBrowser.filter(cachedAssetFontsList || []) : cachedAssetFontsList || []).forEach(a => {
         const fam = (a.family || a.label || (a.name ? a.name.replace(/\.[a-z0-9]+$/i, '') : '')).replace(/['"]/g, '').trim();
         if (!fam) return;
         const key = fam.toLowerCase();
@@ -990,6 +1003,10 @@ export function renderAssetFontPickerList() {
     });
 
     if (fontMap.size === 0) {
+        if (cachedAssetFontsList?.length) {
+            container.innerHTML = '<div class="muted" style="padding: 2rem; text-align: center;">No fonts match these filters. Change the search or tag to see more fonts.</div>';
+            return;
+        }
         container.innerHTML = `
             <div style="text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);">
                 <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="margin-bottom: 0.6rem; opacity: 0.6;"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>

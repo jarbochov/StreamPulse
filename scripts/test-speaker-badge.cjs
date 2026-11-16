@@ -536,7 +536,7 @@ test('Speaker badge normalization preserves a zero gate, border and glow', () =>
         assert.equal(visibleBadge.callIn.enabled, false);
         assert.equal(visibleBadge.callIn.statusText, 'CALLING IN', 'disabling call-in retains the status text');
         await page.click('[data-speaker-form="host"] [data-speaker-avatar]');
-        await page.click('.mp-dialog [data-clear]');
+        await page.locator('.mp-dialog [data-clear]').click();
         assert.equal(await page.$eval('[data-speaker-form="host"] [name="avatarSrc"]', input => input.value), '');
         await page.goto(`${base}/custom-overlay-editor.html?id=${initial.id}`, { waitUntil: 'networkidle0' });
         await page.waitForFunction(() => window.editorState?.nodes?.has('host'));

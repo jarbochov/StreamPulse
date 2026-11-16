@@ -118,6 +118,14 @@ IGDB operations use the configured Twitch client credentials. Missing credential
 | `DELETE /api/custom-overlays/assets/:name` | Deletes an asset (blocked with HTTP 409 if currently referenced by an active overlay, timer, or tier list) |
 | `POST /api/custom-overlays/assets/:name/rename` | Renames an asset and automatically rewrites references across saved overlays |
 
+Library pickers filter and sort this existing `GET` response locally; no query parameters, polling, or new API/Companion actions are required. Each asset includes `name`, `label`, `url`, `kind`, `size`, `modifiedAt` (ISO timestamp), `tags` (string array), `caption`, and usage metadata; font assets additionally expose `family`. For example:
+
+```json
+[{ "name": "fictional-logo.svg", "label": "Fictional logo", "url": "/custom-overlay-assets/fictional-logo.svg", "kind": "image", "size": 1536, "modifiedAt": "2026-03-01T12:00:00.000Z", "tags": ["brand"], "caption": "Broadcast logo", "usedBy": [] }]
+```
+
+**Recent first** orders `modifiedAt` descending (uploads and in-place overwrites); **Oldest first** reverses that order and **Name A-Z** uses the display label with natural numeric ordering. Search matches all space-separated terms across label, filename, family, caption and tags, case-insensitively; tag filtering uses exact case-insensitive matches, with All tags/Untagged options. Choices persist in local browser storage, not in the asset record or overlay configuration. Example workflow: fetch the array, restrict it to `kind: "image"`, filter `tags` for `brand`, sort by `modifiedAt`, and assign the selected `url` to the image source.
+
 ## 1. Session Lifecycle Endpoints
 
 `GET /api/chat` includes new and returning subscribers captured from Twitch EventSub or SocialStream Ninja. Nearby notifications for one Twitch subscription share the session/statistics count; their individual chat-log entries remain available when logging is enabled. New entries include `source`; native subscription entries additionally identify `sourceEvent` as `channel.subscribe` or `channel.subscription.message`.

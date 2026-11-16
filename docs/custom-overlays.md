@@ -134,6 +134,12 @@ Explore the [StreamPulse features](features.md) or [get started](quickstart.md).
 ## Asset Library & In-Editor Image Cropper
 
 StreamPulse provides built-in media and artwork management through the Asset Library (`Overlays > Asset Library` at `/assets.html`) and inside Custom Overlay Studio:
+- **Consistent pickers**: Library selectors for images, overlay media/text, slideshows, Alerts, timer sounds, Game Plan covers, Tier List items, display badges, promos and uploaded Poll/Versus fonts include search, tag filtering, and **Recent first**, **Oldest first** or **Name A-Z** sorting. Search matches every space-separated term across names, filenames, font families, tags and captions, ignoring case. Tags include **All tags** and **Untagged**; manage tags and captions in the Asset Library. Recent sorts by the file's last modification time, including uploads and overwrites, not when it was last selected. Search, tag and sort choices are remembered per picker in this browser. Filtering never removes existing selections; Tier List's **Select shown** adds only visible matches.
+
+To find a tagged logo, add a `brand` tag to it in the Asset Library, open an image field's **Library** chooser, select `brand`, and search part of its name or caption. Clear the search and select **All tags** to see everything again. Choose **Recent first** to find the image you just uploaded or cropped; selecting it retains the existing asset URL and overlay/OBS workflow. OS-native file dialogs and external IGDB search remain separate from library browsing.
+
+![Asset picker with search, tag filtering and recent sorting](images/asset-picker.png)
+
 - **Studio Filter Bar & Backdrop Switcher**: Browse by category pills with live counts (*All*, *Images*, *Videos*, *Audio*, *Fonts*, *Text*), toggle thumbnail backdrops (*Checkerboard*, *Dark*, *Light*) to inspect transparent white or dark assets, and view automatic pixel dimension badges (`width × height`) on image cards.
 - **Drag-and-Drop, Clipboard Paste & Inspection Modal**: Drop files anywhere on the page or press `⌘V` / `Ctrl+V` to upload copied clipboard images directly. Click any thumbnail to open the asset inspection modal with full-size preview, dimensions, consumer ("Used By") badges, tag management, and quick actions.
 - **Direct Asset Downloads & Floating Bulk Bar**: 1-click **Copy**, **Crop**, and **Download** actions on asset cards, plus a floating bulk selection bar for batch tagging, untagging, and deletion.

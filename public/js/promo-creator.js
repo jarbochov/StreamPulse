@@ -790,9 +790,10 @@ function applyLayout(template) {
 $('template').addEventListener('change', () => applyLayout($('template').value));
 $('auto-layout').addEventListener('click', () => applyLayout($('template').value));
 
+let assetBrowser = null;
 function renderAssets() {
     const query = $('asset-search').value.toLowerCase().trim();
-    const filtered = assets.filter(asset => [asset.label, asset.name, ...(asset.tags || [])].some(value => value?.toLowerCase().includes(query)));
+    const filtered = assetBrowser ? assetBrowser.filter(assets) : assets.filter(asset => [asset.label, asset.name, ...(asset.tags || [])].some(value => value?.toLowerCase().includes(query)));
     $('asset-grid').replaceChildren();
     for (const asset of filtered) {
         const button = document.createElement('button');
@@ -821,7 +822,7 @@ function useImage(url, target = assetTarget, format = ratio) {
     changed(); syncFields();
 }
 
-$('asset-search').addEventListener('input', renderAssets);
+$('asset-dialog').addEventListener('close', () => assetBrowser?.cancel());
 $('close-assets').addEventListener('click', () => $('asset-dialog').close());
 let igdbRevision = 0, igdbTarget = 'artwork', igdbResults = [];
 function igdbButton(url, label, onClick) {
@@ -1021,7 +1022,11 @@ document.addEventListener('click', event => {
         $('igdb-status').textContent = 'Search IGDB for a game. Uses your configured Twitch client credentials.';
         $('igdb-dialog').showModal(); $('igdb-query').focus();
     } else if (d.library) action(async () => {
-        assetTarget = d.library; assets = []; $('asset-grid').replaceChildren(); $('asset-search').value = '';
+        if (!assetBrowser) {
+            const { mountAssetBrowser } = await import('./asset-browser.js');
+            assetBrowser = mountAssetBrowser({ search: $('asset-search'), key: 'promos', onChange: renderAssets });
+        }
+        assetTarget = d.library; assets = []; $('asset-grid').replaceChildren();
         $('asset-status').textContent = 'Loading images...'; $('asset-dialog').showModal();
         try {
             const data = await request('/api/custom-overlays/assets');
