@@ -115,6 +115,46 @@ try {
     assert.deepEqual(persistedLinked.linkedSource, { setId: 'schedule', selector: 'slot:1', fields: ['player', 'guests'] });
     assert.equal(persistedLinked.filterMode, 'linked');
     assert.equal(persistedLinked.showMode, 'dim');
+    await page.evaluate(() => {
+        const { state, prefs, select } = window.fixture;
+        prefs.live = true;
+        state.liveStatus = { customVars: [
+            { name: 'channel_logo', type: 'image', value: '/media-b.png' },
+            { name: 'caption', type: 'text', value: 'Fictional caption' },
+            { name: 'score', type: 'number', value: 42 }
+        ] };
+        select('image', { src: '/media-a.png' });
+        document.querySelector('[data-inspector-tab="content"]').click();
+    });
+    await page.click('[data-media-tab="variable"]');
+    assert.equal(await page.$eval('[data-media-tab="variable"]', button => button.getAttribute('aria-pressed')), 'true');
+    assert.equal(await page.$('#crop-image-btn'), null, 'static image cropping is hidden for variable sources');
+    assert.equal(await page.$eval('input[data-path="src"]', input => input.value), '/media-a.png', 'switching source modes preserves the existing source');
+    await page.click('#open-variables');
+    await page.waitForSelector('#sp-list [data-token="var.channel_logo"]');
+    assert.ok(await page.$('#sp-list [data-token="game.cover"]'), 'image source picker includes built-in artwork');
+    assert.equal(await page.$('#sp-list [data-token="var.caption"]'), null, 'image element picker excludes text variables');
+    assert.equal(await page.$('#sp-list [data-token="var.score"]'), null, 'image element picker excludes number variables');
+    await page.locator('#sp-list [data-token="var.channel_logo"]').click();
+    assert.equal(await page.evaluate(() => window.fixture.state.overlay.elements[0].src), '{{var.channel_logo}}', 'choosing a variable replaces the selected static URL rather than appending to it');
+    await page.waitForFunction(() => document.querySelector('.canvas-element img')?.getAttribute('src') === '/media-b.png');
+    await page.evaluate(() => {
+        const { state, renderProperties } = window.fixture;
+        state.mediaTab.clear();
+        renderProperties();
+    });
+    assert.equal(await page.$eval('[data-media-tab="variable"]', button => button.getAttribute('aria-pressed')), 'true', 'saved placeholder sources select the dedicated mode automatically');
+    assert.equal(await page.evaluate(() => {
+        const rail = document.querySelector('.rail.right');
+        rail.style.width = '240px';
+        const bounds = rail.getBoundingClientRect();
+        const buttons = [...document.querySelectorAll('[data-media-tab]')].map(button => button.getBoundingClientRect());
+        const fits = buttons.length === 4 && buttons[2].top > buttons[0].top && buttons.every(button => button.left >= bounds.left && button.right <= bounds.right);
+        rail.style.width = '344px';
+        return fits;
+    }), true, 'four image source options use a compact two-column layout in narrow inspectors');
+    await page.click('[data-media-tab="url"]');
+    assert.equal(await page.$eval('input[data-path="src"]', input => input.value), '{{var.channel_logo}}', 'existing Web URL templates remain editable without migration');
     await setup();
     await page.evaluate(() => {
         const { state, prefs, select } = window.fixture;
@@ -139,7 +179,7 @@ try {
     await page.click('[data-number-pick="style.fontSize"]');
     await page.waitForSelector('[data-token="var.title_size"]');
     assert.equal(await page.$('[data-token="var.caption"]'), null, 'numeric picker excludes Text variables');
-    await page.click('[data-token="var.title_size"]');
+    await page.locator('[data-token="var.title_size"]').click();
     assert.deepEqual(await numberControlLayout(), unboundLayout, 'unlink control does not shift the Number input or picker');
     assert.equal(await page.evaluate(() => {
         const pick = document.querySelector('[data-number-pick="style.fontSize"]').getBoundingClientRect();
@@ -997,7 +1037,8 @@ try {
 
     // Removed creation paths cannot reintroduce overlay-local badge designs.
     const editorHtmlMarkup = await readFile(new URL('../public/editors/custom-overlay-editor.html', import.meta.url), 'utf8');
-    assert.match(editorHtmlMarkup, /href="\/variable-displays.html\?kind=badge"/, 'Add menu opens the reusable Badge Designer');
+    assert.doesNotMatch(editorHtmlMarkup, /href="\/variable-displays.html\?kind=badge"/, 'Add menu does not offer a separate Badge Designer shortcut');
+    assert.match(editorHtmlMarkup, /data-add="data-display"/, 'Saved Display remains the creation path for library badges');
     const quickStripChecks = await page.evaluate(async () => {
         const setsMod = await import('/js/editor/editor-sets.js');
         const { state, createElementData } = window.fixture;

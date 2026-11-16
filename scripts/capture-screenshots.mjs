@@ -1000,6 +1000,33 @@ async function run() {
             }
         },
         {
+            url: `${baseUrl}/custom-overlay-editor.html?id=border-showcase`,
+            file: 'image-placeholder-source.png',
+            wait: 1500,
+            action: async (p) => {
+                await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+                await p.evaluate(async () => {
+                    const { state, prefs, createElementData } = await import('/js/editor/editor-state.js');
+                    const { renderProperties } = await import('/js/editor/editor-inspector.js');
+                    const { renderCanvas, fitView } = await import('/js/editor/editor-canvas.js');
+                    const { renderLayers } = await import('/js/editor/editor-layers.js');
+                    const image = createElementData('image', {
+                        id: 'fictional-artwork', name: 'Live scene artwork', page: 'page-1',
+                        x: 100, y: 200, width: 1140, height: 620,
+                        src: '{{var.scene_art}}', style: { objectFit: 'cover', borderRadius: 16 }
+                    });
+                    state.liveStatus.customVars = [...(state.liveStatus.customVars || []),
+                        { name: 'scene_art', type: 'image', value: '/custom-overlay-assets/promo-fictional-scene.svg' }];
+                    state.overlay.elements.push(image);
+                    state.selectedIds = new Set([image.id]);
+                    prefs.live = true;
+                    renderCanvas(); renderLayers(); renderProperties(); fitView(true);
+                });
+                await p.click('[data-inspector-tab="content"]');
+                await p.waitForFunction(() => document.querySelector('.canvas-element img[src*="promo-fictional-scene"]')?.naturalWidth > 0);
+            }
+        },
+        {
             url: `${baseUrl}/randomizer-editor.html`,
             file: 'randomizer-studio.png',
             wait: 1500

@@ -32,12 +32,17 @@ try {
     await page.addScriptTag({ content: bundle });
     await page.addScriptTag({ content: picker });
     await page.evaluate(() => {
-        window.fixtureStatus = { customVars: [{ name: 'schedule_1_count', type: 'number', setId: 'schedule', value: '5' }], variableSets: [
+        window.fixtureStatus = { weather: { enabled: true, extras: { harbor: { ok: true, city: 'Harbor' } } }, customVars: [
+            { name: 'schedule_1_count', type: 'number', setId: 'schedule', value: '5' },
+            { name: 'logo', type: 'image', value: '/fictional-logo.svg' },
+            { name: 'image_named_text', type: 'text', value: '/not-an-image-variable.png' },
+            { name: 'hidden_logo', type: 'image', hidden: true, value: '/hidden.svg' }
+        ], variableSets: [
             { id: 'schedule', name: 'Schedule', slotsCount: 2, slots: ['a', ''], slotNames: ['Live event', 'Next'],
                 fields: [{ key: 'player', label: 'Player 1', type: 'ref', targetSet: 'people' }, { key: 'items', label: 'Items', type: 'ref_list', targetSet: 'people' }, { key: 'count', label: 'Count', type: 'number' }],
                 roster: [{ id: 'a', label: 'Show', values: { player: 'p', items: ['p'], count: '5' } }] },
-            { id: 'people', name: 'People', fields: [{ key: 'name', label: 'Name', type: 'text' }, { key: 'color', label: 'Color', type: 'color' }, { key: 'score', label: 'Score', type: 'number' }],
-                roster: [{ id: 'p', label: 'Alice', values: { name: 'Alice', color: '#123456', score: '42' } }] }
+            { id: 'people', name: 'People', fields: [{ key: 'name', label: 'Name', type: 'text' }, { key: 'color', label: 'Color', type: 'color' }, { key: 'score', label: 'Score', type: 'number' }, { key: 'avatar', label: 'Avatar', type: 'image' }],
+                roster: [{ id: 'p', label: 'Alice', values: { name: 'Alice', color: '#123456', score: '42', avatar: '/fictional-avatar.svg' } }] }
         ] };
         const field = document.querySelector('#target');
         field.focus(); field.setSelectionRange(7, 7);
@@ -62,6 +67,22 @@ try {
     assert.ok(await page.$('#sp-list [data-token="var.schedule_1_player.field.color"]'));
     assert.equal(await page.$eval('#sp-list [data-token="var.schedule_2_player.field.color"] .preview', el => el.textContent.trim()), 'Unassigned');
     assert.equal(await page.evaluate(() => window.nativeBefore === document.querySelector('#native')), true);
+    await page.click('#sp-close');
+    await page.evaluate(() => window.PlaceholderPicker.open({ filter: 'image', getStatus: () => window.fixtureStatus, onPick() {} }));
+    for (const token of ['game.cover', 'music.cover', 'tier_list.item_image', 'weather.icon.url', 'weather.h1.icon.url', 'weather.harbor.d1.icon.url', 'var.logo', 'var.schedule_1_player.field.avatar']) {
+        assert.ok(await page.$(`#sp-list [data-token="${token}"]`), `image picker offers ${token}`);
+    }
+    for (const token of ['stream.title', 'now', 'weather.icon', 'var.image_named_text', 'var.hidden_logo', 'var.schedule_1_count', 'var.schedule_1_player.field.name', 'var.schedule_1_player.field.color', 'var.schedule_1_items.field.avatar']) {
+        assert.equal(await page.$(`#sp-list [data-token="${token}"]`), null, `image picker excludes ${token}`);
+    }
+    assert.equal(await page.$eval('#sp-format', field => getComputedStyle(field.parentElement).display), 'none', 'image sources do not offer date/list formatting');
+    assert.equal(await page.$eval('#sp-list [data-token="var.schedule_2_player.field.avatar"] .preview', node => node.textContent.trim()), 'Unassigned', 'empty linked image fields remain discoverable');
+    await page.type('#sp-search', 'Schedule Player 1 Avatar');
+    assert.ok(await page.$('#sp-list [data-token="var.schedule_1_player.field.avatar"]'), 'image search retains linked breadcrumbs');
+    await page.click('#sp-close');
+    await page.evaluate(() => window.PlaceholderPicker.open({ getStatus: () => window.fixtureStatus, onPick() {} }));
+    assert.ok(await page.$('#sp-list [data-token="stream.title"]'), 'opening the text picker restores non-image placeholders');
+    assert.notEqual(await page.$eval('#sp-format', field => getComputedStyle(field.parentElement).display), 'none');
     await page.click('#sp-close');
     await page.evaluate(() => window.PlaceholderPicker.open({ filter: 'number', getStatus: () => window.fixtureStatus, onPick() {} }));
     assert.ok(await page.$('#sp-list [data-token="var.schedule_1_count"]'));

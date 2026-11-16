@@ -3654,7 +3654,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     for (const v of customVars) {
       const label = v.group && !v.setId ? `Variables: ${v.group}` : "Variables and counters";
       if (!customGroups.has(label)) customGroups.set(label, []);
-      customGroups.get(label).push([`var.${v.name}`, `${v.name} (${v.type})`]);
+      customGroups.get(label).push([`var.${v.name}`, `${v.name} (${v.type})`, { type: v.type, preview: v.value, search: v.group || "" }]);
       if (v.type === "list") customGroups.get(label).push([`var.${v.name}.random`, `${v.name}, random item each time`]);
       if (v.icon) customGroups.get(label).push([`var.${v.name}.icon`, `${v.name} icon (${v.icon})`]);
     }
@@ -3663,7 +3663,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     if (status.weather?.enabled) {
       groups.push({ label: "Weather", items: WEATHER_ITEMS });
       for (const [slug, extra] of Object.entries(status.weather.extras || {})) {
-        if (extra.ok) groups.push({ label: `Weather: ${extra.city}`, items: WEATHER_ITEMS.map(([name, label]) => [name.replace("weather.", `weather.${slug}.`), label]) });
+        if (extra.ok) groups.push({ label: `Weather: ${extra.city}`, items: WEATHER_ITEMS.map(([name, label, meta]) => [name.replace("weather.", `weather.${slug}.`), label, meta]) });
       }
     }
     for (const [key, value] of Object.entries(status.external || {})) {
@@ -4312,10 +4312,10 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         { label: "Engagement", items: [["gift_subs", "Gift subs this session"], ["gift_subs.total", "Gift subs (lifetime)"], ["bits", "Bits this session"], ["bits.total", "Bits (lifetime)"], ["donations", "Donations this session"], ["donations.total", "Donations (lifetime)"]] },
         { label: "Hashtags", items: [["hashtags.top", "Most popular hashtag overall"], ["hashtags.session_top", "Most popular hashtag this session"], ["hashtags.top.count", "Mentions of the most popular hashtag"], ["hashtags.top.2", "Second most popular hashtag"], ["hashtags.top.3", "Third most popular hashtag"], ["hashtags.total", "Total hashtag mentions"]] },
         { label: "Poll", items: [["poll.title", "Poll question / title"], ["poll.winner", "Winning choice title"], ["poll.winner_votes", "Winning choice vote count"], ["poll.winner_percent", "Winning choice percentage (e.g. 64%)"], ["poll.total_votes", "Total votes across all choices"], ["poll.status", "Status (ACTIVE, COMPLETED, etc.)"], ["poll.duration", "Total poll duration (seconds)"], ["poll.remaining", "Remaining countdown timer (e.g. 1:45)"], ["poll.choice.1.title", "Choice 1 title"], ["poll.choice.1.votes", "Choice 1 votes"], ["poll.choice.1.percent", "Choice 1 percent"], ["poll.choice.2.title", "Choice 2 title"], ["poll.choice.2.votes", "Choice 2 votes"], ["poll.choice.2.percent", "Choice 2 percent"], ["poll.choice.3.title", "Choice 3 title"], ["poll.choice.3.votes", "Choice 3 votes"], ["poll.choice.3.percent", "Choice 3 percent"], ["poll.choice.4.title", "Choice 4 title"], ["poll.choice.4.votes", "Choice 4 votes"], ["poll.choice.4.percent", "Choice 4 percent"], ["poll.choice.5.title", "Choice 5 title"], ["poll.choice.5.votes", "Choice 5 votes"], ["poll.choice.5.percent", "Choice 5 percent"]] },
-        { label: "Stream", items: [["music.title", "Music title"], ["music.artist", "Music artist"], ["music.album", "Music album"], ["music.cover", "Album art URL (use as an image source)"], ["music.position", "Track position (m:ss)"], ["music.duration", "Track length (m:ss)"], ["music.remaining", "Track time remaining (m:ss)"], ["music.percent", "Track progress % (for a progress element)"], ["music.state", "Music state (playing / paused / stopped)"], ["stream.title", "Stream title"], ["stream.category", "Stream category (from Twitch)"], ["stream.live", "Live on Twitch (yes / no)"], ["session.started", "Session start time (formattable)"], ["session.duration", "Time since the session started"], ["category.session_time", "Time in this category, this session"], ["category.total_time", "Time in this category, all sessions"], ["category.total_hours", "Hours in this category, all sessions"], ["overlay.name", "Overlay name"]] }
+        { label: "Stream", items: [["music.title", "Music title"], ["music.artist", "Music artist"], ["music.album", "Music album"], ["music.cover", "Album art URL (use as an image source)", { type: "image" }], ["music.position", "Track position (m:ss)"], ["music.duration", "Track length (m:ss)"], ["music.remaining", "Track time remaining (m:ss)"], ["music.percent", "Track progress % (for a progress element)"], ["music.state", "Music state (playing / paused / stopped)"], ["stream.title", "Stream title"], ["stream.category", "Stream category (from Twitch)"], ["stream.live", "Live on Twitch (yes / no)"], ["session.started", "Session start time (formattable)"], ["session.duration", "Time since the session started"], ["category.session_time", "Time in this category, this session"], ["category.total_time", "Time in this category, all sessions"], ["category.total_hours", "Hours in this category, all sessions"], ["overlay.name", "Overlay name"]] }
       ];
       CLOCK_ITEMS = [["now", "Current date & time (format it with {{now|MMMM D, h:mm A}})"], ["time", "Time (e.g. 3:07 PM)"], ["time.24", "Time, 24-hour"], ["time.seconds", "Time with seconds"], ["date", "Date (short)"], ["date.long", "Date (long)"], ["weekday", "Weekday"], ["month", "Month"], ["year", "Year"], ["uptime", "Stream uptime (H:MM:SS)"]];
-      GAME_ITEMS = [["game.name", "Game name"], ["game.url", "IGDB page link"], ["game.cover", "Cover art URL (use as an image source)"], ["game.release_date", "Release date"], ["game.release_year", "Release year"], ["game.genres", "Genres"], ["game.developer", "Developer"], ["game.platforms", "Platforms"], ["game.rating", "IGDB rating (0\u2013100)"], ["game.summary", "Summary"]];
+      GAME_ITEMS = [["game.name", "Game name"], ["game.url", "IGDB page link"], ["game.cover", "Cover art URL (use as an image source)", { type: "image" }], ["game.release_date", "Release date"], ["game.release_year", "Release year"], ["game.genres", "Genres"], ["game.developer", "Developer"], ["game.platforms", "Platforms"], ["game.rating", "IGDB rating (0\u2013100)"], ["game.summary", "Summary"]];
       WEATHER_ITEMS = [
         ["weather.temp", "Temperature (number)"],
         ["weather.temp_full", "Temperature with unit (72\xB0F)"],
@@ -4323,7 +4323,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         ["weather.feels_like", "Feels like (number)"],
         ["weather.condition", "Conditions (Partly cloudy)"],
         ["weather.icon", "Weather icon (emoji)"],
-        ["weather.icon.url", "Weather icon image URL (use as an image source)"],
+        ["weather.icon.url", "Weather icon image URL (use as an image source)", { type: "image" }],
         ["weather.humidity", "Humidity %"],
         ["weather.wind", "Wind with unit (8 mph NW)"],
         ["weather.wind.speed", "Wind speed (number)"],
@@ -4343,14 +4343,14 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         ["weather.h1.time", "Next hours: h1\u2013h6 time (3 PM)"],
         ["weather.h1.temp", "Next hours: h1\u2013h6 temperature"],
         ["weather.h1.icon", "Next hours: h1\u2013h6 icon (emoji)"],
-        ["weather.h1.icon.url", "Next hours: h1\u2013h6 icon image URL"],
+        ["weather.h1.icon.url", "Next hours: h1\u2013h6 icon image URL", { type: "image" }],
         ["weather.h1.condition", "Next hours: h1\u2013h6 conditions"],
         ["weather.h1.precip", "Next hours: h1\u2013h6 chance of precipitation %"],
         ["weather.d1.day", "Next days: d1\u2013d5 weekday (d1 = tomorrow)"],
         ["weather.d1.high", "Next days: d1\u2013d5 high"],
         ["weather.d1.low", "Next days: d1\u2013d5 low"],
         ["weather.d1.icon", "Next days: d1\u2013d5 icon (emoji)"],
-        ["weather.d1.icon.url", "Next days: d1\u2013d5 icon image URL"],
+        ["weather.d1.icon.url", "Next days: d1\u2013d5 icon image URL", { type: "image" }],
         ["weather.d1.condition", "Next days: d1\u2013d5 conditions"],
         ["weather.d1.precip", "Next days: d1\u2013d5 chance of precipitation %"]
       ];
@@ -4436,7 +4436,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       TIER_LIST_ITEMS = [
         ["tier_list.title", "Tier list title"],
         ["tier_list.item", "Current voting item name"],
-        ["tier_list.item_image", "Current voting item image URL (use as an image source)"],
+        ["tier_list.item_image", "Current voting item image URL (use as an image source)", { type: "image" }],
         ["tier_list.vote_status", "Vote status (active / locked / completed / idle)"],
         ["tier_list.vote_timer", "Remaining voting time (e.g. 45s)"],
         ["tier_list.consensus_tier", "Current winning / consensus tier label (e.g. S)"],

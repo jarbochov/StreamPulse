@@ -102,6 +102,7 @@
         const table = shared.variableTable(status, options.getContext?.() || {});
         const query = dialog.querySelector('#sp-search').value.trim().toLowerCase();
         const colorMode = options.filter === 'color';
+        const imageMode = options.filter === 'image';
         if (options.filter === 'number') {
             const vars = (status.customVars || []).filter(v => !v.hidden && !v.setId && ['number', 'counter'].includes(v.type));
             const bindable = new Set((status.customVars || []).filter(v => !v.hidden && ['number', 'counter'].includes(v.type)).map(v => `var.${v.name}`));
@@ -135,7 +136,7 @@
             return;
         }
 
-        const format = dialog.querySelector('#sp-format').value.trim();
+        const format = imageMode ? '' : dialog.querySelector('#sp-format').value.trim();
         dialog.querySelector('#sp-format-presets').innerHTML = [...shared.FORMAT_PRESETS, ...shared.LIST_FORMAT_PRESETS].map(([value, label]) => `<option value="${esc(value)}">${esc(label)}</option>`).join('');
         let groups = shared.variableGroups(status);
         if (options.isChatbot) {
@@ -168,11 +169,12 @@
             Object.assign(table, options.extraValues || {});
             groups = [...options.extraGroups, ...groups];
         }
+        if (imageMode) groups = groups.map(group => ({ ...group, items: group.items.filter(([, , meta]) => meta?.type === 'image' && !meta.list) }));
         const html = groups.map(group => {
             const items = group.items.filter(([key, label, meta]) => !query || matches(query, `${group.label} ${key} ${label} ${meta?.search || ''} ${meta?.preview ?? table[key] ?? ''}`));
             if (!items.length) return '';
             return `<h4>${esc(group.label)}</h4>` + items.map(([key, label, meta]) => {
-                const listed = meta?.list || shared.isListKey(key, table);
+                const listed = !imageMode && (meta?.list || shared.isListKey(key, table));
                 const dated = format && (listed ? shared.isListFormat(format) : (shared.isDateKey(key) || ['date', 'datetime'].includes(meta?.type)) && !shared.isListFormat(format));
                 const value = dated ? shared.applyFormat(key, table[key], format, Date.now(), table) : table[key];
                 const preview = value === undefined || value === null || value === '' ? meta?.state || 'Empty' : String(value);
@@ -187,17 +189,18 @@
                 return `<button type="button" data-token="${esc(token)}"><span>${esc(label)}</span><code>{{${esc(token)}}}</code><span class="preview">${esc(preview)}</span></button>${chips}${numberOptions}`;
             }).join('');
         }).join('');
-        dialog.querySelector('#sp-list').innerHTML = html || '<p class="hint">No placeholders match.</p>';
+        dialog.querySelector('#sp-list').innerHTML = html || (imageMode ? '<p class="hint">No image placeholders match. Create an Image variable or an Image field in a variable set.</p>' : '<p class="hint">No placeholders match.</p>');
     }
 
     function open(opts) {
         options = opts || {};
         if (!dialog) build();
         const isColor = options.filter === 'color';
-        dialog.classList.toggle('is-color-mode', isColor || options.filter === 'number');
-        dialog.querySelector('#sp-title').textContent = options.title || (isColor ? 'Bind color variable' : 'Insert placeholder');
-        dialog.querySelector('#sp-subtitle').textContent = options.subtitle || (isColor ? 'Click a color variable or member color field to bind it dynamically.' : 'Live values update as data changes. Click one to insert it at your cursor.');
-        dialog.querySelector('#sp-search').placeholder = options.filter === 'number' ? 'Search Number variables or groups...' : isColor ? 'Search color variables or member fields…' : 'Search timers, clock, events, goals…';
+        const isImage = options.filter === 'image';
+        dialog.classList.toggle('is-color-mode', isColor || isImage || options.filter === 'number');
+        dialog.querySelector('#sp-title').textContent = options.title || (isImage ? 'Insert image placeholder' : isColor ? 'Bind color variable' : 'Insert placeholder');
+        dialog.querySelector('#sp-subtitle').textContent = options.subtitle || (isImage ? 'Choose artwork, an Image variable, or an Image field from a variable set.' : isColor ? 'Click a color variable or member color field to bind it dynamically.' : 'Live values update as data changes. Click one to insert it at your cursor.');
+        dialog.querySelector('#sp-search').placeholder = isImage ? 'Search image variables, artwork or image fields...' : options.filter === 'number' ? 'Search Number variables or groups...' : isColor ? 'Search color variables or member fields…' : 'Search timers, clock, events, goals…';
         dialog.querySelector('#sp-search').value = '';
         render();
         dialog.showModal();

@@ -37,7 +37,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ### Fixed
 - **Overlay rendering**: Cull off-screen stars, cache particle seeds, reduce grain/radial-border repainting and pause hidden-tab effects.
 - **Poll element**: Labels and help now identify native StreamPulse and Twitch polls, with native voting/results taking priority.
-- **Overlay editor**: Keep color pickers open during slider adjustments; refresh dependent controls after editing.
+- **Overlay editor**: Expose Placeholder / Variable image sources with an image-only picker; keep color pickers open during slider adjustments and refresh dependent controls.
 - **Analytics CRM**: Prevent `td .sub` from stretching `.tag-badge.sub` subscriber pills full-width.
 - **Overlay control**: Separate Pages, Media (videos/slideshows/cutouts), and Speakers into standard `.tabs-nav` tabs with `#pages`/`#media`/`#speakers` deep links and count pills, clean up the Speakers panel, list trigger/event pages below rotation pages, and remove the full app nav bar.
 - **Sessions**: Record native Twitch subscriptions and keep title/category history live-only.

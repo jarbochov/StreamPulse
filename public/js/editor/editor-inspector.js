@@ -544,24 +544,29 @@ export function effectsSection(el) {
 }
 
 export const localMediaPath = src => src && src.startsWith(LOCAL_MEDIA) ? decodeURIComponent(src.slice(LOCAL_MEDIA.length)) : '';
-export const currentMediaTab = el => state.mediaTab.get(el.id) || (el.src?.startsWith(LOCAL_MEDIA) ? 'file' : !el.src || el.src.startsWith('/custom-overlay-assets/') ? 'library' : 'url');
-export const tabBar = (label, attr, current, options) => `<div class="field"><span>${label}</span><span class="seg">${options.map(([v, l]) => `<button type="button" ${attr}="${v}" aria-pressed="${v === current}">${l}</button>`).join('')}</span></div>`;
+export const currentMediaTab = el => state.mediaTab.get(el.id) || (el.type === 'image' && /\{\{/.test(el.src || '') ? 'variable' : el.src?.startsWith(LOCAL_MEDIA) ? 'file' : !el.src || el.src.startsWith('/custom-overlay-assets/') ? 'library' : 'url');
+export const tabBar = (label, attr, current, options, className = '') => `<div class="field"><span>${label}</span><span class="seg${className ? ` ${className}` : ''}">${options.map(([v, l]) => `<button type="button" ${attr}="${v}" aria-pressed="${v === current}">${l}</button>`).join('')}</span></div>`;
 export const friendlyAssetName = url => url ? decodeURIComponent(url.split('/').pop()).replace(/^[a-z0-9]{6,}-/, '') : '';
 
 export function mediaSourceBlock(el) {
 
     const tab = currentMediaTab(el);
-    let body = tabBar('Source', 'data-media-tab', tab, [['library', 'Library & upload'], ['file', 'File on computer'], ['url', 'Web URL']]);
+    const sources = [['library', 'Library & upload'], ['file', 'File on computer'], ['url', 'Web URL']];
+    if (el.type === 'image') sources.push(['variable', 'Placeholder / Variable']);
+    let body = tabBar('Source', 'data-media-tab', tab, sources, el.type === 'image' ? 'media-source-tabs' : '');
     if (tab === 'file') {
         body += `<div class="field"><span>File path</span><span class="upload-row"><input id="media-path" value="${esc(localMediaPath(el.src))}" placeholder="/Users/you/Pictures/logo.png" spellcheck="false"><button type="button" id="media-browse">Browse…</button></span><span class="hint">Uses the ${el.type === 'pattern' ? 'image' : el.type} in place, with nothing uploaded. If you move or delete it, the overlay shows nothing.</span></div>`;
         if ((el.type === 'image' || el.type === 'pattern') && el.src) body += `<img class="asset-preview" src="${esc(el.src)}" alt="Preview" onerror="this.style.display='none'">`;
-    } else if (tab === 'url') {
-        body += F.text('src', el.type === 'pattern' ? 'Tile image URL' : 'Image or video URL', el.src, 'placeholder="https://… or {{game.cover}}"');
+    } else if (tab === 'url' || tab === 'variable') {
+        body += F.text('src', tab === 'variable' ? 'Image source template' : el.type === 'pattern' ? 'Tile image URL' : el.type === 'image' ? 'Image URL' : 'Image or video URL', el.src, tab === 'variable' ? 'placeholder="{{game.cover}} or {{var.channel_logo}}"' : 'placeholder="https://… or {{game.cover}}"');
         const yt = el.type === 'video' && shared.parseYouTubeUrl ? shared.parseYouTubeUrl(el.src) : null;
         if (yt) {
             body += `<div class="hint" style="color:var(--accent);display:flex;align-items:center;gap:6px;margin:4px 0 8px;"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg> YouTube video detected (plays via responsive embed player)</div>`;
         }
-        body += `<div class="field"><span>Placeholders</span><button type="button" id="open-variables">Insert placeholder…</button><span class="hint">Use e.g. {{game.cover}} to show the current game's cover art.</span></div>`;
+        if (tab === 'variable' || el.type !== 'image') {
+            const hint = tab === 'variable' ? 'Choose a value that resolves to an image URL or asset path, such as {{game.cover}} or an image variable. You can also combine placeholders with a URL.' : "Use e.g. {{game.cover}} to show the current game's cover art.";
+            body += `<div class="field"><span>Placeholders</span><button type="button" id="open-variables">Insert placeholder…</button><span class="hint">${hint}</span></div>`;
+        }
     } else {
         const accept = (el.type === 'image' || el.type === 'pattern') ? 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml' : 'video/mp4,video/webm,video/ogg';
         const isVisual = el.type === 'image' || el.type === 'pattern';
@@ -702,7 +707,7 @@ export function contentSection(el) {
     }
     if (media) {
         body += mediaSourceBlock(el);
-        if (el.type === 'image' && el.src && !/\{\{/.test(el.src)) {
+        if (el.type === 'image' && el.src && !/\{\{/.test(el.src) && currentMediaTab(el) !== 'variable') {
             body += `<div class="field"><span>Image tools</span><button type="button" id="crop-image-btn" class="crop-tool-btn" data-src="${esc(el.src)}"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M6.13 1L6 16a2 2 0 0 0 2 2h15"/><path d="M1 6.13L16 6a2 2 0 0 1 2 2v15"/></svg>Crop &amp; Edit Image…</button></div>`;
         }
     }
@@ -1919,6 +1924,7 @@ export function insertPlaceholderToken(token) {
 export function openVariableDialog() {
     if (!window.PlaceholderPicker) return;
     window.PlaceholderPicker.open({
+        filter: primary()?.type === 'image' ? 'image' : undefined,
         getStatus: () => state.liveStatus,
         getContext: variableContext,
         onWarn: message => toast(message, 'warn', 1800),
@@ -2672,6 +2678,11 @@ export function initInspectorEvents() {
                 if (el) {
                     state.mediaTab.set(el.id, tab.dataset.mediaTab);
                     renderProperties();
+                    if (tab.dataset.mediaTab === 'variable') {
+                        const field = document.querySelector('#properties input[data-path="src"]');
+                        field?.focus();
+                        if (field && !/\{\{/.test(field.value)) field.select();
+                    }
                 }
                 return;
             }
