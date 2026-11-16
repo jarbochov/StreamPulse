@@ -11,6 +11,8 @@ import {
     selectedDuration
 } from './polls-state.js';
 import { updatePreview } from './polls-preview.js';
+import { loadHistory } from './polls-editor.js';
+import { loadTournament } from './polls-bracket.js';
 
 export function renderActivePollMonitor(poll) {
             const card = $('active-poll-card');

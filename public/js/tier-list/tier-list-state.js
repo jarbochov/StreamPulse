@@ -3,6 +3,10 @@
  * Centralized state tracking, REST API methods, and WebSocket synchronization.
  */
 
+import { $, connectLiveSocket, esc } from '../shared/client-core.js';
+
+export { $, esc };
+
 let state = {
     title: 'Community Tier List',
     tiers: [],
@@ -39,12 +43,6 @@ export function showToast(msg) {
     showToast.timer = setTimeout(() => { toast.style.display = 'none'; }, 2800);
 }
 
-export function esc(str) {
-    return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-export const $ = id => document.getElementById(id);
-
 export async function fetchState() {
     try {
         const res = await fetch('/api/tier-list');
@@ -60,12 +58,8 @@ export async function fetchState() {
 }
 
 export function setupWebSocket(onVoteUpdate) {
-    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//${location.host}/ws`);
-
-    ws.onmessage = (event) => {
-        try {
-            const msg = JSON.parse(event.data);
+    return connectLiveSocket({
+        onMessage: msg => {
             if (msg.type === 'tier-list:update' || msg.type === 'tier-list:move' ||
                 msg.type === 'tier-list:vote-start' || msg.type === 'tier-list:vote-locked' ||
                 msg.type === 'tier-list:vote-end' || msg.type === 'tier-list:vote-cancel') {
@@ -76,11 +70,8 @@ export function setupWebSocket(onVoteUpdate) {
                     if (onVoteUpdate) onVoteUpdate(msg.data.consensus);
                 }
             }
-        } catch {}
-    };
-
-    ws.onclose = () => setTimeout(() => setupWebSocket(onVoteUpdate), 3000);
-    return ws;
+        }
+    }).socket;
 }
 
 // ── Item Placement & Manipulation ────────────────────────────────────────────

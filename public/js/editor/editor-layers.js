@@ -734,6 +734,7 @@ export function initLayersAndPages() {
             if (t?.id === 'btn-preview-morph' || t?.id === 'btn-preview-transition') {
                 const enabledItems = items.filter(p => p.enabled !== false);
                 if (enabledItems.length < 2) {
+                    const isStates = state.overlay.pages?.kind === 'states';
                     toast(`Add at least 2 ${isStates ? 'states' : 'pages'} to preview transitions.`, 'info', 2400);
                     return;
                 }

@@ -1,4 +1,5 @@
 // Dedicated live operator console for inline-editing all items and fields of a Variable Set
+import { connectLiveSocket } from '../shared/client-core.js';
 import { api, esc, pickImage, slugId, state, toast } from './variables-state.js';
 
 const STORAGE_KEY = 'streampulse_operator_set';
@@ -642,18 +643,10 @@ function bindEvents() {
     });
 }
 
-function connectWs() {
-    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${proto}//${location.host}/ws`);
-    ws.onmessage = ev => {
-        try {
-            const msg = JSON.parse(ev.data);
-            if (msg.type === 'variables' || msg.type === 'status') loadData(true);
-        } catch {}
-    };
-    ws.onclose = () => setTimeout(connectWs, 3000);
-}
-
 bindEvents();
 loadData(false).catch(err => toast(err.message, 'error'));
-connectWs();
+connectLiveSocket({
+    onMessage: msg => {
+        if (msg.type === 'variables' || msg.type === 'status') loadData(true);
+    }
+});

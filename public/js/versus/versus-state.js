@@ -2,25 +2,10 @@
  * StreamPulse — Versus Studio State & API Client
  */
 
-export const $ = id => document.getElementById(id);
-export const esc = s => String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-export function toast(msg) {
-    const t = $('toast');
-    if (!t) return;
-    t.textContent = msg;
-    t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 2400);
-}
+import { $, connectLiveSocket, esc, toast } from '../shared/client-core.js';
 
-export function escapeHtml(str) {
-    if (str === null || str === undefined) return '';
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
+export { $, esc, toast };
+export const escapeHtml = esc;
 
 export function fmtStudioMs(sec) {
     const t = Math.max(0, sec || 0), w = Math.floor(t), p = n => String(n).padStart(2, '0');
@@ -184,12 +169,9 @@ export async function loadTournament() {
 }
 
 export function connectWs() {
-    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${proto}//${location.host}/ws`);
-
-    ws.onmessage = (event) => {
-        try {
-            const msg = JSON.parse(event.data);
+    return connectLiveSocket({
+        reconnectMs: 2000,
+        onMessage: msg => {
             if (msg.type === 'tournament-update') {
                 setActiveTourneyData(msg.data);
                 if (window.renderTournamentStudio) window.renderTournamentStudio(activeTourneyData);
@@ -206,8 +188,6 @@ export function connectWs() {
                     if (window.renderMatchupStudio) window.renderMatchupStudio(d);
                 }
             }
-        } catch { /* ignore */ }
-    };
-
-    ws.onclose = () => setTimeout(connectWs, 2000);
+        }
+    });
 }

@@ -2,7 +2,7 @@
 import { loadGoogleFont } from './fonts.js';
 import { ensureFontAwesome, sanitizeIconClass } from './icons.js';
 import { applyBorderEffects, applyTextAnimation, decorationStyle, gradientStyle, textEffectStyle } from './styles.js';
-import { resolveColorToken, resolveStyleVariables } from './variables.js';
+import { expandVariables, resolveColorToken, resolveStyleVariables } from './variables.js';
 import numericBindings from '../../../shared/numeric-bindings.cjs';
 
 function parseYouTubeUrl(urlStr) {

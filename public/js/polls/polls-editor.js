@@ -14,6 +14,7 @@ import {
     savedPresetsList,
     setSavedPresetsList
 } from './polls-state.js';
+import { switchTab } from './polls-main.js';
 import { updatePreview } from './polls-preview.js';
 
 export { choiceCount, maxChoices, selectedDuration, setSelectedDuration, savedPresetsList };

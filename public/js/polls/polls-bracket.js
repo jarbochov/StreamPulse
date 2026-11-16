@@ -12,7 +12,9 @@ import {
     activePollData,
     setActivePollData
 } from './polls-state.js';
-import { updatePreview } from './polls-preview.js';
+import { setCreatePollTourneyLogo, setPreviewMode, syncPollTourneyOverlayLogoUi, updatePreview } from './polls-preview.js';
+import { endActivePoll, renderActivePollMonitor } from './polls-monitor.js';
+import { switchTab } from './polls-main.js';
 
         // --- Tournament Studio Actions ---
         let currentCreateTourneyMode = 'vote';

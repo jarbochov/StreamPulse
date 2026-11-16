@@ -12,7 +12,7 @@
     "desktop:dist": "electron-builder",
     "install:server": "npm install --omit=dev",
     "install:desktop": "npm install",
-    "lint": "eslint server.js server/ scripts/ desktop/",
+    "lint": "eslint server.js server/ scripts/ desktop/ public/js/",
     "build:overlays": "node scripts/build-overlay-shared.mjs",
     "check:overlays": "node scripts/build-overlay-shared.mjs --check",
     "test:overlay-rendering": "node scripts/test-overlay-modules.mjs && node scripts/test-pattern-rendering.mjs",

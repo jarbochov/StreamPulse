@@ -2,16 +2,10 @@
  * StreamPulse Poll Studio — Reactive State & WebSocket Engine
  */
 
-export const $ = id => document.getElementById(id);
-export const esc = s => String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+import { $, connectLiveSocket, esc, toast } from '../shared/client-core.js';
+
+export { $, esc, toast };
 export const escapeHtml = esc;
-export function toast(msg) {
-    const t = $('toast');
-    if (!t) return;
-    t.textContent = msg;
-    t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 2400);
-}
 
 // Global reactive state variables
 export let activePollData = null;
@@ -119,12 +113,9 @@ export async function checkChatbotStatus() {
 
 // WebSocket for Live Push
 export function connectWs(onPollUpdate, onTourneyUpdate) {
-    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    pollSocket = new WebSocket(`${proto}//${location.host}/ws`);
-
-    pollSocket.onmessage = (event) => {
-        try {
-            const msg = JSON.parse(event.data);
+    const conn = connectLiveSocket({
+        reconnectMs: 2000,
+        onMessage: msg => {
             if (msg.type === 'poll-update') {
                 activePollData = msg.data;
                 if (window.renderActivePollMonitor) window.renderActivePollMonitor(activePollData);
@@ -135,8 +126,8 @@ export function connectWs(onPollUpdate, onTourneyUpdate) {
                 if (window.renderTournamentStudio) window.renderTournamentStudio(activeTourneyData);
                 if (onTourneyUpdate) onTourneyUpdate(activeTourneyData);
             }
-        } catch { /* ignore parse error */ }
-    };
-
-    pollSocket.onclose = () => setTimeout(() => connectWs(onPollUpdate, onTourneyUpdate), 2000);
+        }
+    });
+    pollSocket = conn.socket;
+    return conn;
 }

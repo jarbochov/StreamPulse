@@ -1,4 +1,6 @@
 // Shared state and API helpers for Placeholders & Custom Variables
+import { api, esc, toast } from '../shared/client-core.js';
+export { api, esc, toast };
 
 export const state = {
     status: {},
@@ -13,17 +15,6 @@ export const state = {
     varTypeFilter: 'all'
 };
 
-export function esc(v) {
-    const d = document.createElement('div');
-    d.textContent = v ?? '';
-    return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
-
-export function toast(msg, type = 'info') {
-    if (window.StreamPulse?.toast) window.StreamPulse.toast(msg, type);
-    else console.log(`[${type}]`, msg);
-}
-
 export async function copyToClipboard(text) {
     try {
         await navigator.clipboard.writeText(text);
@@ -37,26 +28,6 @@ export async function copyToClipboard(text) {
         t.remove();
         toast(`Copied ${text}`, 'success');
     }
-}
-
-export async function api(path, method = 'GET', body = null) {
-    const opts = { method, headers: {} };
-    if (body !== null) {
-        opts.headers['Content-Type'] = 'application/json';
-        opts.body = JSON.stringify(body);
-    }
-    const res = await fetch(path, opts);
-    if (!res.ok) {
-        let msg = res.statusText;
-        try {
-            const err = await res.json();
-            msg = err.error || err.message || msg;
-        } catch {
-            // ignore parse failure
-        }
-        throw new Error(msg);
-    }
-    return res.json();
 }
 
 export function slugId(raw) {

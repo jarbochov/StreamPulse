@@ -8,6 +8,8 @@ import {
     primary, inView, visibleElements, withGroups, setSelection, changed,
     expand, expandInlineText, liveSignature, effectiveLiveStatus, syncEditorVarRotations, alertSample, toast, previewAlertElement
 } from './editor-state.js';
+
+let openCanvasInlineEditorRef = null;
 import {
     snapAxis as findSnapAxis,
     buildSnapModel,
@@ -985,7 +987,7 @@ export function renderCanvas(only) {
                 if (item && TEXT_TYPES.has(item.type)) {
                     e.preventDefault();
                     e.stopPropagation();
-                    openCanvasInlineEditor(item, node);
+                    openCanvasInlineEditorRef?.(item, node);
                 }
             };
             node.addEventListener('dblclick', node._dblHandler);
@@ -1637,6 +1639,7 @@ export function initCanvasGestures({ onSyncGeometry, onUpdateStatusBar, onRender
     stage.addEventListener('pointercancel', endGesture);
     window.addEventListener('blur', () => { if (state.gesture) endGesture({}); });
 
+    openCanvasInlineEditorRef = openCanvasInlineEditor;
     function openCanvasInlineEditor(el, node) {
         if (!el || !TEXT_TYPES.has(el.type) || !canvasEl) return;
         const existing = canvasEl.querySelector('.canvas-inline-editor');

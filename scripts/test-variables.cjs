@@ -201,9 +201,12 @@ test('Variable Groups UI: top-level creation and one membership dialog per group
     const store = createVariablesStore({ dataDir: dir });
     store.set('brand', { type: 'color', value: '#123456' });
     store.set('heading', { type: 'font', value: 'serif' });
-    const files = new Map(['variables-state.js', 'variables-groups.js', 'variables-numbers.js', 'variables-filter.js'].map(name => [
-        `/js/variables/${name}`, fs.readFileSync(path.join(__dirname, '../public/js/variables', name), 'utf8')
-    ]));
+    const files = new Map([
+        ...['variables-state.js', 'variables-groups.js', 'variables-numbers.js', 'variables-filter.js'].map(name => [
+            `/js/variables/${name}`, fs.readFileSync(path.join(__dirname, '../public/js/variables', name), 'utf8')
+        ]),
+        ['/js/shared/client-core.js', fs.readFileSync(path.join(__dirname, '../public/js/shared/client-core.js'), 'utf8')]
+    ]);
     const server = createServer(async (req, res) => {
         const pathname = new URL(req.url, 'http://fixture').pathname;
         if (pathname.startsWith('/api/variables')) {
