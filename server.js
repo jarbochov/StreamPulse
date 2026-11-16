@@ -243,6 +243,11 @@ const isVariableSetsEnabled = (cfg = config) => (typeof cfg?.variable_sets_enabl
     ? cfg.variable_sets_enabled
     : variablesStore.listSets().length > 0);
 variablesStore.setModuleEnabled(isVariableSetsEnabled(config));
+const variableDisplays = require('./server/services/variable-displays')({
+    dataDir: DATA_DIR,
+    onChange: data => broadcastToOverlays('variable-displays-update', data)
+});
+const handleVariableDisplayRoutes = require('./server/routes/variable-displays')(variableDisplays);
 // One-time migration: overlay-local timer rotations become shared set rotations the overlay follows.
 (function migrateOverlayVarRotations() {
     let changed = false;
@@ -1455,6 +1460,7 @@ const statusService = createStatusService({
     getConfig: () => config,
     getChatData: () => userModeration.filterData(chatData),
     getVariablesStore: () => variablesStore,
+    getVariableDisplaysRevision: () => variableDisplays.getRevision(),
     getExternalData: () => externalData,
     getHostSources: () => getHostSources(),
     getPollService: () => pollService,
@@ -1607,6 +1613,7 @@ function handleRestoreReload({ previousConfig }) {
     try { pollService.reload(); } catch (err) { console.warn('[Restore] Poll reload failed:', err.message); }
     try { chatbot.reload(); } catch (err) { console.warn('[Restore] Chatbot reload failed:', err.message); }
     try { variablesStore.reload(); } catch (err) { console.warn('[Restore] Variables reload failed:', err.message); }
+    variableDisplays.reload();
     try { alertEngine.reload(); } catch (err) { console.warn('[Restore] Alert engine reload failed:', err.message); }
     try { crmService.reload(); } catch (err) { console.warn('[Restore] CRM reload failed:', err.message); }
     userModeration.reload();
@@ -1784,6 +1791,7 @@ const server = createHttpServer(async (req, res) => {
 
 
     if (pathname.startsWith('/api/variables') && await variablesStore.handleApi(req, res, pathname, readRequestBody)) return;
+    if (await handleVariableDisplayRoutes(req, res, url)) return;
     if (pathname.startsWith('/api/chatbot') && await chatbot.handleApi(req, res, pathname, readRequestBody)) return;
 
     if (await handleSessionRoutes(req, res, url, pathname)) return;

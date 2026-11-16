@@ -11,6 +11,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
+- **Display Library**: Reusable inventory designs with ordered sections, auto grids or fixed slots, and independent role-following player trackers in Custom Overlays.
 - **Linked Variable Sets**: Reusable single/multiple entry links, role-following overlays, date/time/duration fields, and resettable per-owner item trackers with upgrade labels and images.
 - **Temporal Variables**: Standalone Date, Time, Date & Time, and Duration values with inline editing, inspector controls and type filters.
 - **Variable Groups & Fonts**: Renamable, collapsible groups with drag-and-drop membership, JSON import/export, inline value editing and bookmarkable group links, live font inheritance, optional primary images, independent Matrix sequences, and separate Badge/Strip Builder tabs with uniformly scaled previews.
@@ -34,6 +35,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - **Alerts replay**: Support replaying the last `1`–`50` shown alerts in order via `POST` or `GET /api/alerts/replay?count=N` (defaults to `1`).
 
 ### Fixed
+- **Poll element**: Labels and help now identify native StreamPulse and Twitch polls, with native voting/results taking priority.
 - **Overlay editor**: Keep color pickers open during slider adjustments; refresh dependent controls after editing.
 - **Analytics CRM**: Prevent `td .sub` from stretching `.tag-badge.sub` subscriber pills full-width.
 - **Overlay control**: Separate Pages, Media (videos/slideshows/cutouts), and Speakers into standard `.tabs-nav` tabs with `#pages`/`#media`/`#speakers` deep links and count pills, clean up the Speakers panel, list trigger/event pages below rotation pages, and remove the full app nav bar.

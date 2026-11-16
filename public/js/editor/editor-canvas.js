@@ -717,6 +717,10 @@ export function buildContent(node, el, playback) {
     node._textNode = null;
     node._rawText = undefined;
     node._extra = '';
+    if (el.type === 'data-display') {
+        if (!shared.renderVariableDisplay(node, el, effectiveLiveStatus())) node.append(placeholder('Saved Display: choose a design and a valid tracker source in Content'));
+        return;
+    }
     if (el.type === 'image' && el.imageGroup?.enabled && shared.renderImageGroupStrip) {
         const hasItems = shared.renderImageGroupStrip(node, el, effectiveLiveStatus(), { preview: true });
         if (!hasItems) {
@@ -800,7 +804,7 @@ export function buildContent(node, el, playback) {
         const url = shared.embedUrl ? shared.embedUrl(rawUrl, isYt ? { autoplay: v.autoplay !== false, loop: v.loop !== false, sound: false } : { sound: false }) : rawUrl;
         if (!/^https?:\/\//i.test(url)) { node.appendChild(placeholder('Enter an http(s) webpage URL or YouTube link')); return; }
         if (/twitch\.tv\/popout\//i.test(url)) {
-            node.appendChild(placeholder('Twitch popouts cannot be embedded in web iframes (blocked by Twitch X-Frame-Options: SAMEORIGIN). Use native Twitch Poll variables ({{poll.*}}) and the "poll-active" page trigger, or add this URL directly as an OBS Browser Source.'));
+            node.appendChild(placeholder('Twitch popouts cannot be embedded in web iframes (blocked by Twitch X-Frame-Options: SAMEORIGIN). Use the Poll element or poll variables ({{poll.*}}) for native/Twitch voting, or add this URL directly as an OBS Browser Source.'));
             return;
         }
         const frame = document.createElement('iframe');
@@ -887,13 +891,13 @@ export const contentSignature = (el, live) =>
     el.type === 'video' ? JSON.stringify([el.type, expand(el.src), el.video, el.style.objectFit, el.style.focusX, el.style.focusY]) :
     el.type === 'game-list' ? JSON.stringify([el.type, el.gameList, el.style?.borderRadius, el.style?.textGradient?.enabled, state.liveStatus?.gamePlan]) :
     JSON.stringify([
-        el.type, el.content, el.src, el.items, el.source, el.textFit, el.columns,
+        el.type, el.content, el.src, el.items, el.source, el.textFit, el.columns, el.display,
         el.headingSpan, el.headingScale, sourceSignature(el), el.progress,
         el.style.color, el.style.fontFamily, el.style.fontWeight, el.style.textStroke,
         el.style.textShadow, el.qr, el.style.fill, el.random?.typewriter, el.random?.marquee, el.cycle,
         el.imageGroup, el.imageGroup?.enabled ? [el.style, el.width, el.height] : '',
         el.style.objectFit, el.style.focusX, el.style.focusY,
-        usesLivePlaceholders(el) || Boolean(el.imageGroup?.enabled) || Boolean(el.source && el.source.mode !== 'inline') ? live : ''
+        usesLivePlaceholders(el) || el.type === 'data-display' || Boolean(el.imageGroup?.enabled) || Boolean(el.source && el.source.mode !== 'inline') ? live : ''
     ]);
 
 export function tickPlaceholders() {

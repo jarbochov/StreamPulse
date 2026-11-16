@@ -8,7 +8,7 @@ Start with a clean canvas or adapt a saved design. Use simple, independent Pages
 
 In the overlay controller's **Playback** tab, switches beside each page enable or disable it immediately and persist the change. Disabled pages are skipped by navigation and automatic playback; switching off the current page moves to an enabled page. At least one page must stay enabled.
 
-Stay focused as you build: the inspector separates content, layout, and style, with controls tailored to each kind of layer. The **+ Add** element picker organizes 20 layer types into six balanced sections across three columns (Text & Copy, Media & Artwork, Framing & Cutouts, Graphics & Patterns, Stream Widgets, and Interactive & Web) with instant keyword search and keyboard navigation. Your preferred inspector tab is remembered, so moving between text, artwork, and live widgets feels familiar rather than starting over.
+Stay focused as you build: the inspector separates content, layout, and style, with controls tailored to each kind of layer. The **+ Add** element picker organizes layers into six sections across three columns (Text & Copy, Media & Artwork, Framing & Cutouts, Graphics & Patterns, Stream Widgets, and Interactive & Web) with instant keyword search and keyboard navigation. Your preferred inspector tab is remembered, so moving between text, artwork, and live widgets feels familiar rather than starting over.
 
 When your design is ready, use it as an OBS browser source. StreamPulse also includes focused tools for specific jobs—like schedules, timers, polls, and credits—if you want a ready-made starting point instead of a whole scene.
 
@@ -28,9 +28,9 @@ Number variables can coordinate font sizes, borders, opacity and spacing as well
 
 ![Variables Studio with fictional theme settings](images/variables-directory.png)
 
-## Custom Overlay Elements (20 Built-In Layers)
+## Custom Overlay Elements
 
-Custom Overlay Studio includes 20 specialized layer types organized into six intuitive sections across three balanced columns in the **+ Add** element picker:
+Custom Overlay Studio organizes its specialized layer types into six sections across three columns in the **+ Add** element picker:
 
 ### 1. Text & Copy
 - **Text (`type: "text"`)**: Displays static labels, titles, lower-thirds, subtitles, and dynamic copy. Supports real-time `{{placeholder}}` token evaluation (e.g. `{{stream.title}}`, `{{viewers.current}}`, `{{now}}`, `{{trivia.question}}`, `{{tier_list.item}}`, `{{matchup.player1.name}}`, `{{tournament.match.current}}`), Google fonts and uploaded typography, automatic font fitting (`textFit`) to keep text within layer bounds, alignment, line height, letter spacing, text color, and drop shadows.
@@ -60,9 +60,10 @@ Extremely dense image/icon grids coarsen the complete lattice instead of droppin
 Browser-rendered Promo loops keep fall and spin moving forward, then smoothly crossfade during the final fifth of each cycle to close the seam. Brief overlapping motifs are possible during that transition. Live non-looping patterns are unaffected.
 
 ### 5. Stream Widgets
+- **Saved Display (`type: "data-display"`)**: Build reusable inventories in the separate Display Library, then embed the same design for different players. Arrange items into ordered sections or fixed slots; each placement follows its own tracker, including linked Schedule roles. [See the inventory workflow](variable-displays.md).
 - **Alert Box (`type: "alert"`)**: Live broadcast alert popups triggered by Twitch follows, subscriptions, gift subs, cheers/bits, raids, and tips. Supports per-box event type filtering, customizable visual looks, media effects targeting (`alert.effectsTarget: "media"`), focus points, celebration particle animations, and audio volume controls. See [Page Triggers & Alert Event Reactions](#page-triggers--alert-event-reactions) below.
 - **Speaker Badge (`type: "speaker-badge"`)**: Voice-reactive active speaker cards and broadcast call-in banners powered by live OBS Studio audio mixer inputs. Features 5 layout presets (*Horizontal Lower-Third*, *Broadcast Call-In C-SPAN Banner*, *Compact Pill*, *Vertical Sidebar Card*, *Avatar Only Floating Halo*), customizable dB speech gates, release hold times, speaking border/glow highlights, animated EQ visualizer bars, proportional typography scaling, and live broadcast guest editing via the Speakers controller. See [Voice-Reactive Speaker Badges & Call-In Banners](#voice-reactive-speaker-badges--call-in-banners) below.
-- **Twitch Poll (`type: "poll"`)**: Live interactive audience voting display synced with active Twitch channel polls. Automatically displays the poll title, countdown timer, vote bars with percentages and counts, blind voting mode, and winner celebration highlights.
+- **Poll (`type: "poll"`)**: Displays active native StreamPulse voting and its results first, otherwise the latest Twitch poll. Shows the question, countdown, vote bars, blind voting and winner highlights.
 - **Game Plan (`type: "game-list"`)**: Broadcast schedule and lineup widget showing tonight's stream lineup, upcoming scheduled titles, or backlog picks with official cover art, titles, and tags. Supports list, grid, and ticker layout modes with responsive cover scaling.
 
 ### 6. Interactive & Web

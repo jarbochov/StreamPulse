@@ -6,8 +6,8 @@ import path from 'node:path';
 import puppeteer from 'puppeteer';
 import overlays from '../server/services/overlays.js';
 
-const names = ['overlay-shared.js', 'poll-widget.js', 'patterns-shared.js', 'editor-geometry.js', 'motion-easing.js',
-    ...['state', 'canvas', 'form', 'layers', 'sets', 'inspector', 'speakers', 'patterns', 'style-presets', 'badge-preview'].map(name => `editor/editor-${name}.js`)];
+const names = ['overlay-shared.js', 'poll-widget.js', 'patterns-shared.js', 'editor-geometry.js', 'motion-easing.js', 'displays/display-source.js',
+    ...['state', 'canvas', 'form', 'layers', 'sets', 'inspector', 'display', 'speakers', 'patterns', 'style-presets', 'badge-preview'].map(name => `editor/editor-${name}.js`)];
 const sources = new Map(await Promise.all(names.map(async name =>
     [`/js/${name}`, await readFile(new URL(`../public/js/${name}`, import.meta.url), 'utf8')])));
 const css = await readFile(new URL('../public/css/custom-overlay-editor.css', import.meta.url), 'utf8');
@@ -323,6 +323,7 @@ try {
         cutout: { content: 'content', layout: 'layout' },
         progress: { content: 'content', progress: 'style', typography: 'style' },
         poll: { poll: 'content', 'poll-preview': 'content', typography: 'style' },
+        'data-display': { savedDisplay: 'content', layout: 'layout' },
         'game-list': { gamelist: 'content', gamelayout: 'layout', gamecovers: 'style', gametext: 'style' },
         alert: { alert: 'content', typography: 'style' },
         slideshow: { 'slide-what': 'content', 'slide-play': 'content', 'slide-remote': 'content' },

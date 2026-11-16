@@ -29,6 +29,7 @@ test('Backup coverage includes all feature data files and reloads in-memory serv
         'quotes.json',
         'variables.json',
         'variable-groups.json',
+        'variable-displays.json',
         'randomizer-presets.json',
         'randomizer-button-presets.json',
         'randomizer-quote-presets.json',

@@ -25,6 +25,7 @@ export const TYPE_META = {
     cutout: { label: 'Cutout', icon: svg('<rect x="2" y="2" width="12" height="12" rx="2"/><rect x="5" y="5" width="6" height="6" rx="1" stroke-dasharray="2 1.5"/>') },
     progress: { label: 'Progress', icon: svg('<rect x="2" y="6" width="12" height="4" rx="2"/><path d="M2 8h6" stroke-width="2.5"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/>') },
     poll: { label: 'Poll', icon: svg('<path d="M2 4h12M2 8h8M2 12h4"/>') },
+    'data-display': { label: 'Saved Display', icon: svg('<rect x="2" y="2" width="12" height="12" rx="1"/><path d="M6 2v12M10 2v12M2 6h12M2 10h12"/>') },
     'game-list': { label: 'Game List', icon: svg('<path d="M4 5h8a3 3 0 013 3v3a2 2 0 01-2 2h-1l-2-2H6l-2 2H3a2 2 0 01-2-2V8a3 3 0 013-3z"/><path d="M4 8.5h3M5.5 7v3"/><circle cx="11.5" cy="8" r=".7" fill="currentColor"/><circle cx="13" cy="9.5" r=".7" fill="currentColor"/>') },
     alert: { label: 'Alert Box', icon: svg('<path d="M8 2a3 3 0 00-3 3v2.5L3.5 10v1h9v-1L11 7.5V5a3 3 0 00-3-3zM6.5 12.5a1.5 1.5 0 003 0"/>') },
     'speaker-badge': { label: 'Speaker Badge', icon: svg('<rect x="3" y="1" width="10" height="14" rx="2"/><circle cx="8" cy="5" r="2"/><path d="M5 11c0-1.5 1.5-2.5 3-2.5s3 1 3 2.5"/><path d="M1 5v6M15 5v6"/>') },
@@ -871,7 +872,7 @@ export function createElementData(rawType, overrides = {}) {
         text: [640, 120], 'random-text': [800, 120], markdown: [640, 240], image: isImageGroup ? [560, 140] : [480, 270],
         video: [640, 360], embed: [640, 360], qr: [320, 320], icon: [160, 160], shape: isObsFrame ? [480, 270] : [480, 160],
         cutout: [480, 270], progress: [480, 48], poll: [400, 150], 'game-list': [800, 320], alert: [640, 280], slideshow: [640, 360], pattern: [640, 360], 'procedural-pattern': [state.overlay?.canvas?.width || 1920, state.overlay?.canvas?.height || 1080],
-        'speaker-badge': [340, 84]
+        'speaker-badge': [340, 84], 'data-display': [600, 400]
     };
     const [width, height] = sizes[type] || [480, 270];
     const offset = (state.overlay.elements.length % 6) * 24;
@@ -895,6 +896,7 @@ export function createElementData(rawType, overrides = {}) {
         obsLink: { enabled: isObsFrame, sourceName: '', sceneName: '', fit: 'cover', syncVisibility: true },
         progress: { kind: 'bar', label: '{{progress}}%', showLabel: true, trackColor: 'rgba(255,255,255,0.18)', thickness: 10 },
         poll: type === 'poll' ? window.PollWidget.settings() : undefined,
+        display: type === 'data-display' ? { displayId: state.liveStatus.variableDisplays?.[0]?.id || '', setId: '', selector: 'active', path: [], tracker: '', showMode: 'dim' } : undefined,
         speakerBadge: {
             autoSize: true,
             paddingX: null,

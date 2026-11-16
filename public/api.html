@@ -628,6 +628,23 @@
             ]
         },
         {
+            section: 'Saved Displays',
+            items: [
+                { method: 'GET', path: '/api/variable-displays', desc: 'List reusable display designs',
+                    details: 'Returns { displays: [definition], revision }. Inventory is the initial kind. Definitions are stored in data/variable-displays.json and included in full backups. No query parameters. GET /api/status exposes only variableDisplaysRevision; WebSocket variable-displays-update carries { displays, revision }. Existing variables-update carries progress/role changes; no new variable tokens are generated.' },
+                { method: 'GET', path: '/api/variable-displays/:id', desc: 'Read one display design',
+                    details: 'Returns one complete normalized definition or HTTP 404 { error }. IDs: letters, numbers, underscore, hyphen; maximum 60 characters.' },
+                { method: 'POST', path: '/api/variable-displays', desc: 'Create or replace a display',
+                    details: 'JSON body is a full definition, not a patch. Example: { id:"adventure", name:"Adventure inventory", kind:"inventory", catalogId:"equipment", imageField:"image", labelField:"name", layout:{ mode:"fixed", columns:4 }, sections:[{ title:"Equipment", items:[{ itemId:"sword", cell:0 },{ itemId:"shield", cell:2 }] }] }. Omit id to generate one. Returns the saved definition. Defaults: layout {mode:"flow",columns:6,cellWidth:80,cellHeight:92,gap:8,sectionGap:16}; style {background:"#10182700",cellBackground:"#182338cc",color:"#eef4ff",borderColor:"#ffffff22",borderWidth:1,radius:8,padding:12,fontSize:12,fontFamily:"sans-serif",inactiveOpacity:0.3,showLabels:true,showLevels:false,showOwner:false,showSectionTitles:true}. Six/eight-digit hex colors supported. Limits: 100 designs, 20 sections, 60 unique items; fixed cells 0-255 and unique within each section. Flow cells normalize to array order. Columns 1-16; cell width24-300, height24-360, gap0-80, sectionGap0-100; borderWidth0-12, radius/padding0-100, fontSize8-60, inactiveOpacity0-1. Invalid input: HTTP400 {error}; unsupported method:405. No query parameters or progress changes.' },
+                { method: 'PUT / POST', path: '/api/variable-displays/:id', desc: 'Replace a design by ID',
+                    details: 'Same complete JSON definition as POST root; path ID wins. Returns the normalized definition. Shared placements update immediately. This is studio design management, not an on-air progress trigger.' },
+                { method: 'DELETE', path: '/api/variable-displays/:id', desc: 'Delete a display',
+                    details: 'No body/query parameters. Returns {ok:true}; unknown ID returns HTTP400 {error}. Placements referencing a removed design render empty rather than falling back to another design. Full backups transfer designs and their Variable Sets/assets; selective overlay/preset shares containing Saved Displays are rejected.' },
+                { method: 'PUT', path: '/api/custom-overlays/:id', desc: 'Place saved inventory designs in an overlay',
+                    details: 'Existing overlay-save API accepts elements such as { id:"p1-inventory",type:"data-display",x:40,y:80,width:600,height:400,display:{displayId:"adventure",setId:"schedule",selector:"active",path:["player_1"],tracker:"gear",showMode:"dim"} }. selector: active (Slot1 on slotted sets, otherwise activeEntry), slot:N (one-based), entry:ID. path follows up to4 single Linked entry/ref field keys to the owner; tracker must be a checklist targeting the design catalog. showMode:dim or active (earned only). Empty setId shows Whole catalog. Build Equipment and People Tracker sets, optionally assign Schedule roles, save an Inventory in /variable-displays.html, then add Saved Display twice and choose Player1/Player2. Use Operator or existing GET/POST /api/variables/sets/:setId/checklist/set|toggle|step|reset to operate independent progress. Missing/empty/incompatible sources hide production output and never mutate live slots.' }
+            ]
+        },
+        {
             section: 'Variables & Counters',
             items: [
                 {

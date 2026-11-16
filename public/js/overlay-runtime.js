@@ -171,7 +171,7 @@
     const usesVarSets = overlay => Boolean(
         overlay?.variableSetRotations?.length
         || Object.values(overlay?.variableSetFollow || {}).some(Boolean)
-        || (overlay?.elements || []).some(el => el.imageGroup?.enabled)
+        || (overlay?.elements || []).some(el => el.imageGroup?.enabled || el.type === 'data-display')
     );
     const triggerPageVarRotations = pageId => varRotEngine.triggerPage(pageId);
     const effectiveStatus = () => varRotEngine.effectiveStatus(liveStatus);
@@ -804,6 +804,8 @@
                 }, interval));
             } else if (element.type === 'game-list') {
                 shared.renderGameList(existingNode, element, liveStatus.gamePlan);
+            } else if (element.type === 'data-display') {
+                shared.renderVariableDisplay(existingNode, element, effectiveStatus());
             } else if (element.type === 'speaker-badge') {
                 const st = speakerState(element);
                 shared.renderSpeakerBadge(existingNode, element, { preview: params.get('preview') === 'true', speaking: Boolean(st?.speaking), status: effectiveStatus() });
@@ -984,6 +986,8 @@
                 slideshowsKept.add(element.id);
             } else if (element.type === 'game-list') {
                 shared.renderGameList(node, element, liveStatus.gamePlan);
+            } else if (element.type === 'data-display') {
+                shared.renderVariableDisplay(node, element, effectiveStatus());
             } else if (element.type === 'speaker-badge') {
                 const st = speakerState(element);
                 shared.renderSpeakerBadge(node, element, { preview: params.get('preview') === 'true', speaking: Boolean(st?.speaking), status: effectiveStatus() });
@@ -1635,6 +1639,12 @@
                     liveStatus = { ...liveStatus, external };
                     if (currentOverlay && shared.variableSnapshot(liveStatus, variableContext()) !== before) render(currentOverlay);
                 }
+                else if (message.type === 'variable-displays-update' && message.data) {
+                    shared.setDisplayLibrary(message.data);
+                    liveStatus.variableDisplays = message.data.displays;
+                    liveStatus.variableDisplaysRevision = message.data.revision;
+                    if (currentOverlay) render(currentOverlay);
+                }
                 else if (message.type === 'variables-update' && message.data) {
                     const before = shared.variableSnapshot(effectiveStatus(), variableContext());
                     const numericNames = variables => (variables || []).filter(variable => ['number', 'counter'].includes(variable.type)).map(variable => variable.name).join('\0');
@@ -1660,7 +1670,7 @@
                         } else {
                             setupVarRotations(message.data.overlay);
                         }
-                        shared.refreshTextSources(message.data.overlay.elements).finally(() => render(message.data.overlay));
+                        Promise.all([shared.refreshTextSources(message.data.overlay.elements), shared.loadLiveExtras(liveStatus, message.data.overlay.elements)]).finally(() => render(message.data.overlay));
                     }
                     else { clearVarRotTimers(); stopAlerts(); root.replaceChildren(); }
                 }

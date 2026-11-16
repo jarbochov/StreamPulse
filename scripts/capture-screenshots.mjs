@@ -7,6 +7,7 @@ import promoModel from '../public/js/promo-model.js';
 import staticRouter from '../server/static-router.js';
 import alertModel from '../server/services/alerts.js';
 import triviaModel from '../server/services/trivia.js';
+import inventoryFixture from './fixtures/variable-display.cjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -823,6 +824,10 @@ async function run() {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'ok', matchup: dummyMatchup }) });
         } else if (url.includes('/api/chatbot')) {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyChatbotSnapshot) });
+        } else if (new URL(url).pathname === '/api/variable-displays') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ displays: [inventoryFixture.display], revision: 1 }) });
+        } else if (page.url().includes('variable-displays.html') && new URL(url).pathname === '/api/variables') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ variables: [], sets: inventoryFixture.sets, variableSetsEnabled: true }) });
         } else if (new URL(url).pathname === '/api/variables') {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyVariablesPayload) });
         } else if (new URL(url).pathname === '/api/variables/sets') {
@@ -837,6 +842,14 @@ async function run() {
     });
 
     const targets = [
+        {
+            url: `${baseUrl}/variable-displays.html?id=fictional-inventory`,
+            file: 'inventory-builder.png',
+            action: async p => {
+                await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+                await p.waitForSelector('#display-preview .sp-variable-display');
+            }
+        },
         {
             url: `${baseUrl}/tools/trivia.html`,
             file: 'trivia-gameplay-settings.png',

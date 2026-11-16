@@ -2744,6 +2744,252 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     }
   });
 
+  // shared/variable-displays.cjs
+  var require_variable_displays = __commonJS({
+    "shared/variable-displays.cjs"(exports, module) {
+      var key = (value) => String(value || "").replace(/[^a-z0-9_-]/gi, "_").slice(0, 60);
+      var text = (value, limit = 80) => String(value ?? "").trim().slice(0, limit);
+      var number = (value, fallback, min, max) => Number.isFinite(Number(value)) && value !== "" && value != null ? Math.max(min, Math.min(max, Number(value))) : fallback;
+      var color = (value, fallback) => /^#[a-f0-9]{6}(?:[a-f0-9]{2})?$/i.test(value || "") ? value : fallback;
+      function normalizeDisplay(input = {}, id = input.id) {
+        if (input.kind && input.kind !== "inventory") throw new Error("Unsupported display kind");
+        const seen = /* @__PURE__ */ new Set();
+        const sections = (Array.isArray(input.sections) ? input.sections : []).slice(0, 20).map((section, index) => {
+          const cells = /* @__PURE__ */ new Set();
+          return {
+            id: `section_${index + 1}`,
+            title: text(section.title),
+            items: (Array.isArray(section.items) ? section.items : []).slice(0, 60).map((item, itemIndex) => {
+              const itemId = key(item.itemId);
+              const cell = input.layout?.mode === "fixed" ? Math.round(number(item.cell, itemIndex, 0, 255)) : itemIndex;
+              if (!itemId || seen.has(itemId)) throw new Error("Each item may appear once in a display");
+              if (cells.has(cell)) throw new Error("Two items cannot occupy the same cell");
+              seen.add(itemId);
+              cells.add(cell);
+              return { itemId, cell };
+            })
+          };
+        });
+        if (seen.size > 60) throw new Error("A display supports up to 60 items");
+        const style = input.style || {};
+        return {
+          id: key(id),
+          name: text(input.name) || "Inventory display",
+          kind: "inventory",
+          catalogId: key(input.catalogId),
+          imageField: key(input.imageField) || "image",
+          labelField: key(input.labelField) || "name",
+          layout: {
+            mode: input.layout?.mode === "fixed" ? "fixed" : "flow",
+            columns: Math.round(number(input.layout?.columns, 6, 1, 16)),
+            cellWidth: number(input.layout?.cellWidth, 80, 24, 300),
+            cellHeight: number(input.layout?.cellHeight, 92, 24, 360),
+            gap: number(input.layout?.gap, 8, 0, 80),
+            sectionGap: number(input.layout?.sectionGap, 16, 0, 100)
+          },
+          style: {
+            background: color(style.background, "#10182700"),
+            cellBackground: color(style.cellBackground, "#182338cc"),
+            color: color(style.color, "#eef4ff"),
+            borderColor: color(style.borderColor, "#ffffff22"),
+            borderWidth: number(style.borderWidth, 1, 0, 12),
+            radius: number(style.radius, 8, 0, 100),
+            padding: number(style.padding, 12, 0, 100),
+            fontSize: number(style.fontSize, 12, 8, 60),
+            fontFamily: text(style.fontFamily, 120).replace(/[;{}<>]/g, "") || "sans-serif",
+            inactiveOpacity: number(style.inactiveOpacity, 0.3, 0, 1),
+            showLabels: style.showLabels !== false,
+            showLevels: style.showLevels === true,
+            showOwner: style.showOwner === true,
+            showSectionTitles: style.showSectionTitles !== false
+          },
+          sections: sections.length ? sections : [{ id: "section_1", title: "", items: [] }]
+        };
+      }
+      function normalizeDisplayBinding(input = {}) {
+        return {
+          displayId: key(input.displayId),
+          setId: key(input.setId),
+          selector: /^(active|slot:\d{1,2}|entry:[a-z0-9_-]{1,60})$/.test(input.selector || "") ? input.selector : "active",
+          path: (Array.isArray(input.path) ? input.path : []).slice(0, 4).map(key).filter(Boolean),
+          tracker: key(input.tracker),
+          showMode: input.showMode === "active" ? "active" : "dim"
+        };
+      }
+      function resolveDisplayOwner2(sets = [], binding = {}) {
+        let set = sets.find((candidate) => candidate.id === binding.setId);
+        const selector = binding.selector || "active";
+        const id = selector.startsWith("entry:") ? selector.slice(6) : selector.startsWith("slot:") ? set?.slots?.[Number(selector.slice(5)) - 1] : set?.slotsCount > 0 ? set.slots?.[0] : set?.activeEntry;
+        let entry = set?.roster?.find((candidate) => candidate.id === id);
+        for (const fieldKey of binding.path || []) {
+          const field = set?.fields?.find((candidate) => candidate.key === fieldKey && candidate.type === "ref");
+          const nextId = entry?.values?.[fieldKey];
+          set = sets.find((candidate) => candidate.id === field?.targetSet);
+          entry = set?.roster?.find((candidate) => candidate.id === nextId);
+        }
+        return { set, entry };
+      }
+      module.exports = { normalizeDisplay, normalizeDisplayBinding, resolveDisplayOwner: resolveDisplayOwner2 };
+    }
+  });
+
+  // shared/variable-links.cjs
+  var require_variable_links = __commonJS({
+    "shared/variable-links.cjs"(exports, module) {
+      function trackerMax3(field, item) {
+        const levels = (item?.tiers || []).map((tier) => Number(tier.level)).filter((level) => Number.isInteger(level) && level > 0);
+        return Math.min(100, levels.length ? Math.max(...levels) : Math.max(1, Number(field?.maxTier) || 1));
+      }
+      function linkedSourceEntry(sets, source = {}) {
+        const set = (sets || []).find((candidate) => candidate.id === source.setId);
+        if (!set) return { set: null, entry: null };
+        const selector = source.selector || "active";
+        const id = selector.startsWith("entry:") ? selector.slice(6) : selector.startsWith("slot:") ? set.slots?.[Number(selector.slice(5)) - 1] : set.slotsCount > 0 ? set.slots?.[0] : set.activeEntry;
+        return { set, entry: (set.roster || []).find((candidate) => candidate.id === id) || null };
+      }
+      function linkedSourceFields2(sets, source = {}, types = ["ref", "ref_list"]) {
+        const { set, entry } = linkedSourceEntry(sets, source);
+        const keys = Array.isArray(source.fields) ? source.fields : [];
+        const fields = keys.map((key) => (set?.fields || []).find((field) => key === field.key && types.includes(field.type))).filter(Boolean);
+        return { set, entry, fields };
+      }
+      module.exports = { trackerMax: trackerMax3, linkedSourceEntry, linkedSourceFields: linkedSourceFields2 };
+    }
+  });
+
+  // public/js/overlay/displays.js
+  function setDisplayLibrary(data) {
+    library = Array.isArray(data.displays) ? data.displays : [];
+    revision = data.revision;
+  }
+  async function loadDisplayLibrary(status, elements) {
+    if (!elements?.some((element) => element.type === "data-display")) return;
+    if (!library || status.variableDisplaysRevision != null && revision !== status.variableDisplaysRevision) {
+      if (!pending) pending = fetch("/api/variable-displays", { cache: "no-store" }).then(async (response) => {
+        if (!response.ok) throw new Error("Display library unavailable");
+        const data = await response.json();
+        if (revision == null || data.revision >= revision) setDisplayLibrary(data);
+      }).finally(() => {
+        pending = null;
+      });
+      try {
+        await pending;
+      } catch {
+      }
+    }
+    status.variableDisplays = library || [];
+    if (!Array.isArray(status.variableSets)) {
+      try {
+        const response = await fetch("/api/variables", { cache: "no-store" });
+        if (response.ok) {
+          const data = await response.json();
+          status.variableSets = data.sets || [];
+        }
+      } catch {
+      }
+    }
+  }
+  function renderVariableDisplay(host, element, status = {}) {
+    const binding = element.display || {};
+    const definition = status.variableDisplays?.find((display) => display.id === binding.displayId);
+    const catalog = status.variableSets?.find((set) => set.id === definition?.catalogId);
+    const { set: ownerSet, entry: owner } = (0, import_variable_displays.resolveDisplayOwner)(status.variableSets, binding);
+    const tracker = ownerSet?.fields?.find((field) => field.key === binding.tracker && field.type === "checklist" && field.targetSet === definition?.catalogId);
+    const tracks = Boolean(binding.setId);
+    const signature = JSON.stringify([definition, catalog?.roster, tracks ? owner : null, tracker, binding, status.modules?.variableSets]);
+    if (host._displaySignature === signature && host.querySelector(".sp-variable-display")) return true;
+    host._displaySignature = signature;
+    host.replaceChildren();
+    if (!definition || !catalog || status.modules?.variableSets === false || tracks && (!owner || !tracker)) return false;
+    const { layout, style } = definition;
+    const map = owner?.values?.[tracker?.key] || {};
+    const members = new Map((catalog.roster || []).map((item) => [item.id, item]));
+    const sections = definition.sections.map((section) => ({
+      ...section,
+      items: section.items.flatMap((placement) => {
+        const item = members.get(placement.itemId);
+        if (!item) return [];
+        const level = Math.max(0, Math.min((0, import_variable_links.trackerMax)(tracker, item), Number(map[item.id]) || 0));
+        const inactive = tracks && level === 0;
+        if (inactive && binding.showMode === "active" && layout.mode !== "fixed") return [];
+        return [{ ...placement, item, level, inactive, tier: item.tiers?.find((tier) => tier.level === level) }];
+      })
+    }));
+    const rowCount = (section) => Math.ceil((layout.mode === "fixed" ? Math.max(0, ...section.items.map((item) => item.cell + 1)) : section.items.length) / layout.columns);
+    const titleHeight = style.fontSize * 2.2;
+    const width = style.padding * 2 + layout.columns * layout.cellWidth + (layout.columns - 1) * layout.gap;
+    const height = Math.max(1, style.padding * 2 + (style.showOwner ? titleHeight : 0) + sections.reduce((total, section, index) => {
+      const rows = rowCount(section);
+      return total + (index ? layout.sectionGap : 0) + (section.title && style.showSectionTitles ? titleHeight : 0) + rows * layout.cellHeight + Math.max(0, rows - 1) * layout.gap;
+    }, 0));
+    const root2 = document.createElement("div");
+    root2.className = "sp-variable-display";
+    Object.assign(root2.style, { width: "100%", height: "100%", containerType: "size", overflow: "hidden" });
+    const board = document.createElement("div");
+    const unit = "var(--display-unit)";
+    root2.style.setProperty("--display-unit", `min(calc(100cqw / ${width}), calc(100cqh / ${height}))`);
+    const px = (value) => `calc(${unit} * ${value})`;
+    Object.assign(board.style, { boxSizing: "border-box", width: px(width), minHeight: px(height), padding: px(style.padding), background: style.background, color: style.color, fontFamily: style.fontFamily, fontSize: px(style.fontSize) });
+    if (style.showOwner) {
+      const heading = document.createElement("div");
+      heading.textContent = owner?.label || definition.name;
+      Object.assign(heading.style, { height: px(titleHeight), fontWeight: "700" });
+      board.append(heading);
+    }
+    for (const [index, section] of sections.entries()) {
+      const group = document.createElement("section");
+      group.dataset.displaySection = section.id;
+      if (index) group.style.marginTop = px(layout.sectionGap);
+      if (section.title && style.showSectionTitles) {
+        const heading = document.createElement("div");
+        heading.textContent = section.title;
+        Object.assign(heading.style, { height: px(titleHeight), fontWeight: "700" });
+        group.append(heading);
+      }
+      const grid = document.createElement("div");
+      Object.assign(grid.style, { display: "grid", gridTemplateColumns: `repeat(${layout.columns}, ${px(layout.cellWidth)})`, gridTemplateRows: `repeat(${rowCount(section)}, ${px(layout.cellHeight)})`, gap: px(layout.gap) });
+      for (const [position, placement] of section.items.entries()) {
+        const { item, level, inactive, tier } = placement;
+        const cell = document.createElement("div");
+        cell.dataset.displayItem = item.id;
+        cell.dataset.level = level;
+        const slot = layout.mode === "fixed" ? placement.cell : position;
+        Object.assign(cell.style, { gridColumn: String(slot % layout.columns + 1), gridRow: String(Math.floor(slot / layout.columns) + 1), position: "relative", overflow: "hidden", boxSizing: "border-box", border: `${px(style.borderWidth)} solid ${style.borderColor}`, borderRadius: px(style.radius), background: style.cellBackground, opacity: inactive ? String(style.inactiveOpacity) : "1", visibility: inactive && binding.showMode === "active" ? "hidden" : "", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: px(4) });
+        const image = tier?.image || item.values?.[definition.imageField];
+        if (image) {
+          const img = document.createElement("img");
+          img.src = image;
+          img.alt = "";
+          img.referrerPolicy = "no-referrer";
+          Object.assign(img.style, { width: "100%", flex: "1", minHeight: "0", objectFit: "contain", filter: inactive ? "grayscale(1)" : "" });
+          cell.append(img);
+        }
+        if (style.showLabels || style.showLevels) {
+          const label = document.createElement("div");
+          label.textContent = [style.showLabels ? tier?.label || item.values?.[definition.labelField] || item.label : "", style.showLevels && tracks ? `Lv.${level}` : ""].filter(Boolean).join(" ");
+          Object.assign(label.style, { width: "100%", textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: "none" });
+          cell.append(label);
+        }
+        grid.append(cell);
+      }
+      group.append(grid);
+      board.append(group);
+    }
+    root2.append(board);
+    host.append(root2);
+    return true;
+  }
+  var import_variable_displays, import_variable_links, library, revision, pending;
+  var init_displays = __esm({
+    "public/js/overlay/displays.js"() {
+      import_variable_displays = __toESM(require_variable_displays());
+      import_variable_links = __toESM(require_variable_links());
+      library = null;
+      revision = null;
+      pending = null;
+    }
+  });
+
   // public/js/overlay/variables.js
   function formatMinutes(minutes) {
     const m = Math.max(0, Math.round(minutes || 0));
@@ -3466,9 +3712,11 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     }
     for (const key of Object.keys(table)) if (key.startsWith("timer.") && !/\.(label|state)$/.test(key)) delete table[key];
     table.__plan = (status.gamePlan?.items || []).map((item) => [item.name, item.status, item.period, item.cover, item.playingNow, item.note, item.finished, (item.played || []).join(","), (item.extraLists || []).join(",")]);
+    if (status.variableDisplays) table.__displays = [status.variableDisplaysRevision, status.variableSets];
     return JSON.stringify(table);
   }
   async function loadLiveExtras(status, elements = null) {
+    await loadDisplayLibrary(status, elements);
     try {
       let needTimers = true, needGoals = true, needPlan = true, needWeather = true;
       if (Array.isArray(elements)) {
@@ -3555,12 +3803,13 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
   var init_variables = __esm({
     "public/js/overlay/variables.js"() {
       import_numeric_bindings = __toESM(require_numeric_bindings());
+      init_displays();
       VARIABLE_GROUPS = [
         { label: "Viewers", items: [["viewers.current", "Current viewers"], ["viewers.peak", "Peak viewers"], ["viewers.average", "Average viewers"]] },
         { label: "Chat", items: [["chatters", "Chatters"], ["messages", "Messages"], ["followers", "Followers (current total)"], ["followers.session", "New followers this session"], ["subscribers", "Subscribers (current total)"], ["subscribers.session", "Subscribers seen this session"], ["emotes", "Different emotes used this session"], ["raids", "Raids this session"], ["highlights", "Saved highlights"], ["clips.pending", "Clip candidates waiting"]] },
         { label: "Engagement", items: [["gift_subs", "Gift subs this session"], ["gift_subs.total", "Gift subs (lifetime)"], ["bits", "Bits this session"], ["bits.total", "Bits (lifetime)"], ["donations", "Donations this session"], ["donations.total", "Donations (lifetime)"]] },
         { label: "Hashtags", items: [["hashtags.top", "Most popular hashtag overall"], ["hashtags.session_top", "Most popular hashtag this session"], ["hashtags.top.count", "Mentions of the most popular hashtag"], ["hashtags.top.2", "Second most popular hashtag"], ["hashtags.top.3", "Third most popular hashtag"], ["hashtags.total", "Total hashtag mentions"]] },
-        { label: "Twitch Poll", items: [["poll.title", "Poll question / title"], ["poll.winner", "Winning choice title"], ["poll.winner_votes", "Winning choice vote count"], ["poll.winner_percent", "Winning choice percentage (e.g. 64%)"], ["poll.total_votes", "Total votes across all choices"], ["poll.status", "Status (ACTIVE, COMPLETED, etc.)"], ["poll.duration", "Total poll duration (seconds)"], ["poll.remaining", "Remaining countdown timer (e.g. 1:45)"], ["poll.choice.1.title", "Choice 1 title"], ["poll.choice.1.votes", "Choice 1 votes"], ["poll.choice.1.percent", "Choice 1 percent"], ["poll.choice.2.title", "Choice 2 title"], ["poll.choice.2.votes", "Choice 2 votes"], ["poll.choice.2.percent", "Choice 2 percent"], ["poll.choice.3.title", "Choice 3 title"], ["poll.choice.3.votes", "Choice 3 votes"], ["poll.choice.3.percent", "Choice 3 percent"], ["poll.choice.4.title", "Choice 4 title"], ["poll.choice.4.votes", "Choice 4 votes"], ["poll.choice.4.percent", "Choice 4 percent"], ["poll.choice.5.title", "Choice 5 title"], ["poll.choice.5.votes", "Choice 5 votes"], ["poll.choice.5.percent", "Choice 5 percent"]] },
+        { label: "Poll", items: [["poll.title", "Poll question / title"], ["poll.winner", "Winning choice title"], ["poll.winner_votes", "Winning choice vote count"], ["poll.winner_percent", "Winning choice percentage (e.g. 64%)"], ["poll.total_votes", "Total votes across all choices"], ["poll.status", "Status (ACTIVE, COMPLETED, etc.)"], ["poll.duration", "Total poll duration (seconds)"], ["poll.remaining", "Remaining countdown timer (e.g. 1:45)"], ["poll.choice.1.title", "Choice 1 title"], ["poll.choice.1.votes", "Choice 1 votes"], ["poll.choice.1.percent", "Choice 1 percent"], ["poll.choice.2.title", "Choice 2 title"], ["poll.choice.2.votes", "Choice 2 votes"], ["poll.choice.2.percent", "Choice 2 percent"], ["poll.choice.3.title", "Choice 3 title"], ["poll.choice.3.votes", "Choice 3 votes"], ["poll.choice.3.percent", "Choice 3 percent"], ["poll.choice.4.title", "Choice 4 title"], ["poll.choice.4.votes", "Choice 4 votes"], ["poll.choice.4.percent", "Choice 4 percent"], ["poll.choice.5.title", "Choice 5 title"], ["poll.choice.5.votes", "Choice 5 votes"], ["poll.choice.5.percent", "Choice 5 percent"]] },
         { label: "Stream", items: [["music.title", "Music title"], ["music.artist", "Music artist"], ["music.album", "Music album"], ["music.cover", "Album art URL (use as an image source)"], ["music.position", "Track position (m:ss)"], ["music.duration", "Track length (m:ss)"], ["music.remaining", "Track time remaining (m:ss)"], ["music.percent", "Track progress % (for a progress element)"], ["music.state", "Music state (playing / paused / stopped)"], ["stream.title", "Stream title"], ["stream.category", "Stream category (from Twitch)"], ["stream.live", "Live on Twitch (yes / no)"], ["session.started", "Session start time (formattable)"], ["session.duration", "Time since the session started"], ["category.session_time", "Time in this category, this session"], ["category.total_time", "Time in this category, all sessions"], ["category.total_hours", "Hours in this category, all sessions"], ["overlay.name", "Overlay name"]] }
       ];
       CLOCK_ITEMS = [["now", "Current date & time (format it with {{now|MMMM D, h:mm A}})"], ["time", "Time (e.g. 3:07 PM)"], ["time.24", "Time, 24-hour"], ["time.seconds", "Time with seconds"], ["date", "Date (short)"], ["date.long", "Date (long)"], ["weekday", "Weekday"], ["month", "Month"], ["year", "Year"], ["uptime", "Stream uptime (H:MM:SS)"]];
@@ -3725,30 +3974,6 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       isListFormat = (format) => /^(lines|newline|br|bullets|numbered|sep:|\d+(:|$))/i.test(String(format || "").trim());
       isListKey = (name) => /^(plan\.scheduled|plan\.backlog|plan\.list\..+|game\.genres|game\.platforms)$/.test(name);
       numberFormatters = /* @__PURE__ */ new Map();
-    }
-  });
-
-  // shared/variable-links.cjs
-  var require_variable_links = __commonJS({
-    "shared/variable-links.cjs"(exports, module) {
-      function trackerMax2(field, item) {
-        const levels = (item?.tiers || []).map((tier) => Number(tier.level)).filter((level) => Number.isInteger(level) && level > 0);
-        return Math.min(100, levels.length ? Math.max(...levels) : Math.max(1, Number(field?.maxTier) || 1));
-      }
-      function linkedSourceEntry(sets, source = {}) {
-        const set = (sets || []).find((candidate) => candidate.id === source.setId);
-        if (!set) return { set: null, entry: null };
-        const selector = source.selector || "active";
-        const id = selector.startsWith("entry:") ? selector.slice(6) : selector.startsWith("slot:") ? set.slots?.[Number(selector.slice(5)) - 1] : set.slotsCount > 0 ? set.slots?.[0] : set.activeEntry;
-        return { set, entry: (set.roster || []).find((candidate) => candidate.id === id) || null };
-      }
-      function linkedSourceFields2(sets, source = {}, types = ["ref", "ref_list"]) {
-        const { set, entry } = linkedSourceEntry(sets, source);
-        const keys = Array.isArray(source.fields) ? source.fields : [];
-        const fields = keys.map((key) => (set?.fields || []).find((field) => key === field.key && types.includes(field.type))).filter(Boolean);
-        return { set, entry, fields };
-      }
-      module.exports = { trackerMax: trackerMax2, linkedSourceEntry, linkedSourceFields: linkedSourceFields2 };
     }
   });
 
@@ -4346,7 +4571,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     const subSpec = fieldSpecs.find((f, i) => f.role === "subtitle" || i === 1) || (cfg.subField ? { key: cfg.subField, role: "subtitle" } : null);
     const filterMode = cfg.filterMode || "inGroup";
     const showMode = cfg.showMode === "dim" ? "dim" : "active";
-    const linked = (0, import_variable_links.linkedSourceFields)(status.variableSets, cfg.linkedSource, filterMode === "checklist" ? ["checklist"] : ["ref", "ref_list"]);
+    const linked = (0, import_variable_links2.linkedSourceFields)(status.variableSets, cfg.linkedSource, filterMode === "checklist" ? ["checklist"] : ["ref", "ref_list"]);
     const trackerField = filterMode === "checklist" ? linked.fields[0] : null;
     const map = linked.entry?.values?.[trackerField?.key] || {};
     const targetId = ["linked", "checklist"].includes(filterMode) ? linked.fields[0]?.targetSet : cfg.setId;
@@ -4361,7 +4586,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       rawMembers = [...new Set(ids)].map((id) => byId.get(id)).filter(Boolean);
     }
     let items = rawMembers.map((m) => {
-      const level = filterMode === "checklist" ? Math.max(0, Math.min((0, import_variable_links.trackerMax)(trackerField, m), Number(map[m.id]) || 0)) : 0;
+      const level = filterMode === "checklist" ? Math.max(0, Math.min((0, import_variable_links2.trackerMax)(trackerField, m), Number(map[m.id]) || 0)) : 0;
       const tier = filterMode === "checklist" ? m.tiers?.find((candidate) => candidate.level === level) : null;
       const vals = { ...m.values || {} };
       if (tier?.image) vals[imgField] = tier.image;
@@ -4378,7 +4603,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       const labelText = primarySpec.key ? tieredLabel || readMemberFieldValue(m, primarySpec.key, "") : autoFallbackLabel;
       const subText = subSpec && subSpec.key ? readMemberFieldValue(m, subSpec.key, "") : "";
       const hasAnyText = Boolean(labelText || subText || fieldSpecs.some((s) => readMemberFieldValue(m, s.key, "")));
-      return { id: m.id, raw: m, imgUrl, labelText, subText, hasAnyText, level, hasTierImages, maxTier: (0, import_variable_links.trackerMax)(trackerField, m), isInactive: filterMode === "checklist" && level <= 0 };
+      return { id: m.id, raw: m, imgUrl, labelText, subText, hasAnyText, level, hasTierImages, maxTier: (0, import_variable_links2.trackerMax)(trackerField, m), isInactive: filterMode === "checklist" && level <= 0 };
     }).filter((item) => {
       if (filterMode === "checklist" && showMode !== "dim" && item.level <= 0) return false;
       return !showAvatar ? item.hasAnyText || item.imgUrl !== "" : fallbackMode === "initials" ? item.imgUrl !== "" || item.labelText !== "" : item.imgUrl !== "";
@@ -4976,7 +5201,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     }
     return true;
   }
-  var import_numeric_bindings2, import_variable_links, GROUP_POLY_CLIPS, GROUP_POLY_POINTS, IMAGE_GROUP_LAYOUTS, IMAGE_GROUP_SHAPES, IMAGE_GROUP_PLACEMENTS, IMAGE_GROUP_SLOTS, FIELD_ROLE_SCALE;
+  var import_numeric_bindings2, import_variable_links2, GROUP_POLY_CLIPS, GROUP_POLY_POINTS, IMAGE_GROUP_LAYOUTS, IMAGE_GROUP_SHAPES, IMAGE_GROUP_PLACEMENTS, IMAGE_GROUP_SLOTS, FIELD_ROLE_SCALE;
   var init_media = __esm({
     "public/js/overlay/media.js"() {
       init_fonts();
@@ -4984,7 +5209,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       init_styles();
       init_variables();
       import_numeric_bindings2 = __toESM(require_numeric_bindings());
-      import_variable_links = __toESM(require_variable_links());
+      import_variable_links2 = __toESM(require_variable_links());
       GROUP_POLY_CLIPS = {
         hexagon: "polygon(50% 0%, 96% 25%, 96% 75%, 50% 100%, 4% 75%, 4% 25%)",
         diamond: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)",
@@ -6163,7 +6388,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         return;
       }
       slotObj.lastStampKey = nextStampKey;
-      const revision = ++slotObj.stampRevision;
+      const revision2 = ++slotObj.stampRevision;
       if (slotObj.pendingImg) {
         slotObj.pendingImg.onload = slotObj.pendingImg.onerror = null;
         slotObj.pendingImg.removeAttribute("src");
@@ -6176,7 +6401,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       if (slotObj.sourceType === "icon") {
         const cls = String(slotObj.content || "fa-brands fa-twitch").trim().replace(/^fab\b/, "fa-brands").replace(/^fas\b/, "fa-solid").replace(/^far\b/, "fa-regular");
         const refreshIconStamp = () => {
-          if (stopped || slotObj.stampRevision !== revision) return;
+          if (stopped || slotObj.stampRevision !== revision2) return;
           const { glyph, fontFamily, fontWeight, isFa } = buildStampFromIcon(slotObj, cls);
           if (glyph) {
             if (slotObj.index === 0) note.style.display = "none";
@@ -6185,7 +6410,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
             wake();
             if (isFa && document.fonts?.load) {
               document.fonts.load(`${fontWeight} 32px ${fontFamily}`, glyph).then(() => {
-                if (stopped || slotObj.stampRevision !== revision) return;
+                if (stopped || slotObj.stampRevision !== revision2) return;
                 buildStampFromIcon(slotObj, cls);
                 wake();
               }).catch(() => {
@@ -6240,7 +6465,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           if (/^https?:\/\//i.test(rawSrc)) img.crossOrigin = "anonymous";
           img.decoding = "async";
           img.onload = () => {
-            if (stopped || slotObj.stampRevision !== revision) return;
+            if (stopped || slotObj.stampRevision !== revision2) return;
             slotObj.pendingImg = null;
             slotObj.cachedImg = img;
             if (slotObj.index === 0) note.style.display = "none";
@@ -6254,7 +6479,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
             wake();
           };
           img.onerror = () => {
-            if (stopped || slotObj.stampRevision !== revision) return;
+            if (stopped || slotObj.stampRevision !== revision2) return;
             if (img.crossOrigin) {
               img.removeAttribute("crossorigin");
               img.src = rawSrc;
@@ -6525,7 +6750,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     const frozen = options.preview && !options.animate;
     let paused = options.initialState?.paused ?? config.advance === "manual";
     let items = [], order = [], position = -1, timer = null, refreshTimer = null, stopped = false, current = null, token = 0;
-    const pending = /* @__PURE__ */ new Set(), transitions = /* @__PURE__ */ new Set();
+    const pending2 = /* @__PURE__ */ new Set(), transitions = /* @__PURE__ */ new Set();
     cleanupMedia(node);
     node.replaceChildren();
     node.style.position = node.style.position || "absolute";
@@ -6590,7 +6815,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         const finish = (success) => {
           media.removeEventListener(evt, loaded);
           media.removeEventListener("error", failed);
-          pending.delete(cancel);
+          pending2.delete(cancel);
           resolve(success);
         };
         const loaded = () => finish(true), failed = () => finish(false);
@@ -6598,7 +6823,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           cleanupMedia(media);
           finish(false);
         };
-        pending.add(cancel);
+        pending2.add(cancel);
         media.addEventListener(evt, loaded);
         media.addEventListener("error", failed);
       });
@@ -6725,7 +6950,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         clearInterval(refreshTimer);
         transitions.forEach(clearTimeout);
         transitions.clear();
-        for (const cancel of pending) cancel();
+        for (const cancel of pending2) cancel();
         stage.getAnimations({ subtree: true }).forEach((animation) => animation.cancel());
         cleanupMedia(stage);
       },
@@ -6850,9 +7075,9 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         entry = { state: null, revision: 0 };
         textSources.set(key, entry);
       }
-      const revision = ++entry.revision;
+      const revision2 = ++entry.revision;
       const next = await loadTextSource(key);
-      if (textSources.get(key) !== entry || entry.revision !== revision) return;
+      if (textSources.get(key) !== entry || entry.revision !== revision2) return;
       const prev = entry.state;
       if (!prev || prev.text !== next.text || prev.mtimeMs !== next.mtimeMs || prev.error !== next.error) changed = true;
       entry.state = next;
@@ -8527,12 +8752,15 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       init_variables();
       init_widgets();
       var import_numeric_bindings3 = __toESM(require_numeric_bindings());
-      var import_variable_links2 = __toESM(require_variable_links());
+      var import_variable_links3 = __toESM(require_variable_links());
+      var import_variable_displays2 = __toESM(require_variable_displays());
+      init_displays();
       root.OverlayShared = Object.assign(root.OverlayShared || {}, { cleanupMedia, cleanupNode, alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, TEXT_ANIM_TYPES, applyBorderGradient, applyTextAnimation, resolveBorderRadius, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, pruneSourceCaches, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, playSoundValue, resolveSoundUrl, zzfxSamples, BUILTIN_SOUNDS, renderGameList, renderSpeakerBadge, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, mountPattern, mountTextCycle, resolveCycleLines, createVarRotationEngine, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, resolveColorToken, resolveStyleVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, renderImageGroupStrip, applyMediaFilter: root.OverlayFilters?.applyMediaFilter || applyMediaFilter, shadowClipStyle });
       root.OverlayShared.borderPlacement = borderPlacement;
       Object.assign(root.OverlayShared, { ALERT_PRESENTATION_KEYS, resolveAlertLook, renderInlineText, sanitizeIconClass });
       Object.assign(root.OverlayShared, import_numeric_bindings3.default);
-      Object.assign(root.OverlayShared, import_variable_links2.default);
+      Object.assign(root.OverlayShared, import_variable_links3.default);
+      Object.assign(root.OverlayShared, import_variable_displays2.default, { renderVariableDisplay, setDisplayLibrary });
       Object.defineProperty(root.OverlayShared, Symbol.for("StreamPulse.OverlayShared"), { value: true });
     }
   });

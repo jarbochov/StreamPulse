@@ -49,7 +49,7 @@ try {
     for (const path of ['/', '/?legacy=1']) {
         await page.goto(`${origin}${path}`);
         assert.equal(await page.evaluate(() => window.fixtureImmediate), 'Hello Fictional show', 'blocking classic consumers receive the API immediately');
-        assert.deepEqual(await page.evaluate(() => Object.keys(window.OverlayShared).sort()), [...publicKeys, 'trackerMax', 'linkedSourceEntry', 'linkedSourceFields'].sort(), 'facade preserves the complete public contract through both aliases');
+        assert.deepEqual(await page.evaluate(() => Object.keys(window.OverlayShared).sort()), [...publicKeys, 'trackerMax', 'linkedSourceEntry', 'linkedSourceFields', 'normalizeDisplay', 'normalizeDisplayBinding', 'resolveDisplayOwner', 'renderVariableDisplay', 'setDisplayLibrary'].sort(), 'facade preserves the complete public contract through both aliases');
     }
     await page.addScriptTag({ url: `${origin}/js/overlay-retro.js` });
     await page.addScriptTag({ url: `${origin}/js/overlay-filters.js` });

@@ -15,6 +15,7 @@ function createStatusService({
     getConfig = () => ({}),
     getChatData = () => ({}),
     getVariablesStore = () => ({ list: () => ({}) }),
+    getVariableDisplaysRevision = () => 0,
     getExternalData = () => ({}),
     getHostSources = () => [],
     getPollService = () => null,
@@ -120,6 +121,7 @@ function createStatusService({
 
         return {
             customVars: variablesStore.list(),
+            variableDisplaysRevision: getVariableDisplaysRevision(),
             external: getExternalData(),
             hostSources: getHostSources(),
             poll: (pollService ? pollService.getLatestPoll() : twitchService?.getLatestPoll?.()) || null,

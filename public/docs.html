@@ -1129,7 +1129,7 @@
             <div class="detail-label">OBS URL</div>
             <div class="url-box"><code>${BASE}/custom-overlay.html?id=my-overlay</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/custom-overlay.html?id=my-overlay')">Copy</button></div>
             <div class="detail-label">Editing tips</div>
-            <div class="detail-text">The <strong>+ Add</strong> element picker organizes 20 layer types into 3 balanced columns: <strong>Text &amp; Copy</strong> + <strong>Media &amp; Artwork</strong>, <strong>Framing &amp; Cutouts</strong> + <strong>Graphics &amp; Patterns</strong>, and <strong>Stream Widgets</strong> + <strong>Interactive &amp; Web</strong>, with instant keyword search and Escape/Enter keyboard navigation.</div>
+            <div class="detail-text">The <strong>+ Add</strong> element picker organizes layer types into 3 balanced columns: <strong>Text &amp; Copy</strong> + <strong>Media &amp; Artwork</strong>, <strong>Framing &amp; Cutouts</strong> + <strong>Graphics &amp; Patterns</strong>, and <strong>Stream Widgets</strong> + <strong>Interactive &amp; Web</strong>, with instant keyword search and Escape/Enter keyboard navigation.</div>
             <div class="detail-text">For quick speaker changes, open the overlay controller and choose <strong>Speakers</strong>. Use <strong>Library...</strong> beside an avatar to search image assets, upload from your computer, or remove the image; URL/path entry is also supported. Choose <strong>Save badge</strong> to persist the profile and update connected overlays without changing its styling or other layers.</div>
             <div class="detail-text">Configure OBS once in <a href="/config-editor.html#connection">System Config &gt; Connection &amp; Security &gt; OBS Connection</a>. This global connection is shared by all OBS-enabled features. Disable <strong>OBS Scene Sync</strong> under <strong>Modules &amp; Services</strong> to hide its editor controls and stop manual/automatic source motion, without disconnecting OBS or disabling speaker meters. Saved source links are preserved. <strong>Auto-sync</strong> only controls automatic updates when the module is enabled; existing configurations keep Scene Sync enabled until you turn it off.</div>
             <div class="detail-text">Speaker badges react to live OBS meters in the editor when live-data preview is enabled. The audio inspector and Speakers controller show input dB levels versus the gate: lower the sensitivity gate if normal speech remains below it. The source must be active in OBS, not merely listed as audio-capable. <strong>Simulate Speaking</strong> tests styling without real audio.</div>
@@ -1209,7 +1209,7 @@
                     <td>28 geometric, organic, particle, and seasonal canvas patterns with curated palettes, color placement/waves, stroke width, fill opacity, zoom, density, and independent canvas/in-place/spin motion. Browser sprite caches honor stroke changes; dense views use bounded detail rendering. Seasonal Promo exports close their six-second animation loops.</td>
                 </tr>
                 <tr>
-                    <td rowspan="4"><strong>Stream Widgets</strong></td>
+                    <td rowspan="5"><strong>Stream Widgets</strong></td>
                     <td><code>alert</code><br><strong>Alert Box</strong></td>
                     <td>Real-time alerts for follows, subs, gifts, cheers, raids, and tips. Supports per-box event filtering, custom visual looks, media effects targeting, and celebration animations.</td>
                 </tr>
@@ -1218,8 +1218,12 @@
                     <td>Audio-reactive host/guest cards powered by live OBS volume meters. Features 5 layout presets (including C-SPAN call-in banner), EQ visualizers, active glow, and fast live editing.</td>
                 </tr>
                 <tr>
-                    <td><code>poll</code><br><strong>Twitch Poll</strong></td>
-                    <td>Live audience voting overlay displaying active Twitch polls, remaining countdown timer, vote percentage bars, blind voting support, and winner celebration highlights.</td>
+                    <td><code>poll</code><br><strong>Poll</strong></td>
+                    <td>Native StreamPulse voting and its results take priority; otherwise follows the latest Twitch poll. Shows countdowns, percentages, blind voting and winner highlights.</td>
+                </tr>
+                <tr>
+                    <td><code>data-display</code><br><strong>Saved Display</strong></td>
+                    <td>Reusable inventories built in Display Library, with ordered sections, auto grids or fixed slots. Each placement independently follows a player tracker or linked Schedule role.</td>
                 </tr>
                 <tr>
                     <td><code>game-list</code><br><strong>Game Plan</strong></td>
@@ -2020,6 +2024,20 @@
                         • <strong>Variable Settings (<code>variable_settings_enabled</code>):</strong> An advanced module toggle in <a href="/config-editor.html#modules" style="color:var(--accent);">Config Editor → Modules</a> that lets Custom Overlay controls bind numeric settings (font size, padding, borders, radiuses, opacity, line height, letter spacing, shadows/animations, Group Strip spacing) to live variables via the <code>{}</code> binding button. Values use the control's displayed units (<code>32</code> = 32px font size; <code>50</code> = 50% opacity), preserving static fallbacks if a variable is missing or nonnumeric.
                     </div>
                 </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Display Library: reusable inventories</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body"><div class="detail-text">
+                    Build inventories in <a href="/variable-displays.html">Library → Display Library</a>, not inside the overlay inspector. Variable Sets own reusable item definitions and per-person progress; a saved display owns item inclusion, ordering, named sections, columns and appearance; the overlay placement owns its source and geometry.<br><br>
+                    <strong>Setup:</strong> Create Equipment entries with Name/Image and optional explicit upgrade levels. Add an Equipment Tracker on People targeting that catalog. Optionally create Schedule with Player 1/Player 2 Linked entry fields targeting People, and assign an event to Slot 1. In Display Library create an Inventory, choose the catalog, add and reorder items, create sections, and choose Auto Grid or Fixed Slots. Save.<br><br>
+                    In Custom Overlay Editor choose <strong>+ Add → Saved Display</strong>, select the design, then Schedule → Active entry → Player 1 → Equipment tracker. Duplicate the placement and follow Player 2. Resize either placement; typography, borders and artwork scale together. Save the overlay and use its browser URL in OBS. Follow a fixed Person or Person slot instead when no Schedule is needed.<br><br>
+                    Use Variable Set Operator's Tracker controls or Companion's existing Tracker set/step/toggle/reset actions to update progress. Saving a shared design updates every placement without resetting players or changing another set's live slots. An empty role, missing design/catalog or incompatible tracker hides the production display. Whole catalog mode displays the arrangement without an owner.<br><br>
+                    Earned-only Auto Grid closes gaps; Fixed Slots preserves them. Fixed cell numbers are zero-based within each section and wrap onto new rows when columns change. Preview owner/backdrop are local preferences. Colors accept #RRGGBB and #RRGGBBAA. Inventory is the first workflow; existing Badge/Strip builders remain available.<br><br>
+                    Full backups include <code>data/variable-displays.json</code>, Variable Sets, overlays and assets. Selective overlay/preset share ZIPs containing Saved Displays are rejected with instructions to use a full backup, avoiding dangling dependencies. See <a href="/api.html">Saved Display API</a> for definitions, placement JSON, validation limits and live events.
+                </div></div>
             </div>
             <div class="card open">
                 <div class="card-header" onclick="this.parentElement.classList.toggle('open')">

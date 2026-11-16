@@ -80,7 +80,7 @@ export function scaleSelectionBy(percent) {
 // ---- Selection & Action Helpers ---------------------------------------------------
 export function addElement(type, overrides = {}) {
     if (type === 'obs-frame' && state.obs?.sceneSyncEnabled === false) return;
-    if (type === 'image-group' && state.liveStatus?.modules?.variableSets === false) return;
+    if (['image-group', 'data-display'].includes(type) && state.liveStatus?.modules?.variableSets === false) return;
     const el = createElementData(type, overrides);
     state.overlay.elements.push(el);
     normalizeZ();
@@ -88,6 +88,9 @@ export function addElement(type, overrides = {}) {
     renderLayers();
     setSelection([el.id]);
     changed(true);
+    if (type === 'data-display') {
+        refreshLiveStatus().then(() => { renderCanvas(); renderProperties(); });
+    }
     return el;
 }
 
@@ -967,6 +970,7 @@ export async function refreshLiveStatus() {
         const response = await fetch('/api/status', { cache: 'no-store' });
         if (!response.ok) return;
         const before = liveSignature();
+        const displayRevision = state.liveStatus?.variableDisplaysRevision;
         const prevSets = state.liveStatus?.variableSets;
         state.liveStatus = {
             ...(await response.json()),
@@ -979,8 +983,10 @@ export async function refreshLiveStatus() {
         if (tabSets) tabSets.hidden = !vsEnabled;
         const groupStripBtn = $('menu-add-image-group');
         if (groupStripBtn) groupStripBtn.hidden = !vsEnabled;
+        if ($('menu-add-data-display')) $('menu-add-data-display').hidden = !vsEnabled;
         if (!vsEnabled && prefs.railTab === 'sets') setRailTab('layers');
         if (shared.loadLiveExtras) await shared.loadLiveExtras(state.liveStatus, state.overlay.elements);
+        if (state.overlay.elements.some(el => el.type === 'data-display') && displayRevision !== state.liveStatus.variableDisplaysRevision) renderProperties();
         if (liveSignature() !== before) {
             if (prefs.live) renderCanvas();
             refreshOpenGroupBuilder();
@@ -1034,7 +1040,7 @@ export function connectAlertPreview() {
     setupEditorVisibilityIdle();
     const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`);
     socket.addEventListener('message', event => {
-        if (typeof event.data === 'string' && !event.data.includes('"alert') && !event.data.includes('"poll-update"') && !event.data.includes('"custom-overlay-page"') && !event.data.includes('"obs-status"') && !event.data.includes('"obs-audio-meter"') && !event.data.includes('"variables-update"')) return;
+        if (typeof event.data === 'string' && !event.data.includes('"alert') && !event.data.includes('"poll-update"') && !event.data.includes('"custom-overlay-page"') && !event.data.includes('"obs-status"') && !event.data.includes('"obs-audio-meter"') && !event.data.includes('"variables-update"') && !event.data.includes('"variable-displays-update"')) return;
         let message; try { message = JSON.parse(event.data); } catch { return; }
         if (message.type === 'obs-audio-meter') {
             if (!document.hidden) handleSpeakerMeter(message.data);
@@ -1057,6 +1063,15 @@ export function connectAlertPreview() {
         }
         if (message.type === 'custom-overlay-page' && message.data?.id === state.overlay?.id) {
             setLiveState(message.data);
+            return;
+        }
+        if (message.type === 'variable-displays-update' && message.data) {
+            shared.setDisplayLibrary(message.data);
+            state.liveStatus.variableDisplays = message.data.displays;
+            state.liveStatus.variableDisplaysRevision = message.data.revision;
+            if (document.hidden) { pendingHiddenSync = true; return; }
+            renderCanvas();
+            renderProperties();
             return;
         }
         if (message.type === 'variables-update' && message.data) {

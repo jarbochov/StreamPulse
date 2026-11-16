@@ -129,6 +129,7 @@
             { label: 'Hashtag Tools', href: '/manage-hashtags.html', module: 'hashtags' }
         ]},
         { label: 'Library', children: [
+            { label: 'Display Library', href: '/variable-displays.html' },
             { label: 'Asset Library', href: '/assets.html' },
             { label: 'Highlights', href: '/highlights.html' },
             { label: 'Sessions', href: '/sessions.html' },
@@ -257,6 +258,7 @@
         list.push({ label: 'New Custom Overlay Builder', href: '/custom-overlay-editor.html?new=1', group: 'Overlays Hub' });
 
         // 7. Library & Analytics
+        list.push({ label: 'Display Library', href: '/variable-displays.html', group: 'Library & Analytics', keywords: 'inventory reusable display layouts overlay item catalog' });
         list.push({ label: 'Asset Library', href: '/assets.html', group: 'Library & Analytics', keywords: 'overlay assets media library images videos audio fonts upload crop' });
         list.push({ label: 'Analytics & Community', href: '/analytics.html', group: 'Library & Analytics' });
         list.push({ label: 'Milestones & Streaks', href: '/analytics.html#milestones', group: 'Library & Analytics' });

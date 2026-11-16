@@ -8,7 +8,7 @@
     function settings(input = {}) {
         if (!input || typeof input !== 'object') input = {};
         return {
-            source: 'twitch',
+            source: 'auto',
             accent: color(input.accent, '#a78bfa'),
             winnerColor: color(input.winnerColor, '#4ade80'),
             trackColor: color(input.trackColor, 'rgba(255,255,255,0.14)'),

@@ -310,7 +310,7 @@ export function renderPagesPanel() {
         ${F.number('pages.transitionMs', 'Duration (ms)', P.transitionMs, { min: 50, max: 5000, step: 50 })}</details>` : '';
     const trigSel = F.select(`pages.items.${idx}.trigger`, 'Show when', cur?.trigger || '', [
         ['', 'In the rotation / manual'], ['alert', 'An alert plays'], ['featured', 'A chat message is featured'],
-        ['command', 'A chat command or trigger is used'], ['poll-end', 'A Twitch poll ends'], ['poll-active', 'A Twitch poll is active']]);
+        ['command', 'A chat command or trigger is used'], ['poll-end', 'A native or Twitch poll ends'], ['poll-active', 'A native or Twitch poll is active']]);
     panel.innerHTML = `
         <div class="pg-head"><span>Pages</span><button id="page-add" title="Add a new ${noun}">+ Add ${noun}</button></div>
         ${showSearch ? '<input type="search" class="pg-search" id="pg-search" placeholder="Search pages" aria-label="Search pages" spellcheck="false">' : ''}

@@ -79,11 +79,17 @@ function createShareBundleService({
         const presetsOut = [];
         const customOverlays = getCustomOverlays();
         const promoShare = getPromoShare();
+        const checkDisplays = item => {
+            if (item.elements?.some(element => element.type === 'data-display')) {
+                throw new Error('Saved Displays depend on Variable Sets. Use a full backup to transfer this overlay or preset with its designs and linked data.');
+            }
+        };
 
         for (const { type, id } of selection) {
             if (type === 'overlay') {
                 const overlay = customOverlays[sanitizeOverlayId(id)];
                 if (!overlay) continue;
+                checkDisplays(overlay);
                 const text = JSON.stringify(overlay, null, 2);
                 zip.addFile(`overlays/${overlay.id}.json`, Buffer.from(text));
                 manifest.items.push({ type, id: overlay.id, name: overlay.name });
@@ -94,6 +100,7 @@ function createShareBundleService({
             } else if (type === 'preset') {
                 const preset = overlayService.getOverlayPresets().find(p => p.id === id);
                 if (!preset) continue;
+                checkDisplays(preset);
                 presetsOut.push(preset);
                 manifest.items.push({ type, id: preset.id, name: preset.name });
                 shareAssetCodec.referencedNames(JSON.stringify(preset)).forEach(n => assets.add(n));

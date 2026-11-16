@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { normalizeNumericBindings } = require('../../shared/numeric-bindings.cjs');
+const { normalizeDisplayBinding } = require('../../shared/variable-displays.cjs');
 const { sanitizeOverlayId } = require('./game-plan');
 const { safeWriteFileSync: defaultSafeWrite } = require('../routes/helpers');
 const { settings: normalizePollSettings } = require('../../public/js/poll-widget');
@@ -344,7 +345,7 @@ function resetPresetWeights(preset, mode = '') {
 const TEXT_SOURCE_TYPES = new Set(['text', 'random-text', 'markdown']);
 const TEXT_SOURCE_EXTS = new Set(['.txt', '.md', '.markdown', '.text']);
 const TEXT_SOURCE_MAX_BYTES = 512 * 1024;
-const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress', 'poll', 'game-list', 'qr', 'alert', 'slideshow', 'icon', 'cutout', 'pattern', 'procedural-pattern', 'speaker-badge']);
+const CUSTOM_OVERLAY_ELEMENT_TYPES = new Set(['text', 'random-text', 'markdown', 'image', 'video', 'shape', 'embed', 'progress', 'poll', 'game-list', 'qr', 'alert', 'slideshow', 'icon', 'cutout', 'pattern', 'procedural-pattern', 'speaker-badge', 'data-display']);
 const PAGE_TRANSITIONS = ['none', 'fade', 'slide', 'morph'];
 const Motion = require('../../public/js/motion-easing');
 const isPageEasing = name => Motion.isEasing(name);
@@ -1013,6 +1014,7 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
             }
         } : {}),
         type,
+        display: type === 'data-display' ? normalizeDisplayBinding(element.display) : undefined,
         poll: type === 'poll' ? normalizePollSettings(element.poll) : undefined,
         speakerBadge: type === 'speaker-badge' ? normalizeSpeakerBadge(element.speakerBadge) : undefined,
         mediaFilter: normalizeMediaFilter(element.mediaFilter),

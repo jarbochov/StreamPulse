@@ -19,6 +19,7 @@ const poll = (count, status = 'ACTIVE', votes) => ({
 });
 
 test('poll display adapts to 2-5 choices with accurate zero, tie, expiry, and preview behavior', () => {
+    assert.equal(widget.settings().source, 'auto', 'the same element follows native and Twitch voting');
     for (let count = 2; count <= 5; count++) {
         const data = widget.model(poll(count));
         assert.equal(data.choices.length, count);

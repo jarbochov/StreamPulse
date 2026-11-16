@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Display Library</title>
+    <link rel="stylesheet" href="/admin.css">
+    <link rel="stylesheet" href="/css/studio-common.css">
+    <link rel="stylesheet" href="/css/variable-displays.css">
+    <script src="/appearance.js"></script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+</head>
+<body>
+    <header class="header">
+        <h1>StreamPulse <span>Display Library</span></h1>
+        <div id="main-nav" class="nav"></div>
+    </header>
+    <main class="display-page">
+        <div id="display-alert" class="display-alert" role="status" aria-live="polite" hidden></div>
+        <section id="display-library" class="display-library" aria-label="Saved displays">
+            <div class="display-page-heading">
+                <div>
+                    <p class="display-kicker">Reusable display designs</p>
+                    <h2>Inventory displays</h2>
+                    <p class="display-muted">Build the collection layout once, then reuse it in overlay scenes. Player-specific tracker binding happens where you place the display.</p>
+                </div>
+                <button class="btn btn-primary" type="button" id="create-display">Create inventory display</button>
+            </div>
+            <div class="display-library-tools">
+                <label class="display-search">
+                    <span class="sr-only">Search saved displays</span>
+                    <input id="display-library-search" class="input" type="search" placeholder="Search displays">
+                </label>
+                <span id="display-count" class="display-muted"></span>
+            </div>
+            <div id="display-list" class="display-list" aria-live="polite"></div>
+        </section>
+
+        <section id="display-builder" class="display-builder" hidden>
+            <div class="builder-heading">
+                <div>
+                    <button class="display-back" id="back-to-library" type="button">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6M9 12h12"/></svg>
+                        Display Library
+                    </button>
+                    <p class="display-kicker">Inventory builder</p>
+                    <label class="builder-name-label" for="display-name">Display name</label>
+                    <input id="display-name" class="input builder-name" type="text" maxlength="80" autocomplete="off" value="Inventory display">
+                </div>
+                <div class="builder-actions">
+                    <span id="dirty-state" class="display-dirty" aria-live="polite"></span>
+                    <button id="duplicate-display" class="btn" type="button">Duplicate</button>
+                    <button id="save-display" class="btn btn-primary" type="button">Save display</button>
+                </div>
+            </div>
+            <p class="display-muted builder-intro">Choose a Variable Set as the catalog, select its image and label fields, then arrange catalog items into sections. Layout and order are saved here; player tracker bindings are configured in the Overlay Editor.</p>
+            <div class="builder-grid">
+                <div class="builder-workspace">
+                    <section class="builder-card builder-catalog" aria-labelledby="catalog-heading">
+                        <div class="builder-card-heading">
+                            <div>
+                                <h3 id="catalog-heading">1. Choose a catalog</h3>
+                                <p class="display-muted">Catalog entries and explicitly configured tiers are shown as available.</p>
+                            </div>
+                        </div>
+                        <div id="catalog-controls" class="catalog-controls"></div>
+                        <div id="catalog-help" class="catalog-help"></div>
+                        <div class="catalog-search-row">
+                            <label class="display-search">
+                                <span class="sr-only">Search catalog items</span>
+                                <input id="display-search" class="input" type="search" placeholder="Search items">
+                            </label>
+                            <span id="catalog-item-count" class="display-muted"></span>
+                        </div>
+                        <div id="catalog-items" class="catalog-items"></div>
+                    </section>
+
+                    <section class="builder-card" aria-labelledby="sections-heading">
+                        <div class="builder-card-heading">
+                            <div>
+                                <h3 id="sections-heading">2. Arrange sections and items</h3>
+                                <p class="display-muted">Drag to reorder or move items. Keyboard users can move items with the controls on each row.</p>
+                            </div>
+                            <button id="add-section" class="btn btn-sm" type="button">Add section</button>
+                        </div>
+                        <div id="section-editor" class="section-editor"></div>
+                    </section>
+
+                    <section class="builder-card" aria-labelledby="layout-heading">
+                        <div class="builder-card-heading">
+                            <div>
+                                <h3 id="layout-heading">3. Layout</h3>
+                                <p class="display-muted">Fixed slots preserve empty positions; flow packs items in their saved order.</p>
+                            </div>
+                        </div>
+                        <div id="layout-controls" class="control-grid"></div>
+                    </section>
+
+                    <details class="builder-card appearance-details">
+                        <summary>
+                            <span>
+                                <strong>Appearance</strong>
+                                <small>Background, cells, labels and advanced style</small>
+                            </span>
+                            <span class="display-muted">Optional</span>
+                        </summary>
+                        <div id="appearance-controls" class="control-grid appearance-grid"></div>
+                    </details>
+                </div>
+
+                <aside class="builder-preview-column">
+                    <section class="builder-card preview-card" aria-labelledby="preview-heading">
+                        <div class="builder-card-heading">
+                            <div>
+                                <h3 id="preview-heading">Live preview</h3>
+                                <p class="display-muted">Preview source stays on this device and is not saved with the design.</p>
+                            </div>
+                        </div>
+                        <div id="preview-controls" class="preview-controls"></div>
+                        <div id="display-preview" class="preview-stage" aria-label="Display preview"></div>
+                        <div class="preview-footer">
+                            <span>Place saved displays from the <a href="/custom-overlay-editor.html">Overlay Editor</a>.</span>
+                            <span>Player 1 and Player 2 reuse the same design with separate tracker sources.</span>
+                        </div>
+                    </section>
+                    <section class="builder-card placement-note">
+                        <h3>Use in an overlay</h3>
+                        <ol>
+                            <li>Open the <a href="/custom-overlay-editor.html">Custom Overlay Editor</a>.</li>
+                            <li>Add a Saved Display and choose this design.</li>
+                            <li>Bind a checklist tracker to a person, role, or player slot at that placement.</li>
+                        </ol>
+                    </section>
+                </aside>
+            </div>
+        </section>
+    </main>
+    <script src="/nav.js"></script>
+    <script src="/js/overlay-shared.js"></script>
+    <script type="module" src="/js/displays/display-library.js"></script>
+</body>
+</html>

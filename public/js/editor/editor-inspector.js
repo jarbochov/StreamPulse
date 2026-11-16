@@ -1434,7 +1434,7 @@ export function contentSection(el) {
         const isTwitchPopout = /twitch\.tv\/popout\//i.test(el.src || '');
         if (isTwitchPopout) {
             body += `<div class="hint" style="color:#eab308;background:rgba(234,179,8,0.1);border:1px solid rgba(234,179,8,0.25);border-radius:6px;padding:8px 10px;margin:8px 0;line-height:1.45;">
-                <strong>Twitch Popout Notice:</strong> Twitch blocks iframe embedding of popout URLs (<code>X-Frame-Options: SAMEORIGIN</code>). In OBS Studio, add this URL directly as an OBS <strong>Browser Source</strong> (top-level window). For StreamPulse overlays, use native <strong>Twitch Poll</strong> variables (<code>{{poll.title}}</code>, <code>{{poll.remaining}}</code>) and the <strong>While a Twitch poll is active</strong> page trigger.
+                <strong>Twitch Popout Notice:</strong> Twitch blocks iframe embedding of popout URLs (<code>X-Frame-Options: SAMEORIGIN</code>). In OBS Studio, add this URL directly as an OBS <strong>Browser Source</strong> (top-level window). For StreamPulse overlays, use the <strong>Poll</strong> element or variables (<code>{{poll.title}}</code>, <code>{{poll.remaining}}</code>) and the <strong>Poll active</strong> page trigger. Native StreamPulse polls and their results take priority over Twitch.
             </div>`;
         }
         const isYt = shared.parseYouTubeUrl ? shared.parseYouTubeUrl(el.src) : null;
@@ -1482,7 +1482,7 @@ export function contentSection(el) {
 export function pollSection(el) {
     const p = window.PollWidget.settings(el.poll);
     return F.section('poll', 'Poll display', `
-        <p class="hint">Displays the native Twitch poll; create it in Twitch. Reconnect Twitch if poll access is missing. Votes refresh with Twitch polling, not instantly. Future chat polls can use the same display model.</p>
+        <p class="hint">Shows the active StreamPulse poll, then its results for the configured results period. Otherwise it follows the latest Twitch poll. Create native polls in Polls Studio, or create Twitch polls on Twitch. Twitch votes refresh with polling.</p>
         <div class="grid2">${F.color('poll.accent', 'Bar color', p.accent)}${F.color('poll.winnerColor', 'Result highlight', p.winnerColor)}</div>
         ${F.color('poll.trackColor', 'Bar track', p.trackColor)}
         <div class="grid2">${F.check('poll.showVotes', 'Vote counts', p.showVotes)}${F.check('poll.showPercent', 'Percentages', p.showPercent)}</div>
@@ -2519,7 +2519,7 @@ export function renderProperties() {
     } else {
         const base = items[0];
         const el = shared.resolveNumericElement ? shared.resolveNumericElement(previewAlertElement(base), effectiveLiveStatus()) : previewAlertElement(base);
-        const specific = { 'random-text': randomSection, progress: progressSection, poll: pollSection, 'game-list': gameListSection, alert: alertSection, slideshow: slideshowSection, pattern: patternSection, 'procedural-pattern': proceduralPatternSection, 'speaker-badge': speakerBadgeSection }[el.type];
+        const specific = { 'data-display': savedDisplaySection, 'random-text': randomSection, progress: progressSection, poll: pollSection, 'game-list': gameListSection, alert: alertSection, slideshow: slideshowSection, pattern: patternSection, 'procedural-pattern': proceduralPatternSection, 'speaker-badge': speakerBadgeSection }[el.type];
         content = contentSection(base) + (specific ? specific(el.type === 'alert' ? base : el) : '');
         layout = layoutSection(base) + (isImageGroup(base) ? imageGroupLayoutSection(base) : '') + scaleSection(items) + obsLinkSection(base);
         const isProcedural = el.type === 'procedural-pattern' || (el.type === 'pattern' && el.pattern?.sourceType === 'preset');
@@ -2897,6 +2897,7 @@ export function initInspectorEvents() {
             const actualPath = path;
             path = lookPath(path);
             for (const el of actualPath === path ? selectedElements() : lookPresentationTargets()) {
+                if (el.type === 'data-display' && path.startsWith('display.')) updateSavedDisplay(el, path, event.target.value);
                 if (path === 'content' && el.type === 'text') {
                     const wrap = $('cycle-lines-wrap');
                     if (wrap) {
@@ -2975,6 +2976,7 @@ export function initInspectorEvents() {
                 scheduleEditorCutoutMask();
             }
             renderSelectionUI();
+            if (path.startsWith('display.')) renderProperties();
             updateStatusBarHandler();
             if (path === 'name' || path.startsWith('obsLink.')) renderLayers();
             const editingColor = ['input', 'change'].includes(event?.type) && (event?.target?.type === 'color' || event?.target?.classList?.contains('color-text'));
@@ -4130,3 +4132,4 @@ export function initInspectorEvents() {
         }
     }, 3000);
 }
+import { savedDisplaySection, updateSavedDisplay } from './editor-display.js';
