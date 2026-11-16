@@ -5,10 +5,14 @@ import { api, esc, pickImage, slugId, state, toast } from './variables-state.js'
 const STORAGE_KEY = 'streampulse_operator_set';
 const LAYOUTS_PREFIX = 'streampulse_operator_layouts_';
 const VIEW_PREFIX = 'streampulse_operator_view_';
+const VIEW_MODE_PREFIX = 'streampulse_operator_mode_';
+const MATRIX_FIELD_PREFIX = 'streampulse_operator_mfield_';
 const SVG_TRASH = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
 const SVG_SORT_NONE = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>';
 const SVG_SORT_ASC = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 14 5-5 5 5"/></svg>';
 const SVG_SORT_DESC = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>';
+const SVG_CHECK = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
+const SVG_DOT = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="5"/></svg>';
 
 function getSetIdFromUrl() {
     const rawHash = (location.hash || '').replace(/^#/, '').trim();
@@ -25,6 +29,42 @@ let filterMode = 'all';
 let saveTimer = null;
 let saveBadgeTimer = null;
 let activeLayoutName = '';
+
+function parseChecklistMap(raw) {
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) return { ...raw };
+    if (typeof raw === 'string' && raw.trim().startsWith('{')) {
+        try {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+        } catch {}
+    }
+    return {};
+}
+
+function getViewMode(setObj) {
+    if (!(setObj?.fields || []).some(f => f.type === 'checklist')) return 'table';
+    return localStorage.getItem(`${VIEW_MODE_PREFIX}${setObj.id}`) === 'matrix' ? 'matrix' : 'table';
+}
+
+function setViewMode(setObj, mode) {
+    localStorage.setItem(`${VIEW_MODE_PREFIX}${setObj.id}`, mode === 'matrix' ? 'matrix' : 'table');
+}
+
+function getMatrixField(setObj) {
+    const checklistFields = (setObj?.fields || []).filter(f => f.type === 'checklist');
+    if (!checklistFields.length) return null;
+    const savedKey = localStorage.getItem(`${MATRIX_FIELD_PREFIX}${setObj.id}`);
+    return checklistFields.find(f => f.key === savedKey) || checklistFields[0];
+}
+
+function setMatrixField(setObj, key) {
+    localStorage.setItem(`${MATRIX_FIELD_PREFIX}${setObj.id}`, key);
+}
+
+function getEntryThumbUrl(setObj, entry) {
+    const imgField = (setObj?.fields || []).find(f => f.type === 'image');
+    return imgField ? String(entry?.values?.[imgField.key] || '') : '';
+}
 
 function getAllColumnDefs(setObj) {
     return [
@@ -164,6 +204,19 @@ function renderFieldCell(entry, f) {
     if (f.type === 'list') {
         return `<textarea class="op-cell-textarea" data-op-entry="${eid}" data-op-key="${fk}" data-op-type="list" placeholder="One item per line">${esc(val)}</textarea>`;
     }
+    if (f.type === 'ref') {
+        const targetSet = (state.sets || []).find(s => s.id === f.targetSet);
+        const opts = (targetSet?.roster || []).map(r => `<option value="${esc(r.id)}" ${val === r.id ? 'selected' : ''}>${esc(r.label || r.id)}</option>`).join('');
+        return `<select class="op-cell-input" data-op-entry="${eid}" data-op-key="${fk}" data-op-type="ref">
+            <option value="">${targetSet ? '-- None --' : `(Missing: ${esc(f.targetSet || 'unset')})`}</option>
+            ${opts}
+        </select>`;
+    }
+    if (f.type === 'checklist') {
+        const map = parseChecklistMap(entry.values?.[f.key]);
+        const activeCount = Object.values(map).filter(v => Number(v) >= 1).length;
+        return `<button type="button" class="op-btn sm" data-op-open-matrix="${fk}" title="Open Matrix View">${activeCount} active</button>`;
+    }
     const placeholder = f.type === 'template' ? '@field or {{var.x}}' : f.type === 'font' ? 'Inter, sans-serif' : f.label;
     return `<input type="text" class="op-cell-input" data-op-entry="${eid}" data-op-key="${fk}" data-op-type="${esc(f.type)}" value="${esc(val)}" placeholder="${esc(placeholder)}">`;
 }
@@ -209,6 +262,11 @@ function sortEntries(setObj, entries, sort) {
         if (def.type === 'toggle') {
             return ((rawA === 'true' ? 1 : 0) - (rawB === 'true' ? 1 : 0)) * dir;
         }
+        if (def.type === 'checklist') {
+            const ca = Object.values(parseChecklistMap(rawA)).filter(v => Number(v) >= 1).length;
+            const cb = Object.values(parseChecklistMap(rawB)).filter(v => Number(v) >= 1).length;
+            return (ca - cb) * dir;
+        }
         return String(rawA).localeCompare(String(rawB), undefined, { numeric: true, sensitivity: 'base' }) * dir;
     });
 }
@@ -240,6 +298,93 @@ function renderColumnToolbar(setObj, viewCfg) {
     }
 }
 
+function renderMatrixView(setObj, host) {
+    const checklistFields = (setObj.fields || []).filter(f => f.type === 'checklist');
+    const activeField = getMatrixField(setObj);
+    if (!activeField) return;
+    const targetSet = (state.sets || []).find(s => s.id === activeField.targetSet);
+    const maxTier = Math.max(1, Number(activeField.maxTier) || 1);
+    const roster = setObj.roster || [];
+    let colEntries = roster.filter(r => r.enabled !== false);
+    if (filterMode === 'slotted') {
+        const slotted = roster.filter(r => slotAssignmentsForEntry(setObj, r.id).length > 0);
+        if (slotted.length) colEntries = slotted;
+    } else if (filterMode === 'group') {
+        colEntries = colEntries.filter(r => r.inGroup !== false);
+    } else if (filterMode === 'all' && !colEntries.length) {
+        colEntries = roster;
+    }
+
+    const targetItems = (targetSet?.roster || []).filter(item => {
+        if (!searchQuery) return true;
+        return `${item.label || ''} ${item.id || ''}`.toLowerCase().includes(searchQuery);
+    });
+
+    const fieldPickerHtml = checklistFields.length > 1
+        ? `<label style="display:inline-flex;align-items:center;gap:.4rem;"><span>Field:</span><select id="op-matrix-field" class="op-layout-select">${checklistFields.map(f => `<option value="${esc(f.key)}" ${f.key === activeField.key ? 'selected' : ''}>${esc(f.label)}</option>`).join('')}</select></label>`
+        : `<strong>${esc(activeField.label)}</strong>`;
+
+    const barHtml = `<div class="op-matrix-bar">
+        <div class="op-matrix-bar-left">
+            ${fieldPickerHtml}
+            <span>&rarr; ${targetSet ? `${esc(targetSet.name)} (${targetItems.length})` : `Missing target set: ${esc(activeField.targetSet || 'unset')}`}</span>
+            ${maxTier > 1 ? `<span>· Max Tier: ${maxTier}</span>` : ''}
+        </div>
+        <div class="op-matrix-bar-left">
+            <span>Left-click: cycle · Right-click: -1</span>
+        </div>
+    </div>`;
+
+    if (!targetSet) {
+        host.innerHTML = `${barHtml}<div class="op-empty"><p>Target set "${esc(activeField.targetSet || 'unset')}" was not found. Check the field schema in <a href="/placeholders.html#sets" style="color:var(--accent);">Placeholders &amp; Variables</a>.</p></div>`;
+        return;
+    }
+    if (!colEntries.length) {
+        host.innerHTML = `${barHtml}<div class="op-empty"><p>No enabled items in this set to display as columns.</p></div>`;
+        return;
+    }
+    if (!targetItems.length) {
+        host.innerHTML = `${barHtml}<div class="op-empty"><p>${(targetSet.roster || []).length ? 'No target items match your search.' : `Target set "${esc(targetSet.name)}" has no items yet.`}</p></div>`;
+        return;
+    }
+
+    const colHeads = colEntries.map(col => {
+        const slots = slotAssignmentsForEntry(setObj, col.id);
+        const slotTag = slots.length
+            ? `<span class="op-matrix-slot-tag">${slots[0] === 0 ? 'Active' : `Slot ${slots.join(',')}`}</span>`
+            : '';
+        return `<th><div class="op-matrix-col-head"><span>${esc(col.label || col.id)}</span>${slotTag}</div></th>`;
+    }).join('');
+
+    const rowsHtml = targetItems.map(item => {
+        const thumb = getEntryThumbUrl(targetSet, item);
+        const rowLabel = `<div class="op-matrix-item">${thumb ? `<img src="${esc(thumb)}" alt="" class="op-thumb">` : ''}<span>${esc(item.label || item.id)}</span></div>`;
+        const cells = colEntries.map(col => {
+            const map = parseChecklistMap(col.values?.[activeField.key]);
+            const level = Math.max(0, Math.min(maxTier, Number(map[item.id]) || 0));
+            const title = `${item.label || item.id} — ${col.label || col.id}: ${maxTier > 1 ? `Lv.${level} / ${maxTier}` : (level >= 1 ? 'Active' : 'Inactive')}`;
+            return `<td>
+                <button type="button"
+                    class="op-matrix-cell ${level >= 1 ? 'is-lit' : 'is-dim'}"
+                    data-op-matrix-step="1"
+                    data-op-entry="${esc(col.id)}"
+                    data-op-field="${esc(activeField.key)}"
+                    data-op-target="${esc(item.id)}"
+                    title="${esc(title)}">
+                    ${level >= 1 ? SVG_CHECK : SVG_DOT}
+                    ${maxTier > 1 ? `<span class="op-tier-badge">Lv.${level}</span>` : ''}
+                </button>
+            </td>`;
+        }).join('');
+        return `<tr><td>${rowLabel}</td>${cells}</tr>`;
+    }).join('');
+
+    host.innerHTML = `${barHtml}<table class="op-table op-matrix-table">
+        <thead><tr><th>${esc(targetSet.name)}</th>${colHeads}</tr></thead>
+        <tbody>${rowsHtml}</tbody>
+    </table>`;
+}
+
 function renderOperator() {
     const select = document.getElementById('op-set-select');
     const stats = document.getElementById('op-stats');
@@ -263,11 +408,23 @@ function renderOperator() {
 
     const roster = setObj.roster || [];
     const fields = setObj.fields || [];
+    const hasChecklist = fields.some(f => f.type === 'checklist');
+    const viewMode = getViewMode(setObj);
+    const viewSeg = document.getElementById('op-view-seg');
+    if (viewSeg) {
+        viewSeg.hidden = !hasChecklist;
+        viewSeg.querySelectorAll('[data-op-view]').forEach(b => b.classList.toggle('active', b.dataset.opView === viewMode));
+    }
     const viewCfg = getViewConfig(setObj);
     renderColumnToolbar(setObj, viewCfg);
     if (fields.some(f => f.type === 'icon')) window.IconPicker?.ensureFont?.();
     if (stats) stats.textContent = `${roster.length} items · ${fields.length} fields · ${setObj.slotsCount ? `${setObj.slotsCount} slots` : 'Preset mode'}`;
     if (rotBar) rotBar.hidden = (setObj.slotsCount || 0) >= 2 || roster.filter(r => r.enabled !== false).length < 2;
+
+    if (hasChecklist && viewMode === 'matrix') {
+        renderMatrixView(setObj, host);
+        return;
+    }
 
     const visibleEntries = sortEntries(setObj, roster.filter(e => matchesFilter(setObj, e)), viewCfg.sort);
     if (!visibleEntries.length) {
@@ -374,6 +531,14 @@ function bindEvents() {
         if (!btn) return;
         filterMode = btn.dataset.opFilter;
         document.querySelectorAll('.op-filter-btn').forEach(b => b.classList.toggle('active', b === btn));
+        renderOperator();
+    });
+
+    document.getElementById('op-view-seg')?.addEventListener('click', e => {
+        const btn = e.target.closest('[data-op-view]');
+        const setObj = getActiveSet();
+        if (!btn || !setObj) return;
+        setViewMode(setObj, btn.dataset.opView);
         renderOperator();
     });
 
@@ -537,6 +702,11 @@ function bindEvents() {
         const t = e.target;
         const setObj = getActiveSet();
         if (!setObj) return;
+        if (t.id === 'op-matrix-field') {
+            setMatrixField(setObj, t.value);
+            renderOperator();
+            return;
+        }
         const entry = t.dataset.opEntry ? setObj.roster.find(r => r.id === t.dataset.opEntry) : null;
         if (!entry) return;
 
@@ -550,8 +720,38 @@ function bindEvents() {
             renderOperator();
             scheduleSave(setObj, true);
         } else if (t.dataset.opKey) {
+            entry.values = { ...(entry.values || {}), [t.dataset.opKey]: t.value };
             scheduleSave(setObj, true);
         }
+    });
+
+    const stepMatrixCell = async (btn, delta = null) => {
+        const setObj = getActiveSet();
+        if (!setObj) return;
+        const entry = btn.dataset.opEntry;
+        const field = btn.dataset.opField;
+        const target = btn.dataset.opTarget;
+        const body = delta === null ? { entry, field, target } : { entry, field, target, delta };
+        setSaveBadge('Saving…');
+        try {
+            const res = await api(`/api/variables/sets/${encodeURIComponent(setObj.id)}/checklist/step`, 'POST', body);
+            if (res?.set) {
+                const idx = state.sets.findIndex(s => s.id === res.set.id);
+                if (idx >= 0) state.sets[idx] = res.set;
+            }
+            setSaveBadge('Saved');
+            renderOperator();
+        } catch (err) {
+            setSaveBadge('Save failed', true);
+            toast(err.message, 'error');
+        }
+    };
+
+    host.addEventListener('contextmenu', e => {
+        const matrixBtn = e.target.closest('[data-op-matrix-step]');
+        if (!matrixBtn) return;
+        e.preventDefault();
+        stepMatrixCell(matrixBtn, -1);
     });
 
     host.addEventListener('click', async e => {
@@ -560,6 +760,20 @@ function bindEvents() {
 
         const setObj = getActiveSet();
         if (!setObj) return;
+
+        const openMatrixBtn = t.closest('[data-op-open-matrix]');
+        if (openMatrixBtn) {
+            setMatrixField(setObj, openMatrixBtn.dataset.opOpenMatrix);
+            setViewMode(setObj, 'matrix');
+            renderOperator();
+            return;
+        }
+
+        const matrixBtn = t.closest('[data-op-matrix-step]');
+        if (matrixBtn) {
+            await stepMatrixCell(matrixBtn, null);
+            return;
+        }
 
         const sortBtn = t.closest('[data-op-sort]');
         if (sortBtn) {

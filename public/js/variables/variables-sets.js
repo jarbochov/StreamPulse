@@ -213,11 +213,35 @@ function getEntryThumb(setObj, entry) {
     return `<div class="set-thumb-placeholder">${SVG_IMAGE}</div>`;
 }
 
+function parseChecklistMap(raw) {
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) return { ...raw };
+    if (typeof raw === 'string' && raw.trim().startsWith('{')) {
+        try {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+        } catch {}
+    }
+    return {};
+}
+
 function getEntrySummary(setObj, entry) {
     return (setObj.fields || [])
         .filter(f => f.type !== 'image')
         .slice(1, 3)
-        .map(f => entry?.values?.[f.key])
+        .map(f => {
+            const raw = entry?.values?.[f.key];
+            if (f.type === 'checklist') {
+                const map = parseChecklistMap(raw);
+                const count = Object.values(map).filter(v => Number(v) >= 1).length;
+                return count ? `${count} active` : '';
+            }
+            if (f.type === 'ref' && raw) {
+                const target = (state.sets || []).find(s => s.id === f.targetSet);
+                const match = target?.roster?.find(r => r.id === raw);
+                return match?.label || raw;
+            }
+            return raw;
+        })
         .filter(Boolean)
         .join(' · ');
 }
@@ -715,9 +739,36 @@ export function openSetModal(existing = null) {
         { key: 'image', label: 'Image', type: 'image' }
     ]).map(f => ({ ...f }));
 
+    const availableTargets = (state.sets || []).filter(s => !existing || s.id !== existing.id);
+
     const renderFieldRows = host => {
         if (fields.some(f => f.icon)) window.IconPicker?.ensureFont?.();
-        host.innerHTML = fields.map((f, idx) => `
+        host.innerHTML = fields.map((f, idx) => {
+            const targetOptions = `<option value="">Select target set…</option>${availableTargets.map(s => `<option value="${esc(s.id)}" ${f.targetSet === s.id ? 'selected' : ''}>${esc(s.name)} (${esc(s.id)})</option>`).join('')}`;
+            const subConfig = f.type === 'ref'
+                ? `<div class="vp-field-subrow" style="grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; padding: .2rem 0 .25rem .6rem; border-left: 2px solid var(--border); font-size: .78rem;">
+                    <label style="display:inline-flex;align-items:center;gap:.35rem;flex:1;min-width:160px;">
+                        <span class="muted">Target Set</span>
+                        <select data-f-prop="targetSet" style="flex:1;">${targetOptions}</select>
+                    </label>
+                    <label style="display:inline-flex;align-items:center;gap:.35rem;" title="0 = off, 1..N = sync target set slot when active entry changes">
+                        <span class="muted">Sync Slot</span>
+                        <input type="number" min="0" max="24" data-f-prop="syncSlot" value="${Number(f.syncSlot) || 0}" style="width:4.5rem;">
+                    </label>
+                </div>`
+                : f.type === 'checklist'
+                    ? `<div class="vp-field-subrow" style="grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; padding: .2rem 0 .25rem .6rem; border-left: 2px solid var(--border); font-size: .78rem;">
+                        <label style="display:inline-flex;align-items:center;gap:.35rem;flex:1;min-width:160px;">
+                            <span class="muted">Target Set</span>
+                            <select data-f-prop="targetSet" style="flex:1;">${targetOptions}</select>
+                        </label>
+                        <label style="display:inline-flex;align-items:center;gap:.35rem;" title="1 = on/off toggle, >1 = tiered levels 0..maxTier">
+                            <span class="muted">Max Tier</span>
+                            <input type="number" min="1" max="99" data-f-prop="maxTier" value="${Math.max(1, Number(f.maxTier) || 1)}" style="width:4.5rem;">
+                        </label>
+                    </div>`
+                    : '';
+            return `
             <div class="vp-field-row" data-f-idx="${idx}">
                 <input type="text" data-f-prop="label" value="${esc(f.label)}" placeholder="Label (e.g. Name)">
                 <input type="text" data-f-prop="key" value="${esc(f.key)}" placeholder="key (e.g. name)">
@@ -732,11 +783,15 @@ export function openSetModal(existing = null) {
                     <option value="font" ${f.type === 'font' ? 'selected' : ''}>Font</option>
                     <option value="list" ${f.type === 'list' ? 'selected' : ''}>List</option>
                     <option value="template" ${f.type === 'template' ? 'selected' : ''}>Template</option>
+                    <option value="ref" ${f.type === 'ref' ? 'selected' : ''}>Reference</option>
+                    <option value="checklist" ${f.type === 'checklist' ? 'selected' : ''}>Checklist</option>
                 </select>
                 <button type="button" class="b sm vp-f-icon-btn" data-f-icon="${idx}" title="${f.icon ? `Field icon: ${esc(f.icon)}` : 'Optional icon (e.g. fa-brands fa-twitch)'}">${f.icon ? `<i class="${esc(f.icon)}"></i>` : 'Icon'}</button>
                 <button type="button" class="b sm danger" data-f-remove="${idx}" ${fields.length <= 1 ? 'disabled' : ''}>${SVG_TRASH}</button>
+                ${subConfig}
             </div>
-        `).join('');
+        `;
+        }).join('');
     };
 
     showModal(isEdit ? `Edit Set: ${existing.name}` : 'Create Variable Set', `
@@ -790,6 +845,7 @@ export function openSetModal(existing = null) {
                 row.querySelector('[data-f-prop="key"]').value = k;
             }
             if (prop === 'key') row.dataset.keyTouched = '1';
+            if (prop === 'type') renderFieldRows(fieldsHost);
         });
 
         fieldsHost.addEventListener('click', e => {
@@ -825,7 +881,18 @@ export function openSetModal(existing = null) {
             const payload = {
                 name: nameInput.value.trim() || setId,
                 slotsCount: Number.isFinite(parsedSlots) ? Math.max(0, parsedSlots) : 0,
-                fields: fields.map(f => ({ key: slugId(f.key) || 'field', label: f.label.trim() || f.key, type: f.type, ...(f.icon ? { icon: f.icon } : {}) })),
+                fields: fields.map(f => {
+                    const base = { key: slugId(f.key) || 'field', label: f.label.trim() || f.key, type: f.type, ...(f.icon ? { icon: f.icon } : {}) };
+                    if (f.type === 'ref') {
+                        base.targetSet = String(f.targetSet || '').trim();
+                        const syncSlot = parseInt(f.syncSlot, 10);
+                        if (Number.isFinite(syncSlot) && syncSlot > 0) base.syncSlot = syncSlot;
+                    } else if (f.type === 'checklist') {
+                        base.targetSet = String(f.targetSet || '').trim();
+                        base.maxTier = Math.max(1, parseInt(f.maxTier, 10) || 1);
+                    }
+                    return base;
+                }),
                 roster: existing?.roster || [],
                 slots: existing?.slots || [],
                 activeEntry: existing?.activeEntry || ''
@@ -854,7 +921,7 @@ function openEntryModal(setObj, existingEntry = null) {
     const fieldsHtml = fields.map(f => {
         const val = values[f.key] ?? defaultValForType(f.type);
         const head = `<span class="vp-label-head"><span>${esc(f.label)}</span><code>${esc(f.key)}</code></span>`;
-        const spanCls = useTwoCol && (f.type === 'image' || f.type === 'list' || f.type === 'template') ? 'vp-span-2' : '';
+        const spanCls = useTwoCol && (f.type === 'image' || f.type === 'list' || f.type === 'template' || f.type === 'checklist') ? 'vp-span-2' : '';
         if (f.type === 'image') {
             return `
                 <label class="${spanCls}" data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">
@@ -934,6 +1001,39 @@ function openEntryModal(setObj, existingEntry = null) {
                 </label>
             `;
         }
+        if (f.type === 'ref') {
+            const targetSet = (state.sets || []).find(s => s.id === f.targetSet);
+            const opts = (targetSet?.roster || []).map(r => `<option value="${esc(r.id)}" ${val === r.id ? 'selected' : ''}>${esc(r.label || r.id)}</option>`).join('');
+            return `
+                <label data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">
+                    ${head}
+                    <select data-entry-field="${esc(f.key)}">
+                        <option value="">${targetSet ? '-- None --' : `(Target set "${esc(f.targetSet || '')}" not found)`}</option>
+                        ${opts}
+                    </select>
+                </label>
+            `;
+        }
+        if (f.type === 'checklist') {
+            const targetSet = (state.sets || []).find(s => s.id === f.targetSet);
+            const maxTier = Math.max(1, Number(f.maxTier) || 1);
+            const map = parseChecklistMap(values[f.key]);
+            const items = targetSet?.roster || [];
+            const chipsHtml = items.length
+                ? items.map(item => {
+                    const lvl = Math.max(0, Math.min(maxTier, Number(map[item.id]) || 0));
+                    const tierText = maxTier > 1 ? ` <span class="muted" style="font-size:.72rem;">Lv.${lvl}</span>` : '';
+                    return `<button type="button" class="b sm" data-entry-check-item="${esc(item.id)}" data-entry-check-field="${esc(f.key)}" data-max-tier="${maxTier}" style="${lvl >= 1 ? 'border-color:var(--accent);color:var(--text);' : 'opacity:.55;'}">${esc(item.label || item.id)}${tierText}</button>`;
+                }).join('')
+                : `<span class="muted" style="font-size:.8rem;">${targetSet ? 'Target set has no items yet.' : `Target set "${esc(f.targetSet || '')}" not found.`}</span>`;
+            return `
+                <div class="${spanCls}" data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">
+                    ${head}
+                    <input type="hidden" data-entry-field="${esc(f.key)}" value="${esc(JSON.stringify(map))}">
+                    <div style="display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.35rem;">${chipsHtml}</div>
+                </div>
+            `;
+        }
         return `
             <label data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">
                 ${head}
@@ -1003,12 +1103,36 @@ function openEntryModal(setObj, existingEntry = null) {
                 if (text) text.value = picker.value;
             });
         });
+        const stepChecklistChip = (btn, delta) => {
+            const key = btn.dataset.entryCheckField;
+            const targetId = btn.dataset.entryCheckItem;
+            const maxTier = Math.max(1, Number(btn.dataset.maxTier) || 1);
+            const input = modal.querySelector(`[data-entry-field="${CSS.escape(key)}"]`);
+            if (!input) return;
+            const map = parseChecklistMap(input.value);
+            const cur = Math.max(0, Math.min(maxTier, Number(map[targetId]) || 0));
+            const next = (cur + delta + (maxTier + 1)) % (maxTier + 1);
+            if (next > 0) map[targetId] = next;
+            else delete map[targetId];
+            input.value = JSON.stringify(map);
+            btn.style.opacity = next >= 1 ? '1' : '.55';
+            btn.style.borderColor = next >= 1 ? 'var(--accent)' : '';
+            btn.style.color = next >= 1 ? 'var(--text)' : '';
+            const tierSpan = btn.querySelector('span');
+            if (tierSpan) tierSpan.textContent = `Lv.${next}`;
+        };
+        modal.querySelectorAll('[data-entry-check-item]').forEach(btn => {
+            btn.addEventListener('click', () => stepChecklistChip(btn, 1));
+            btn.addEventListener('contextmenu', e => { e.preventDefault(); stepChecklistChip(btn, -1); });
+        });
         modal.querySelector('#vp-entry-form').onsubmit = async e => {
             e.preventDefault();
             const nextValues = {};
             for (const f of fields) {
                 if (f.type === 'toggle') {
                     nextValues[f.key] = modal.querySelector(`[data-entry-toggle="${CSS.escape(f.key)}"]`).checked ? 'true' : 'false';
+                } else if (f.type === 'checklist') {
+                    nextValues[f.key] = parseChecklistMap(modal.querySelector(`[data-entry-field="${CSS.escape(f.key)}"]`).value);
                 } else {
                     nextValues[f.key] = modal.querySelector(`[data-entry-field="${CSS.escape(f.key)}"]`).value;
                 }
