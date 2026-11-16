@@ -38,6 +38,7 @@ import { loadStylePresets } from './editor-style-presets.js';
 import { alignmentOffset } from '../editor-geometry.js';
 import { handleSpeakerMeter, clearSpeakerMeters } from './editor-speakers.js';
 import { openImageCropper } from '../image-cropper.js';
+import { refreshDisplaySourceStatus } from './editor-display.js';
 
 const shared = window.OverlayShared || {};
 window.editorState = state;
@@ -80,7 +81,7 @@ export function scaleSelectionBy(percent) {
 // ---- Selection & Action Helpers ---------------------------------------------------
 export function addElement(type, overrides = {}) {
     if (type === 'obs-frame' && state.obs?.sceneSyncEnabled === false) return;
-    if (['image-group', 'data-display'].includes(type) && state.liveStatus?.modules?.variableSets === false) return;
+    if (type === 'data-display' && state.liveStatus?.modules?.variableSets === false) return;
     const el = createElementData(type, overrides);
     state.overlay.elements.push(el);
     normalizeZ();
@@ -959,10 +960,9 @@ export function renderAll() {
 }
 
 // ---- Live Status & Alert Preview --------------------------------------------------
-function refreshOpenGroupBuilder() {
+function refreshLiveInspector() {
     refreshNumericControls();
-    const element = primary();
-
+    refreshDisplaySourceStatus();
 }
 
 export async function refreshLiveStatus() {
@@ -981,15 +981,13 @@ export async function refreshLiveStatus() {
         const vsEnabled = state.liveStatus?.modules?.variableSets !== false;
         const tabSets = $('tab-sets');
         if (tabSets) tabSets.hidden = !vsEnabled;
-        const groupStripBtn = $('menu-add-image-group');
-        if (groupStripBtn) groupStripBtn.hidden = !vsEnabled;
         if ($('menu-add-data-display')) $('menu-add-data-display').hidden = !vsEnabled;
         if (!vsEnabled && prefs.railTab === 'sets') setRailTab('layers');
         if (shared.loadLiveExtras) await shared.loadLiveExtras(state.liveStatus, state.overlay.elements);
         if (state.overlay.elements.some(el => el.type === 'data-display') && displayRevision !== state.liveStatus.variableDisplaysRevision) renderProperties();
         if (liveSignature() !== before) {
             if (prefs.live) renderCanvas();
-            refreshOpenGroupBuilder();
+            refreshLiveInspector();
         }
     } catch {}
 }
@@ -1028,7 +1026,7 @@ function setupEditorVisibilityIdle() {
                 hiddenBuffersReleased = false;
                 pendingHiddenSync = false;
                 renderCanvas();
-                refreshOpenGroupBuilder();
+                refreshLiveInspector();
                 refreshVariableSetsPanel();
                 refreshLiveStatus();
             }
@@ -1087,20 +1085,18 @@ export function connectAlertPreview() {
             const rotated = applyEditorVariablesUpdate(message.data);
             refreshSavedDisplays();
             const vsEnabled = message.data.variableSetsEnabled !== false;
-            const groupStripBtn = $('menu-add-image-group');
-            if (groupStripBtn) groupStripBtn.hidden = !vsEnabled;
             if (!vsEnabled && prefs.railTab === 'sets') setRailTab('layers');
             if (document.hidden) {
                 pendingHiddenSync = true;
                 return;
             }
             if (rotated) {
-                refreshOpenGroupBuilder();
+                refreshLiveInspector();
                 return;
             }
             if (liveSignature() !== before) {
                 if (prefs.live) renderCanvas();
-                refreshOpenGroupBuilder();
+                refreshLiveInspector();
             }
             refreshVariableSetsPanel();
             return;
@@ -1300,12 +1296,12 @@ function initEventListeners() {
         let visibleCount = 0;
         const items = addMenu?.querySelectorAll('.menu-item-btn[data-add]') || [];
         items.forEach(btn => {
-            // Respect feature flags for speaker-badge, image-group, and obs-frame
+            // Respect feature flags before applying the search filter.
             if (btn.id === 'menu-add-speaker-badge' && !state.liveStatus?.modules?.speakerBadges) {
                 btn.hidden = true;
                 return;
             }
-            if (btn.id === 'menu-add-image-group' && state.liveStatus?.modules?.variableSets === false) {
+            if (btn.id === 'menu-add-data-display' && state.liveStatus?.modules?.variableSets === false) {
                 btn.hidden = true;
                 return;
             }

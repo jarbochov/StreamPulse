@@ -32,14 +32,12 @@ export const TYPE_META = {
     slideshow: { label: 'Slideshow', icon: svg('<rect x="4.5" y="2" width="9.5" height="9.5" rx="1.5"/><path d="M2 5.5v7A1.5 1.5 0 003.5 14h7"/><path d="M7 7.5l2 2 1.5-1.5 2 2"/>') },
     pattern: { label: 'Pattern Tile', icon: svg('<rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="9" width="4.5" height="4.5" rx="1"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1"/>') },
     'procedural-pattern': { label: 'Background Pattern', icon: svg('<path d="M2 5.5l3-2.5 3 2.5 3-2.5 3 2.5"/><path d="M2 10.5l3-2.5 3 2.5 3-2.5 3 2.5"/><circle cx="5" cy="8" r="1" fill="currentColor"/><circle cx="11" cy="8" r="1" fill="currentColor"/>') },
-    'image-group': { label: 'Group Strip', icon: svg('<circle cx="5.2" cy="5.5" r="2.2"/><circle cx="10.8" cy="5.5" r="2.2"/><path d="M1.8 13.5c0-2 1.5-3.3 3.4-3.3s3.4 1.3 3.4 3.3M7.4 13.5c0-2 1.5-3.3 3.4-3.3s3.4 1.3 3.4 3.3"/>') }
 };
 
-export const isImageGroup = el => el?.type === 'image' && el.imageGroup?.enabled === true;
 export const TEXT_TYPES = new Set(['text', 'random-text', 'markdown']);
 export const FILL_TEXT_TYPES = new Set([...TEXT_TYPES, 'game-list']);
-export const hasText = el => TEXT_TYPES.has(el.type) || el.type === 'progress' || el.type === 'game-list' || el.type === 'alert' || el.type === 'poll' || el.type === 'speaker-badge' || isImageGroup(el);
-export const hasRichTextEffects = el => FILL_TEXT_TYPES.has(el.type) || el.type === 'alert' || isImageGroup(el);
+export const hasText = el => TEXT_TYPES.has(el.type) || el.type === 'progress' || el.type === 'game-list' || el.type === 'alert' || el.type === 'poll' || el.type === 'speaker-badge';
+export const hasRichTextEffects = el => FILL_TEXT_TYPES.has(el.type) || el.type === 'alert';
 export const isLine = el => el.type === 'shape' && el.style?.shape === 'line';
 
 export const CANVAS_PRESETS = [
@@ -420,12 +418,7 @@ export function applyScale(snaps, anchor, sx, sy) {
 
 export function displayName(el) {
     if (el.name) return el.name;
-    if (isImageGroup(el)) {
-        return `Group Strip ${state.overlay.elements.filter(isImageGroup).indexOf(el) + 1}`;
-    }
-    const siblings = el.type === 'image'
-        ? state.overlay.elements.filter(item => item.type === 'image' && !isImageGroup(item))
-        : state.overlay.elements.filter(item => item.type === el.type);
+    const siblings = state.overlay.elements.filter(item => item.type === el.type);
     return `${TYPE_META[el.type]?.label || el.type} ${siblings.indexOf(el) + 1}`;
 }
 
@@ -723,19 +716,12 @@ export function normalizeLoaded(data) {
 /**
  * Build smart default Group Image Strip configuration for an image element or Variable Set.
  */
-export { IMAGE_GROUP_FIELD_ROLES, IMAGE_GROUP_SLOTS, IMAGE_GROUP_FIELD_ALIGNS, normalizeGroupFieldItem, resolveImageGroupFields, syncLegacyGroupFields } from '../displays/badge-model.js';
-import { defaultImageGroupConfig as badgeDefaults } from '../displays/badge-model.js';
-export function defaultImageGroupConfig(setObj = null, existing = {}, enabled = true) {
-    const sets = state.liveStatus?.variableSets || [];
-    return badgeDefaults(setObj || sets.find(set => (set.fields || []).some(field => field.type === 'image' || field.type === 'url')) || sets[0], existing, enabled);
-}
-
 export function createElementData(rawType, overrides = {}) {
+    if (rawType === 'image-group' || overrides.imageGroup?.enabled) throw new Error('Create badge and strip designs in Display Library, then add a Saved Display.');
     const isObsFrame = rawType === 'obs-frame';
-    const isImageGroup = rawType === 'image-group';
-    const type = isObsFrame ? 'shape' : (isImageGroup ? 'image' : rawType);
+    const type = isObsFrame ? 'shape' : rawType;
     const sizes = {
-        text: [640, 120], 'random-text': [800, 120], markdown: [640, 240], image: isImageGroup ? [560, 140] : [480, 270],
+        text: [640, 120], 'random-text': [800, 120], markdown: [640, 240], image: [480, 270],
         video: [640, 360], embed: [640, 360], qr: [320, 320], icon: [160, 160], shape: isObsFrame ? [480, 270] : [480, 160],
         cutout: [480, 270], progress: [480, 48], poll: [400, 150], 'game-list': [800, 320], alert: [640, 280], slideshow: [640, 360], pattern: [640, 360], 'procedural-pattern': [state.overlay?.canvas?.width || 1920, state.overlay?.canvas?.height || 1080],
         'speaker-badge': [340, 84], 'data-display': [600, 400]
@@ -743,7 +729,7 @@ export function createElementData(rawType, overrides = {}) {
     const [width, height] = sizes[type] || [480, 270];
     const offset = (state.overlay.elements.length % 6) * 24;
     const data = {
-        id: uid(type), name: isObsFrame ? 'OBS Source Frame' : (isImageGroup ? 'Group Image Strip' : (type === 'procedural-pattern' ? 'Background Pattern' : (type === 'speaker-badge' ? 'Speaker Badge' : ''))), locked: false, type,
+        id: uid(type), name: isObsFrame ? 'OBS Source Frame' : (type === 'procedural-pattern' ? 'Background Pattern' : (type === 'speaker-badge' ? 'Speaker Badge' : '')), locked: false, type,
         content: { text: 'Text element', 'random-text': 'Random phrase', markdown: '## Heading\n\nMarkdown **content**', image: '', video: '', embed: '', qr: '', icon: 'fa-brands fa-twitch', shape: '', cutout: '', progress: '50', poll: '', 'game-list': '', alert: '', slideshow: '', pattern: 'fa-brands fa-twitch', 'procedural-pattern': '', 'speaker-badge': '' }[type],
         textFit: 'none',
         columns: 1,
@@ -815,7 +801,7 @@ export function createElementData(rawType, overrides = {}) {
         width, height, zIndex: state.overlay.elements.length, visible: true,
         style: {
             fontFamily: 'sans-serif',
-            fontSize: type === 'poll' ? 12 : isImageGroup ? 15 : type === 'markdown' ? 32 : type === 'progress' ? 24 : type === 'game-list' ? 28 : (type === 'speaker-badge' ? 20 : 48),
+            fontSize: type === 'poll' ? 12 : type === 'markdown' ? 32 : type === 'progress' ? 24 : type === 'game-list' ? 28 : (type === 'speaker-badge' ? 20 : 48),
             fontWeight: type === 'alert' ? '600' : '400',
             color: '#ffffff', textAlign: 'left', verticalAlign: 'top', lineHeight: 1.2, letterSpacing: 0,
             background: isObsFrame ? 'transparent' : (type === 'speaker-badge' ? 'rgba(18, 18, 26, 0.88)' : (type === 'shape' ? '#1f6feb' : type === 'poll' ? 'rgba(13,17,23,0.85)' : type === 'alert' ? 'rgba(15,15,25,0.85)' : 'transparent')),
@@ -828,12 +814,7 @@ export function createElementData(rawType, overrides = {}) {
         }
     };
     if (type === 'icon' || type === 'alert') Object.assign(data.style, { textAlign: 'center', verticalAlign: 'middle' });
-    if (isImageGroup) {
-        data.imageGroup = defaultImageGroupConfig(null, overrides.imageGroup, true);
-        Object.assign(data.style, { textAlign: 'center', verticalAlign: 'middle' });
-    }
     const merged = Object.assign(data, overrides);
-    if (isImageGroup && overrides.imageGroup) merged.imageGroup = data.imageGroup;
     merged._baseState = extractElementState(merged);
     return merged;
 }
@@ -883,8 +864,8 @@ export function syncEditorVarRotations(onRender) {
     const follow = prefs.live ? (overlay?.variableSetFollow || {}) : {};
     const trans = prefs.live ? (overlay?.variableSetTransitions || {}) : {};
     const hasActive = rots.some(r => r && r.enabled !== false && r.setId) || Object.values(follow).some(Boolean);
-    const hasGroupStrips = (overlay?.elements || []).some(el => el.imageGroup?.enabled);
-    if ((hasActive || hasGroupStrips) && !Array.isArray(state.liveStatus?.variableSets)) {
+    const hasDisplays = (overlay?.elements || []).some(el => el.type === 'data-display');
+    if ((hasActive || hasDisplays) && !Array.isArray(state.liveStatus?.variableSets)) {
         ensureEditorVariableSets(() => {
             lastVarRotationKey = '';
             syncEditorVarRotations(onRender);

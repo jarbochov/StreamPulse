@@ -23,6 +23,7 @@ function applyVariableSetsVisibility() {
     if (showSetWrap) showSetWrap.style.display = enabled ? 'flex' : 'none';
     if (!enabled) state.showSetVars = false;
     if (!state.status || typeof state.status !== 'object') state.status = {};
+    state.status.variableSets = state.variableSets;
     state.status.modules = { ...(state.status.modules || {}), variableSets: enabled };
     if (!enabled && location.hash === '#sets') showTab('variables');
 }
@@ -128,8 +129,8 @@ function groups() {
         .filter(g => cat === 'all' || g.label === cat)
         .map(g => ({
             label: g.label,
-            items: g.items.filter(([key, label]) => !q || `${g.label} ${key} ${label}`.toLowerCase().includes(q)).map(([key, label]) => {
-                const v = table[key];
+            items: g.items.filter(([key, label, metadata]) => !q || q.split(/\s+/).every(term => `${g.label} ${key} ${label} ${metadata?.search || ''} ${metadata?.preview ?? table[key] ?? ''}`.toLowerCase().includes(term))).map(([key, label, metadata]) => {
+                const v = metadata?.preview ?? table[key];
                 return { key, label, value: show && v !== undefined && v !== null && v !== '' ? String(v) : '' };
             })
         })).filter(g => g.items.length);
@@ -488,15 +489,17 @@ function bindEvents() {
         const rows = tokensCard.querySelectorAll('tbody tr');
         tokensCard._searching = true;
         if (!q) {
+            tokensCard.hidden = false;
             rows.forEach(r => { r.style.display = ''; });
             tokensCard.open = localStorage.getItem('placeholders_tokens_open') === 'true';
         } else {
             let any = false;
             rows.forEach(r => {
-                const match = r.textContent.toLowerCase().includes(q);
+                const match = q.split(/\s+/).every(term => r.textContent.toLowerCase().includes(term));
                 r.style.display = match ? '' : 'none';
                 if (match) any = true;
             });
+            tokensCard.hidden = !any;
             if (any) tokensCard.open = true;
         }
         tokensCard._searching = false;

@@ -668,6 +668,193 @@ async function callApi(store, method, rawUrl, bodyObj = null, headers = {}) {
     return { handled, status: res.statusCode, text: res.body, json: (res.body && isJson) ? JSON.parse(res.body) : null };
 }
 
+test('Targeted entry operations merge unrelated edits, reject stale cells and preserve explicit linked order', async () => {
+    const dir = makeTmpDir();
+    const store = createVariablesStore({ dataDir: dir });
+    try {
+        store.upsertSet('show', { fields: [
+            { key: 'name', type: 'text' }, { key: 'score', type: 'counter' },
+            { key: 'lineup', type: 'ref_list', targetSet: 'show' }
+        ], roster: [{ id: 'one', values: { name: 'One', score: '0' } }, { id: 'two', values: { name: 'Two', score: '0' } }] });
+        const base = '/api/variables/sets/show/entry';
+        const [name, score] = await Promise.all([
+            callApi(store, 'PATCH', `${base}/set`, { entry: 'one', field: 'name', value: 'Renamed', expected: 'One' }),
+            callApi(store, 'POST', `${base}/set`, { entry: 'one', field: 'score', value: '5', expected: '0' })
+        ]);
+        assert.equal(name.status, 200);
+        assert.equal(score.status, 200);
+        assert.equal(getSet(store, 'show').roster[0].values.name, 'Renamed');
+        assert.equal(getSet(store, 'show').roster[0].values.score, '5');
+        const conflict = await callApi(store, 'PATCH', `${base}/set`, { entry: 'one', field: 'score', value: '99', expected: '0' });
+        assert.equal(conflict.status, 409);
+        assert.equal(conflict.json.code, 'conflict');
+        assert.equal(conflict.json.current, '5');
+        await Promise.all([callApi(store, 'GET', `${base}/step?entry=one&field=score&delta=2`), callApi(store, 'POST', `${base}/step`, { entry: 'one', field: 'score', delta: 3 })]);
+        assert.equal(getSet(store, 'show').roster[0].values.score, '10');
+        assert.equal((await callApi(store, 'GET', `${base}/set?entry=one&property=enabled&value=false&expected=true`)).status, 200);
+        assert.equal(getSet(store, 'show').roster[0].enabled, false);
+        const ordered = await callApi(store, 'PATCH', `${base}/set`, { entry: 'one', field: 'lineup', value: ['two', 'one'], expected: [] });
+        assert.deepEqual(ordered.json.roster[0].values.lineup, ['two', 'one']);
+        await callApi(store, 'PATCH', `${base}/set`, { entry: 'one', field: 'lineup', value: ['one', 'two'], expected: ['two', 'one'] });
+        assert.deepEqual(getSet(store, 'show').roster[0].values.lineup, ['one', 'two']);
+        assert.equal((await callApi(store, 'PATCH', `${base}/set`, { entry: 'one', field: 'lineup', value: [], expected: ['two', 'one'] })).status, 409);
+        assert.equal((await callApi(store, 'PATCH', `${base}/add`, { entry: { id: 'three', label: 'Three' } })).status, 200);
+        assert.equal((await callApi(store, 'POST', `${base}/add`, { entry: { id: 'three' } })).status, 409);
+        assert.equal((await callApi(store, 'DELETE', `${base}/remove?entry=three`)).status, 200);
+        store.reload();
+        assert.equal(getSet(store, 'show').roster[0].values.score, '10');
+        assert.deepEqual(getSet(store, 'show').roster[0].values.lineup, ['one', 'two']);
+    } finally { store.dispose(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('Dependency guards cover links, displays and bindings without blocking internal set deletion or unrelated saves', async () => {
+    const dir = makeTmpDir();
+    const createDependencies = require('../server/services/variable-dependencies');
+    let displays = [], overlays = [], presets = [];
+    let helper;
+    const store = createVariablesStore({ dataDir: dir, getDependencies: (id, entry, field) => field ? helper.forField(id, field) : helper.forSet(id, entry) });
+    helper = createDependencies({ getSets: store.listSets, getVariables: store.list, getDisplays: () => displays, getOverlays: () => overlays, getPresets: () => presets });
+    try {
+        store.upsertSet('people', { fields: [{ key: 'name' }], roster: [{ id: 'alex', label: 'Alex' }, { id: 'sam', label: 'Sam' }] });
+        store.upsertSet('schedule', { fields: [{ key: 'guests', type: 'ref_list', targetSet: 'people' }], roster: [{ id: 'opening', values: { guests: ['alex'] } }] });
+        let response = await callApi(store, 'DELETE', '/api/variables/sets/people');
+        assert.equal(response.status, 409);
+        assert.equal(response.json.code, 'dependencies');
+        assert.match(response.json.dependencies[0].label, /schedule.*guests/i);
+        response = await callApi(store, 'PATCH', '/api/variables/sets/people/entry/remove', { entry: 'alex' });
+        assert.equal(response.status, 409);
+        assert.ok(response.json.dependencies.some(use => /opening/.test(use.label)));
+        assert.equal((await callApi(store, 'PATCH', '/api/variables/sets/people/entry/remove', { entry: 'sam' })).status, 200);
+        store.upsertSet('people', { name: 'People renamed' });
+        assert.throws(() => store.upsertSet('people', { roster: [] }), /references first/);
+        assert.throws(() => store.importBundle({ sets: [{ id: 'people', roster: [] }] }), /references first/);
+        store.deleteSet('schedule');
+        displays = [{ id: 'cards', name: 'Guest cards', catalogId: 'people', sections: [{ items: [{ itemId: 'alex' }] }] }];
+        assert.equal(helper.forSet('people', 'alex')[0].kind, 'display');
+        displays = [{ id: 'table', name: 'Run sheet', catalogId: 'people', table: { rowOrder: ['alex'] } }];
+        assert.match(helper.forSet('people', 'alex')[0].label, /row/);
+        displays[0].table.columns = [{ key: 'name', label: 'Guest name' }];
+        assert.throws(() => store.upsertSet('people', { fields: [{ key: 'other' }] }), /Guest name/);
+        assert.throws(() => store.importBundle({ sets: [{ id: 'people', fields: [{ key: 'other' }] }] }), /Guest name/);
+        store.upsertSet('people', { fields: [{ key: 'name', label: 'Guest', type: 'text' }, { key: 'other' }] });
+        assert.equal(getSet(store, 'people').fields.length, 2, 'Unrelated schema additions stay usable');
+        displays = [{ id: 'badge', name: 'Guest badges', kind: 'badge', catalogId: 'people', badge: { imageGroup: { fields: [{ key: 'other' }], cardBorderColor: '@name' } } }];
+        assert.ok(helper.forField('people', 'other').some(use => /badge field/.test(use.label)), 'Badge fields protect their catalog schema');
+        assert.ok(helper.forField('people', 'name').some(use => /badge field/.test(use.label)), 'Per-member style bindings protect their fields');
+        store.upsertSet('schedule', { fields: [{ key: 'guests', type: 'ref_list', targetSet: 'people' }], roster: [{ id: 'opening' }] });
+        store.set('caption', { value: '{{var.schedule_guests.field.other}}' });
+        assert.ok(helper.forField('people', 'other').some(use => use.kind === 'variable'), 'Linked-list field paths protect their target schema');
+        store.set('caption', { value: 'No linked token' });
+        store.deleteSet('schedule');
+        displays = [];
+        overlays = [{ id: 'live', name: 'Live', elements: [{ id: 'card', type: 'data-display', display: { displayId: 'cards', setId: 'people', selector: 'entry:alex' } }] }];
+        assert.equal(helper.forDisplay('cards')[0].kind, 'overlay');
+        assert.equal(helper.forSet('people', 'alex')[0].kind, 'overlay');
+        presets = overlays;
+        assert.ok(helper.forDisplay('cards').some(use => use.kind === 'preset'));
+        overlays = [{ id: 'literal', name: 'Unrelated', elements: [{ type: 'text', text: 'people alex cards' }] }];
+        presets = [];
+        assert.deepEqual(helper.forSet('people'), []);
+        store.set('caption', { value: '{{var.people_name}}' });
+        assert.equal(helper.forSet('people')[0].kind, 'variable');
+        store.set('caption', { value: 'No linked token' });
+        store.upsertSet('people', { fields: [{ key: 'friend', type: 'ref', targetSet: 'people' }], roster: [{ id: 'alex', values: { friend: 'alex' } }] });
+        assert.deepEqual(helper.forSet('people'), []);
+        store.deleteSet('people');
+    } finally { store.dispose(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('Operator saves only dirty cells and keeps failed pending edits without reporting Saved', async () => {
+    const vm = require('node:vm');
+    const dir = makeTmpDir();
+    const store = createVariablesStore({ dataDir: dir });
+    try {
+        store.upsertSet('live', { fields: [{ key: 'name' }, { key: 'score', type: 'counter' }], roster: [{ id: 'one', values: { name: 'One', score: '0' } }] });
+        const state = { sets: [globalThis.structuredClone(getSet(store, 'live'))] };
+        const badge = { setAttribute() {} };
+        const calls = [];
+        const context = vm.createContext({
+            state, structuredClone: globalThis.structuredClone, URL, URLSearchParams, console,
+            location: { hash: '#live', search: '', href: 'http://localhost/operator#live' },
+            localStorage: { getItem: () => null }, document: { getElementById: () => badge, activeElement: { dataset: { opEntry: 'one', opKey: 'name' } } },
+            setTimeout: () => 1, clearTimeout() {}, toast() {},
+            api: async (url, method, body) => {
+                calls.push({ url, method, body });
+                const result = await callApi(store, method, url, body);
+                if (result.status >= 400) throw new Error(result.json.error);
+                return result.json;
+            }
+        });
+        let source = fs.readFileSync(path.join(__dirname, '../public/js/variables/variable-set-operator.js'), 'utf8').replace(/^import .*;\n/gm, '');
+        source = source.slice(0, source.lastIndexOf('\nbindEvents();'));
+        vm.runInContext(`${source}\nglobalThis.operator = { persistRoster, savedRosters, rebasePendingRoster };`, context);
+        const operator = context.operator;
+        const setObj = state.sets[0];
+        operator.savedRosters.set('live', globalThis.structuredClone(setObj.roster));
+        store.mutateEntry('live', 'set', { entry: 'one', field: 'score', value: '10' });
+        setObj.roster[0].values.name = 'Local rename';
+        await operator.persistRoster(setObj);
+        assert.equal(getSet(store, 'live').roster[0].values.score, '10');
+        assert.equal(calls.length, 1, 'An unrelated stale score must never be written back');
+        assert.equal(calls[0].body.field, 'name');
+        assert.equal(calls[0].method, 'PATCH');
+        store.mutateEntry('live', 'set', { entry: 'one', field: 'name', value: 'Remote rename' });
+        setObj.roster[0].values.name = 'Pending local rename';
+        await operator.persistRoster(setObj);
+        assert.equal(getSet(store, 'live').roster[0].values.name, 'Remote rename');
+        assert.equal(setObj.roster[0].values.name, 'Pending local rename');
+        assert.match(badge.textContent, /Unsaved/);
+        await operator.persistRoster(setObj);
+        assert.match(badge.textContent, /Unsaved/);
+        assert.equal(calls.length, 2, 'Failed conflicts require an explicit retry');
+        const oldRoster = [
+            { id: 'one', values: { name: 'Old', score: '0' } },
+            { id: 'two', values: { name: 'Two', score: '0' } }
+        ];
+        const pending = { roster: globalThis.structuredClone(oldRoster) };
+        pending.roster[0].values.name = 'Pending';
+        operator.rebasePendingRoster(pending, oldRoster, [{ id: 'one', values: { name: 'Remote', score: '42' } }]);
+        assert.deepEqual(pending.roster.map(entry => entry.id), ['one'], 'Retry never recreates unrelated remote deletions');
+        assert.equal(pending.roster[0].values.name, 'Pending');
+        assert.equal(pending.roster[0].values.score, '42', 'Retry rebases unrelated remote cells');
+        assert.throws(() => operator.rebasePendingRoster(pending, oldRoster, []), /removed elsewhere/);
+    } finally { store.dispose(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('Linked selection retains explicit order through additions, removals and keyboard button moves', () => {
+    const source = fs.readFileSync(path.join(__dirname, '../public/js/variables/variables-links.js'), 'utf8')
+        .replace(/^import .*;\n/gm, '').replace(/export function /g, 'function ');
+    const { linkControl, bindLinkControls } = new Function('esc', `${source}\nreturn { linkControl, bindLinkControls };`)(value => String(value));
+    const html = linkControl({ type: 'ref_list', targetSet: 'people', label: 'Lineup' }, ['b', 'a'],
+        [{ id: 'people', roster: [{ id: 'a', label: 'Alpha' }, { id: 'b', label: 'Beta' }, { id: 'c', label: 'Charlie' }] }], '');
+    assert.ok(html.indexOf('data-link-selected="b"') < html.indexOf('data-link-selected="a"'));
+    assert.match(html, /aria-label="Move Beta later"/);
+    const handlers = {};
+    const value = { value: '["b","a"]', dispatchEvent() {} };
+    const order = {}, summary = {};
+    const inputs = ['a', 'b', 'c'].map(id => ({
+        value: id, checked: id !== 'c', parentElement: { textContent: id },
+        matches: selector => selector === '[data-link-option] input', closest: () => control
+    }));
+    const control = {
+        querySelector: selector => selector === '[data-link-value]' ? value : selector === 'summary' ? summary : order,
+        querySelectorAll: selector => selector === '[data-link-option] input' ? inputs : []
+    };
+    bindLinkControls({ addEventListener: (name, handler) => { handlers[name] = handler; } });
+    inputs[2].checked = true;
+    handlers.change({ target: inputs[2] });
+    assert.equal(value.value, '["b","a","c"]', 'New selections append; catalog order cannot reorder the lineup');
+    inputs[0].checked = false;
+    handlers.change({ target: inputs[0] });
+    assert.equal(value.value, '["b","c"]');
+    const button = {
+        dataset: { linkMove: '-1' }, hasAttribute: () => false,
+        closest: selector => selector === '[data-link-control]' ? control : { dataset: { linkSelected: 'c' } }
+    };
+    handlers.click({ target: { closest: () => button } });
+    assert.equal(value.value, '["c","b"]');
+});
+
 test('Variables: image, toggle, color, and template types + onChange', async () => {
     const dir = makeTmpDir();
     try {
@@ -1318,6 +1505,7 @@ test('Linked Variable Sets: editors and Operator share link controls and preserv
             { key: 'favorite', label: 'Favorite', type: 'ref', targetSet: 'equipment' },
             { key: 'choices', label: 'Choices', type: 'ref_list', targetSet: 'equipment' },
             { key: 'date', label: 'Date', type: 'date' },
+            { key: 'color', label: 'Color', type: 'color' },
             { key: 'gear', label: 'Gear', type: 'checklist', targetSet: 'equipment', maxTier: 1 }
         ],
         roster: [{ id: 'alex', label: 'Alex', values: { name: 'Alex', gear: { sword: 2 } } }, { id: 'sam', label: 'Sam', values: { name: 'Sam', gear: { badge: 1 } } }]
@@ -1329,7 +1517,7 @@ test('Linked Variable Sets: editors and Operator share link controls and preserv
         const pathname = new URL(req.url, 'http://fixture').pathname;
         if (pathname.startsWith('/api/variables')) {
             if (req.method !== 'GET') requests.push(pathname);
-            if (req.method === 'PUT') await new Promise(resolve => setTimeout(resolve, 100));
+            if (req.method === 'PUT' || req.method === 'PATCH') await new Promise(resolve => setTimeout(resolve, 100));
             await store.handleApi(req, res, pathname, async request => {
                 const chunks = [];
                 for await (const chunk of request) chunks.push(chunk);
@@ -1358,6 +1546,14 @@ test('Linked Variable Sets: editors and Operator share link controls and preserv
         page.on('request', request => request.url().startsWith(origin) || request.url().startsWith('data:') ? request.continue() : request.abort());
         await page.goto(`${origin}/variable-set-operator.html#people`);
         await page.waitForSelector('[data-op-open-matrix="gear"]');
+        await page.$eval('[data-op-swatch="alex"]', input => {
+            window.originalSwatch = input;
+            input.focus();
+            input.value = '#ff0000';
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        await page.waitForFunction(async () => (await (await fetch('/api/variables/sets/people')).json()).roster[0].values.color === '#ff0000');
+        assert.equal(await page.evaluate(() => window.originalSwatch === document.querySelector('[data-op-swatch="alex"]')), true, 'Saving must keep native color pickers mounted');
         assert.equal(await page.$eval('[data-op-type="date"]', input => input.type), 'date');
         await page.select('[data-op-entry="alex"][data-op-type="ref"]', 'sword');
         await page.click('[data-link-control] summary');
@@ -1372,7 +1568,7 @@ test('Linked Variable Sets: editors and Operator share link controls and preserv
         await page.waitForFunction(() => document.querySelector('[data-op-entry="alex"][data-op-target="sword"]')?.textContent.includes('Legendary'));
         assert.equal(getSet(store, 'people').roster[0].values.name, 'Updated Alex');
         assert.equal(getSet(store, 'people').roster[0].values.gear.sword, 3);
-        assert.equal(requests.at(-2), '/api/variables/sets/people');
+        assert.equal(requests.at(-2), '/api/variables/sets/people/entry/set');
         assert.equal(requests.at(-1), '/api/variables/sets/people/checklist/step');
         page.once('dialog', dialog => dialog.accept());
         await page.click('[data-op-reset-entry="alex"]');
@@ -1395,6 +1591,8 @@ test('Linked Variable Sets: editors and Operator share link controls and preserv
         assert.equal(await page.$eval('[data-entry-field="favorite"]', input => input.value), 'sword');
         await page.click('#vp-entry-form [data-link-control] summary');
         await page.click('#vp-entry-form [data-link-option] input[value="sword"]');
+        assert.equal(await page.$eval('#vp-entry-form [data-entry-field="choices"]', input => input.value), '["badge","sword"]', 'Adding to a lineup must append without reordering saved choices');
+        await page.click('#vp-entry-form [data-link-selected="sword"] [data-link-move="-1"]');
         await page.$eval('[data-entry-check-item="sword"]', select => {
             select.value = '3'; select.dispatchEvent(new Event('change', { bubbles: true }));
         });

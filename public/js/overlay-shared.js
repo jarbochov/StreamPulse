@@ -2752,27 +2752,27 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
   // shared/display-source.cjs
   var require_display_source = __commonJS({
     "shared/display-source.cjs"(exports, module) {
-      function resolveDisplayOwner2(sets = [], binding = {}) {
+      function resolveDisplayOwner3(sets = [], binding = {}) {
         let set = sets.find((candidate) => candidate.id === binding.setId);
         const selector = binding.selector || "active";
         const id = selector.startsWith("entry:") ? selector.slice(6) : selector.startsWith("slot:") ? set?.slots?.[Number(selector.slice(5)) - 1] : set?.slotsCount > 0 ? set.slots?.[0] : set?.activeEntry;
-        let entry = set?.roster?.find((candidate) => candidate.id === id);
+        let entry = set?.roster?.find((candidate) => candidate.id === id && candidate.enabled !== false);
         for (const fieldKey of binding.path || []) {
           const field = set?.fields?.find((candidate) => candidate.key === fieldKey && candidate.type === "ref");
           const nextId = entry?.values?.[fieldKey];
           set = sets.find((candidate) => candidate.id === field?.targetSet);
-          entry = set?.roster?.find((candidate) => candidate.id === nextId);
+          entry = set?.roster?.find((candidate) => candidate.id === nextId && candidate.enabled !== false);
         }
         return { set, entry };
       }
-      module.exports = { resolveDisplayOwner: resolveDisplayOwner2 };
+      module.exports = { resolveDisplayOwner: resolveDisplayOwner3 };
     }
   });
 
   // shared/display-table.cjs
   var require_display_table = __commonJS({
     "shared/display-table.cjs"(exports, module) {
-      var { resolveDisplayOwner: resolveDisplayOwner2 } = require_display_source();
+      var { resolveDisplayOwner: resolveDisplayOwner3 } = require_display_source();
       var id = (value) => String(value || "").replace(/[^a-z0-9_-]/gi, "_").slice(0, 60);
       var fieldPath = (value) => String(value || "").split(".").slice(0, 5).map((part) => part === "$label" ? part : id(part)).filter(Boolean).join(".");
       var bound = (value, fallback, min, max) => Number.isFinite(Number(value)) && value != null && value !== "" ? Math.min(max, Math.max(min, Number(value))) : fallback;
@@ -2828,10 +2828,15 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       function getDisplayRows3(sets = [], definition, binding = {}) {
         const catalog = sets.find((set) => set.id === definition.catalogId);
         if (!catalog) return { set: null, entries: [] };
-        const source = binding.setId ? resolveDisplayOwner2(sets, binding) : { set: catalog };
+        const source = binding.setId ? resolveDisplayOwner3(sets, binding) : { set: catalog };
         let entries;
-        const linkedKeys = binding.listField ? [binding.listField] : binding.fields || [];
-        if (linkedKeys.length) {
+        const linkedKeys = binding.fields || [];
+        if (binding.tracker) {
+          const field = source.set?.fields?.find((field2) => field2.key === binding.tracker && field2.type === "checklist" && field2.targetSet === catalog.id);
+          if (!field || !source.entry) return { set: catalog, entries: [] };
+          const map = source.entry.values?.[field.key] || {};
+          entries = (catalog.roster || []).filter((entry) => binding.showMode === "dim" || Number(map[entry.id]) > 0);
+        } else if (linkedKeys.length) {
           const ids = linkedKeys.flatMap((key) => {
             const field = source.set?.fields?.find((field2) => field2.key === key && ["ref", "ref_list"].includes(field2.type) && field2.targetSet === catalog.id);
             const value = source.entry?.values?.[key];
@@ -2840,16 +2845,17 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           entries = [...new Set(ids)].map((id2) => catalog.roster?.find((entry) => entry.id === id2)).filter(Boolean);
         } else if (source.set?.id !== catalog.id) entries = [];
         else if (binding.path?.length || binding.rows === "active") {
-          const owner = binding.setId ? source.entry : resolveDisplayOwner2(sets, { ...binding, setId: catalog.id }).entry;
+          const owner = binding.setId ? source.entry : resolveDisplayOwner3(sets, { ...binding, setId: catalog.id }).entry;
           entries = owner ? [owner] : [];
-        } else if (binding.rows === "slots") {
-          entries = [...new Set(catalog.slots || [])].map((id2) => catalog.roster?.find((entry) => entry.id === id2)).filter(Boolean);
+        } else if (["slots", "group-slots"].includes(binding.rows)) {
+          const ids = catalog.slotsCount > 0 ? catalog.slots || [] : [catalog.activeEntry];
+          entries = [...new Set(ids)].map((id2) => catalog.roster?.find((entry) => entry.id === id2)).filter((entry) => entry && (binding.rows !== "group-slots" || entry.inGroup !== false));
         } else if (binding.rows === "group") entries = catalog.roster?.filter((entry) => entry.inGroup) || [];
         else if (binding.rows === "ordered") entries = (definition.table?.rowOrder || []).map((id2) => catalog.roster?.find((entry) => entry.id === id2)).filter(Boolean);
         else entries = [...catalog.roster || []];
         entries = entries.filter((entry) => entry.enabled !== false);
         const order = new Map((definition.table?.rowOrder || []).map((id2, index) => [id2, index]));
-        if (order.size && !["slots", "ordered"].includes(binding.rows) && !linkedKeys.length) entries.sort((a, b) => (order.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (order.get(b.id) ?? Number.MAX_SAFE_INTEGER));
+        if (order.size && !["slots", "group-slots", "ordered"].includes(binding.rows) && !linkedKeys.length) entries.sort((a, b) => (order.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (order.get(b.id) ?? Number.MAX_SAFE_INTEGER));
         if (definition.table?.sortKey) {
           const compare = new Intl.Collator(void 0, { numeric: true, sensitivity: "base" });
           entries.sort((a, b) => {
@@ -2867,7 +2873,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
   // shared/variable-displays.cjs
   var require_variable_displays = __commonJS({
     "shared/variable-displays.cjs"(exports, module) {
-      var { resolveDisplayOwner: resolveDisplayOwner2 } = require_display_source();
+      var { resolveDisplayOwner: resolveDisplayOwner3 } = require_display_source();
       var { normalizeDisplayTable } = require_display_table();
       var key = (value) => String(value || "").replace(/[^a-z0-9_-]/gi, "_").slice(0, 60);
       var text = (value, limit = 80) => String(value ?? "").trim().slice(0, limit);
@@ -2931,6 +2937,20 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         };
       }
       function normalizeDisplayBinding(input = {}) {
+        if (input.badgeSource) {
+          const source = input.badgeSource, linked = source.linkedSource || {};
+          const followsLinks = ["linked", "checklist"].includes(source.filterMode);
+          input = {
+            ...input,
+            setId: followsLinks ? linked.setId : source.setId,
+            selector: followsLinks ? linked.selector : "active",
+            path: [],
+            tracker: source.filterMode === "checklist" ? linked.fields?.[0] : "",
+            fields: source.filterMode === "linked" ? linked.fields : [],
+            rows: source.onlySelected ? source.filterMode === "inGroup" ? "group-slots" : "slots" : source.filterMode === "inGroup" ? "group" : "all",
+            showMode: source.showMode
+          };
+        }
         return {
           displayId: key(input.displayId),
           setId: key(input.setId),
@@ -2938,30 +2958,18 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           path: (Array.isArray(input.path) ? input.path : []).slice(0, 4).map(key).filter(Boolean),
           tracker: key(input.tracker),
           showMode: input.showMode === "active" ? "active" : "dim",
-          rows: ["all", "active", "slots", "group", "ordered"].includes(input.rows) ? input.rows : "all",
-          listField: key(input.listField),
-          fields: (Array.isArray(input.fields) ? input.fields : []).slice(0, 10).map(key).filter(Boolean),
-          ...input.badgeSource ? { badgeSource: {
-            setId: key(input.badgeSource.setId),
-            filterMode: ["all", "inGroup", "linked", "checklist"].includes(input.badgeSource.filterMode) ? input.badgeSource.filterMode : "all",
-            onlySelected: input.badgeSource.onlySelected === true,
-            showMode: input.badgeSource.showMode === "active" ? "active" : "dim",
-            linkedSource: {
-              setId: key(input.badgeSource.linkedSource?.setId),
-              selector: /^(active|slot:\d{1,2}|entry:[a-z0-9_-]{1,60})$/.test(input.badgeSource.linkedSource?.selector || "") ? input.badgeSource.linkedSource.selector : "active",
-              fields: (input.badgeSource.linkedSource?.fields || []).slice(0, 10).map(key)
-            }
-          } } : {}
+          rows: ["all", "active", "slots", "group", "group-slots", "ordered"].includes(input.rows) ? input.rows : "all",
+          fields: [...new Set((input.listField ? [input.listField] : Array.isArray(input.fields) ? input.fields : []).slice(0, 10).map(key).filter(Boolean))]
         };
       }
-      module.exports = { normalizeDisplay, normalizeDisplayBinding, resolveDisplayOwner: resolveDisplayOwner2 };
+      module.exports = { normalizeDisplay, normalizeDisplayBinding, resolveDisplayOwner: resolveDisplayOwner3 };
     }
   });
 
   // shared/variable-links.cjs
   var require_variable_links = __commonJS({
     "shared/variable-links.cjs"(exports, module) {
-      function trackerMax3(field, item) {
+      function trackerMax4(field, item) {
         const levels = (item?.tiers || []).map((tier) => Number(tier.level)).filter((level) => Number.isInteger(level) && level > 0);
         return Math.min(100, levels.length ? Math.max(...levels) : Math.max(1, Number(field?.maxTier) || 1));
       }
@@ -2978,7 +2986,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         const fields = keys.map((key) => (set?.fields || []).find((field) => key === field.key && types.includes(field.type))).filter(Boolean);
         return { set, entry, fields };
       }
-      module.exports = { trackerMax: trackerMax3, linkedSourceEntry, linkedSourceFields: linkedSourceFields2 };
+      module.exports = { trackerMax: trackerMax4, linkedSourceEntry, linkedSourceFields: linkedSourceFields2 };
     }
   });
 
@@ -3091,8 +3099,16 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     if (status.modules?.variableSets === false) return false;
     let imageGroup = { ...badge.imageGroup, enabled: true, setId: definition.catalogId, filterMode: "all" };
     let resolvedStatus = status;
-    if (binding.badgeSource) {
-      imageGroup = { ...imageGroup, ...binding.badgeSource };
+    if (binding.tracker) {
+      const { set, entry } = (0, import_display_source.resolveDisplayOwner)(status.variableSets, binding);
+      const field = set?.fields?.find((field2) => field2.key === binding.tracker && field2.type === "checklist" && field2.targetSet === definition.catalogId);
+      if (!entry || !field) return false;
+      imageGroup = {
+        ...imageGroup,
+        filterMode: "checklist",
+        showMode: binding.showMode,
+        linkedSource: { setId: set.id, selector: `entry:${entry.id}`, fields: [field.key] }
+      };
     } else {
       const { set, entries } = (0, import_display_table2.getDisplayRows)(status.variableSets || [], definition, binding);
       if (!set) return false;
@@ -3127,10 +3143,11 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     applyMediaFilter(node, visual);
     return rendered;
   }
-  var import_display_table2, import_numeric_bindings;
+  var import_display_table2, import_display_source, import_numeric_bindings;
   var init_display_badges = __esm({
     "public/js/overlay/display-badges.js"() {
       import_display_table2 = __toESM(require_display_table());
+      import_display_source = __toESM(require_display_source());
       import_numeric_bindings = __toESM(require_numeric_bindings());
       init_media();
       init_styles();
@@ -3193,7 +3210,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       ...section,
       items: section.items.flatMap((placement) => {
         const item = members.get(placement.itemId);
-        if (!item) return [];
+        if (!item || item.enabled === false) return [];
         const level = Math.max(0, Math.min((0, import_variable_links.trackerMax)(tracker, item), Number(map[item.id]) || 0));
         const inactive = tracks && level === 0;
         if (inactive && binding.showMode === "active" && layout.mode !== "fixed") return [];
@@ -3275,6 +3292,144 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       library = null;
       revision = null;
       pending = null;
+    }
+  });
+
+  // public/js/overlay/linked-placeholders.js
+  function linkedPlaceholders(status = {}) {
+    const groups = [], values = {}, lists = {}, types = {};
+    if (status.modules?.variableSets === false) return { groups, values, lists, types };
+    const sets = new Map((status.variableSets || []).map((set) => [set.id, set]));
+    let remaining = MAX_ITEMS;
+    const enabled = (entry) => entry && entry.enabled !== false && entry.enabled !== "false" && entry.enabled !== 0 && entry.enabled !== "0";
+    const name = (entry) => {
+      const candidate = entry?.values?.name;
+      const value = (typeof candidate === "string" || typeof candidate === "number" ? candidate : "") || entry?.label || "";
+      return String(value === entry?.id ? "" : value);
+    };
+    const parse = (value, fallback) => {
+      if (typeof value !== "string") return value ?? fallback;
+      try {
+        return JSON.parse(value);
+      } catch {
+        return fallback;
+      }
+    };
+    const slug = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9_]/g, "_").replace(/^_+|_+$/g, "").slice(0, 24);
+    for (const set of sets.values()) {
+      if (!set?.id) continue;
+      const items = [];
+      const materialized = new Map((status.customVars || []).filter((v) => v.setId === set.id && !v.hidden).map((v) => [v.name, v]));
+      for (const [suffix, description] of [["group", "Group"], ["group_count", "Group count"]]) {
+        const variable = materialized.get(`${set.id}_${suffix}`);
+        if (variable) items.push([`var.${variable.name}`, `${set.name || set.id} \u2192 ${description}`, { type: variable.type, preview: variable.value }]);
+      }
+      const slots = Number(set.slotsCount) || 0;
+      for (let index = 0; index < Math.max(1, slots); index++) {
+        let add = function(key, label, type, raw, list = false, hint = state, search = "") {
+          if (remaining-- <= 0) return;
+          const clean = list ? raw.filter((v) => v !== "" && v !== void 0 && v !== null).map(String) : raw;
+          const value = list ? clean.join(", ") : clean ?? "";
+          const meta = { type, preview: value, list, state: hint, search: `${set.name || ""} ${slotLabel} ${search} ${value}` };
+          items.push([key, label, meta]);
+          const keys = [key, ...aliases.map((alias) => alias + key.slice(rootPrefix.length))];
+          for (const [index2, candidate] of [...keys].entries()) {
+            if ((candidate.match(/\.field\./g) || []).length !== 1 || /\.(count|started|completed|total|progress)$/.test(candidate)) continue;
+            const legacy = candidate.replace(".field.", "_");
+            const rootField = legacy.slice((index2 === 0 ? rootPrefix : aliases[index2 - 1]).length + 1);
+            if (!(set.fields || []).some((f) => f.key === rootField) && materialized.has(legacy.slice(4))) keys.push(legacy);
+          }
+          for (const k of keys) {
+            values[k] = value;
+            types[k] = type;
+            if (list) lists[k] = clean;
+          }
+        }, visit = function(fields, entries, prefix, label, hops, multi, hint, search) {
+          for (const field of fields || []) {
+            if (!field?.key || remaining <= 0) continue;
+            const key = `${prefix}${prefix === rootPrefix ? "_" : ".field."}${field.key}`;
+            const pathLabel = `${label} \u2192 ${field.label || field.key}`;
+            if (!LINK_TYPES.has(field.type)) {
+              const vals = entries.map((e) => {
+                const value = e?.values?.[field.key] ?? "";
+                return field.type === "template" ? String(value).replace(/@([a-z0-9_]{1,20})\b/gi, (_, k) => {
+                  const targetField = fields.find((f) => f.key === k);
+                  const raw = e.values?.[k];
+                  if (LINK_TYPES.has(targetField?.type)) {
+                    const target2 = sets.get(targetField.targetSet);
+                    const parsed = targetField.type === "checklist" ? parse(raw, {}) : targetField.type === "ref_list" ? parse(raw, []) : [raw];
+                    const ids = targetField.type === "checklist" && parsed && !Array.isArray(parsed) ? Object.keys(parsed).filter((id2) => Number(parsed[id2]) > 0) : parsed;
+                    return (Array.isArray(ids) ? ids : []).map((id2) => name(target2?.roster?.find((candidate) => candidate.id === id2 && enabled(candidate)))).filter(Boolean).join(", ");
+                  }
+                  return raw == null || typeof raw === "object" ? "" : String(raw);
+                }) : value;
+              }).filter((v) => typeof v !== "object");
+              add(key, pathLabel, field.type, multi ? vals : vals[0] ?? "", multi, hint, search);
+              continue;
+            }
+            if (hops >= MAX_HOPS) continue;
+            const target = sets.get(field.targetSet);
+            const matched = [];
+            let started = 0, completed = 0, total = 0;
+            for (const source of entries) {
+              const raw = source?.values?.[field.key];
+              const map = field.type === "checklist" ? parse(raw, {}) : null;
+              const ids = field.type === "ref" ? [raw] : field.type === "ref_list" ? parse(raw, []) : Object.keys(map && typeof map === "object" && !Array.isArray(map) ? map : {}).filter((id2) => Number(map[id2]) > 0);
+              const validIds = Array.isArray(ids) ? ids : [];
+              for (const linkedId of validIds) {
+                const found = target?.roster?.find((candidate) => candidate.id === linkedId && enabled(candidate));
+                if (found) matched.push(found);
+              }
+              if (field.type === "checklist" && target) {
+                const eligible = (target.roster || []).filter(enabled);
+                total += eligible.length;
+                started += eligible.filter((candidate) => Number(map?.[candidate.id]) > 0).length;
+                completed += eligible.filter((candidate) => Number(map?.[candidate.id]) >= (0, import_variable_links2.trackerMax)(field, candidate)).length;
+              }
+            }
+            const linkHint = !entries.length ? hint : !target ? "Missing linked set" : !matched.length ? "No linked entries" : "";
+            const isMulti = multi || field.type !== "ref";
+            const names = matched.map(name).filter(Boolean);
+            const linkedSearch = `${search} ${names.join(" ")}`;
+            add(key, pathLabel, "text", isMulti ? names : names[0] || "", isMulti, linkHint, linkedSearch);
+            if (field.type !== "ref") {
+              const available = entries.length && target;
+              add(`${key}.count`, `${pathLabel} \u2192 Count`, "number", available ? matched.length : "", false, linkHint, linkedSearch);
+              if (field.type === "checklist") {
+                add(`${key}.started`, `${pathLabel} \u2192 Started`, "number", available ? started : "", false, linkHint, linkedSearch);
+                add(`${key}.completed`, `${pathLabel} \u2192 Completed`, "number", available ? completed : "", false, linkHint, linkedSearch);
+                add(`${key}.total`, `${pathLabel} \u2192 Total`, "number", available ? total : "", false, linkHint, linkedSearch);
+                add(`${key}.progress`, `${pathLabel} \u2192 Progress`, "text", available ? `${completed}/${total}` : "", false, linkHint, linkedSearch);
+              }
+            }
+            if (target) visit(target.fields, matched, key, pathLabel, hops + 1, isMulti, linkHint, linkedSearch);
+          }
+        };
+        const id = slots ? set.slots?.[index] : set.activeEntry;
+        const entry = (set.roster || []).find((candidate) => candidate.id === id && enabled(candidate));
+        const slotLabel = slots ? `Slot ${index + 1}${set.slotNames?.[index] ? ` / ${set.slotNames[index]}` : ""}` : "Active entry";
+        const rootPrefix = `var.${set.id}${slots ? `_${index + 1}` : ""}`;
+        const aliases = [];
+        if (slots && index === 0) aliases.push(`var.${set.id}`);
+        const named = slots && slug(set.slotNames?.[index]);
+        if (named && !/^\d+$/.test(named) && named !== "active") aliases.push(`var.${set.id}_${named}`);
+        const breadcrumb = `${set.name || set.id} \u2192 ${slotLabel}`;
+        const state = entry ? "" : id ? "Unavailable entry" : "Unassigned";
+        if (slots) add(`${rootPrefix}_slot_name`, `${breadcrumb} \u2192 Slot name`, "text", set.slotNames?.[index] || `Slot ${index + 1}`);
+        add(`${rootPrefix}_active`, `${breadcrumb} \u2192 Active`, "toggle", entry ? "true" : "false");
+        visit(set.fields, entry ? [entry] : [], rootPrefix, breadcrumb, 0, false, state, name(entry));
+      }
+      if (items.length) groups.push({ label: `Variable Set: ${set.name || set.id}`, items });
+    }
+    return { groups, values, lists, types };
+  }
+  var import_variable_links2, LINK_TYPES, MAX_HOPS, MAX_ITEMS;
+  var init_linked_placeholders = __esm({
+    "public/js/overlay/linked-placeholders.js"() {
+      import_variable_links2 = __toESM(require_variable_links());
+      LINK_TYPES = /* @__PURE__ */ new Set(["ref", "ref_list", "checklist"]);
+      MAX_HOPS = 4;
+      MAX_ITEMS = 1e4;
     }
   });
 
@@ -3484,7 +3639,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     const groups = VARIABLE_GROUPS.map((g) => ({ label: g.label, items: g.items.slice() }));
     groups.push({ label: "Clock", items: CLOCK_ITEMS });
     const setsEnabled = status.modules?.variableSets !== false;
-    const customVars = (status.customVars || []).filter((v) => !v.hidden && (setsEnabled || !v.setId));
+    const customVars = (status.customVars || []).filter((v) => !v.hidden && !v.setId);
     const customGroups = /* @__PURE__ */ new Map();
     for (const v of customVars) {
       const label = v.group && !v.setId ? `Variables: ${v.group}` : "Variables and counters";
@@ -3494,6 +3649,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       if (v.icon) customGroups.get(label).push([`var.${v.name}.icon`, `${v.name} icon (${v.icon})`]);
     }
     for (const [label, items] of customGroups) groups.push({ label, items });
+    if (setsEnabled) groups.push(...linkedPlaceholders(status).groups);
     if (status.weather?.enabled) {
       groups.push({ label: "Weather", items: WEATHER_ITEMS });
       for (const [slug, extra] of Object.entries(status.weather.extras || {})) {
@@ -3735,6 +3891,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     };
   }
   function variableTable(status = {}, context = {}, now = Date.now()) {
+    const linked = linkedPlaceholders(status);
     const table = {
       ...clockValues(status, now),
       ...eventValues(status),
@@ -3751,7 +3908,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       ...triviaValues(status, now),
       ...tierListValues(status, now),
       ...subathonValues(status),
-      ...customVarValues(status),
+      ...customVarValues(status, linked, now),
       "stream.category": status.stream?.category?.name,
       "stream.live": status.viewers?.live ? "yes" : "no",
       "session.started": status.startedAt,
@@ -3817,7 +3974,9 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       "game.platforms": status.stream?.game?.platforms || []
     };
     for (const list of status.gamePlan?.lists || []) lists[`plan.list.${list.id}`] = planItems.filter((item) => inPlanList(item, list.id)).map((item) => item.name);
+    Object.assign(lists, linked.lists);
     Object.defineProperty(table, "__lists", { value: lists, enumerable: false });
+    Object.defineProperty(table, "__types", { value: linked.types, enumerable: false });
     return table;
   }
   function formatDate(date, format) {
@@ -3881,7 +4040,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         return n.toFixed(2);
       }
     }
-    if (isListKey(name)) {
+    if (isListKey(name, table)) {
       const items = (table.__lists?.[name] || String(value ?? "").split(", ")).filter(Boolean);
       if (/^(lines|newline|br)$/i.test(format)) return items.join("\n");
       if (/^bullets$/i.test(format)) return items.map((item) => `\u2022 ${item}`).join("\n");
@@ -3895,16 +4054,26 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     const date = clockKey ? new Date(now) : parseDateValue(value);
     return date ? formatDate(date, format) : value;
   }
-  function customVarValues(status) {
-    const vars = status.customVars || [];
-    const entries = Object.fromEntries(vars.map((v) => [`var.${v.name}`, v.value]));
+  function customVarValues(status, linked = { values: {}, lists: {}, types: {} }, now = Date.now()) {
+    const sets = new Map((status.modules?.variableSets === false ? [] : status.variableSets || []).map((set) => [set.id, set]));
+    const vars = (status.customVars || []).filter((v) => !v.setId || sets.has(v.setId));
+    const safeMaterialized = (v) => {
+      if (!v.setId) return true;
+      const suffix = v.name.slice(v.setId.length + 1);
+      if (["group", "group_count", "group_members"].includes(suffix)) return true;
+      const match = /^(?:group|joined)_(.+)$/.exec(suffix);
+      const field = match && (sets.get(v.setId)?.fields || []).find((f) => f.key === match[1]);
+      return Boolean(field && !["ref", "ref_list", "checklist"].includes(field.type));
+    };
+    const entries = { ...Object.fromEntries(vars.filter(safeMaterialized).map((v) => [`var.${v.name}`, v.value])), ...linked.values };
     for (const v of vars) {
       if (v.type === "list" && v.items?.length) {
         entries[`var.${v.name}.random`] = v.items[Math.floor(Math.random() * v.items.length)];
       }
       if (v.icon) entries[`var.${v.name}.icon`] = v.icon;
     }
-    const templates = new Map(vars.filter((v) => v.type === "template").map((v) => [`var.${v.name}`, String(v.value ?? "")]));
+    const templates = new Map(vars.filter((v) => v.type === "template" && !v.setId).map((v) => [`var.${v.name}`, String(v.value ?? "")]));
+    for (const [key, type] of Object.entries(linked.types)) if (type === "template") templates.set(key, String(linked.values[key] ?? ""));
     const done = /* @__PURE__ */ new Map();
     const resolving = /* @__PURE__ */ new Set();
     const resolve = (key, depth) => {
@@ -3915,7 +4084,17 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       const text = templates.get(key).replace(/\{\{\s*var\.([a-zA-Z0-9_.-]+)\s*(?:\|([^{}]*?))?\s*\}\}/g, (_, ref, fb) => {
         const val = resolve(`var.${ref}`, depth + 1);
         const str = val === void 0 || val === null ? "" : String(val);
-        return str !== "" ? str : fb !== void 0 ? fb.trim() : "";
+        if (fb === void 0) return str;
+        const format = fb.trim();
+        const refKey = `var.${ref}`;
+        if (isListKey(refKey, { __lists: linked.lists })) return String(applyFormat(refKey, val, fb.replace(/^\s+/, ""), now, { __lists: linked.lists }));
+        if (!str) {
+          const setVar = (status.customVars || []).some((v) => v.setId && (ref === v.name || ref.startsWith(`${v.name}.`)));
+          return setVar && !linked.types[refKey] && isListFormat(format) ? "" : format;
+        }
+        const type = linked.types[refKey] || vars.find((v) => `var.${v.name}` === refKey)?.type;
+        if (["number", "counter"].includes(type)) return formatNumberVariable(val, format) ?? str;
+        return String(applyFormat(refKey, val, format, now));
       });
       resolving.delete(key);
       done.set(key, text);
@@ -3950,8 +4129,10 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
   function expandVariables(value, status, context = {}, keepEmpty = false, _depth = 0) {
     const now = Date.now();
     const table = variableTable(status, context, now);
-    const tplMap = new Map((status.customVars || []).filter((v) => v.type === "template").map((v) => [`var.${v.name}`, v.value]));
-    const numberNames = new Set((status.customVars || []).filter((v) => v.type === "number" || v.type === "counter").map((v) => `var.${v.name}`));
+    const enabledVars = (status.customVars || []).filter((v) => status.modules?.variableSets !== false || !v.setId);
+    const tplMap = new Map(enabledVars.filter((v) => v.type === "template" && !v.setId).map((v) => [`var.${v.name}`, v.value]));
+    for (const [key, type] of Object.entries(table.__types)) if (type === "template") tplMap.set(key, table[key]);
+    const numberNames = new Set(enabledVars.filter((v) => v.type === "number" || v.type === "counter").map((v) => `var.${v.name}`));
     return String(value ?? "").replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*(?:\|([^{}]*?))?\s*\}\}/g, (match, name, format) => {
       if (name.startsWith("var.") && name.endsWith(".icon")) {
         const iconCls = String(table[name] || "").trim();
@@ -3971,7 +4152,8 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         }
         return keepEmpty ? match : "";
       }
-      if (name.startsWith("var.") && format !== void 0 && !isListKey(name)) {
+      const isNumber = !isListKey(name, table) && (numberNames.has(name) || ["number", "counter"].includes(table.__types[name]));
+      if (name.startsWith("var.") && format !== void 0 && !isListKey(name, table)) {
         const trimmedFmt = format.trim();
         const raw = table[name];
         const str = raw === void 0 || raw === null ? "" : String(raw);
@@ -3983,12 +4165,15 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           return trimmedFmt === "icon" ? iconTok : context?.inlineIcons ? `${iconTok} ${str}` : str;
         }
         if (str === "") {
+          const setVar = (status.customVars || []).some((v) => v.setId && (name === `var.${v.name}` || name.startsWith(`var.${v.name}.`)));
+          if (setVar && !table.__types[name] && isListFormat(trimmedFmt)) return "";
+          if (table.__types[name] && (/^number:/.test(trimmedFmt) || ["date", "datetime", "time"].includes(table.__types[name]))) return "";
           const fb = trimmedFmt;
           return fb === "" && keepEmpty ? match : fb;
         }
       }
-      const numeric = numberNames.has(name) ? formatNumberVariable(table[name], format?.trim()) : void 0;
-      const resolved = numeric !== void 0 ? numeric : format === void 0 || numberNames.has(name) ? table[name] : applyFormat(name, table[name], isListKey(name) ? format.replace(/^\s+/, "") : format.trim(), now, table);
+      const numeric = isNumber && table[name] !== "" ? formatNumberVariable(table[name], format?.trim()) : void 0;
+      const resolved = numeric !== void 0 ? numeric : format === void 0 || isNumber ? table[name] : applyFormat(name, table[name], isListKey(name, table) ? format.replace(/^\s+/, "") : format.trim(), now, table);
       const text = resolved === void 0 || resolved === null ? "" : String(resolved);
       return text === "" && keepEmpty ? match : text;
     });
@@ -4004,8 +4189,26 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     return JSON.stringify(table);
   }
   async function loadLiveExtras(status, elements = null) {
-    await loadDisplayLibrary(status, elements);
+    if (status.modules?.variableSets !== false) await loadDisplayLibrary(status, elements);
     try {
+      const needsSets = !Array.isArray(elements) || elements.some((el) => el.type === "alert" || /\{\{\s*var\./i.test(JSON.stringify(el)));
+      if (needsSets && status.modules?.variableSets !== false && !Array.isArray(status.variableSets) && Date.now() >= retrySetsAt) {
+        try {
+          if (!pendingSets) pendingSets = fetch("/api/variables", { cache: "no-store" }).then(async (response) => {
+            if (!response.ok) throw new Error("Variable sets unavailable");
+            const data2 = await response.json();
+            if (!Array.isArray(data2.sets)) throw new Error("Invalid variable sets");
+            return data2;
+          }).finally(() => {
+            pendingSets = null;
+          });
+          const data = await pendingSets;
+          if (typeof data.variableSetsEnabled === "boolean") status.modules = { ...status.modules, variableSets: data.variableSetsEnabled };
+          status.variableSets = data.variableSetsEnabled === false ? [] : data.sets;
+        } catch {
+          retrySetsAt = Date.now() + 5e3;
+        }
+      }
       let needTimers = true, needGoals = true, needPlan = true, needWeather = true;
       if (Array.isArray(elements)) {
         const raw = elements.map((el) => `${el.type || ""} ${el.content || ""} ${el.progress?.label || ""} ${(el.items || []).join(" ")}`).join(" ");
@@ -4087,11 +4290,12 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     }
     return out;
   }
-  var import_numeric_bindings2, VARIABLE_GROUPS, CLOCK_ITEMS, GAME_ITEMS, WEATHER_ITEMS, PLAN_ITEMS, EVENT_ITEMS, MILESTONE_ITEMS, MATCHUP_ITEMS, TOURNAMENT_ITEMS, TRIVIA_ITEMS, TIER_LIST_ITEMS, SUBATHON_ITEMS, TICKING, isTicking, hasTicking, inPlanList, LIST_FORMAT_PRESETS, FORMAT_PRESETS, isDateKey, ordinal, isListFormat, isListKey, numberFormatters;
+  var import_numeric_bindings2, VARIABLE_GROUPS, CLOCK_ITEMS, GAME_ITEMS, WEATHER_ITEMS, PLAN_ITEMS, EVENT_ITEMS, MILESTONE_ITEMS, MATCHUP_ITEMS, TOURNAMENT_ITEMS, TRIVIA_ITEMS, TIER_LIST_ITEMS, SUBATHON_ITEMS, TICKING, isTicking, hasTicking, inPlanList, LIST_FORMAT_PRESETS, FORMAT_PRESETS, isDateKey, ordinal, isListFormat, isListKey, numberFormatters, pendingSets, retrySetsAt;
   var init_variables = __esm({
     "public/js/overlay/variables.js"() {
       import_numeric_bindings2 = __toESM(require_numeric_bindings());
       init_displays();
+      init_linked_placeholders();
       VARIABLE_GROUPS = [
         { label: "Viewers", items: [["viewers.current", "Current viewers"], ["viewers.peak", "Peak viewers"], ["viewers.average", "Average viewers"]] },
         { label: "Chat", items: [["chatters", "Chatters"], ["messages", "Messages"], ["followers", "Followers (current total)"], ["followers.session", "New followers this session"], ["subscribers", "Subscribers (current total)"], ["subscribers.session", "Subscribers seen this session"], ["emotes", "Different emotes used this session"], ["raids", "Raids this session"], ["highlights", "Saved highlights"], ["clips.pending", "Clip candidates waiting"]] },
@@ -4260,8 +4464,10 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         return n + (["th", "st", "nd", "rd"][(v - 20) % 10] || ["th", "st", "nd", "rd"][v] || "th");
       };
       isListFormat = (format) => /^(lines|newline|br|bullets|numbered|sep:|\d+(:|$))/i.test(String(format || "").trim());
-      isListKey = (name) => /^(plan\.scheduled|plan\.backlog|plan\.list\..+|game\.genres|game\.platforms)$/.test(name);
+      isListKey = (name, table = {}) => Object.hasOwn(table.__lists || {}, name) || /^(plan\.scheduled|plan\.backlog|plan\.list\..+|game\.genres|game\.platforms)$/.test(name);
       numberFormatters = /* @__PURE__ */ new Map();
+      pendingSets = null;
+      retrySetsAt = 0;
     }
   });
 
@@ -4859,7 +5065,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     const subSpec = fieldSpecs.find((f, i) => f.role === "subtitle" || i === 1) || (cfg.subField ? { key: cfg.subField, role: "subtitle" } : null);
     const filterMode = cfg.filterMode || "inGroup";
     const showMode = cfg.showMode === "dim" ? "dim" : "active";
-    const linked = (0, import_variable_links2.linkedSourceFields)(status.variableSets, cfg.linkedSource, filterMode === "checklist" ? ["checklist"] : ["ref", "ref_list"]);
+    const linked = (0, import_variable_links3.linkedSourceFields)(status.variableSets, cfg.linkedSource, filterMode === "checklist" ? ["checklist"] : ["ref", "ref_list"]);
     const trackerField = filterMode === "checklist" ? linked.fields[0] : null;
     const map = linked.entry?.values?.[trackerField?.key] || {};
     const targetId = ["linked", "checklist"].includes(filterMode) ? linked.fields[0]?.targetSet : cfg.setId;
@@ -4873,8 +5079,8 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       const byId = new Map(rawMembers.map((member) => [member.id, member]));
       rawMembers = [...new Set(ids)].map((id) => byId.get(id)).filter(Boolean);
     }
-    let items = rawMembers.map((m) => {
-      const level = filterMode === "checklist" ? Math.max(0, Math.min((0, import_variable_links2.trackerMax)(trackerField, m), Number(map[m.id]) || 0)) : 0;
+    let items = rawMembers.filter((member) => member.enabled !== false).map((m) => {
+      const level = filterMode === "checklist" ? Math.max(0, Math.min((0, import_variable_links3.trackerMax)(trackerField, m), Number(map[m.id]) || 0)) : 0;
       const tier = filterMode === "checklist" ? m.tiers?.find((candidate) => candidate.level === level) : null;
       const vals = { ...m.values || {} };
       if (tier?.image) vals[imgField] = tier.image;
@@ -4891,7 +5097,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       const labelText = primarySpec.key ? tieredLabel || readMemberFieldValue(m, primarySpec.key, "") : autoFallbackLabel;
       const subText = subSpec && subSpec.key ? readMemberFieldValue(m, subSpec.key, "") : "";
       const hasAnyText = Boolean(labelText || subText || fieldSpecs.some((s) => readMemberFieldValue(m, s.key, "")));
-      return { id: m.id, raw: m, imgUrl, labelText, subText, hasAnyText, level, hasTierImages, maxTier: (0, import_variable_links2.trackerMax)(trackerField, m), isInactive: filterMode === "checklist" && level <= 0 };
+      return { id: m.id, raw: m, imgUrl, labelText, subText, hasAnyText, level, hasTierImages, maxTier: (0, import_variable_links3.trackerMax)(trackerField, m), isInactive: filterMode === "checklist" && level <= 0 };
     }).filter((item) => {
       if (filterMode === "checklist" && showMode !== "dim" && item.level <= 0) return false;
       return !showAvatar ? item.hasAnyText || item.imgUrl !== "" : fallbackMode === "initials" ? item.imgUrl !== "" || item.labelText !== "" : item.imgUrl !== "";
@@ -5489,7 +5695,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     }
     return true;
   }
-  var import_numeric_bindings3, import_variable_links2, GROUP_POLY_CLIPS, GROUP_POLY_POINTS, IMAGE_GROUP_LAYOUTS, IMAGE_GROUP_SHAPES, IMAGE_GROUP_PLACEMENTS, IMAGE_GROUP_SLOTS, FIELD_ROLE_SCALE;
+  var import_numeric_bindings3, import_variable_links3, GROUP_POLY_CLIPS, GROUP_POLY_POINTS, IMAGE_GROUP_LAYOUTS, IMAGE_GROUP_SHAPES, IMAGE_GROUP_PLACEMENTS, IMAGE_GROUP_SLOTS, FIELD_ROLE_SCALE;
   var init_media = __esm({
     "public/js/overlay/media.js"() {
       init_fonts();
@@ -5497,7 +5703,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       init_styles();
       init_variables();
       import_numeric_bindings3 = __toESM(require_numeric_bindings());
-      import_variable_links2 = __toESM(require_variable_links());
+      import_variable_links3 = __toESM(require_variable_links());
       GROUP_POLY_CLIPS = {
         hexagon: "polygon(50% 0%, 96% 25%, 96% 75%, 50% 100%, 4% 75%, 4% 25%)",
         diamond: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)",
@@ -9040,7 +9246,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       init_variables();
       init_widgets();
       var import_numeric_bindings4 = __toESM(require_numeric_bindings());
-      var import_variable_links3 = __toESM(require_variable_links());
+      var import_variable_links4 = __toESM(require_variable_links());
       var import_variable_displays2 = __toESM(require_variable_displays());
       var import_display_table4 = __toESM(require_display_table());
       init_displays();
@@ -9048,7 +9254,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       root.OverlayShared.borderPlacement = borderPlacement;
       Object.assign(root.OverlayShared, { ALERT_PRESENTATION_KEYS, resolveAlertLook, renderInlineText, sanitizeIconClass });
       Object.assign(root.OverlayShared, import_numeric_bindings4.default);
-      Object.assign(root.OverlayShared, import_variable_links3.default);
+      Object.assign(root.OverlayShared, import_variable_links4.default);
       Object.assign(root.OverlayShared, import_variable_displays2.default, { renderVariableDisplay, setDisplayLibrary });
       Object.assign(root.OverlayShared, import_display_table4.default);
       Object.defineProperty(root.OverlayShared, Symbol.for("StreamPulse.OverlayShared"), { value: true });

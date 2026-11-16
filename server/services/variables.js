@@ -2,6 +2,7 @@
 // shared by overlays, chat bot, API and Bitfocus Companion.
 const fs = require('fs');
 const path = require('path');
+const { isDeepStrictEqual } = require('node:util');
 
 const NAME_RE = /^[a-z0-9_]{1,40}$/;
 const VALID_TYPES = ['counter', 'number', 'text', 'list', 'image', 'icon', 'toggle', 'color', 'template', 'font', 'date', 'time', 'datetime', 'duration'];
@@ -54,7 +55,7 @@ function sanitizeIcon(raw) {
     return /^[a-z0-9 -]+$/i.test(cls) && /\bfa-[a-z0-9-]+/i.test(cls) ? cls : '';
 }
 
-module.exports = function createVariables({ dataDir, onChange = null }) {
+module.exports = function createVariables({ dataDir, onChange = null, getDependencies = null }) {
     const file = path.join(dataDir, 'variables.json');
     const setsFile = path.join(dataDir, 'variable-sets.json');
     const variableGroups = require('./variable-groups')(dataDir);
@@ -539,7 +540,14 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         const cur = sets[cleanId];
         if (!cur && Object.keys(sets).length >= 30) throw new Error('Too many variable sets');
         const nextSet = normalizeSetPayload(cleanId, patch, cur);
+        for (const field of cur?.fields || []) {
+            const next = nextSet.fields.find(item => item.key === field.key);
+            if (!next || next.type !== field.type || next.targetSet !== field.targetSet) assertUnreferenced(cleanId, undefined, field.key);
+        }
         sets[nextSet.id] = nextSet;
+        for (const entry of cur?.roster || []) {
+            if (!nextSet.roster.some(item => item.id === entry.id)) assertUnreferenced(cleanId, entry.id);
+        }
         materializeSetVars(nextSet);
         for (const other of Object.values(sets)) {
             if (other.id !== nextSet.id && (other.fields || []).some(f => f.type === 'ref' && normSetId(f.targetSet) === nextSet.id)) {
@@ -554,6 +562,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
     function deleteSet(setId) {
         const cleanId = normSetId(setId);
         if (!sets[cleanId]) throw new Error('Set not found');
+        assertUnreferenced(cleanId);
         delete sets[cleanId];
         scheduleRotation(cleanId);
         for (const [k, v] of Object.entries(vars)) {
@@ -562,6 +571,85 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         saveSets({ saveVarsAlso: true });
         return listSets();
     }
+
+    function dependencies(setId, entryId, fieldKey) {
+        if (getDependencies) return getDependencies(normSetId(setId), entryId ? normSetId(entryId) : undefined, fieldKey) || [];
+        const helper = require('./variable-dependencies')({ getSets: listSets, getVariables: list });
+        return fieldKey ? helper.forField(normSetId(setId), fieldKey) : helper.forSet(normSetId(setId), entryId ? normSetId(entryId) : undefined);
+    }
+
+    function assertUnreferenced(setId, entryId, fieldKey) {
+        const uses = dependencies(setId, entryId, fieldKey);
+        if (uses.length) {
+            throw Object.assign(new Error(`Remove these references first: ${uses.map(use => use.label).join('; ')}`), {
+                status: 409, code: 'dependencies', dependencies: uses
+            });
+        }
+    }
+
+    function checkExpected(options, current) {
+        if (Object.hasOwn(options, 'expected') && !isDeepStrictEqual(options.expected, current)) {
+            throw Object.assign(new Error(`This value changed elsewhere (current: ${JSON.stringify(current)}). Review and retry.`), {
+                status: 409, code: 'conflict', current
+            });
+        }
+    }
+
+    function mutateEntryRaw(setId, action, options = {}) {
+        const setObj = sets[normSetId(setId)];
+        if (!setObj) throw new Error('Set not found');
+        const roster = globalThis.structuredClone(setObj.roster);
+        if (action === 'add') {
+            if (roster.length >= 60) throw new Error('A set supports up to 60 entries');
+            const input = typeof options.entry === 'object' && options.entry ? options.entry : { id: options.entry, label: options.label };
+            const id = normSetId(input.id || input.label);
+            if (!id) throw new Error('Entry ID is required');
+            if (roster.some(entry => entry.id === id)) {
+                throw Object.assign(new Error('An entry with this ID already exists. Choose another ID.'), { status: 409, code: 'conflict' });
+            }
+            roster.push({ ...input, id });
+        } else {
+            const entry = roster.find(item => item.id === options.entry);
+            if (!entry) throw new Error('Entry not found');
+            if (action === 'remove') {
+                checkExpected(options, entry);
+                assertUnreferenced(setObj.id, entry.id);
+                roster.splice(roster.indexOf(entry), 1);
+            } else if (action === 'update') {
+                // Modal edits compare the single entry, never replace unrelated roster entries.
+                checkExpected(options, entry);
+                const patch = options.patch || {};
+                if (patch.values) entry.values = { ...entry.values, ...patch.values };
+                for (const property of ['label', 'enabled', 'inGroup', 'tiers']) {
+                    if (Object.hasOwn(patch, property)) entry[property] = patch[property];
+                }
+            } else {
+                const property = options.property;
+                const field = setObj.fields.find(item => item.key === options.field);
+                if (property && !['label', 'enabled', 'inGroup'].includes(property)) throw new Error('Unknown entry property');
+                if (!property && !field) throw new Error('Field not found');
+                const current = property ? entry[property] : entry.values[field.key];
+                checkExpected(options, current);
+                let value = options.value;
+                if (action === 'step') {
+                    if (property || !['number', 'counter'].includes(field.type)) throw new Error('Only numeric fields support stepping');
+                    const delta = Number(options.delta ?? 1);
+                    if (!Number.isFinite(delta) || !Number.isFinite(Number(current))) throw new Error('A finite number is required');
+                    value = String(Number(current) + delta);
+                    if (!Number.isFinite(Number(value))) throw new Error('Result is outside the numeric range');
+                }
+                if (value === undefined) throw new Error('Value is required');
+                if (property) entry[property] = property === 'label' ? String(value) : normalizeBool(value) === 'true';
+                else {
+                    entry.values[field.key] = value;
+                    if (field.key === setObj.fields[0]?.key && typeof value === 'string') entry.label = value.trim() || entry.label;
+                }
+            }
+        }
+        return upsertSetRaw(setObj.id, { roster });
+    }
+
+    const mutateEntry = (...args) => atomic(() => mutateEntryRaw(...args));
 
     function parseSlotIndex(setObj, rawSlot) {
         const str = String(rawSlot ?? '').trim();
@@ -942,6 +1030,8 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
 
 
     function importBundleRaw(payload = {}) {
+        const previousRosters = new Map(Object.values(sets).map(setObj => [setObj.id, globalThis.structuredClone(setObj.roster)]));
+        const previousFields = new Map(Object.values(sets).map(setObj => [setObj.id, globalThis.structuredClone(setObj.fields)]));
         for (const group of Array.isArray(payload.groups) ? payload.groups : []) variableGroups.add(group);
         const importedVars = Array.isArray(payload.variables) ? payload.variables : [];
         const importedSets = Array.isArray(payload.sets) ? payload.sets : [];
@@ -963,6 +1053,15 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             if (!s?.id) continue;
             const id = normSetId(s.id);
             sets[id] = normalizeSetPayload(id, sets[id], sets[id]);
+        }
+        for (const [id, roster] of previousRosters) {
+            for (const entry of roster) {
+                if (!sets[id].roster.some(item => item.id === entry.id)) assertUnreferenced(id, entry.id);
+            }
+            for (const [id, fields] of previousFields) for (const field of fields) {
+                const next = sets[id].fields.find(item => item.key === field.key);
+                if (!next || next.type !== field.type || next.targetSet !== field.targetSet) assertUnreferenced(id, undefined, field.key);
+            }
         }
         for (const s of Object.values(sets)) materializeSetVars(s);
         saveSets({ saveVarsAlso: true });
@@ -1245,6 +1344,28 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
                 return json(200, { sets: listSets() }), true;
             }
 
+            const entryMatch = pathname.match(/^\/api\/variables\/sets\/([^/]+)\/(dependencies|entry\/(set|step|add|remove|update))$/);
+            if (entryMatch) {
+                const setId = decodeURIComponent(entryMatch[1]);
+                if (entryMatch[2] === 'dependencies') {
+                    if (req.method !== 'GET') return json(405, { error: 'Method not allowed' }), true;
+                    return json(200, { dependencies: dependencies(setId, query.entry, query.field) }), true;
+                }
+                if (!['GET', 'POST', 'PATCH', ...(entryMatch[3] === 'remove' ? ['DELETE'] : [])].includes(req.method)) {
+                    return json(405, { error: 'Method not allowed' }), true;
+                }
+                const options = { ...query, ...body };
+                if (Object.hasOwn(query, 'expected') && !Object.hasOwn(body, 'expected')) {
+                    try { options.expected = JSON.parse(query.expected); } catch { throw new Error('expected must be JSON encoded'); }
+                }
+                const fieldType = sets[normSetId(setId)]?.fields?.find(field => field.key === options.field)?.type;
+                if (query.value && ['ref_list', 'checklist'].includes(fieldType) && /^[\[{]/.test(query.value) && !Object.hasOwn(body, 'value')) {
+                    try { options.value = JSON.parse(query.value); } catch { throw new Error('value must be valid JSON'); }
+                }
+                if (query.patch && !Object.hasOwn(body, 'patch')) options.patch = JSON.parse(query.patch);
+                return json(200, mutateEntry(setId, entryMatch[3], options)), true;
+            }
+
             // Variable Sets & Slots: /api/variables/sets/:setId[/assign|clear|next|prev|swap|advance|rewind|export|import|group|entry/toggle|entry/group-toggle|checklist/*|queue/*]
             const setMatch = pathname.match(/^\/api\/variables\/sets\/([^/]+)(?:\/(assign|clear|next|prev|swap|advance|rewind|export|import|group|entry\/toggle|entry\/group-toggle|checklist\/set|checklist\/toggle|checklist\/step|checklist\/reset|queue\/add|queue\/remove|queue\/clear|rotation|rotation\/start|rotation\/stop|rotation\/toggle|rotation\/next|rotation\/prev))?$/);
             if (setMatch) {
@@ -1344,7 +1465,9 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
                 return json(v ? 200 : 404, v ? { name: normName(name), ...v } : { error: 'Not found' }), true;
             }
         } catch (err) {
-            return json(400, { error: err.message }), true;
+            return json(err.status || 400, { error: err.message, ...(err.code ? { code: err.code } : {}),
+                ...(err.dependencies ? { dependencies: err.dependencies } : {}),
+                ...(Object.hasOwn(err, 'current') ? { current: err.current } : {}) }), true;
         }
         return json(405, { error: 'Method not allowed' }), true;
     }
@@ -1362,6 +1485,8 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         roll,
         upsertSet,
         deleteSet,
+        dependencies,
+        mutateEntry,
         assignSetSlot,
         clearSetSlot,
         cycleSetSlot,

@@ -675,7 +675,7 @@ function renderImageGroupStrip(container, element, status, options = {}) {
         const byId = new Map(rawMembers.map(member => [member.id, member]));
         rawMembers = [...new Set(ids)].map(id => byId.get(id)).filter(Boolean);
     }
-    let items = rawMembers.map(m => {
+    let items = rawMembers.filter(member => member.enabled !== false).map(m => {
         const level = filterMode === 'checklist' ? Math.max(0, Math.min(trackerMax(trackerField, m), Number(map[m.id]) || 0)) : 0;
         const tier = filterMode === 'checklist' ? m.tiers?.find(candidate => candidate.level === level) : null;
         const vals = { ...(m.values || {}) };

@@ -58,8 +58,13 @@ function getDisplayRows(sets = [], definition, binding = {}) {
     if (!catalog) return { set: null, entries: [] };
     const source = binding.setId ? resolveDisplayOwner(sets, binding) : { set: catalog };
     let entries;
-    const linkedKeys = binding.listField ? [binding.listField] : binding.fields || [];
-    if (linkedKeys.length) {
+    const linkedKeys = binding.fields || [];
+    if (binding.tracker) {
+        const field = source.set?.fields?.find(field => field.key === binding.tracker && field.type === 'checklist' && field.targetSet === catalog.id);
+        if (!field || !source.entry) return { set: catalog, entries: [] };
+        const map = source.entry.values?.[field.key] || {};
+        entries = (catalog.roster || []).filter(entry => binding.showMode === 'dim' || Number(map[entry.id]) > 0);
+    } else if (linkedKeys.length) {
         const ids = linkedKeys.flatMap(key => {
             const field = source.set?.fields?.find(field => field.key === key && ['ref', 'ref_list'].includes(field.type) && field.targetSet === catalog.id);
             const value = source.entry?.values?.[key];
@@ -70,14 +75,15 @@ function getDisplayRows(sets = [], definition, binding = {}) {
     else if (binding.path?.length || binding.rows === 'active') {
         const owner = binding.setId ? source.entry : resolveDisplayOwner(sets, { ...binding, setId: catalog.id }).entry;
         entries = owner ? [owner] : [];
-    } else if (binding.rows === 'slots') {
-        entries = [...new Set(catalog.slots || [])].map(id => catalog.roster?.find(entry => entry.id === id)).filter(Boolean);
+    } else if (['slots', 'group-slots'].includes(binding.rows)) {
+        const ids = catalog.slotsCount > 0 ? catalog.slots || [] : [catalog.activeEntry];
+        entries = [...new Set(ids)].map(id => catalog.roster?.find(entry => entry.id === id)).filter(entry => entry && (binding.rows !== 'group-slots' || entry.inGroup !== false));
     } else if (binding.rows === 'group') entries = catalog.roster?.filter(entry => entry.inGroup) || [];
     else if (binding.rows === 'ordered') entries = (definition.table?.rowOrder || []).map(id => catalog.roster?.find(entry => entry.id === id)).filter(Boolean);
     else entries = [...(catalog.roster || [])];
     entries = entries.filter(entry => entry.enabled !== false);
     const order = new Map((definition.table?.rowOrder || []).map((id, index) => [id, index]));
-    if (order.size && !['slots', 'ordered'].includes(binding.rows) && !linkedKeys.length) entries.sort((a, b) => (order.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (order.get(b.id) ?? Number.MAX_SAFE_INTEGER));
+    if (order.size && !['slots', 'group-slots', 'ordered'].includes(binding.rows) && !linkedKeys.length) entries.sort((a, b) => (order.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (order.get(b.id) ?? Number.MAX_SAFE_INTEGER));
     if (definition.table?.sortKey) {
         const compare = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
         entries.sort((a, b) => {

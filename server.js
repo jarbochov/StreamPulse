@@ -245,6 +245,8 @@ const staticRouter = createStaticRouter({
 
 const variablesStore = require('./server/services/variables')({
     dataDir: DATA_DIR,
+    getDependencies: (id, entryId, fieldKey) => fieldKey
+        ? variableDependencies.forField(id, fieldKey) : variableDependencies.forSet(id, entryId),
     onChange: data => broadcastToOverlays('variables-update', data)
 });
 const isVariableSetsEnabled = (cfg = config) => (typeof cfg?.variable_sets_enabled === 'boolean'
@@ -253,7 +255,15 @@ const isVariableSetsEnabled = (cfg = config) => (typeof cfg?.variable_sets_enabl
 variablesStore.setModuleEnabled(isVariableSetsEnabled(config));
 const variableDisplays = require('./server/services/variable-displays')({
     dataDir: DATA_DIR,
+    getDependencies: id => variableDependencies.forDisplay(id),
     onChange: data => broadcastToOverlays('variable-displays-update', data)
+});
+const variableDependencies = require('./server/services/variable-dependencies')({
+    getSets: () => variablesStore.listSets(),
+    getDisplays: () => variableDisplays.getState().displays,
+    getOverlays: () => overlayService.getCustomOverlays(),
+    getPresets: () => overlayService.getOverlayPresets(),
+    getVariables: () => variablesStore.list()
 });
 const handleVariableDisplayRoutes = require('./server/routes/variable-displays')(variableDisplays);
 function migrateBadgePlacements(overlays, saveOverlays = () => {}) {

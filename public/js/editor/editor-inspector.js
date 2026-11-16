@@ -8,9 +8,7 @@ import {
     ALERT_TRIGGER_LABELS, ALERT_TRIGGER_META, triggerIcon, TEXT_TYPES, FILL_TEXT_TYPES, LOCAL_MEDIA, selectedElements,
     primary, byId, boundsOf, displayName, changed, toast, alertSample, variableContext, effectiveLiveStatus,
     pagesOn, statesModeOn, isBasePage, hasPageOverride, resetElementPageState, extractElementState,
-    alertLookSelection, previewAlertElement, uid, defaultImageGroupConfig,
-    isImageGroup, hasRichTextEffects, resolveImageGroupFields, syncLegacyGroupFields,
-    IMAGE_GROUP_FIELD_ROLES, IMAGE_GROUP_SLOTS, IMAGE_GROUP_FIELD_ALIGNS, normalizeGroupFieldItem
+    alertLookSelection, previewAlertElement, uid, hasRichTextEffects
 } from './editor-state.js';
 import { F, bindFields } from './editor-form.js';
 import {
@@ -62,7 +60,7 @@ export function registerInspectorCallbacks(callbacks) {
 
 // Controls that only matter for certain settings are hidden; changing one of these settings rebuilds the panel.
 export const RERENDER_PATHS = new Set([
-    'style.numberBindings', 'imageGroup.numberBindings',
+    'style.numberBindings',
     'poll.previewMode',
     'cutout.shape', 'obsLink.enabled', 'alert.showOnPreview', 'alert.effectsTarget', 'alert.mediaFit', 'style.objectFit', 'mediaFilter.duotone.enabled',
     'mediaFilter.duotone.animate', 'mediaFilter.grain.enabled', 'mediaFilter.tint.enabled',
@@ -80,10 +78,6 @@ export const RERENDER_PATHS = new Set([
     'progress.showLabel', 'gameList.showCovers', 'gameList.showTitles', 'gameList.showStatusBadge',
     'speakerBadge.reaction.visualizer', 'speakerBadge.reaction.highlightBorder', 'speakerBadge.reaction.dimWhenIdle',
     'speakerBadge.autoSize',
-    'imageGroup.setId', 'imageGroup.filterMode', 'imageGroup.linkedSource.setId', 'imageGroup.linkedSource.selector', 'imageGroup.showMode',
-    'imageGroup.onlySelected', 'imageGroup.showLabels', 'imageGroup.showAvatar', 'imageGroup.layout',
-    'imageGroup.shape', 'imageGroup.wrap', 'imageGroup.fallbackMode', 'imageGroup.maxItems',
-    'imageGroup.avatarBorderWidth', 'imageGroup.cardFrame', 'imageGroup.cardBorderWidth',
     'gameList.showGroupBadge', 'gameList.headings', 'gameList.highlightCurrent', 'gameList.meta',
     'pattern.sourceType', 'pattern.tileDistribution', 'pattern.preset', 'pattern.palette', 'pattern.fillMode', 'pattern.inPlace', 'pattern.spin', 'pattern.panDirection', 'pattern.colorMode', 'pattern.colorAnim', 'pattern.vignette', 'pattern.snowflakeStyle', 'pattern.layout', 'pattern.symmetry', 'pattern.kaleidoMorph', 'pattern.aspectRatio', 'pattern.hueShift', 'pattern.motion', 'pattern.trackMode', 'pattern.alternateFlip', 'pattern.animateJitter',
     'pattern.tiles.0.sourceType', 'pattern.tiles.1.sourceType', 'pattern.tiles.2.sourceType'
@@ -161,7 +155,7 @@ export function inheritFontOptions(current, inheritLabel = 'Use base font') {
 export function actionBar(items) {
     const single = items.length === 1 ? items[0] : null;
     const grouped = items.some(el => el.group);
-    const singleTypeLabel = single ? (isImageGroup(single) ? TYPE_META['image-group'].label : (TYPE_META[single.type]?.label || single.type)) : '';
+    const singleTypeLabel = single ? TYPE_META[single.type]?.label || single.type : '';
     const label = single ? `<span class="badge">${esc(singleTypeLabel)}</span><span class="nm">${esc(displayName(single))}</span>` : `<span class="badge">${items.length} selected</span>`;
     const link = (items.length > 1 ? `<button type="button" class="link-btn" data-act="group" title="Group (Ctrl/⌘+G)">Group</button>` : '') + (grouped ? `<button type="button" class="link-btn" data-act="ungroup" title="Ungroup (Ctrl/⌘+Shift+G)">Ungroup</button>` : '');
     const allLocked = items.every(el => el.locked), allHidden = items.every(el => el.visible === false);
@@ -223,7 +217,7 @@ export function gradientFields(s, key = 'gradient', prefix = 'style') {
 
 export const fillControl = (s, key, label, solidField, prefix = 'style') => fillSeg(s, key, label, prefix) + (s[key]?.enabled ? gradientFields(s, key, prefix) : solidField);
 export const hasBox = s => s.borderWidth > 0 || (s.background && s.background !== 'transparent') || s.gradient?.enabled || (s.padding > 0);
-export const paddingField = el => (TEXT_TYPES.has(el.type) || isImageGroup(el)) ? F.number('style.padding', 'Padding (px)', el.style.padding || 0, { min: 0, max: 200 }) : '';
+export const paddingField = el => TEXT_TYPES.has(el.type) ? F.number('style.padding', 'Padding (px)', el.style.padding || 0, { min: 0, max: 200 }) : '';
 export const noRadius = (s, shape) => shape && ['circle', 'pill', 'line'].includes(s.shape);
 
 export function textEffectsSection(el) {
@@ -319,14 +313,10 @@ export function typographySection(el) {
     const textAlign = s.textAlign || (alert ? 'center' : 'left');
     const verticalAlign = s.verticalAlign || (alert ? 'middle' : 'top');
     const richText = hasRichTextEffects(el);
-    const groupImg = isImageGroup(el);
     return F.section('typography', alert ? 'Message text' : 'Typography', `
-        <label class="field"><span>${groupImg ? 'Base / title font' : 'Font'}</span><select id="font-picker" data-path="style.fontFamily" data-kind="text" data-font-picker>${fontOptions(s.fontFamily)}</select></label>
-        ${groupImg && el.imageGroup?.showLabels ? `<label class="field"><span>Subtitle / accent font</span><select data-path="imageGroup.subFontFamily" data-kind="text" data-font-picker>${inheritFontOptions(el.imageGroup.subFontFamily, 'Use base font')}</select></label>
-        <label class="field"><span>Badge pill font</span><select data-path="imageGroup.badgeFontFamily" data-kind="text" data-font-picker>${inheritFontOptions(el.imageGroup.badgeFontFamily, 'Use base font')}</select></label>
-        ` : ''}
+        <label class="field"><span>Font</span><select id="font-picker" data-path="style.fontFamily" data-kind="text" data-font-picker>${fontOptions(s.fontFamily)}</select></label>
         ${alert ? `<div class="grid2">${weight}${F.color('style.color', 'Text color', s.color)}</div>` : `<div class="grid2">${el.textFit === 'fit' && TEXT_TYPES.has(el.type) ? '' : F.number('style.fontSize', el.textFit === 'shrink' && TEXT_TYPES.has(el.type) ? 'Max size (px)' : 'Size (px)', s.fontSize, { min: 8, max: 400 })}${weight}</div>${TEXT_TYPES.has(el.type) && !(el.type === 'random-text' && el.random?.marquee) ? F.select('textFit', 'Auto-fit text', el.textFit || 'none', [['none', 'Off — use the size set here'], ['shrink', 'Shrink to fit the box'], ['fit', 'Grow or shrink to fill the box']]) : ''}${el.type === 'markdown' ? F.number('headingScale', 'Heading size (% of normal)', el.headingScale ?? 100, { min: 40, max: 200, step: 5 }) + F.select('columns', 'Columns', String(el.columns || 1), [['1', '1 column'], ['2', '2 columns'], ['3', '3 columns'], ['4', '4 columns']]) + ((el.columns || 1) > 1 ? F.select('headingSpan', 'Headings spanning all columns', String(el.headingSpan ?? 6), [['6', 'All headings (H1–H6)'], ['1', 'H1 only'], ['2', 'H1–H2'], ['3', 'H1–H3'], ['4', 'H1–H4'], ['0', 'None — headings stay in a column']]) : '') : ''}${richText ? fillControl(s, 'textGradient', 'Text color', F.color('style.color', 'Color', s.color)) : F.color('style.color', 'Text color', s.color)}`}
-        ${el.type === 'poll' || groupImg ? '' : `<div class="grid2">${F.seg('style.textAlign', 'Horizontal', textAlign, [['left', 'Align text left', ICON.textLeft], ['center', 'Center text', ICON.textCenter], ['right', 'Align text right', ICON.textRight]])}${el.type === 'markdown' && el.columns > 1 ? '' : F.seg('style.verticalAlign', 'Vertical', verticalAlign, [['top', 'Align to top', ICON.vTop], ['middle', 'Center vertically', ICON.vMiddle], ['bottom', 'Align to bottom', ICON.vBottom]])}</div>`}
+        ${el.type === 'poll' ? '' : `<div class="grid2">${F.seg('style.textAlign', 'Horizontal', textAlign, [['left', 'Align text left', ICON.textLeft], ['center', 'Center text', ICON.textCenter], ['right', 'Align text right', ICON.textRight]])}${el.type === 'markdown' && el.columns > 1 ? '' : F.seg('style.verticalAlign', 'Vertical', verticalAlign, [['top', 'Align to top', ICON.vTop], ['middle', 'Center vertically', ICON.vMiddle], ['bottom', 'Align to bottom', ICON.vBottom]])}</div>`}
         ${F.seg('style.fontStyle', 'Style', s.fontStyle || 'normal', [['normal', 'Regular font', 'Normal'], ['italic', 'Italic font', '<i>Italic</i>']])}
         <div class="grid2">${el.type === 'poll' ? '' : F.number('style.lineHeight', 'Line height', s.lineHeight, { min: 0.5, max: 3, step: 0.1 })}${F.number('style.letterSpacing', 'Letter spacing', s.letterSpacing, { min: -10, max: 50, step: 0.5 })}</div>
         ${F.check('style.tabularNums', 'Tabular numbers (0–9 fixed width)', s.tabularNums === true)}
@@ -536,9 +526,9 @@ export function appearanceSection(el, multi) {
 }
 
 export function fillSection(el) {
-    const s = el.style || {}, shape = el.type === 'shape', imgGroup = isImageGroup(el);
-    return F.section('fill', shape ? 'Fill & outline' : (imgGroup ? 'Container box & border' : 'Background & border'), `
-        ${!shape && !imgGroup && (el.type === 'image' || el.type === 'video') ? F.select('style.objectFit', 'Fit', s.objectFit, [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (letterbox)']]) + focusField(el) : ''}
+    const s = el.style || {}, shape = el.type === 'shape';
+    return F.section('fill', shape ? 'Fill & outline' : 'Background & border', `
+        ${!shape && (el.type === 'image' || el.type === 'video') ? F.select('style.objectFit', 'Fit', s.objectFit, [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (letterbox)']]) + focusField(el) : ''}
         ${shape ? F.select('style.shape', 'Shape', s.shape, [['rectangle', 'Rectangle'], ['circle', 'Circle'], ['pill', 'Pill'], ['line', 'Line']]) : ''}
         ${fillControl(s, 'gradient', shape ? 'Fill' : 'Background', F.color('style.background', 'Color', s.background, { clear: true }))}
         ${borderControls(s, shape, el)}
@@ -558,16 +548,7 @@ export const currentMediaTab = el => state.mediaTab.get(el.id) || (el.src?.start
 export const tabBar = (label, attr, current, options) => `<div class="field"><span>${label}</span><span class="seg">${options.map(([v, l]) => `<button type="button" ${attr}="${v}" aria-pressed="${v === current}">${l}</button>`).join('')}</span></div>`;
 export const friendlyAssetName = url => url ? decodeURIComponent(url.split('/').pop()).replace(/^[a-z0-9]{6,}-/, '') : '';
 
-function imageGroupFieldMeta(ig = {}) {
-    const sets = state.liveStatus?.variableSets || [];
-    const linked = shared.linkedSourceFields?.(sets, ig.linkedSource, ig.filterMode === 'checklist' ? ['checklist'] : ['ref', 'ref_list']);
-    const targetId = ['linked', 'checklist'].includes(ig.filterMode) ? linked?.fields?.[0]?.targetSet : ig.setId;
-    const setObj = sets.find(set => set.id === targetId);
-    return { setObj, fields: setObj?.fields || [] };
-}
-
 export function mediaSourceBlock(el) {
-    if (isImageGroup(el)) return '<p class="hint">Badge designs are managed in the <a href="/variable-displays.html?kind=badge" target="_blank" rel="noopener">Display Library</a>. Save and reopen this overlay to migrate its existing badge placement.</p>';
 
     const tab = currentMediaTab(el);
     let body = tabBar('Source', 'data-media-tab', tab, [['library', 'Library & upload'], ['file', 'File on computer'], ['url', 'Web URL']]);
@@ -721,7 +702,7 @@ export function contentSection(el) {
     }
     if (media) {
         body += mediaSourceBlock(el);
-        if (el.type === 'image' && !el.imageGroup?.enabled && el.src && !/\{\{/.test(el.src)) {
+        if (el.type === 'image' && el.src && !/\{\{/.test(el.src)) {
             body += `<div class="field"><span>Image tools</span><button type="button" id="crop-image-btn" class="crop-tool-btn" data-src="${esc(el.src)}"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><path d="M6.13 1L6 16a2 2 0 0 0 2 2h15"/><path d="M1 6.13L16 6a2 2 0 0 1 2 2v15"/></svg>Crop &amp; Edit Image…</button></div>`;
         }
     }
@@ -1862,10 +1843,10 @@ export function getAvailableTokens() {
     const tokens = [];
     const table = shared.variableTable ? shared.variableTable(state.liveStatus, variableContext()) : {};
     for (const g of groups) {
-        for (const [key, label] of g.items) {
+        for (const [key, label, metadata] of g.items) {
             const val = table[key];
             const preview = val === undefined || val === null || val === '' ? '' : String(val);
-            tokens.push({ key, label, preview, group: g.label });
+            tokens.push({ key, label, preview: metadata?.preview ?? preview, search: metadata?.search || '', group: g.label });
         }
     }
     return tokens;
@@ -1886,15 +1867,15 @@ export function updatePlaceholderAC() {
     const val = pacTarget.value || '';
     const selEnd = pacTarget.selectionStart ?? val.length;
     const textBefore = val.slice(0, selEnd);
-    const match = textBefore.match(/\{\{([a-zA-Z0-9_.-]*)$/);
+    const match = textBefore.match(/\{\{([a-zA-Z0-9_. -]*)$/);
     if (!match) { hidePlaceholderAC(); return; }
 
-    const pacQuery = match[1].LowerCase ? match[1].toLowerCase() : String(match[1]).toLowerCase();
+    const pacQuery = match[1].trim().toLowerCase();
     pacMatchStart = match.index;
 
     const all = getAvailableTokens();
     pacTokens = pacQuery
-        ? all.filter(t => t.key.toLowerCase().includes(pacQuery) || t.label.toLowerCase().includes(pacQuery))
+        ? all.filter(t => pacQuery.split(/\s+/).every(term => `${t.key} ${t.label} ${t.search} ${t.preview} ${t.group}`.toLowerCase().includes(term)))
         : all;
 
     if (!pacTokens.length) { hidePlaceholderAC(); return; }
@@ -1926,11 +1907,12 @@ export function updatePlaceholderAC() {
 
 export function insertPlaceholderToken(token) {
     if (!pacTarget) return;
-    const selEnd = pacTarget.selectionStart ?? pacTarget.value.length;
-    pacTarget.focus();
-    pacTarget.setRangeText(`{{${token}}}`, pacMatchStart, selEnd, 'end');
-    pacTarget.dispatchEvent(new Event('input', { bubbles: true }));
-    pacTarget.dispatchEvent(new Event('change', { bubbles: true }));
+    const target = pacTarget;
+    const selEnd = target.selectionStart ?? target.value.length;
+    target.focus();
+    target.setRangeText(`{{${token}}}`, pacMatchStart, selEnd, 'end');
+    target.dispatchEvent(new Event('input', { bubbles: true }));
+    target.dispatchEvent(new Event('change', { bubbles: true }));
     hidePlaceholderAC();
 }
 
@@ -1950,27 +1932,12 @@ export function openVariableDialog() {
     });
 }
 
-export function openColorVariablePicker({ allowMember = false, onSelect } = {}) {
+export function openColorVariablePicker({ onSelect } = {}) {
     if (!window.PlaceholderPicker || typeof onSelect !== 'function') return;
-    let memberColorFields = [];
-    if (allowMember) {
-        const el = primary();
-        const ig = el?.imageGroup || {};
-        const { setObj, fields } = imageGroupFieldMeta(ig);
-        const firstMember = (setObj?.roster || setObj?.entries || [])[0];
-        memberColorFields = fields
-            .filter(sf => sf && sf.type === 'color')
-            .map(sf => ({
-                key: sf.key,
-                label: sf.label || sf.key,
-                sample: String(firstMember?.values?.[sf.key] || '#38bdf8').trim()
-            }));
-    }
     window.PlaceholderPicker.open({
         filter: 'color',
         getStatus: () => state.liveStatus,
         getContext: variableContext,
-        memberColorFields,
         onWarn: message => toast(message, 'warn', 1800),
         onPick: (token, meta) => {
             onSelect(meta?.raw ? token : `{{${token}}}`);
@@ -2063,20 +2030,10 @@ export function initInspectorEvents() {
     const propEl = $('properties');
     if (propEl) {
         propEl.addEventListener('change', event => {
-            if (event.target.matches('[data-linked-fields]')) {
+            if (event.target.matches('[data-display-field]')) {
+                const fields = [...propEl.querySelectorAll('[data-display-field]:checked')].map(input => input.value);
                 for (const el of selectedElements()) {
-                    if (!el.imageGroup) continue;
-                    el.imageGroup.linkedSource.fields = event.target.type === 'checkbox'
-                        ? [...propEl.querySelectorAll('[data-linked-fields]:checked')].map(input => input.value)
-                        : event.target.value ? [event.target.value] : [];
-                    const ig = el.imageGroup;
-                    const { fields } = imageGroupFieldMeta(ig);
-                    if (!fields.some(field => field.key === ig.imageField)) ig.imageField = fields.find(field => field.type === 'image')?.key || '';
-                    if (!ig.fields?.length || ig.fields.every(field => !fields.some(def => def.key === field.key))) {
-                        const textField = fields.find(field => field.type === 'text');
-                        ig.fields = textField ? [normalizeGroupFieldItem({ key: textField.key, role: 'title' }, 0)] : [];
-                        syncLegacyGroupFields(ig);
-                    }
+                    if (el.type === 'data-display') updateSavedDisplay(el, 'display.fields', fields);
                 }
                 renderProperties();
                 renderCanvas();
@@ -2228,7 +2185,7 @@ export function initInspectorEvents() {
             updateStatusBarHandler();
             if (path === 'name' || path.startsWith('obsLink.')) renderLayers();
             const editingColor = ['input', 'change'].includes(event?.type) && (event?.target?.type === 'color' || event?.target?.classList?.contains('color-text'));
-            if (!editingColor && (path === 'style.shape' || path === 'progress.kind' || path === 'gameList.layout' || path === 'style.textAnimation.mode' || RERENDER_PATHS.has(path) || /^(?:style|imageGroup)\.(gradient|textGradient|borderGradient|cardGradient|cardBorderGradient|avatarBorderGradient)\.(enabled|type|animate)$/.test(path))) {
+            if (!editingColor && (path === 'style.shape' || path === 'progress.kind' || path === 'gameList.layout' || path === 'style.textAnimation.mode' || RERENDER_PATHS.has(path) || /^style\.(gradient|textGradient|borderGradient)\.(enabled|type|animate)$/.test(path))) {
                 if (path === 'style.textAnimation.mode' || numberCrossedZero(actualPath, event)) renderProperties();
             }
             if (/^alert\.looks\.\d+\.name$/.test(actualPath) && event?.type === 'change') renderProperties();
@@ -2237,7 +2194,7 @@ export function initInspectorEvents() {
                 if (el && (el.type === 'embed' || el.type === 'video')) renderProperties();
             }
             if (path.startsWith('slideshow.')) refreshSlideCount();
-            if (event?.target?.closest?.('[data-clear]') && (path.endsWith('.mid') || path === 'style.borderAnimation.color3' || path === 'imageGroup.cardBorderAnimation.color3' || path === 'imageGroup.avatarBorderAnimation.color3')) {
+            if (event?.target?.closest?.('[data-clear]') && (path.endsWith('.mid') || path === 'style.borderAnimation.color3')) {
                 renderProperties();
             }
             changed(false);
@@ -2279,62 +2236,6 @@ export function initInspectorEvents() {
                 }
                 renderCanvas();
             }
-            if (path === 'imageGroup.setId') {
-                for (const el of selectedElements()) {
-                    if (!isImageGroup(el)) continue;
-                    const ig = el.imageGroup;
-                    const { setObj, fields: setFields } = imageGroupFieldMeta(ig);
-                    if (setObj && setFields.length) {
-                        if (!setFields.some(f => f.key === ig.imageField)) {
-                            const imgF = setFields.find(f => f.type === 'image' || f.type === 'url');
-                            if (imgF) ig.imageField = imgF.key;
-                        }
-                        if (!ig.fields?.length) {
-                            const txtF = setFields.find(f => f.type !== 'image' && f.type !== 'url');
-                            if (txtF) {
-                                ig.fields = [normalizeGroupFieldItem({ key: txtF.key, role: 'title' }, 0)];
-                                syncLegacyGroupFields(ig);
-                            }
-                        }
-                    }
-                }
-                renderCanvas();
-            }
-            if (path === 'imageGroup.layout') {
-                for (const el of selectedElements()) {
-                    if (el.imageGroup && (el.imageGroup.layout === 'cards' || el.imageGroup.layout === 'chips' || el.imageGroup.layout === 'banners')) {
-                        el.imageGroup.showLabels = true;
-                        if (el.imageGroup.layout === 'banners') el.imageGroup.cardFrame = true;
-                    }
-                }
-                renderCanvas();
-            }
-            if (path === 'imageGroup.labelField' || path === 'imageGroup.subField') {
-                for (const el of selectedElements()) {
-                    if (!isImageGroup(el)) continue;
-                    const ig = el.imageGroup;
-                    const list = resolveImageGroupFields(ig).map(f => ({ ...f }));
-                    if (path === 'imageGroup.labelField') {
-                        if (ig.labelField) {
-                            if (list[0]) list[0].key = ig.labelField;
-                            else list.unshift(normalizeGroupFieldItem({ key: ig.labelField, role: 'title' }, 0));
-                        } else if (list.length > 0 && list[0].key !== ig.subField) {
-                            list.shift();
-                        }
-                    } else {
-                        if (ig.subField) {
-                            if (list[1]) list[1].key = ig.subField;
-                            else list.push(normalizeGroupFieldItem({ key: ig.subField, role: 'subtitle' }, 1));
-                        } else if (list.length > 1) {
-                            list.splice(1, 1);
-                        }
-                    }
-                    ig.fields = list.map((f, idx) => normalizeGroupFieldItem(f, idx)).filter(Boolean).slice(0, 10);
-                    syncLegacyGroupFields(ig);
-                }
-                renderCanvas();
-                if (event?.target?.tagName === 'SELECT' || event?.type === 'change') renderProperties();
-            }
             if (path === 'style.textAnimation.mode') {
                 for (const targetEl of selectedElements()) {
                     const ta = targetEl.style?.textAnimation;
@@ -2347,20 +2248,7 @@ export function initInspectorEvents() {
                 changed(true);
                 return;
             }
-            if (path === 'imageGroup.filterMode' || path === 'imageGroup.linkedSource.setId') {
-                const sets = Array.isArray(state.liveStatus?.variableSets) ? state.liveStatus.variableSets : [];
-                for (const targetEl of selectedElements()) {
-                    const ig = targetEl.imageGroup;
-                    if (!ig) continue;
-                    ig.linkedSource = { setId: ig.linkedSource?.setId || '', selector: 'active', fields: [] };
-                }
-                renderCanvas();
-                renderProperties();
-                changed(true);
-                return;
-            }
-            if (path === 'imageGroup.delimiter' && event?.type === 'change') renderProperties();
-            if (path === 'style.borderWidth' || path === 'style.borderStyle' || path === 'style.borderRadiusCorners.enabled' || path === 'style.borderGlow.enabled' || path === 'style.borderAnimation.type' || path === 'style.borderAnimation.mode' || path === 'style.shadow.blur' || path === 'style.innerShadow.blur' || path === 'style.innerShadow.spread' || path === 'style.textAnimation.type' || path === 'imageGroup.setId' || path === 'imageGroup.filterMode' || path === 'imageGroup.linkedSource.setId' || path === 'imageGroup.linkedSource.selector' || path === 'imageGroup.showMode' || path === 'imageGroup.onlySelected' || path === 'imageGroup.showLabels' || path === 'imageGroup.showAvatar' || path === 'imageGroup.layout' || path === 'imageGroup.shape' || path === 'imageGroup.wrap' || path === 'imageGroup.fallbackMode' || path === 'imageGroup.maxItems' || path === 'imageGroup.avatarBorderWidth' || path === 'imageGroup.avatarBorderGlow.enabled' || path === 'imageGroup.avatarBorderAnimation.type' || path === 'imageGroup.avatarBorderAnimation.mode' || path === 'imageGroup.cardFrame' || path === 'imageGroup.cardWidthMode' || path === 'imageGroup.cardBorderWidth' || path === 'imageGroup.cardBorderGlow.enabled' || path === 'imageGroup.cardBorderAnimation.type' || path === 'imageGroup.cardBorderAnimation.mode') renderProperties();
+            if (['style.borderWidth', 'style.borderStyle', 'style.borderRadiusCorners.enabled', 'style.borderGlow.enabled', 'style.borderGlow.neon', 'style.borderAnimation.type', 'style.borderAnimation.mode', 'style.shadow.blur', 'style.innerShadow.blur', 'style.innerShadow.spread', 'style.textAnimation.type'].includes(path)) renderProperties();
             if (path === 'speakerBadge.layout') {
                 const el = primary();
                 if (el?.speakerBadge) {
@@ -2582,7 +2470,7 @@ export function initInspectorEvents() {
 
         propEl.addEventListener('input', event => {
             const p = event.target.dataset?.path;
-            if ((p === 'style.fontFamily' || p === 'imageGroup.subFontFamily' || p === 'imageGroup.badgeFontFamily' || p?.startsWith('speakerBadge.typography.')) && shared.loadGoogleFont) {
+            if ((p === 'style.fontFamily' || p?.startsWith('speakerBadge.typography.')) && shared.loadGoogleFont) {
                 if (event.target.value) shared.loadGoogleFont(event.target.value);
             }
             if (event.target.id === 'slide-tag-q') renderTagSuggestions();
@@ -2623,7 +2511,6 @@ export function initInspectorEvents() {
             if (colorPickBtn) {
                 const path = colorPickBtn.dataset.colorPick;
                 openColorVariablePicker({
-                    allowMember: Boolean(path && String(path).includes('imageGroup.')),
                     onSelect: val => {
                         const textInp = colorPickBtn.closest('.color-field')?.querySelector('.color-text');
                         if (!textInp) return;

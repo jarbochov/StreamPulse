@@ -1,4 +1,5 @@
 import { getDisplayRows } from '../../../shared/display-table.cjs';
+import { resolveDisplayOwner } from '../../../shared/display-source.cjs';
 import numericBindings from '../../../shared/numeric-bindings.cjs';
 import { renderImageGroupStrip } from './media.js';
 import { decorationStyle } from './styles.js';
@@ -17,8 +18,12 @@ export function renderSavedBadge(host, element, status, definition) {
     if (status.modules?.variableSets === false) return false;
     let imageGroup = { ...badge.imageGroup, enabled: true, setId: definition.catalogId, filterMode: 'all' };
     let resolvedStatus = status;
-    if (binding.badgeSource) {
-        imageGroup = { ...imageGroup, ...binding.badgeSource };
+    if (binding.tracker) {
+        const { set, entry } = resolveDisplayOwner(status.variableSets, binding);
+        const field = set?.fields?.find(field => field.key === binding.tracker && field.type === 'checklist' && field.targetSet === definition.catalogId);
+        if (!entry || !field) return false;
+        imageGroup = { ...imageGroup, filterMode: 'checklist', showMode: binding.showMode,
+            linkedSource: { setId: set.id, selector: `entry:${entry.id}`, fields: [field.key] } };
     } else {
         const { set, entries } = getDisplayRows(status.variableSets || [], definition, binding);
         if (!set) return false;

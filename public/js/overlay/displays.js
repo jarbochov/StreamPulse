@@ -55,7 +55,7 @@ export function renderVariableDisplay(host, element, status = {}) {
         ...section,
         items: section.items.flatMap(placement => {
             const item = members.get(placement.itemId);
-            if (!item) return [];
+            if (!item || item.enabled === false) return [];
             const level = Math.max(0, Math.min(trackerMax(tracker, item), Number(map[item.id]) || 0));
             const inactive = tracks && level === 0;
             if (inactive && binding.showMode === 'active' && layout.mode !== 'fixed') return [];

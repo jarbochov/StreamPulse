@@ -2,7 +2,7 @@
 
 Custom Variables let you create live, shared broadcast tokens (`{{var.name}}`) that update instantaneously across **Custom Overlays**, **Alert Studio**, **Promos**, and **Bitfocus Companion** without editing overlay layouts mid-stream.
 
-**Variable Sets** extend this with structured multi-field rosters (such as a podcast panel, co-op squad, tournament players, or rotating sponsors) that generate live per-slot tokens, dynamic group strings, and **Group Image Strips** with customizable **Member Badges**.
+**Variable Sets** extend this with structured multi-field rosters, reusable linked entries, per-owner progress, live per-slot tokens and dynamic group strings. Build reusable inventories, tables and member cards/strips in **Display Library**, then place them in Custom Overlays using **Saved Display**.
 
 ![Variables Directory](images/variables-directory.png)
 
@@ -109,14 +109,14 @@ For fast live-show updates, open **Operator Grid** on any Variable Set (or navig
 A Variable Set supports **0 or more active slots** (`slotCount`):
 
 - **1+ Slots** (e.g., Spotlight / Host & Guest): Assign entries to numbered slots (`Slot 1`, `Slot 2`, ...) or give slots custom names (e.g., `Host`, `Guest`).
-- **0 Slots (Group Roster Only)**: Skip slot assignment entirely and drive everything through the **In Group** checkbox (`inGroup`) and **Group Image Strips**.
+- **0 Slots (Group Roster Only)**: Skip numbered slot assignment and use **In Group** membership or explicit linked members as the source for a saved display.
 
 For a set with ID `squad` and fields `name`, `avatar`, `role`, and `accent`, StreamPulse automatically materializes the following live tokens:
 
 - **Numbered Slot Tokens**: `{{var.squad_1_name}}`, `{{var.squad_1_avatar}}`, `{{var.squad_1_slot_name}}`, `{{var.squad_1_active}}`
 - **Slot 1 Shorthand**: `{{var.squad_name}}`, `{{var.squad_avatar}}` (mirrors Slot 1 for quick single-spotlight overlays)
 - **Named Slot Aliases**: If Slot 2 is named `Guest`, you can reference `{{var.squad_guest_name}}` and `{{var.squad_guest_avatar}}`
-- **Linked `ref` Tokens (1-hop)**: For a `ref` field `partner`, StreamPulse materializes `{{var.squad_1_partner_<targetField>}}` and the Slot 1/active shorthand `{{var.squad_partner_<targetField>}}`. Named slots also work: `{{var.squad_guest_partner_name}}`. Linked target edits refresh these tokens. Nested links are not expanded. Links never change the linked set's slots.
+- **Linked fields**: Use the placeholder picker for readable paths such as **Squad → Guest → Partner → Name**. `{{var.squad_2_partner.field.name}}` reads the linked Name field; repeat `.field.<key>` for nested links, up to four reference hops. Linked target edits refresh the result without changing linked sets' slots.
 - **Group Summary Tokens**:
   - `{{var.squad_group}}`: Formatted text list of all entries marked **In Group**
   - `{{var.squad_group_count}}`: Total count of active **In Group** entries
@@ -133,7 +133,7 @@ Variable Sets include a built-in **Timed Rotation** controller (`intervalSeconds
 
 ---
 
-## 3. Group Roster Mode & Member Badge Builder
+## 3. Saved Badges, Strips & Linked Sources
 
 Create a **Badge** in **Library → Display Library**, choose its Variable Set, and design the member cards/strip there. Add a **Saved Display** in Custom Overlay Editor and select that design plus its live source. Existing Image Group layers migrate to saved designs; badge design is no longer an overlay dialog.
 
@@ -143,13 +143,11 @@ Create a **Badge** in **Library → Display Library**, choose its Variable Set, 
 
 In the Saved Display's Content panel, choose the source for your saved Badge:
 
-- **All**: Render every entry in the Variable Set.
-- **In Group**: Render only entries toggled **In Group** (default).
-- **Linked entries**: Follow a source set's active entry, a named/numbered slot, or a fixed entry. Check one or more linked role fields pointing to the same set. The overlay derives that linked catalog automatically and reads the selected people/items directly, including entries not marked In Group. Repeated links display once.
-- **Tracker items**: Choose an owner's source set, active/slot/fixed entry, and tracker field. Choose **Show Mode**:
-  - **Only Active Items**: Hides items at level `0` (default).
-  - **Fixed Grid (Dim Inactive)**: Keeps level `0` items in place, rendered dimmed/grayscale.
-  - **Upgrade levels**: Edit an item's **Item upgrade levels** once to supply each level's label, image and description. The exact current level overrides its base display; missing overrides use the base values. There are no special field-name conventions or comma-separated image URLs.
+- **Members**: Choose All enabled entries, Active entry, Live slots, In Group entries or In Group live slots. **Enabled** controls eligibility for every display type; **In Group** and live slots are independent selections.
+- **Linked members**: Choose a source set and its active entry, named/numbered slot or fixed entry. Check one or more single-entry/list fields targeting the design catalog. Lists retain their explicit order; repeated members appear once, including entries not marked In Group. Optional **Linked role** controls follow up to four single-entry links before choosing members or a tracker.
+- **Progress tracker**: Choose an owner's source and a compatible tracker. **Untracked items** can be dimmed or shown only when active. Item upgrade definitions supply current labels/images with base-value fallbacks; no special field-name conventions are needed.
+
+The source summary shows a readable path, resolved owner and enabled item/member count. An empty selection explains what to assign in Operator. This guidance is editor-only; production overlays remain clean. Group Strip is no longer a separate element or inspector workflow.
 
 An empty or deleted source entry shows no linked entries, rather than falling back to the full catalog. Editing a shared person's avatar or an item's level definition updates every consumer; assignments and per-owner progress remain separate.
 
@@ -159,7 +157,7 @@ An empty or deleted source entry shows no linked entries, rather than falling ba
 2. Create a **Schedule** set (`schedule`) with Date, Time, Duration, Game, Image and Linked entry fields `player_1`, `player_2`, `host`, each pointing to People. Add Linked entries `guests` if needed. Assign people in the entry editor or Operator table.
 3. Give Schedule one live slot and activate an event. Create a Badge using People in Display Library, choose its Name / Avatar fields, and save.
 4. Add a Saved Display in Custom Overlay Editor. Select that Badge, follow Schedule's active entry, and select Player 1 / Player 2 (or Host in a separate placement). Save and add the overlay's browser URL to OBS. Activating another event updates its people without touching People's slots.
-5. For a single Text element, use the placeholder picker: `{{var.schedule_player_1_name}}`. An Image element can use `{{var.schedule_host_avatar}}`. A slot named Main Event also exposes `{{var.schedule_main_event_host_name}}`.
+5. For a single Text element, open its placeholder picker and search Schedule, Player 1, Name or the currently assigned person's name. Select **Schedule → Slot 1 → Player 1 → Name** to insert `{{var.schedule_1_player_1.field.name}}`. For an Image source use `{{var.schedule_1_host.field.avatar}}`. Slot names appear in readable labels; the picker advertises one numeric-slot token instead of repeating every alias.
 
 The same model works for a production rundown's presenters, a team's roster, or a project's assigned equipment.
 
@@ -212,6 +210,36 @@ Open the saved **Badge** in **Display Library** to edit its member fields and ap
   - **Card & Field Spacing**: Adjust `cardPaddingX` / `cardPaddingY`, `cornerInset` for corner badges, per-field `padX` / `padY`, and explicit `fontSize` (px) and `fontFamily`.
   - **11 Built-in Presets**: Start from curated badge templates (Compact Pill, Esports Card, Corner Crest, Minimal Tag, Podcast Nameplate, and more) and fine-tune from there.
 
+### Find linked values without memorizing tokens
+
+In a Custom Overlay Text element, place the cursor and open **Insert placeholder**. Search by set name, custom slot name, linked role, field label or current value. The chooser shows readable breadcrumbs, current previews and unassigned/missing-link states. Selecting a result inserts its token at the cursor. The Placeholders directory and inline text autocomplete use the same discovery labels.
+
+![Linked placeholder discovery using fictional schedule and player data](images/linked-placeholders.png)
+
+For People slot 2 with an Items field:
+
+| Placeholder | Text output |
+| --- | --- |
+| `{{var.people_2_items}}` | Readable linked item names, not internal IDs or JSON |
+| `{{var.people_2_items.field.name}}` | The linked Name values |
+| `{{var.people_2_items.count}}` | Number of resolved list entries |
+| `{{var.people_2_items|lines}}` | One linked item name per line |
+| `{{var.people_2_items|sep:\s/\s}}` | Names joined with ` / ` |
+| `{{var.people_2_items.started}}` | Tracker items with a positive level |
+| `{{var.people_2_items.completed}}` | Tracker items at their maximum level |
+| `{{var.people_2_items.total}}` | Enabled items in the tracker's catalog |
+| `{{var.people_2_items.progress}}` | Tracker summary such as `2/8` |
+
+`.count` counts resolved linked entries; `.started`, `.completed`, `.total` and `.progress` apply to Trackers. Completion uses each item's maximum tier, or the tracker's maximum when no item tiers exist. A single Linked entry resolves one name; follow its fields using `.field.<key>`. For example `{{var.schedule_1_player_1.field.team.field.name}}` follows Player 1 and then Team. Linked-list order is preserved. Missing, disabled or unassigned entries resolve empty rather than showing IDs or another entry's data. An assigned empty list has count `0`. Existing shorthand/named-slot aliases continue resolving but are not duplicated in the chooser.
+
+Use the list/name output for lightweight text. Use a saved **Table**, **Inventory** or **Badge** when you need rows, artwork or independently styled fields. Stored link IDs and tracker maps remain API data, not the default broadcast text.
+
+### Safe operations and deletion
+
+Variable Set Operator edits individual cells and flags rather than replacing an entire roster. Concurrent changes to different cells survive. A same-cell conflict remains visibly unsaved and requires explicit review/retry; it is never silently called saved. Linked-entry pickers let you search, add/remove and move selected entries Up/Down without losing list order. Search, filters and saved views are remembered.
+
+Deletion checks list affected linked fields, trackers, designs and saved placements. Remove or replace those references first. Server-side checks also protect roster replacement, CSV import and schema removal/retargeting. See [Variable operations](variable-operations.md) for precise API contracts and examples.
+
 ---
 
 ## 4. Variable Colors & Color Placeholder Picker
@@ -219,7 +247,7 @@ Open the saved **Badge** in **Display Library** to edit its member fields and ap
 Any color property in the **Custom Overlay Editor** inspector (text color, background fill, border color, accent tint, or Member Badge field colors) supports live variable tokens:
 
 - **Global Color Variables**: `{{var.team_color}}`
-- **Per-Member Group Badge Colors**: `@accent` (resolves each member's own `color` field inside a Group Strip or Member Badge)
+- **Per-member badge colors in Display Library**: `@accent` resolves each member's own color field.
 
 Instead of cluttering color inputs with full variable lists, click the **`{}`** button next to any color picker to open the **Color-Only Placeholder Picker**, which filters down exclusively to `color` global variables and `@fieldKey` member color fields.
 

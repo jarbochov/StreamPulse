@@ -31,7 +31,9 @@ test('legacy badge migration preserves visuals, separates sources, deduplicates 
     assert.equal(element.x, 123);
     assert.equal(element.style.rotate, 12);
     assert.equal(element.type, 'data-display');
-    for (const [key, value] of Object.entries(source)) assert.deepEqual(element.display.badgeSource[key], value);
+    assert.equal(element.display.setId, 'people');
+    assert.equal(element.display.rows, 'slots');
+    assert.equal(Object.hasOwn(element.display, 'badgeSource'), false);
     assert.deepEqual(saved.values().next().value.badge, expected);
     assert.equal(Object.hasOwn(expected.imageGroup, 'setId'), false);
     assert.equal(migrate(), 0);

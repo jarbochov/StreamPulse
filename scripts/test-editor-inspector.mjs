@@ -7,10 +7,11 @@ import puppeteer from 'puppeteer';
 import overlays from '../server/services/overlays.js';
 
 const names = ['overlay-shared.js', 'poll-widget.js', 'patterns-shared.js', 'editor-geometry.js', 'motion-easing.js', 'displays/display-source.js', 'displays/badge-model.js', 'displays/style-preset-model.js',
-    ...['state', 'canvas', 'form', 'layers', 'sets', 'inspector', 'display', 'speakers', 'patterns', 'style-presets', 'badge-preview'].map(name => `editor/editor-${name}.js`)];
+    ...['state', 'canvas', 'form', 'layers', 'sets', 'inspector', 'display', 'speakers', 'patterns', 'style-presets'].map(name => `editor/editor-${name}.js`)];
 const sources = new Map(await Promise.all(names.map(async name =>
     [`/js/${name}`, await readFile(new URL(`../public/js/${name}`, import.meta.url), 'utf8')])));
 const css = await readFile(new URL('../public/css/custom-overlay-editor.css', import.meta.url), 'utf8');
+const pickerCss = await readFile(new URL('../public/css/placeholder-picker.css', import.meta.url), 'utf8');
 const editorHtml = await readFile(new URL('../public/editors/custom-overlay-editor.html', import.meta.url), 'utf8');
 const igDialogHtml = editorHtml.match(/<dialog id="ig-fields-dialog"[\s\S]*?<\/dialog>/)?.[0] || '';
 for (const name of ['overlay-retro.js', 'overlay-filters.js', 'placeholder-picker.js']) {
@@ -34,6 +35,10 @@ const server = createServer(async (req, res) => {
         res.setHeader('Content-Type', 'text/javascript'); res.end(sources.get(urlPath));
     } else if (urlPath === '/editor.css') {
         res.setHeader('Content-Type', 'text/css'); res.end(css);
+    } else if (urlPath === '/css/placeholder-picker.css') {
+        res.setHeader('Content-Type', 'text/css'); res.end(pickerCss);
+    } else if (urlPath === '/api/variables') {
+        res.setHeader('Content-Type', 'application/json'); res.end('{"sets":[],"variables":[],"variableSetsEnabled":true}');
     } else if (urlPath === '/') {
         res.setHeader('Content-Type', 'text/html');
         res.end(`<!doctype html><link rel="stylesheet" href="/editor.css"><style>
@@ -295,7 +300,6 @@ try {
         'random-text': { content: 'content', behavior: 'content', typography: 'style' },
         markdown: { content: 'content', typography: 'style' },
         image: { content: 'content', fill: 'style' },
-        'image-group': { content: 'content', typography: 'style', fill: 'style' },
         video: { content: 'content', fill: 'style' },
         embed: { content: 'content', fill: 'style' },
         qr: { content: 'content', fill: 'style' },
@@ -760,9 +764,10 @@ try {
     assert.equal(animChecks.hasWrapAfterBlock, false, 'Switching back to whole-block animation cleans up split spans');
     assert.equal(animChecks.rawRestored, 'Stream Alpha', 'Raw text is restored cleanly after exiting split animation');
 
-    // Dynamic variable image preview updates on variable set changes + Group Image Strip multi-layout customizations
+    // Dynamic images and saved badges retain their shared rendering capabilities.
     const imageChecks = await page.evaluate(async () => {
-        const canvas = await import('/js/editor/editor-canvas.js');
+        const canvasModule = await import('/js/editor/editor-canvas.js');
+        const { defaultImageGroupConfig } = await import('/js/displays/badge-model.js');
         const { state, createElementData, renderProperties } = window.fixture;
         state.overlay.pages = { kind: 'pages', activePage: 'p1', transition: 'none', durationMs: 350, items: [{ id: 'p1', name: 'Main' }] };
         state.editPage = 'p1';
@@ -770,13 +775,15 @@ try {
         state.liveStatus.customVars = [{ name: 'cast_1_avatar', type: 'image', value: '/media-a.png' }];
         state.liveStatus.variableSets = [{
             id: 'cast',
-            label: 'Panel Cast',
+            name: 'Panel Cast',
+            slotsCount: 1,
+            slots: ['alex'],
             fields: [
                 { key: 'name', type: 'text', label: 'Name' },
                 { key: 'role', type: 'text', label: 'Role' },
                 { key: 'avatar', type: 'image', label: 'Avatar' }
             ],
-            entries: [
+            roster: [
                 { id: 'alex', label: 'Alex', inGroup: true, values: { name: 'Alex', role: 'Host', avatar: '/media-a.png' } },
                 { id: 'jordan', label: 'Jordan', inGroup: false, values: { name: 'Jordan', role: 'Bench', avatar: '/media-b.png' } },
                 { id: 'morgan', label: 'Morgan', inGroup: true, values: { name: 'Morgan', role: 'Mod', avatar: '' } },
@@ -785,21 +792,32 @@ try {
         }];
 
         const dynImg = createElementData('image', { id: 'dyn-img', page: 'p1', src: '{{var.cast_1_avatar}}' });
-        const stripImg = createElementData('image', {
-            id: 'strip-img',
-            page: 'p1',
-            imageGroup: { enabled: true, setId: 'cast', imageField: 'avatar', labelField: 'name', layout: 'row', shape: 'circle', showLabels: true, delimiter: '|' }
+        const stripImg = {
+            imageGroup: defaultImageGroupConfig(state.liveStatus.variableSets[0], { imageField: 'avatar', labelField: 'name', layout: 'row', shape: 'circle', showLabels: true, delimiter: '|' }),
+            style: { fontSize: 20, fontWeight: '600', fontFamily: 'sans-serif' }
+        };
+        const badgeElement = createElementData('data-display', {
+            id: 'strip-img', page: 'p1', display: { displayId: 'fixture-badge', rows: 'group' }
         });
-        state.overlay.elements = [dynImg, stripImg];
+        const canvas = {
+            renderCanvas() {
+                state.liveStatus.variableDisplays = [{ id: 'fixture-badge', name: 'Fictional badges', kind: 'badge', catalogId: 'cast', badge: stripImg }];
+                state.liveStatus.variableDisplaysRevision = (state.liveStatus.variableDisplaysRevision || 0) + 1;
+                canvasModule.renderCanvas();
+            }
+        };
+        state.overlay.elements = [dynImg, badgeElement];
         state.selectedIds = new Set(['strip-img']);
         renderProperties();
         canvas.renderCanvas();
 
         const firstSrc = state.nodes.get('dyn-img')?.querySelector('img')?.getAttribute('src') || '';
         state.liveStatus.customVars = [{ name: 'cast_1_avatar', type: 'image', value: '/media-b.png' }];
+        state.liveStatus.variableSets[0].roster[0].values.avatar = '/media-b.png';
         canvas.renderCanvas();
         const updatedSrc = state.nodes.get('dyn-img')?.querySelector('img')?.getAttribute('src') || '';
-
+        state.liveStatus.variableSets[0].roster[0].values.avatar = '/media-a.png';
+        canvas.renderCanvas();
         const stripImgs = [...(state.nodes.get('strip-img')?.querySelectorAll('.sp-image-group-img') || [])].map(i => i.getAttribute('src'));
         const stripLabels = [...(state.nodes.get('strip-img')?.querySelectorAll('.sp-image-group-label') || [])].map(s => s.textContent);
         const hasGroupSelect = Boolean(document.querySelector('[data-path="imageGroup.setId"]'));
@@ -930,8 +948,8 @@ try {
     assert.equal(imageChecks.hasGroupSelect, false, 'Legacy group strips no longer expose a second badge editor');
     assert.equal(imageChecks.hasDeprecatedModeToggle, false, 'Group Image Strip omits confusing Single image mode toggle');
     assert.equal(imageChecks.layoutControlsInLayoutTab, false, 'Group strip layout controls are not duplicated outside the Builder');
-    assert.equal(imageChecks.typographyInStyleTab, true, 'Group strip exposes full Typography controls under Style tab');
-    assert.equal(imageChecks.textEffectsInStyleTab, true, 'Group strip exposes Text Effects & Animations under Style tab');
+    assert.equal(imageChecks.typographyInStyleTab, false, 'Saved badge typography belongs in Display Library');
+    assert.equal(imageChecks.textEffectsInStyleTab, false, 'Saved badge text effects are not duplicated in the placement inspector');
     assert.equal(imageChecks.noSingleObjectFit, true, 'Group strip hides single-image objectFit control');
     assert.equal(imageChecks.cardsCount, 2, 'Cards layout renders maxItems capped cards');
     assert.deepEqual(imageChecks.cardInitials, ['MO'], 'Initials fallback renders monogram when avatar URL is blank');
@@ -947,14 +965,14 @@ try {
     assert.equal(imageChecks.overlapMargin, '-14px', 'Overlap layout applies negative overlap margin');
     assert.equal(imageChecks.chipsCount, 2, 'Chips layout renders capsule chips');
     assert.equal(imageChecks.hasLead, true, 'Spotlight layout marks first member as lead');
-    assert.equal(imageChecks.fontVariableOption, true, 'Existing font dropdown offers font variables');
+    assert.equal(imageChecks.fontVariableOption, false, 'Placement inspector does not duplicate the badge font designer');
     assert.deepEqual(imageChecks.fonts.slice(0, 2), ['system-ui', 'monospace'], 'Field overrides take precedence over role and base font bindings');
     assert.equal(imageChecks.inheritedFont, 'serif', 'Unset field font inherits the bound base font');
     assert.equal(imageChecks.updatedFont, 'monospace', 'Variable changes update inherited fonts live');
     assert.equal(imageChecks.savedFontToken, '{{var.theme_font}}', 'Preview resolution never overwrites saved bindings');
     assert.deepEqual(imageChecks.textOnlyControls, { primaryField: false, missingImage: false, primaryStyle: false, labels: 3 }, 'Text-only stacks include members without images and hide primary image controls');
     assert.equal(await page.$('#ig-fields-dialog'), null, 'Badge Builder moved out of the Overlay Editor');
-    assert.ok(await page.$('a[href="/variable-displays.html?kind=badge"]'), 'Legacy strip source points to Display Library');
+    assert.ok(await page.$('a[href="/variable-displays.html?id=fixture-badge"]'), 'Saved badge links to its shared design');
     const stripNarrowOverflow = await page.evaluate(() => {
         const rail = document.querySelector('.rail.right');
         rail.style.width = '260px';
@@ -977,28 +995,25 @@ try {
     });
     assert.deepEqual(stripNarrowOverflow, [], 'Group Image Strip controls must fit the 260px inspector across Content, Layout, and Style');
 
-    // Direct 1-click Group Image Strip creation helper + Sets drawer + Strip action + Add Menu markup
+    // Removed creation paths cannot reintroduce overlay-local badge designs.
     const editorHtmlMarkup = await readFile(new URL('../public/editors/custom-overlay-editor.html', import.meta.url), 'utf8');
     assert.match(editorHtmlMarkup, /href="\/variable-displays.html\?kind=badge"/, 'Add menu opens the reusable Badge Designer');
     const quickStripChecks = await page.evaluate(async () => {
         const setsMod = await import('/js/editor/editor-sets.js');
         const { state, createElementData } = window.fixture;
         state.liveStatus.modules = { ...(state.liveStatus.modules || {}), variableSets: true };
-        const quickStrip = createElementData('image-group', { id: 'quick-strip' });
+        const rejected = [];
+        for (const [type, overrides] of [['image-group', {}], ['image', { imageGroup: { enabled: true } }]]) {
+            try { createElementData(type, overrides); } catch { rejected.push(type); }
+        }
         state.overlay.elements = [];
         setsMod.renderSetsPanel();
         return {
-            type: quickStrip.type,
-            enabled: quickStrip.imageGroup?.enabled,
-            setId: quickStrip.imageGroup?.setId,
-            imageField: quickStrip.imageGroup?.imageField,
+            rejected,
             hasStripBtn: Boolean(document.querySelector('#sets-panel [data-vset-insert-strip="cast"]'))
         };
     });
-    assert.equal(quickStripChecks.type, 'image');
-    assert.equal(quickStripChecks.enabled, true);
-    assert.equal(quickStripChecks.setId, 'cast');
-    assert.equal(quickStripChecks.imageField, 'avatar');
+    assert.deepEqual(quickStripChecks.rejected, ['image-group', 'image']);
     assert.equal(quickStripChecks.hasStripBtn, false, 'Sets library no longer creates overlay-local badge designs');
 
     // Composable standout border styles, gradients, and animations
@@ -1107,14 +1122,12 @@ try {
             return first ? first.dataset.sect : '';
         };
         return {
-            'image-group': check('image-group'),
             alert: check('alert'),
             icon: check('icon'),
             progress: check('progress'),
             'game-list': check('game-list')
         };
     });
-    assert.equal(styleOrderChecks['image-group'], 'typography', 'legacy image-group omits the migrated Avatar/Card designer');
     assert.equal(styleOrderChecks.alert, 'alert-looks', 'alert opens Style with alert-specific sections before generic presets');
     assert.equal(styleOrderChecks.icon, 'iconEffects', 'icon opens Style with Icon effects before generic presets');
     assert.equal(styleOrderChecks.progress, 'progress', 'progress opens Style with Progress bar styling at top');
@@ -1158,10 +1171,10 @@ try {
     assert.ok(taOnceCheck.charAnim.includes(' 1s 1 ') && taOnceCheck.charAnim.includes(' both'), `Once CSS animation includes 1s delay and finite once-both fill: ${taOnceCheck.charAnim}`);
     assert.equal(taOnceCheck.finalMatrixText, 'AB', 'Matrix cipher in once mode settles cleanly onto the final decoded text');
 
-    // Verify Group Image Strip badge slots, fonts, width mode, consistent gradients/borders, and live modal preview
-    const igModalCheck = await page.evaluate(() => {
-        window.fixture.select('image-group');
-        const el = window.fixture.state.overlay.elements.find(e => e.id === [...window.fixture.state.selectedIds][0]);
+    // The shared badge renderer retains field placement, gradients and border animations.
+    const igModalCheck = await page.evaluate(async () => {
+        const { defaultImageGroupConfig } = await import('/js/displays/badge-model.js');
+        const el = { type: 'image', imageGroup: defaultImageGroupConfig({ id: 'cast' }), style: {} };
         el.imageGroup.showLabels = true;
         el.imageGroup.cardFrame = true;
         el.imageGroup.avatarBorderWidth = 3;
@@ -1171,7 +1184,6 @@ try {
             { key: 'role', role: 'subtitle', slot: 'footer', fontStyle: 'italic' },
             { key: 'tag', role: 'badge', slot: 'corner-tr', inline: false }
         ];
-        window.fixture.renderProperties();
         // Change width mode & border gradient/animation on card & avatar via runtime renderer
         el.imageGroup.cardWidthMode = 'fixed';
         el.imageGroup.cardWidth = 280;
@@ -1429,7 +1441,8 @@ try {
         }
 
         // 2. Group Strip & Member Badge Builder: Secondary Images, Avatar Corners, Padding, FontSize & @team_color picker
-        const grpEl = window.fixture.select('image', {
+        const grpEl = {
+            type: 'image', style: {},
             id: 'ig-polish-check',
             imageGroup: {
                 enabled: true,
@@ -1447,8 +1460,7 @@ try {
                     { key: 'name', kind: 'text', role: 'title', slot: 'main', fontSize: 19, padX: 9, padY: 4, bgColor: '' }
                 ]
             }
-        });
-        document.querySelector('[data-inspector-tab="content"]')?.click();
+        };
         // Standalone builder controls are covered in test-display-badges.cjs; retain renderer coverage here.
         grpEl.imageGroup.fields[0].bgColor = '@team_color';
         grpEl.imageGroup.fields.push({ key: 'crest', kind: 'image', customSrc: '/media-b.png', slot: 'corner-tl', imgSize: 26 });

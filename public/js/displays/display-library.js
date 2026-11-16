@@ -1,4 +1,4 @@
-import { displaySourceFields, updateDisplaySource } from './display-source.js';
+import { displaySourceFields, displaySourceSummary, updateDisplaySource } from './display-source.js';
 import { createTableDesigner, defaultTable, tableFieldOptions } from './table-designer.js';
 import { createBadgeDesigner } from './badge-designer.js';
 import { defaultImageGroupConfig } from './badge-model.js';
@@ -154,7 +154,7 @@ function loadPreviewPreferences() {
     state.previewBackdrop = perId.backdrop || '#111827';
     state.previewResolution = perId.resolution || 'native';
     state.previewBinding = {
-        displayId: displayPreviewId(), setId: '', selector: 'active', path: [], tracker: '', showMode: 'dim', rows: 'all', listField: '',
+        displayId: displayPreviewId(), setId: '', selector: 'active', path: [], tracker: '', showMode: 'dim', rows: 'all', fields: [],
         ...(perId.binding || {})
     };
     state.previewBinding.displayId = displayPreviewId();
@@ -216,6 +216,7 @@ function openLibrary() {
 
 function controlsForFields(fields, className = '') {
     return fields.map(field => {
+        if (field.multiple) return `<fieldset class="control-field ${className}"><legend>${esc(field.label)}</legend>${field.options.map(([value, label]) => `<label><input type="checkbox" data-source-field value="${esc(value)}"${field.value.includes(value) ? ' checked' : ''}> ${esc(label)}</label>`).join('')}</fieldset>`;
         const control = `<select class="select input" data-source-path="${esc(field.path)}" aria-label="${esc(field.label)}">${field.options.map(([value, label]) => `<option value="${esc(value)}"${String(field.value ?? '') === String(value) ? ' selected' : ''}>${esc(label)}</option>`).join('')}</select>`;
         return `<div class="control-field ${className}"><label>${esc(field.label)}</label>${control}</div>`;
     }).join('');
@@ -386,10 +387,13 @@ function renderLayoutControls() {
 
 function renderPreviewControls() {
     const fields = displaySourceFields(state.previewBinding, state.sets, state.draft.catalogId, state.draft.kind);
+    const source = displaySourceSummary(state.previewBinding, state.sets, state.draft);
     $('#preview-controls').innerHTML = `
         ${controlsForFields(fields)}
         <div class="control-field"><label for="preview-backdrop">Preview backdrop</label><input id="preview-backdrop" class="input" type="text" maxlength="9" pattern="#[a-fA-F0-9]{6}([a-fA-F0-9]{2})?" value="${esc(state.previewBackdrop)}" aria-describedby="preview-backdrop-help"><small id="preview-backdrop-help">Local preview only · #RRGGBB or #RRGGBBAA</small></div>
     `;
+    $('#preview-source-summary').dataset.displaySourceState = source.ok ? 'ready' : 'empty';
+    $('#preview-source-summary').innerHTML = `<strong>${esc(source.chain)}</strong><p>${esc(source.message)}</p>`;
     $('#display-preview').style.background = state.previewBackdrop;
 }
 
@@ -425,6 +429,12 @@ function schedulePreview() {
     if (state.previewFrame) cancelAnimationFrame(state.previewFrame);
     state.previewFrame = requestAnimationFrame(() => {
         state.previewFrame = 0;
+        const summary = $('#preview-source-summary');
+        if (summary) {
+            const source = displaySourceSummary(state.previewBinding, state.sets, state.draft);
+            summary.dataset.displaySourceState = source.ok ? 'ready' : 'empty';
+            summary.innerHTML = `<strong>${esc(source.chain)}</strong><p>${esc(source.message)}</p>`;
+        }
         const stage = $('#display-preview');
         window.OverlayShared?.cleanupNode?.(stage);
         stage.replaceChildren();
@@ -450,7 +460,7 @@ function schedulePreview() {
             display: { ...state.previewBinding, displayId: display.id }
         }, { variableDisplays: [display], variableSets: state.sets, customVars: state.variables });
         if (!rendered) {
-            stage.innerHTML = `<div class="preview-empty">${state.draft.kind === 'inventory' ? 'Choose a catalog and add items. Choose an owner and checklist tracker to preview levels.' : 'Choose a catalog and source with matching rows to preview the design.'}</div>`;
+            stage.innerHTML = `<div class="preview-empty">${esc(displaySourceSummary(state.previewBinding, state.sets, state.draft).message)}</div>`;
         }
     });
 }
@@ -709,8 +719,14 @@ function duplicateDisplay(display) {
 
 async function deleteDisplay(id) {
     const display = state.displays.find(item => item.id === id);
-    if (!display || !window.confirm(`Delete “${display.name}”? Existing overlay placements may no longer find this design.`)) return;
+    if (!display) return;
     try {
+        const { dependencies } = await request(`/api/variable-displays/${encodeURIComponent(id)}/dependencies`);
+        if (dependencies.length) {
+            showAlert(`“${display.name}” is in use: ${dependencies.map(item => item.label).join('; ')}. Remove or replace these placements before deleting the design.`, 'info');
+            return;
+        }
+        if (!window.confirm(`Delete “${display.name}”? No saved placements use this design.`)) return;
         await request(`/api/variable-displays/${encodeURIComponent(id)}`, { method: 'DELETE' });
         state.displays = state.displays.filter(item => item.id !== id);
         renderLibrary();
@@ -822,6 +838,13 @@ function onBuilderInput(event) {
 
 function onBuilderChange(event) {
     const input = event.target;
+    if (input.matches('[data-source-field]')) {
+        updateDisplaySource(state.previewBinding, 'fields', [...$('#preview-controls').querySelectorAll('[data-source-field]:checked')].map(input => input.value));
+        savePreviewPreferences();
+        renderPreviewControls();
+        schedulePreview();
+        return;
+    }
     if (input.matches('[data-source-path]')) {
         updateDisplaySource(state.previewBinding, input.dataset.sourcePath, input.value);
         savePreviewPreferences();

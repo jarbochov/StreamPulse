@@ -43,6 +43,20 @@ The **Card Zone Blueprint** follows the selected badge layout and avatar visibil
 
 Existing badge/strip layers are migrated to reusable designs while their placement-specific sources and geometry remain with the overlay. Sharing one design between scenes no longer requires separately maintaining every copy's field layout.
 
+There is no separate Group Strip creation or editing workflow in Custom Overlay Editor. **Badge** designs cover both single cards and multi-member strips. Existing source settings are converted to the same source controls used by new Saved Displays, not kept in a hidden alternate configuration.
+
+### Understand the live source
+
+The source panel shows a readable path, for example **Schedule → Active entry → Player 1 → Equipment**, the resolved owner and the number of enabled items. Empty selections explain what to assign or enable in Variable Set Operator. These diagnostics appear only in editors, never on a production overlay.
+
+For Table and Badge, choose a source set and **Linked members** to select one or several single-entry/list fields targeting the design catalog. Linked lists retain their explicit order, repeated entries appear once, and links never change the target set's live slots. Alternatively choose All enabled entries, Active entry, Live slots, In Group entries, or In Group live slots. Tables also support Saved row order only. A single linked-role path resolves one member. Badges can follow a compatible Progress tracker, with dimmed inactive or active-only items.
+
+**Enabled** has the same meaning for Inventory, Table and Badge: disabled entries are excluded. It is separate from **In Group** (membership selection), live slots (on-air selection), and tracker levels (per-owner progress). Fixed inventory slots retain intentional gaps when an entry is disabled.
+
+### Remove a design safely
+
+Deleting a display first checks saved overlays and presets and names the placements using it. Remove or replace those placements before deleting the design. The API enforces the same rule, including when a placement is added after the initial check. Variable Sets and entries have corresponding dependency checks for links, trackers and saved displays; see [Variable operations](variable-operations.md).
+
 ![Badge Builder using fictional members](images/badge-display-builder.png)
 
 ## Persistence and transfer

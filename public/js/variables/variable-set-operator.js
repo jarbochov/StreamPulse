@@ -35,8 +35,8 @@ let activeSetId = initialHash.id || localStorage.getItem(STORAGE_KEY) || '';
 if (initialHash.id && initialHash.matrix) {
     localStorage.setItem(`${VIEW_MODE_PREFIX}${initialHash.id}`, 'matrix');
 }
-let searchQuery = '';
-let filterMode = 'all';
+let searchQuery = localStorage.getItem('streampulse_operator_search') || '';
+let filterMode = localStorage.getItem('streampulse_operator_filter') || 'all';
 let saveTimer = null;
 let saveBadgeTimer = null;
 let activeLayoutName = '';
@@ -44,6 +44,10 @@ let pendingSave = null;
 let saveQueue = Promise.resolve();
 let saveError = null;
 let trackerBusy = false;
+let writesPending = 0;
+const savedRosters = new Map();
+const dirtySets = new Set();
+const sameValue = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 function parseChecklistMap(raw) {
     if (raw && typeof raw === 'object' && !Array.isArray(raw)) return { ...raw };
@@ -129,6 +133,9 @@ function setSaveBadge(text, isError = false) {
     clearTimeout(saveBadgeTimer);
     el.textContent = text;
     el.className = `op-pill ${isError ? '' : 'is-ok'}`;
+    el.tabIndex = isError ? 0 : -1;
+    el.setAttribute('role', isError ? 'button' : 'status');
+    el.title = isError ? `${saveError?.message || 'Unsaved edits'}. Review and retry pending edits.` : '';
     el.hidden = false;
     if (!isError && text === 'Saved') {
         saveBadgeTimer = setTimeout(() => { el.hidden = true; }, 1800);
@@ -406,6 +413,9 @@ function renderOperator() {
     const host = document.getElementById('op-table-host');
     const rotBar = document.getElementById('op-rotation-bar');
     if (!select || !host) return;
+    const search = document.getElementById('op-search');
+    if (search && document.activeElement !== search) search.value = searchQuery;
+    document.querySelectorAll('[data-op-filter]').forEach(button => button.classList.toggle('active', button.dataset.opFilter === filterMode));
 
     const sets = state.sets || [];
     if (!sets.length) {
@@ -490,32 +500,98 @@ function renderOperator() {
     </table>`;
 }
 
-function persistRoster(setObj) {
-    const roster = JSON.stringify(setObj.roster);
+function persistRoster(setObj, step = null) {
+    const roster = structuredClone(setObj.roster);
+    dirtySets.add(setObj.id);
+    writesPending++;
     setSaveBadge('Saving…');
     const saving = saveQueue.then(async () => {
-        const res = await api(`/api/variables/sets/${encodeURIComponent(setObj.id)}`, 'PUT', { roster: JSON.parse(roster) });
-        if (res?.set) {
-            const idx = state.sets.findIndex(s => s.id === res.set.id);
-            if (idx >= 0 && JSON.stringify(state.sets[idx].roster) === roster) state.sets[idx] = res.set;
+        if (saveError) {
+            setSaveBadge('Unsaved — click to retry', true);
+            return;
         }
-        saveError = null;
-        setSaveBadge('Saved');
+        let baseline = savedRosters.get(setObj.id) || [];
+        const base = `/api/variables/sets/${encodeURIComponent(setObj.id)}/entry`;
+        const send = async (action, body) => {
+            const result = await api(`${base}/${action}`, 'PATCH', body);
+            baseline = structuredClone(baseline);
+            const id = typeof body.entry === 'object' ? body.entry.id : body.entry;
+            const actual = result.roster.find(item => item.id === id);
+            const previous = baseline.find(item => item.id === id);
+            if (action === 'add') baseline.push(structuredClone(actual));
+            else if (action === 'remove') baseline = baseline.filter(item => item.id !== id);
+            else if (body.property) previous[body.property] = actual[body.property];
+            else {
+                previous.values[body.field] = structuredClone(actual.values[body.field]);
+                if (body.field === setObj.fields[0]?.key) previous.label = actual.label;
+            }
+            savedRosters.set(setObj.id, baseline);
+        };
+        for (const entry of roster) {
+            let before = baseline.find(item => item.id === entry.id);
+            if (!before) {
+                await send('add', { entry });
+                continue;
+            }
+            for (const field of setObj.fields || []) {
+                before = baseline.find(item => item.id === entry.id);
+                if (!sameValue(before.values?.[field.key], entry.values?.[field.key])) {
+                    const stepping = step?.entry === entry.id && step.field === field.key;
+                    await send(stepping ? 'step' : 'set', { entry: entry.id, field: field.key,
+                        ...(stepping ? { delta: step.delta } : { value: entry.values[field.key] }), expected: before.values?.[field.key] });
+                }
+            }
+            for (const property of ['enabled', 'inGroup']) {
+                before = baseline.find(item => item.id === entry.id);
+                if (before[property] !== entry[property]) await send('set', { entry: entry.id, property, value: entry[property], expected: before[property] });
+            }
+        }
+        for (const entry of [...baseline]) {
+            if (!roster.some(item => item.id === entry.id)) await send('remove', { entry: entry.id, expected: entry });
+        }
+        if (sameValue(setObj.roster, roster)) dirtySets.delete(setObj.id);
+        if (!pendingSave && writesPending === 1) setSaveBadge(dirtySets.size ? 'Unsaved edits' : 'Saved', dirtySets.size > 0);
+    }).finally(() => {
+        writesPending--;
+        if (!writesPending && !pendingSave && !saveError && !dirtySets.size) loadData(true).catch(err => toast(err.message, 'error'));
     });
     saveQueue = saving.catch(err => {
         saveError = err;
-        setSaveBadge('Save failed', true);
-        toast(err.message, 'error');
+        saveError.setId = setObj.id;
+        setSaveBadge('Unsaved — click to retry', true);
+        toast(`${err.message} Your pending edits are retained. Click the save status to review and retry.`, 'error');
     });
     return saveQueue;
 }
 
 function scheduleSave(setObj, immediate = false) {
+    dirtySets.add(setObj.id);
     clearTimeout(saveTimer);
     if (pendingSave && pendingSave.id !== setObj.id) persistRoster(pendingSave);
     pendingSave = setObj;
     if (immediate) return flushSaves();
     saveTimer = setTimeout(() => flushSaves(), 280);
+}
+
+function rebasePendingRoster(setObj, original, latest) {
+    const removed = new Set();
+    for (const entry of setObj.roster) {
+        const old = original.find(item => item.id === entry.id);
+        const current = latest.find(item => item.id === entry.id);
+        if (old && !current) {
+            if (!sameValue(entry, old)) throw new Error(`"${entry.label}" was removed elsewhere. Copy your pending edits before reloading; retry cannot recreate a removed entry.`);
+            removed.add(entry.id);
+            continue;
+        }
+        if (!old && current) throw new Error(`Entry ID "${entry.id}" was created elsewhere. Copy your pending entry before reloading and choose a different ID.`);
+        if (!old || !current) continue;
+        for (const key of Object.keys(entry.values || {})) {
+            if (sameValue(entry.values[key], old.values?.[key])) entry.values[key] = current.values?.[key];
+        }
+        for (const key of ['enabled', 'inGroup']) if (entry[key] === old[key]) entry[key] = current[key];
+    }
+    setObj.roster = setObj.roster.filter(entry => !removed.has(entry.id));
+    for (const entry of latest) if (!original.some(item => item.id === entry.id) && !setObj.roster.some(item => item.id === entry.id)) setObj.roster.push(entry);
 }
 
 async function flushSaves() {
@@ -530,19 +606,53 @@ async function flushSaves() {
 
 async function loadData(preserveFocus = false) {
     const activeEl = preserveFocus ? document.activeElement : null;
-    const focusEntry = activeEl?.dataset?.opEntry;
-    const focusKey = activeEl?.dataset?.opKey;
-    if (pendingSave || trackerBusy) return;
+    const interacting = element => element?.dataset?.opEntry || element?.dataset?.opSwatch || element?.closest?.('#op-table-host');
+    if (pendingSave || trackerBusy || saveError || writesPending || dirtySets.size) return;
+    if (interacting(activeEl)) return;
     await saveQueue;
     const data = await api('/api/variables');
-    if (pendingSave || trackerBusy) return;
+    if (pendingSave || trackerBusy || saveError || writesPending || dirtySets.size) return;
+    if (preserveFocus && interacting(document.activeElement)) return;
     state.sets = data.sets || [];
+    for (const setObj of state.sets) savedRosters.set(setObj.id, structuredClone(setObj.roster));
     state.variables = data.variables || [];
-    if (focusEntry && focusKey) return; // Don't clobber active cell while user is typing
     renderOperator();
 }
 
 function bindEvents() {
+    document.getElementById('op-save-state')?.addEventListener('keydown', event => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        event.currentTarget.click();
+    });
+    document.getElementById('op-save-state')?.addEventListener('click', async () => {
+        if (!saveError) return;
+        if (!confirm(`${saveError.message}\n\nRetry your pending cells against the latest saved values? Only your changed cells will be replaced.`)) return;
+        try {
+            const setObj = state.sets.find(set => set.id === saveError.setId);
+            if (!setObj) return;
+            const original = savedRosters.get(setObj.id) || [];
+            const latest = await api(`/api/variables/sets/${encodeURIComponent(setObj.id)}`);
+            // Rebase only untouched cells; pending edits stay visible until explicitly retried.
+            rebasePendingRoster(setObj, original, latest.roster);
+            savedRosters.set(setObj.id, structuredClone(latest.roster));
+            saveError = null;
+            await persistRoster(setObj);
+            if (!saveError) {
+                for (const id of dirtySets) {
+                    if (id !== setObj.id) {
+                        const dirty = state.sets.find(set => set.id === id);
+                        if (dirty) await persistRoster(dirty);
+                    }
+                }
+            }
+        } catch (err) { toast(err.message, 'error'); }
+    });
+    window.addEventListener('beforeunload', event => {
+        if (!saveError && !pendingSave && !writesPending && !dirtySets.size) return;
+        event.preventDefault();
+        event.returnValue = '';
+    });
     document.getElementById('op-set-select')?.addEventListener('change', e => {
         activeSetId = e.target.value;
         localStorage.setItem(STORAGE_KEY, activeSetId);
@@ -567,6 +677,7 @@ function bindEvents() {
 
     document.getElementById('op-search')?.addEventListener('input', e => {
         searchQuery = e.target.value.trim().toLowerCase();
+        localStorage.setItem('streampulse_operator_search', searchQuery);
         renderOperator();
     });
 
@@ -574,6 +685,7 @@ function bindEvents() {
         const btn = e.target.closest('[data-op-filter]');
         if (!btn) return;
         filterMode = btn.dataset.opFilter;
+        localStorage.setItem('streampulse_operator_filter', filterMode);
         document.querySelectorAll('.op-filter-btn').forEach(b => b.classList.toggle('active', b === btn));
         renderOperator();
     });
@@ -716,6 +828,9 @@ function bindEvents() {
     const host = document.getElementById('op-table-host');
     if (!host) return;
     bindLinkControls(host);
+    host.addEventListener('focusout', () => {
+        queueMicrotask(() => loadData(true).catch(err => toast(err.message, 'error')));
+    });
 
     host.addEventListener('input', e => {
         const t = e.target;
@@ -867,6 +982,8 @@ function bindEvents() {
 
         const stepBtn = t.closest('[data-op-step]');
         if (stepBtn) {
+            await flushSaves();
+            if (saveError) return;
             const entryId = stepBtn.dataset.opStep;
             const key = stepBtn.dataset.opKey;
             const delta = Number(stepBtn.dataset.opDelta) || 0;
@@ -876,7 +993,7 @@ function bindEvents() {
             entry.values = { ...(entry.values || {}), [key]: next };
             const input = host.querySelector(`[data-op-entry="${CSS.escape(entryId)}"][data-op-key="${CSS.escape(key)}"]`);
             if (input) input.value = next;
-            await persistRoster(setObj);
+            await persistRoster(setObj, { entry: entryId, field: key, delta });
             return;
         }
 
@@ -929,6 +1046,14 @@ function bindEvents() {
         const delBtn = t.closest('[data-op-delete]');
         if (delBtn) {
             const entryId = delBtn.dataset.opDelete;
+            try {
+                const result = await api(`/api/variables/sets/${encodeURIComponent(setObj.id)}/dependencies?entry=${encodeURIComponent(entryId)}`);
+                if (result.dependencies.length) {
+                    toast(`Remove references first: ${result.dependencies.map(use => use.label).join('; ')}`, 'error');
+                    return;
+                }
+                if (!confirm(`Remove "${setObj.roster.find(entry => entry.id === entryId)?.label || entryId}"?`)) return;
+            } catch (err) { toast(err.message, 'error'); return; }
             setObj.roster = (setObj.roster || []).filter(r => r.id !== entryId);
             renderOperator();
             await persistRoster(setObj);

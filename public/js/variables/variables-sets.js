@@ -16,8 +16,8 @@ const SVG_PAUSE = '<svg width="11" height="11" viewBox="0 0 24 24" fill="current
 
 let dragPayload = null;
 let reloadHandler = async () => {};
-let rosterFilter = '';
-let directoryFilter = '';
+let rosterFilter = localStorage.getItem('variables_roster_filter') || '';
+let directoryFilter = localStorage.getItem('variables_directory_filter') || '';
 let directoryMode = localStorage.getItem('variables_dir_mode') || 'all';
 const openTokenKeys = new Set();
 let activePickerCleanup = null;
@@ -677,7 +677,7 @@ export function renderSets() {
                         <div class="set-section-title" style="flex-wrap:wrap;">
                             <span title="${slotsCount > 0 ? 'Drag entries onto any output slot' : 'Activate a saved preset'}">${slotsCount > 0 ? 'Roster library' : 'Saved presets'}</span>
                             <div style="display:flex; gap:.35rem; align-items:center; text-transform:none; letter-spacing:0; font-weight:500; flex-wrap:wrap;">
-                                ${(activeSet.roster || []).length > 4 ? `<input type="search" id="set-roster-filter" value="${esc(rosterFilter)}" placeholder="Filter entries..." style="padding:.22rem .55rem; font-size:.78rem; width:10rem;">` : ''}
+                                ${(activeSet.roster || []).length > 4 || rosterFilter ? `<input type="search" id="set-roster-filter" value="${esc(rosterFilter)}" placeholder="Filter entries..." style="padding:.22rem .55rem; font-size:.78rem; width:10rem;">` : ''}
                                 ${(() => {
                                     const hasChecklist = (activeSet.fields || []).some(f => f.type === 'checklist');
                                     if (hasChecklist) {
@@ -888,10 +888,7 @@ export function openSetModal(existing = null) {
                         base.maxTier = Math.max(1, parseInt(f.maxTier, 10) || 1);
                     }
                     return base;
-                }),
-                roster: existing?.roster || [],
-                slots: existing?.slots || [],
-                activeEntry: existing?.activeEntry || ''
+                })
             };
             try {
                 await api(`/api/variables/sets/${encodeURIComponent(setId)}`, 'PUT', payload);
@@ -1212,15 +1209,11 @@ function openEntryModal(setObj, existingEntry = null) {
             const nextEnabled = modal.querySelector('#vp-entry-enabled')?.checked !== false;
             const firstKey = fields[0]?.key || 'name';
             const label = String(nextValues[firstKey] || existingEntry?.label || `Entry ${(setObj.roster?.length || 0) + 1}`).trim();
-            const roster = [...(setObj.roster || [])];
-            if (isEdit) {
-                const idx = roster.findIndex(r => r.id === existingEntry.id);
-                if (idx >= 0) roster[idx] = { ...roster[idx], label, enabled: nextEnabled, values: nextValues, ...(nextTiers.length ? { tiers: nextTiers } : { tiers: undefined }) };
-            } else {
-                roster.push({ id: slugId(label) || `entry_${Date.now()}`, label, enabled: nextEnabled, values: nextValues, ...(nextTiers.length ? { tiers: nextTiers } : {}) });
-            }
+            const patch = { label, enabled: nextEnabled, values: nextValues, tiers: nextTiers };
             try {
-                await api(`/api/variables/sets/${encodeURIComponent(setObj.id)}`, 'PUT', { roster });
+                await api(`/api/variables/sets/${encodeURIComponent(setObj.id)}/entry/${isEdit ? 'update' : 'add'}`, 'PATCH',
+                    isEdit ? { entry: existingEntry.id, expected: existingEntry, patch }
+                        : { entry: { id: slugId(label) || `entry_${Date.now()}`, ...patch } });
                 toast(isEdit ? 'Entry updated' : 'Entry added', 'success');
                 close();
                 await reloadHandler();
@@ -1241,11 +1234,13 @@ export function bindSetEvents(onReload) {
     host.addEventListener('input', e => {
         if (e.target.id === 'set-dir-search') {
             directoryFilter = e.target.value;
+            localStorage.setItem('variables_directory_filter', directoryFilter);
             renderSets();
             return;
         }
         if (e.target.id === 'set-roster-filter') {
             rosterFilter = e.target.value;
+            localStorage.setItem('variables_roster_filter', rosterFilter);
             renderSets();
         }
     });
@@ -1417,12 +1412,17 @@ export function bindSetEvents(onReload) {
                 return await reloadHandler();
             }
             if (act === 'delete-entry') {
-                const roster = (setObj.roster || []).filter(r => r.id !== btn.dataset.entry);
-                await api(base, 'PUT', { roster });
+                const result = await api(`${base}/dependencies?entry=${encodeURIComponent(btn.dataset.entry)}`);
+                if (result.dependencies.length) throw new Error(`Remove references first: ${result.dependencies.map(use => use.label).join('; ')}`);
+                const entry = setObj.roster.find(item => item.id === btn.dataset.entry);
+                if (!confirm(`Remove "${entry?.label || btn.dataset.entry}"?`)) return;
+                await api(`${base}/entry/remove`, 'PATCH', { entry: btn.dataset.entry, expected: entry });
                 toast('Entry removed', 'info');
                 return await reloadHandler();
             }
             if (act === 'delete-set') {
+                const result = await api(`${base}/dependencies`);
+                if (result.dependencies.length) throw new Error(`Remove references first: ${result.dependencies.map(use => use.label).join('; ')}`);
                 const ok = window.StreamPulse?.confirm
                     ? await StreamPulse.confirm('Delete Variable Set', `Delete set "${setObj.name}" and all of its output variables?`, { danger: true, confirmText: 'Delete' })
                     : confirm(`Delete set "${setObj.name}"?`);

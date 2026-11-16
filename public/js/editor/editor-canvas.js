@@ -628,7 +628,7 @@ export function applyNodeStyle(node, el, index) {
         left: `${b.x}px`, top: `${b.y}px`, width: `${b.w}px`, height: `${b.h}px`, zIndex: index,
         opacity: el.type === 'alert' ? 1 : s.opacity ?? 1, background: (el.type === 'alert' || el.type === 'cutout' || el.type === 'speaker-badge') ? 'transparent' : (s.background || 'transparent'),
         borderRadius: (el.type === 'alert' || el.type === 'speaker-badge') ? '0' : el.type === 'cutout' ? cutoutRadius : (shared.resolveBorderRadius ? shared.resolveBorderRadius(s, el) : `${s.borderRadius || 0}px`),
-        padding: `${(TEXT_TYPES.has(el.type) || el.imageGroup?.enabled) ? s.padding || 0 : 0}px`,
+        padding: `${TEXT_TYPES.has(el.type) ? s.padding || 0 : 0}px`,
         fontFamily: s.fontFamily, fontSize: `${TEXT_TYPES.has(el.type) && el.textFit && el.textFit !== 'none' && node._fittedFontSize ? node._fittedFontSize : (s.fontSize != null && s.fontSize !== '' ? s.fontSize : 32)}px`, fontWeight: s.fontWeight, color: s.color, textAlign: s.textAlign,
         lineHeight: s.lineHeight, letterSpacing: `${s.letterSpacing || 0}px`,
         display: s.verticalAlign === 'top' ? 'block' : 'flex',
@@ -719,15 +719,6 @@ export function buildContent(node, el, playback) {
     node._extra = '';
     if (el.type === 'data-display') {
         if (!shared.renderVariableDisplay(node, el, effectiveLiveStatus())) node.append(placeholder('Saved Display: choose a design and a populated source in Content'));
-        return;
-    }
-    if (el.type === 'image' && el.imageGroup?.enabled && shared.renderImageGroupStrip) {
-        const hasItems = shared.renderImageGroupStrip(node, el, effectiveLiveStatus(), { preview: true });
-        if (!hasItems) {
-            node.appendChild(placeholder(el.imageGroup?.setId
-                ? `Group Strip (${el.imageGroup.setId}): toggle entries "In Group" with images`
-                : 'Group Strip: choose a Variable Set in Content'));
-        }
         return;
     }
     if (el.type === 'image' || el.type === 'video') {
@@ -896,9 +887,8 @@ export const contentSignature = (el, live) =>
         el.headingSpan, el.headingScale, sourceSignature(el), el.progress,
         el.style.color, el.style.fontFamily, el.style.fontWeight, el.style.textStroke,
         el.style.textShadow, el.qr, el.style.fill, el.random?.typewriter, el.random?.marquee, el.cycle,
-        el.imageGroup, el.imageGroup?.enabled ? [el.style, el.width, el.height] : '',
         el.style.objectFit, el.style.focusX, el.style.focusY,
-        usesLivePlaceholders(el) || el.type === 'data-display' || Boolean(el.imageGroup?.enabled) || Boolean(el.source && el.source.mode !== 'inline') ? live : ''
+        usesLivePlaceholders(el) || el.type === 'data-display' || Boolean(el.source && el.source.mode !== 'inline') ? live : ''
     ]);
 
 export function tickPlaceholders() {
@@ -1007,8 +997,8 @@ export function renderCanvas(only) {
         if (node._sig !== signature) {
             const existingVid = el.type === 'video' ? node.querySelector(':scope > video') : null;
             const canReuseVid = existingVid && node._src === el.src && node._fit === el.style?.objectFit && node._fx === el.style?.focusX && node._fy === el.style?.focusY;
-            const existingImg = el.type === 'image' && !el.imageGroup?.enabled ? node.querySelector(':scope > img') : null;
-            const resolvedImgSrc = el.type === 'image' && !el.imageGroup?.enabled ? expand(el.src) : '';
+            const existingImg = el.type === 'image' ? node.querySelector(':scope > img') : null;
+            const resolvedImgSrc = el.type === 'image' ? expand(el.src) : '';
             const resolvedImgValid = Boolean(resolvedImgSrc && !/\{\{/.test(resolvedImgSrc));
             const canReuseImg = Boolean(existingImg && resolvedImgValid && node._src === el.src && node._resolvedSrc === resolvedImgSrc);
             const isPlainShape = el.type === 'shape';

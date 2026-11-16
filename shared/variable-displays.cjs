@@ -54,25 +54,23 @@ function normalizeDisplay(input = {}, id = input.id) {
 }
 
 function normalizeDisplayBinding(input = {}) {
+    if (input.badgeSource) {
+        const source = input.badgeSource, linked = source.linkedSource || {};
+        const followsLinks = ['linked', 'checklist'].includes(source.filterMode);
+        input = { ...input, setId: followsLinks ? linked.setId : source.setId,
+            selector: followsLinks ? linked.selector : 'active', path: [],
+            tracker: source.filterMode === 'checklist' ? linked.fields?.[0] : '',
+            fields: source.filterMode === 'linked' ? linked.fields : [],
+            rows: source.onlySelected ? (source.filterMode === 'inGroup' ? 'group-slots' : 'slots') : source.filterMode === 'inGroup' ? 'group' : 'all',
+            showMode: source.showMode };
+    }
     return {
         displayId: key(input.displayId), setId: key(input.setId),
         selector: /^(active|slot:\d{1,2}|entry:[a-z0-9_-]{1,60})$/.test(input.selector || '') ? input.selector : 'active',
         path: (Array.isArray(input.path) ? input.path : []).slice(0, 4).map(key).filter(Boolean),
         tracker: key(input.tracker), showMode: input.showMode === 'active' ? 'active' : 'dim',
-        rows: ['all', 'active', 'slots', 'group', 'ordered'].includes(input.rows) ? input.rows : 'all',
-        listField: key(input.listField),
-        fields: (Array.isArray(input.fields) ? input.fields : []).slice(0, 10).map(key).filter(Boolean),
-        ...(input.badgeSource ? { badgeSource: {
-            setId: key(input.badgeSource.setId),
-            filterMode: ['all', 'inGroup', 'linked', 'checklist'].includes(input.badgeSource.filterMode) ? input.badgeSource.filterMode : 'all',
-            onlySelected: input.badgeSource.onlySelected === true,
-            showMode: input.badgeSource.showMode === 'active' ? 'active' : 'dim',
-            linkedSource: {
-                setId: key(input.badgeSource.linkedSource?.setId),
-                selector: /^(active|slot:\d{1,2}|entry:[a-z0-9_-]{1,60})$/.test(input.badgeSource.linkedSource?.selector || '') ? input.badgeSource.linkedSource.selector : 'active',
-                fields: (input.badgeSource.linkedSource?.fields || []).slice(0, 10).map(key)
-            }
-        } } : {})
+        rows: ['all', 'active', 'slots', 'group', 'group-slots', 'ordered'].includes(input.rows) ? input.rows : 'all',
+        fields: [...new Set((input.listField ? [input.listField] : Array.isArray(input.fields) ? input.fields : []).slice(0, 10).map(key).filter(Boolean))]
     };
 }
 

@@ -1,5 +1,6 @@
 const { createHash } = require('crypto');
 const { normalizeCustomOverlay } = require('./overlays');
+const { normalizeDisplayBinding } = require('../../shared/variable-displays.cjs');
 
 const SOURCE_KEYS = ['setId', 'filterMode', 'linkedSource', 'onlySelected', 'showMode'];
 const copy = value => globalThis.structuredClone(value);
@@ -62,10 +63,9 @@ function migrateDisplayBadges({ overlays, displays, sets = [], saveOverlays, war
                 warn(`[Displays] Badge migration retained ${overlay.id}/${element.id}: ${error.message}`);
                 continue;
             }
-            updates.push({ element, original: copy(element), display: {
-                displayId: id, setId: '', selector: 'active', path: [], tracker: '',
-                showMode: source.showMode || 'active', rows: 'all', badgeSource: source
-            } });
+            updates.push({ element, original: copy(element), display: normalizeDisplayBinding({
+                displayId: id, badgeSource: { ...source, filterMode: source.filterMode || 'inGroup', showMode: source.showMode || 'active' }
+            }) });
         }
     }
     for (const { element, display } of updates) {

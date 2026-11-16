@@ -4,7 +4,7 @@ const { randomUUID } = require('crypto');
 const { normalizeDisplay } = require('../../shared/variable-displays.cjs');
 const { normalizeBadge } = require('./display-badges');
 
-module.exports = function createVariableDisplays({ dataDir, onChange = () => {} }) {
+module.exports = function createVariableDisplays({ dataDir, onChange = () => {}, getDependencies = () => [] }) {
     const file = path.join(dataDir, 'variable-displays.json');
     let displays = [];
     let revision = Date.now();
@@ -36,6 +36,10 @@ module.exports = function createVariableDisplays({ dataDir, onChange = () => {} 
         getState: () => ({ displays: copy(displays), revision }),
         getRevision: () => revision,
         get(id) { return copy(displays.find(display => display.id === id) || null); },
+        dependencies(id) {
+            if (!displays.some(display => display.id === id)) throw new Error('Display not found');
+            return copy(getDependencies(id));
+        },
         save(input, id = input.id || randomUUID()) {
             const display = normalize(input, id);
             if (!display.id || !display.catalogId) throw new Error('Choose an item catalog and a display ID');
@@ -46,6 +50,13 @@ module.exports = function createVariableDisplays({ dataDir, onChange = () => {} 
         },
         remove(id) {
             if (!displays.some(display => display.id === id)) throw new Error('Display not found');
+            const dependencies = getDependencies(id);
+            if (dependencies.length) {
+                const error = new Error(`Display is in use: ${dependencies.map(item => item.label).join('; ')}. Remove or replace these placements first.`);
+                error.dependencies = copy(dependencies);
+                error.statusCode = 409;
+                throw error;
+            }
             persist(displays.filter(display => display.id !== id));
         },
         reset() { persist([]); }

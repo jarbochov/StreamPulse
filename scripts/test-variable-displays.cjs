@@ -42,7 +42,8 @@ test('displays validate ordered sections, fixed cells, type boundaries and read-
 test('display API saves atomically, persists, reloads after restore and broadcasts CRUD changes', async t => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-displays-'));
     const changes = [];
-    const service = createDisplays({ dataDir: dir, onChange: state => changes.push(state) });
+    let dependencies = [];
+    const service = createDisplays({ dataDir: dir, onChange: state => changes.push(state), getDependencies: () => dependencies });
     const route = createRoutes(service);
     const server = http.createServer(async (req, res) => {
         if (!await route(req, res, new URL(req.url, 'http://fixture.local'))) { res.writeHead(404); res.end(); }
@@ -64,6 +65,13 @@ test('display API saves atomically, persists, reloads after restore and broadcas
     assert.equal((await fetch(url, { method: 'POST', body: '{"catalogId":""}' })).status, 400);
     assert.equal((await fetch(url, { method: 'POST', body: '{bad}' })).status, 400);
     assert.equal((await fetch(url, { method: 'PATCH' })).status, 405);
+    dependencies = [{ kind: 'overlay', id: 'show', label: 'Show / Player 1 inventory' }];
+    assert.deepEqual((await (await fetch(`${url}/${fixture.display.id}/dependencies`)).json()).dependencies, dependencies);
+    const blocked = await fetch(`${url}/${fixture.display.id}`, { method: 'DELETE' });
+    assert.equal(blocked.status, 409);
+    assert.deepEqual((await blocked.json()).dependencies, dependencies);
+    assert.ok(service.get(fixture.display.id), 'referenced designs remain saved');
+    dependencies = [];
     assert.equal((await fetch(`${url}/${fixture.display.id}`, { method: 'DELETE' })).status, 200);
     assert.equal(service.get(fixture.display.id), null);
     fs.writeFileSync(path.join(dir, 'variable-displays.json'), JSON.stringify([fixture.display]));
@@ -92,8 +100,24 @@ test('table rows follow saved order, typed linked fields, scopes and live list a
     assert.deepEqual(rows({ rows: 'active' }), []);
     assert.deepEqual(rows({ setId: 'schedule', path: ['missing'] }), []);
     sets.push({ id: 'show', slotsCount: 1, slots: ['now'], fields: [{ key: 'events', type: 'ref_list', targetSet: 'schedule' }], roster: [{ id: 'now', values: { events: ['later', 'tonight'] } }] });
-    assert.deepEqual(rows({ setId: 'show', listField: 'events' }), ['later', 'tonight']);
-    assert.deepEqual(rows({ setId: 'show', listField: 'unknown' }), []);
+    assert.deepEqual(rows({ setId: 'show', fields: ['events'] }), ['later', 'tonight']);
+    assert.deepEqual(rows({ setId: 'show', fields: ['unknown'] }), []);
+});
+
+test('migrated badge sources use the same canonical binding as new display placements', () => {
+    const bind = source => normalizeDisplayBinding({ displayId: 'badge', badgeSource: source });
+    assert.deepEqual(bind({ setId: 'people', filterMode: 'inGroup' }), normalizeDisplayBinding({ displayId: 'badge', setId: 'people', rows: 'group' }));
+    assert.equal(bind({ setId: 'people', filterMode: 'inGroup', onlySelected: true }).rows, 'group-slots');
+    const linked = bind({ filterMode: 'linked', linkedSource: { setId: 'schedule', selector: 'slot:1', fields: ['p2', 'p1'] } });
+    assert.equal(linked.setId, 'schedule');
+    assert.deepEqual(linked.fields, ['p2', 'p1']);
+    assert.equal(Object.hasOwn(linked, 'badgeSource'), false);
+    const tracker = bind({ filterMode: 'checklist', linkedSource: { setId: 'people', selector: 'entry:river', fields: ['gear'] }, showMode: 'active' });
+    assert.equal(tracker.tracker, 'gear');
+    assert.deepEqual(getDisplayRows(fixture.sets, { catalogId: 'equipment' }, tracker).entries.map(entry => entry.id), ['sword', 'shield']);
+    const sets = globalThis.structuredClone(fixture.sets);
+    sets[0].roster[0].enabled = false;
+    assert.deepEqual(getDisplayRows(sets, { catalogId: 'equipment' }, tracker).entries.map(entry => entry.id), ['shield']);
 });
 
 test('saved inventories render independently in production/editor and update live without iframe reloads', { timeout: 90000 }, async t => {
@@ -161,6 +185,8 @@ test('saved inventories render independently in production/editor and update liv
     await editor.waitForSelector('[data-display-item="sword"][data-level="2"]');
     const bind = await editor.$eval('[data-path="display.path.0"]', select => select.options[select.selectedIndex].text);
     assert.match(bind, /Player 1/);
+    assert.match(await editor.$eval('[data-display-source-state]', node => node.textContent), /Schedule.*Active entry.*Player 1.*Equipment.*River Vale/);
+    assert.equal(await editor.$('[data-add="image-group"]'), null, 'Group Strip is not available in the editor');
     const send = (type, data) => wss.clients.forEach(socket => socket.send(JSON.stringify({ type, data })));
     await runtime.bringToFront();
     sets[1].roster[0].values.gear.sword = 1;
@@ -177,6 +203,12 @@ test('saved inventories render independently in production/editor and update liv
     sets[2].roster[0].values.p1 = 'sky';
     send('variables-update', { sets, variables: [] });
     await runtime.waitForFunction(() => [...document.querySelectorAll('[data-display-item="sword"]')].every(node => node.dataset.level === '0'));
+    await editor.bringToFront();
+    await editor.waitForFunction(() => document.querySelector('[data-display-source-state]')?.textContent.includes('Sky Meadow'));
+    await runtime.bringToFront();
+    sets[0].roster[0].enabled = false;
+    send('variables-update', { sets, variables: [] });
+    await runtime.waitForFunction(() => !document.querySelector('[data-display-item="sword"]'));
     sets[2].slots = [null];
     send('variables-update', { sets, variables: [] });
     await runtime.waitForFunction(() => !document.querySelector('.sp-variable-display'));
@@ -200,6 +232,26 @@ test('saved inventories render independently in production/editor and update liv
         await builder.setViewport({ width, height: 768 });
         assert.equal(await builder.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true, `Builder fits ${width}px viewport`);
     }
+    sets[2].slots = ['tonight'];
+    send('variables-update', { sets, variables: [] });
+    const directory = await open('/placeholders.html');
+    await directory.waitForSelector('[data-copy="{{var.schedule_1_p1.field.name}}"]');
+    await directory.$eval('#q', input => { input.value = 'Sky Meadow'; input.dispatchEvent(new Event('input', { bubbles: true })); });
+    await directory.waitForSelector('[data-copy="{{var.schedule_1_p1.field.name}}"]');
+    assert.match(await directory.$eval('[data-copy="{{var.schedule_1_p1.field.name}}"]', node => node.closest('tr').textContent), /Schedule.*Player 1.*Name/);
+    assert.equal(await directory.$eval('#chat-tokens-card', node => node.hidden), true, 'unrelated chat-only tokens do not leave an empty search section');
+    await directory.$eval('#q', input => { input.value = 'Schedule Player 1 Name'; input.dispatchEvent(new Event('input', { bubbles: true })); });
+    await directory.waitForSelector('[data-copy="{{var.schedule_1_p1.field.name}}"]');
+    await editor.bringToFront();
+    await editor.evaluate(() => document.querySelector('[data-add="text"]').click());
+    await editor.waitForSelector('#prop-content');
+    await editor.focus('#prop-content');
+    await editor.type('#prop-content', '{{Schedule Player 1 Name');
+    const suggestion = '#placeholder-ac.open [data-token="var.schedule_1_p1.field.name"]';
+    await editor.waitForSelector(suggestion);
+    assert.match(await editor.$eval(suggestion, node => node.textContent), /Sky Meadow/);
+    await editor.click(suggestion);
+    assert.match(await editor.$eval('#prop-content', node => node.value), /\{\{var\.schedule_1_p1\.field\.name\}\}/, 'readable multiword autocomplete inserts the real linked token');
     assert.deepEqual(errors, []);
 });
 
@@ -322,6 +374,18 @@ test('badge library uses persistent active navigation and keeps placement effect
     const selectedMode = () => page.evaluate(() => [...document.querySelectorAll('.tabs-nav .tab-btn.active')]
         .filter(button => ['Badge', 'Strip'].includes(button.textContent.trim())).map(button => button.textContent.trim()));
     assert.deepEqual(await selectedMode(), ['Badge'], 'shared segmented navigation visibly identifies the initial mode');
+    await page.click('.preview-source-details > summary');
+    await page.select('[data-source-path="setId"]', 'schedule');
+    await page.click('[data-source-field][value="p1"]');
+    await page.click('[data-source-field][value="p2"]');
+    await page.waitForFunction(() => document.querySelectorAll('#display-preview .sp-image-group-item').length === 2);
+    assert.equal(await page.$('[data-source-path="rows"]'), null, 'row selection is hidden when linked members determine the output');
+    assert.match(await page.$eval('[data-display-source-state]', node => node.textContent), /Player 1.*Player 2.*2 enabled members/);
+    await page.select('[data-source-path="path.0"]', 'p1');
+    await page.waitForFunction(() => document.querySelectorAll('#display-preview .sp-image-group-item').length === 1);
+    assert.match(await page.$eval('[data-display-source-state]', node => node.textContent), /River Vale/);
+    await page.select('[data-source-path="setId"]', '');
+    await page.click('.preview-source-details > summary');
     for (const width of [1280, 1320, 1366, 1512]) {
         await page.setViewport({ width, height: 768 });
         await page.$eval('#ig-zone-blueprint', node => node.scrollIntoView({ block: 'start' }));

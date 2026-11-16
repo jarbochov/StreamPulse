@@ -826,7 +826,7 @@ async function run() {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyChatbotSnapshot) });
         } else if (new URL(url).pathname === '/api/variable-displays') {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ displays: [inventoryFixture.display, inventoryFixture.table, inventoryFixture.badge], revision: 1 }) });
-        } else if (page.url().includes('variable-displays.html') && new URL(url).pathname === '/api/variables') {
+        } else if ((page.url().includes('variable-displays.html') || page.url().includes('linked=1')) && new URL(url).pathname === '/api/variables') {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ variables: [], sets: inventoryFixture.sets, variableSetsEnabled: true }) });
         } else if (new URL(url).pathname === '/api/variables') {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyVariablesPayload) });
@@ -842,6 +842,16 @@ async function run() {
     });
 
     const targets = [
+        {
+            url: `${baseUrl}/placeholders.html?linked=1`,
+            file: 'linked-placeholders.png',
+            action: async p => {
+                await p.setViewport({ width: 1366, height: 768, deviceScaleFactor: 2 });
+                await p.waitForSelector('[data-copy="{{var.schedule_1_p1.field.name}}"]');
+                await p.type('#q', 'River Vale');
+                await p.waitForSelector('[data-copy="{{var.schedule_1_p1.field.name}}"]');
+            }
+        },
         {
             url: `${baseUrl}/variable-displays.html`,
             file: 'display-library.png',

@@ -15,21 +15,14 @@ function hasVariableColors(path) {
     if (vars.some(v => v && v.type === 'color')) return true;
     const sets = Array.isArray(state.liveStatus?.variableSets) ? state.liveStatus.variableSets : [];
     if (sets.some(s => (s?.fields || []).some(f => f && f.type === 'color'))) return true;
-    return Boolean(path && String(path).includes('imageGroup.') && sets.some(s => (s?.fields || []).some(f => f?.type === 'color')));
+    return false;
 }
 
 function resolveColorPreviewHex(value) {
     const raw = String(value || '').trim();
     if (/^#[0-9a-f]{6}$/i.test(raw)) return raw;
     if (/^#[0-9a-f]{3}$/i.test(raw)) return `#${[...raw.slice(1)].map(c => c + c).join('')}`;
-    if (raw.startsWith('@')) {
-        const key = raw.slice(1).trim();
-        const sets = Array.isArray(state.liveStatus?.variableSets) ? state.liveStatus.variableSets : [];
-        const selectedEl = state.overlay?.elements?.find(e => state.selectedIds?.has(e.id));
-        const setObj = sets.find(s => s.id === selectedEl?.imageGroup?.setId) || sets[0];
-        const sample = String((setObj?.roster || setObj?.entries || [])[0]?.values?.[key] || '').trim();
-        if (/^#[0-9a-f]{6}$/i.test(sample)) return sample;
-    } else if (raw.includes('{{')) {
+    if (raw.includes('{{')) {
         const shared = typeof window !== 'undefined' ? window.OverlayShared : null;
         const resolved = String(shared?.resolveColorToken?.(raw, state.liveStatus || {}, {}) || '').trim();
         if (/^#[0-9a-f]{6}$/i.test(resolved)) return resolved;

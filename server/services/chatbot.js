@@ -438,20 +438,20 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
         return shared;
     }
 
-    async function liveStatus() {
-        if (Date.now() - statusCache.at < 2000 && statusCache.value) return statusCache.value;
-        try {
-            const res = await fetch(`http://127.0.0.1:${port}/api/status`, { signal: AbortSignal.timeout(3000) });
-            if (res.ok) {
-                statusCache = { at: Date.now(), value: await res.json() };
-                return statusCache.value;
-            }
-        } catch { /* fallback */ }
-        return statusCache.value || {};
+    async function liveStatus(includeSets = false) {
+        if (!(Date.now() - statusCache.at < 2000 && statusCache.value)) {
+            try {
+                const res = await fetch(`http://127.0.0.1:${port}/api/status`, { signal: AbortSignal.timeout(3000) });
+                if (res.ok) statusCache = { at: Date.now(), value: await res.json() };
+            } catch { /* fallback */ }
+        }
+        const status = statusCache.value || {};
+        if (!includeSets || status.modules?.variableSets === false || variables?.isModuleEnabled?.() === false) return status;
+        return { ...status, variableSets: variables?.listSets?.() || [] };
     }
 
     async function expand(text) {
-        return String(getShared().expandVariables(text, await liveStatus(), {}, false) || '').replace(/\{\{[^}]*\}\}/g, '').trim();
+        return String(getShared().expandVariables(text, await liveStatus(/\{\{\s*var\./i.test(text)), {}, false) || '').replace(/\{\{[^}]*\}\}/g, '').trim();
     }
 
     const isModuleEnabled = () => {
@@ -928,7 +928,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
                 return json(200, snapshot()), true;
             }
             if (pathname === '/api/chatbot/placeholders' && req.method === 'GET') {
-                const table = getShared().variableTable(await liveStatus(), {});
+                const table = getShared().variableTable(await liveStatus(true), {});
                 const out = {};
                 for (const [k, v] of Object.entries(table)) if (v !== undefined && v !== null && typeof v !== 'object') out[k] = String(v);
                 return json(200, out), true;
@@ -1542,7 +1542,7 @@ const clean = (value, max) => String(value ?? '').replace(/[\r\u0000-\u0008\u000
             keys.forEach(k => announcedDonations.set(k, now));
         }
         const currency = clean(donation.currency, 3).toUpperCase() || 'USD';
-        const status = await liveStatus();
+        const status = await liveStatus(true);
         const lookup = name => (name ? getShared().expandVariables(`{{${name}|money}}`, status, {}, false) : '');
         const message = clean(String(donation.message || '').replace(/\s+/g, ' '), 300);
         const text = String(cfg.template || DEFAULT_DONATION_ANNOUNCEMENTS.template)

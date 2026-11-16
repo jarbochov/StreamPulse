@@ -2,39 +2,16 @@
 // PlaceholderPicker.open({ getStatus, getContext, onPick(token), extraGroups?, extraValues? })
 (function (root) {
     const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+    const matches = (query, text) => query.split(/\s+/).every(term => text.toLowerCase().includes(term));
     let dialog = null, options = null;
 
     function injectStyles() {
         if (document.getElementById('sp-picker-style')) return;
-        const style = document.createElement('style');
-        style.id = 'sp-picker-style';
-        style.textContent = `
-        #sp-picker { width: min(640px, 92vw); max-width: 640px; background: var(--panel, var(--bg-card)); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 1.2rem 1.4rem; }
-        #sp-picker::backdrop { background: #000a; }
-        #sp-picker h3 { margin: 0 0 .4rem; }
-        #sp-picker .hint { color: var(--muted, var(--text-muted)); font-size: 11px; line-height: 1.45; margin: 0; }
-        #sp-picker input { width: 100%; padding: .45rem .6rem; background: var(--bg-inset, var(--panel)); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font: inherit; font-size: .85rem; }
-        #sp-picker button { cursor: pointer; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-raised, var(--panel)); color: var(--text); font: inherit; font-size: .82rem; padding: .4rem .7rem; }
-        #sp-picker button:hover { border-color: var(--accent); }
-        #sp-picker .sp-fmt { display: grid; gap: .25rem; margin-top: .6rem; color: var(--muted, var(--text-muted)); font-size: 11px; }
-        #sp-picker .sp-actions { display: flex; justify-content: flex-end; margin-top: 1rem; }
-        #sp-list { max-height: 55vh; overflow: auto; margin-top: .6rem; }
-        #sp-list h4 { margin: .8rem 0 .3rem; font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted, var(--text-muted)); }
-        #sp-list > button { display: grid; grid-template-columns: 1fr auto; gap: .2rem .8rem; width: 100%; text-align: left; margin-bottom: .25rem; }
-        #sp-list code { grid-column: 1; font-size: .72rem; color: var(--muted, var(--text-muted)); }
-        #sp-list .sep { display: inline-flex; gap: .3rem; margin-left: auto; }
-        #sp-list .sep-input { width: 11rem; padding: .15rem .4rem; font-size: .7rem; }
-        #sp-list .chips { display: flex; flex-wrap: wrap; gap: .3rem; align-items: center; margin: -.1rem 0 .4rem .5rem; font-size: .7rem; color: var(--muted, var(--text-muted)); }
-        #sp-list .chip { width: auto; margin: 0; padding: .15rem .5rem; font-size: .7rem; display: inline-block; }
-        #sp-list .sp-number-format { margin: 0 0 .6rem .5rem; font-size: .75rem; }
-        #sp-list .sp-number-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; margin-top: .4rem; }
-        #sp-list .sp-number-fields label { display: grid; gap: .2rem; min-width: 0; }
-        #sp-list .sp-number-fields select { background: var(--bg-inset); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: .45rem; }
-        #sp-list .sp-number-fields input { box-sizing: border-box; min-width: 0; }
-        #sp-list .preview { grid-row: 1 / span 2; grid-column: 2; align-self: center; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent); display: inline-flex; align-items: center; justify-content: flex-end; gap: 6px; }
-        #sp-picker.is-color-mode .sp-fmt { display: none; }
-        .sp-color-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.35); flex: none; }`;
-        document.head.append(style);
+        const link = document.createElement('link');
+        link.id = 'sp-picker-style';
+        link.rel = 'stylesheet';
+        link.href = '/css/placeholder-picker.css';
+        document.head.append(link);
     }
 
     function build() {
@@ -43,7 +20,7 @@
         dialog.id = 'sp-picker';
         dialog.innerHTML = `<h3 id="sp-title">Insert placeholder</h3>
             <p id="sp-subtitle" class="hint" style="margin:0 0 .5rem">Live values update as data changes. Click one to insert it at your cursor.</p>
-            <input id="sp-search" type="search" placeholder="Search timers, clock, events, goals…">
+            <input id="sp-search" type="search" aria-label="Search placeholders" placeholder="Search timers, clock, events, goals…">
             <div class="sp-fmt"><span>Format <span class="hint">(optional; dates, timer clocks and lists)</span></span>
                 <input id="sp-format" list="sp-format-presets" placeholder="e.g. dddd, MMM D · h:mm A" spellcheck="false"><datalist id="sp-format-presets"></datalist>
                 <span class="hint">YYYY year · MMMM/MMM/MM month · dddd/ddd weekday · D/Do/DD day · h/hh/H/HH hour · mm minutes · ss seconds · A am/pm · [text] literal</span>
@@ -61,8 +38,8 @@
                 const details = numberButton.closest('details');
                 const read = name => details.querySelector(`[name="${name}"]`).value;
                 const token = `${numberButton.dataset.numberKey}|number:${read('digits')}:${read('separator')}:${encodeURIComponent(read('prefix'))}:${encodeURIComponent(read('suffix'))}`;
-                dialog.close();
                 options.onPick(token, { raw: false });
+                dialog.close();
                 return;
             }
             const sepKey = event.target.closest('[data-sep-key]');
@@ -75,8 +52,8 @@
                 token = `${sepKey.dataset.sepKey}|sep:${rawSep.replace(/^ /, '\\s').replace(/ $/, '\\s').replace(/\n/g, '\\n')}`;
             }
             if (!token) return;
-            dialog.close();
             options.onPick(token, { raw });
+            dialog.close();
         });
     }
 
@@ -99,7 +76,7 @@
                 }))
             });
         }
-        const customColorVars = (status?.customVars || []).filter(v => v && v.type === 'color' && v.name);
+        const customColorVars = (status?.customVars || []).filter(v => v && !v.hidden && !v.setId && v.type === 'color' && v.name);
         if (customColorVars.length) {
             groups.push({
                 label: 'Global Color Variables',
@@ -110,36 +87,9 @@
                 }))
             });
         }
-        const setItems = [];
-        for (const setObj of (status?.variableSets || [])) {
-            if (!setObj || !setObj.id) continue;
-            const colorFields = (setObj.fields || []).filter(sf => sf && sf.type === 'color' && sf.key);
-            if (!colorFields.length) continue;
-            const roster = setObj.roster || setObj.entries || [];
-            const activeEntry = roster.find(r => r && r.id === (setObj.activeEntry || setObj.activeEntryId)) || roster[0];
-            const slotCount = Number(setObj.slotsCount) || 0;
-            for (const sf of colorFields) {
-                if (slotCount > 0) {
-                    for (let idx = 1; idx <= slotCount; idx++) {
-                        const tok = `var.${setObj.id}_${idx}_${sf.key}`;
-                        const slotEntryId = Array.isArray(setObj.slots) ? (typeof setObj.slots[idx - 1] === 'string' ? setObj.slots[idx - 1] : setObj.slots[idx - 1]?.entryId) : '';
-                        const slotMember = roster.find(r => r && r.id === slotEntryId) || activeEntry;
-                        setItems.push({
-                            key: tok,
-                            label: `${setObj.label || setObj.name || setObj.id} · Slot ${idx} ${sf.label || sf.key}`,
-                            preview: table[tok] || slotMember?.values?.[sf.key] || ''
-                        });
-                    }
-                } else {
-                    const tok = `var.${setObj.id}_${sf.key}`;
-                    setItems.push({
-                        key: tok,
-                        label: `${setObj.label || setObj.name || setObj.id} · ${sf.label || sf.key}`,
-                        preview: table[tok] || activeEntry?.values?.[sf.key] || ''
-                    });
-                }
-            }
-        }
+        const setItems = root.OverlayShared.variableGroups(status).flatMap(group =>
+            group.items.filter(([, , meta]) => meta?.type === 'color' && !meta.list)
+                .map(([key, label, meta]) => ({ key, label, preview: meta.preview, state: meta.state })));
         if (setItems.length) {
             groups.push({ label: 'Variable Set Colors', items: setItems });
         }
@@ -153,19 +103,16 @@
         const query = dialog.querySelector('#sp-search').value.trim().toLowerCase();
         const colorMode = options.filter === 'color';
         if (options.filter === 'number') {
-            const items = (status.customVars || []).filter(variable => !variable.hidden && ['number', 'counter'].includes(variable.type))
-                .filter(variable => !query || `${variable.name} ${variable.group || ''}`.toLowerCase().includes(query));
-            const byGroup = new Map();
-            for (const variable of items) {
-                const label = variable.group ? `${variable.group} Numbers` : 'Custom Numbers';
-                if (!byGroup.has(label)) byGroup.set(label, []);
-                byGroup.get(label).push(variable);
-            }
-            dialog.querySelector('#sp-list').innerHTML = [...byGroup.entries()].map(([label, list]) =>
-                `<h4>${esc(label)}</h4>` + list.map(variable =>
-                    `<button type="button" data-token="var.${esc(variable.name)}"><span>${esc(variable.name)}</span><code>{{var.${esc(variable.name)}}}</code><span class="preview">${esc(variable.value)}</span></button>`
-                ).join('')
-            ).join('')
+            const vars = (status.customVars || []).filter(v => !v.hidden && !v.setId && ['number', 'counter'].includes(v.type));
+            const bindable = new Set((status.customVars || []).filter(v => !v.hidden && ['number', 'counter'].includes(v.type)).map(v => `var.${v.name}`));
+            const groups = [{ label: 'Custom Numbers', items: vars.map(v => [`var.${v.name}`, v.name, { preview: v.value, search: v.group }]) },
+                ...shared.variableGroups(status).map(group => ({ ...group, items: group.items.filter(([key, , meta]) => bindable.has(key) && ['number', 'counter'].includes(meta?.type) && !meta.list) }))];
+            dialog.querySelector('#sp-list').innerHTML = groups.map(group => {
+                const items = group.items.filter(([key, label, meta]) => !query || matches(query, `${group.label} ${key} ${label} ${meta.preview ?? ''} ${meta.search || ''}`));
+                return items.length ? `<h4>${esc(group.label)}</h4>` + items.map(([key, label, meta]) =>
+                    `<button type="button" data-token="${esc(key)}"><span>${esc(label)}</span><code>{{${esc(key)}}}</code><span class="preview">${esc(meta.preview === '' ? meta.state || 'Empty' : meta.preview)}</span></button>`
+                ).join('') : '';
+            }).join('')
                 || '<p class="hint">No Number variables match. Create one in <a href="/tools/placeholders.html#variables" target="_blank" rel="noopener">Variables</a>.</p>';
             return;
         }
@@ -173,7 +120,7 @@
         if (colorMode) {
             const groups = buildColorGroups(status, table);
             const html = groups.map(group => {
-                const items = group.items.filter(item => !query || `${group.label} ${item.key} ${item.label} ${item.preview || ''}`.toLowerCase().includes(query));
+                const items = group.items.filter(item => !query || matches(query, `${group.label} ${item.key} ${item.label} ${item.preview || ''}`));
                 if (!items.length) return '';
                 return `<h4>${esc(group.label)}</h4>` + items.map(item => {
                     const previewColor = item.preview || '';
@@ -181,7 +128,7 @@
                         ? `<span class="sp-color-dot" style="background-color:${esc(previewColor)}"></span>`
                         : '';
                     const codeText = item.raw ? item.key : `{{${item.key}}}`;
-                    return `<button type="button" data-token="${esc(item.key)}"${item.raw ? ' data-raw-token="1"' : ''}><span>${esc(item.label)}</span><code>${esc(codeText)}</code><span class="preview">${swatch}<span>${esc(previewColor || 'Per member')}</span></span></button>`;
+                    return `<button type="button" data-token="${esc(item.key)}"${item.raw ? ' data-raw-token="1"' : ''}><span>${esc(item.label)}</span><code>${esc(codeText)}</code><span class="preview">${swatch}<span>${esc(previewColor || item.state || (item.raw ? 'Per member' : 'Empty'))}</span></span></button>`;
                 }).join('');
             }).join('');
             dialog.querySelector('#sp-list').innerHTML = html || '<p class="hint">No color variables or member color fields defined yet. Create a Color variable in Variables &amp; Placeholders.</p>';
@@ -222,15 +169,15 @@
             groups = [...options.extraGroups, ...groups];
         }
         const html = groups.map(group => {
-            const items = group.items.filter(([key, label]) => !query || `${group.label} ${key} ${label}`.toLowerCase().includes(query));
+            const items = group.items.filter(([key, label, meta]) => !query || matches(query, `${group.label} ${key} ${label} ${meta?.search || ''} ${meta?.preview ?? table[key] ?? ''}`));
             if (!items.length) return '';
-            return `<h4>${esc(group.label)}</h4>` + items.map(([key, label]) => {
-                const listed = shared.isListKey(key);
-                const dated = format && (listed ? shared.isListFormat(format) : shared.isDateKey(key) && !shared.isListFormat(format));
-                const value = dated ? shared.applyFormat(key, table[key], format, Date.now()) : table[key];
-                const preview = value === undefined || value === null || value === '' ? '—' : String(value);
+            return `<h4>${esc(group.label)}</h4>` + items.map(([key, label, meta]) => {
+                const listed = meta?.list || shared.isListKey(key, table);
+                const dated = format && (listed ? shared.isListFormat(format) : (shared.isDateKey(key) || ['date', 'datetime'].includes(meta?.type)) && !shared.isListFormat(format));
+                const value = dated ? shared.applyFormat(key, table[key], format, Date.now(), table) : table[key];
+                const preview = value === undefined || value === null || value === '' ? meta?.state || 'Empty' : String(value);
                 const token = dated ? `${key}|${format}` : key;
-                const numeric = (status.customVars || []).find(v => `var.${v.name}` === key && ['number', 'counter'].includes(v.type));
+                const numeric = !listed && ((status.customVars || []).find(v => `var.${v.name}` === key && ['number', 'counter'].includes(v.type)) || (['number', 'counter'].includes(meta?.type) ? meta : null));
                 const numberOptions = numeric ? `<details class="sp-number-format"><summary>Number formatting</summary><div class="sp-number-fields">
                     <label>Decimal places<select name="digits">${Array.from({ length: 13 }, (_, i) => `<option value="${i}"${i === (numeric.precision ?? 0) ? ' selected' : ''}>${i}</option>`).join('')}</select></label>
                     <label>Separators<select name="separator"><option value="comma">1,234.56</option><option value="period">1.234,56</option><option value="space">1 234.56</option><option value="none">1234.56</option></select></label>
@@ -255,13 +202,30 @@
         render();
         dialog.showModal();
         dialog.querySelector('#sp-search').focus();
+        const requestOptions = options;
+        const status = options.getStatus() || {};
+        if (status.modules?.variableSets !== false && !Array.isArray(status.variableSets)) {
+            fetch('/api/variables', { cache: 'no-store' }).then(response => response.ok ? response.json() : null).then(data => {
+                if (!data || requestOptions !== options || !dialog.open) return;
+                const current = options.getStatus();
+                if (!current || current.modules?.variableSets === false) return;
+                if (typeof data.variableSetsEnabled === 'boolean') current.modules = { ...current.modules, variableSets: data.variableSetsEnabled };
+                current.variableSets = data.variableSetsEnabled === false ? [] : Array.isArray(data.sets) ? data.sets : [];
+                render();
+            }).catch(() => {});
+        }
     }
 
     // Inserts {{token}} at the cursor of a text field and fires an input event so listeners pick it up.
     function insertInto(field, token) {
-        field.focus();
         field.setRangeText(`{{${token}}}`, field.selectionStart, field.selectionEnd, 'end');
+        const cursor = field.selectionStart;
         field.dispatchEvent(new Event('input', { bubbles: true }));
+        queueMicrotask(() => {
+            if (!field.isConnected) return;
+            field.focus();
+            field.setSelectionRange(cursor, cursor);
+        });
     }
 
     root.PlaceholderPicker = { open, insertInto };

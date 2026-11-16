@@ -1378,16 +1378,16 @@
         (async () => {
             shared.loadAssetFonts?.().catch(() => null);
             const needVars = usesVarSets(overlay);
-            const [statusResponse, varsData] = await Promise.all([
-                fetch('/api/status', { cache: 'no-store' }).catch(() => null),
-                needVars ? fetch('/api/variables', { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).catch(() => null) : Promise.resolve(null)
-            ]);
+            const statusResponse = await fetch('/api/status', { cache: 'no-store' }).catch(() => null);
             try {
                 if (statusResponse?.ok) liveStatus = { ...liveStatus, ...(await statusResponse.json()) };
             } catch {}
-            if (needVars) {
+            if (needVars && liveStatus.modules?.variableSets !== false) {
+                const varsData = await fetch('/api/variables', { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).catch(() => null);
                 if (varsData) {
-                    liveStatus = { ...liveStatus, customVars: varsData.variables || liveStatus.customVars, variableSets: varsData.sets || [] };
+                    liveStatus = { ...liveStatus, customVars: varsData.variables || liveStatus.customVars,
+                        variableSets: varsData.variableSetsEnabled === false ? [] : varsData.sets || [],
+                        modules: typeof varsData.variableSetsEnabled === 'boolean' ? { ...liveStatus.modules, variableSets: varsData.variableSetsEnabled } : liveStatus.modules };
                 } else if (!Array.isArray(liveStatus.variableSets)) {
                     liveStatus = { ...liveStatus, variableSets: [] };
                 }
@@ -1652,7 +1652,8 @@
                     liveStatus = {
                         ...liveStatus,
                         customVars: message.data.variables || [],
-                        variableSets: Array.isArray(message.data.sets) ? message.data.sets : liveStatus.variableSets
+                        variableSets: message.data.variableSetsEnabled === false ? undefined : Array.isArray(message.data.sets) ? message.data.sets : liveStatus.variableSets,
+                        modules: typeof message.data.variableSetsEnabled === 'boolean' ? { ...liveStatus.modules, variableSets: message.data.variableSetsEnabled } : liveStatus.modules
                     };
                     varRotEngine.recompute();
                     if (message.data.rotated && varRotEngine.serverRotated(message.data.rotated)) return;
@@ -1662,7 +1663,7 @@
                     if (message.data.overlay) {
                         if (pagesOn(message.data.overlay) && pageParam) currentPage = resolvePage(message.data.overlay, pageParam) || currentPage;
                         liveStatus.overlayName = message.data.overlay.name;
-                        if (usesVarSets(message.data.overlay) && !liveStatus.variableSets) {
+                        if (usesVarSets(message.data.overlay) && !liveStatus.variableSets && liveStatus.modules?.variableSets !== false) {
                             fetch('/api/variables', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(d => {
                                 if (d) liveStatus = { ...liveStatus, variableSets: d.sets || [] };
                                 setupVarRotations(message.data.overlay);

@@ -1,5 +1,6 @@
 import numericBindings from '../../../shared/numeric-bindings.cjs';
 import { loadDisplayLibrary } from './displays.js';
+import { linkedPlaceholders } from './linked-placeholders.js';
 const VARIABLE_GROUPS = [
     { label: 'Viewers', items: [['viewers.current', 'Current viewers'], ['viewers.peak', 'Peak viewers'], ['viewers.average', 'Average viewers']] },
     { label: 'Chat', items: [['chatters', 'Chatters'], ['messages', 'Messages'], ['followers', 'Followers (current total)'], ['followers.session', 'New followers this session'], ['subscribers', 'Subscribers (current total)'], ['subscribers.session', 'Subscribers seen this session'], ['emotes', 'Different emotes used this session'], ['raids', 'Raids this session'], ['highlights', 'Saved highlights'], ['clips.pending', 'Clip candidates waiting']] },
@@ -319,7 +320,7 @@ function variableGroups(status = {}) {
     const groups = VARIABLE_GROUPS.map(g => ({ label: g.label, items: g.items.slice() }));
     groups.push({ label: 'Clock', items: CLOCK_ITEMS });
     const setsEnabled = status.modules?.variableSets !== false;
-    const customVars = (status.customVars || []).filter(v => !v.hidden && (setsEnabled || !v.setId));
+    const customVars = (status.customVars || []).filter(v => !v.hidden && !v.setId);
     const customGroups = new Map();
     for (const v of customVars) {
         const label = v.group && !v.setId ? `Variables: ${v.group}` : 'Variables and counters';
@@ -329,6 +330,7 @@ function variableGroups(status = {}) {
         if (v.icon) customGroups.get(label).push([`var.${v.name}.icon`, `${v.name} icon (${v.icon})`]);
     }
     for (const [label, items] of customGroups) groups.push({ label, items });
+    if (setsEnabled) groups.push(...linkedPlaceholders(status).groups);
     if (status.weather?.enabled) {
         groups.push({ label: 'Weather', items: WEATHER_ITEMS });
         for (const [slug, extra] of Object.entries(status.weather.extras || {})) {
@@ -595,6 +597,7 @@ function subathonValues(status) {
 }
 
 function variableTable(status = {}, context = {}, now = Date.now()) {
+    const linked = linkedPlaceholders(status);
     const table = {
         ...clockValues(status, now),
         ...eventValues(status),
@@ -611,7 +614,7 @@ function variableTable(status = {}, context = {}, now = Date.now()) {
         ...triviaValues(status, now),
         ...tierListValues(status, now),
         ...subathonValues(status),
-        ...customVarValues(status),
+        ...customVarValues(status, linked, now),
         'stream.category': status.stream?.category?.name,
         'stream.live': status.viewers?.live ? 'yes' : 'no',
         'session.started': status.startedAt,
@@ -678,7 +681,9 @@ function variableTable(status = {}, context = {}, now = Date.now()) {
         'game.platforms': status.stream?.game?.platforms || []
     };
     for (const list of status.gamePlan?.lists || []) lists[`plan.list.${list.id}`] = planItems.filter(item => inPlanList(item, list.id)).map(item => item.name);
+    Object.assign(lists, linked.lists);
     Object.defineProperty(table, '__lists', { value: lists, enumerable: false });
+    Object.defineProperty(table, '__types', { value: linked.types, enumerable: false });
     return table;
 }
 
@@ -734,7 +739,7 @@ function formatDuration(ms, format) {
 }
 
 const isListFormat = format => /^(lines|newline|br|bullets|numbered|sep:|\d+(:|$))/i.test(String(format || '').trim());
-const isListKey = name => /^(plan\.scheduled|plan\.backlog|plan\.list\..+|game\.genres|game\.platforms)$/.test(name);
+const isListKey = (name, table = {}) => Object.hasOwn(table.__lists || {}, name) || /^(plan\.scheduled|plan\.backlog|plan\.list\..+|game\.genres|game\.platforms)$/.test(name);
 
 function applyFormat(name, value, format, now, table = {}) {
     if (!format) return value;
@@ -744,7 +749,7 @@ function applyFormat(name, value, format, now, table = {}) {
         if (value === '' || value === undefined || value === null || !Number.isFinite(n)) return value;
         try { return new Intl.NumberFormat('en-US', { style: 'currency', currency: (money[1] || 'USD').toUpperCase() }).format(n); } catch { return n.toFixed(2); }
     }
-    if (isListKey(name)) {
+    if (isListKey(name, table)) {
         const items = (table.__lists?.[name] || String(value ?? '').split(', ')).filter(Boolean);
         if (/^(lines|newline|br)$/i.test(format)) return items.join('\n');
         if (/^bullets$/i.test(format)) return items.map(item => `• ${item}`).join('\n');
@@ -759,9 +764,18 @@ function applyFormat(name, value, format, now, table = {}) {
     return date ? formatDate(date, format) : value;
 }
 
-function customVarValues(status) {
-    const vars = status.customVars || [];
-    const entries = Object.fromEntries(vars.map(v => [`var.${v.name}`, v.value]));
+function customVarValues(status, linked = { values: {}, lists: {}, types: {} }, now = Date.now()) {
+    const sets = new Map((status.modules?.variableSets === false ? [] : status.variableSets || []).map(set => [set.id, set]));
+    const vars = (status.customVars || []).filter(v => !v.setId || sets.has(v.setId));
+    const safeMaterialized = v => {
+        if (!v.setId) return true;
+        const suffix = v.name.slice(v.setId.length + 1);
+        if (['group', 'group_count', 'group_members'].includes(suffix)) return true;
+        const match = /^(?:group|joined)_(.+)$/.exec(suffix);
+        const field = match && (sets.get(v.setId)?.fields || []).find(f => f.key === match[1]);
+        return Boolean(field && !['ref', 'ref_list', 'checklist'].includes(field.type));
+    };
+    const entries = { ...Object.fromEntries(vars.filter(safeMaterialized).map(v => [`var.${v.name}`, v.value])), ...linked.values };
     for (const v of vars) {
         if (v.type === 'list' && v.items?.length) {
             entries[`var.${v.name}.random`] = v.items[Math.floor(Math.random() * v.items.length)];
@@ -769,7 +783,8 @@ function customVarValues(status) {
         if (v.icon) entries[`var.${v.name}.icon`] = v.icon;
     }
     // Templates may reference other templates in any order; depth 3, cycles resolve empty.
-    const templates = new Map(vars.filter(v => v.type === 'template').map(v => [`var.${v.name}`, String(v.value ?? '')]));
+    const templates = new Map(vars.filter(v => v.type === 'template' && !v.setId).map(v => [`var.${v.name}`, String(v.value ?? '')]));
+    for (const [key, type] of Object.entries(linked.types)) if (type === 'template') templates.set(key, String(linked.values[key] ?? ''));
     const done = new Map();
     const resolving = new Set();
     const resolve = (key, depth) => {
@@ -780,7 +795,17 @@ function customVarValues(status) {
         const text = templates.get(key).replace(/\{\{\s*var\.([a-zA-Z0-9_.-]+)\s*(?:\|([^{}]*?))?\s*\}\}/g, (_, ref, fb) => {
             const val = resolve(`var.${ref}`, depth + 1);
             const str = val === undefined || val === null ? '' : String(val);
-            return str !== '' ? str : (fb !== undefined ? fb.trim() : '');
+            if (fb === undefined) return str;
+            const format = fb.trim();
+            const refKey = `var.${ref}`;
+            if (isListKey(refKey, { __lists: linked.lists })) return String(applyFormat(refKey, val, fb.replace(/^\s+/, ''), now, { __lists: linked.lists }));
+            if (!str) {
+                const setVar = (status.customVars || []).some(v => v.setId && (ref === v.name || ref.startsWith(`${v.name}.`)));
+                return setVar && !linked.types[refKey] && isListFormat(format) ? '' : format;
+            }
+            const type = linked.types[refKey] || vars.find(v => `var.${v.name}` === refKey)?.type;
+            if (['number', 'counter'].includes(type)) return formatNumberVariable(val, format) ?? str;
+            return String(applyFormat(refKey, val, format, now));
         });
         resolving.delete(key);
         done.set(key, text);
@@ -812,8 +837,10 @@ function formatNumberVariable(value, format) {
 function expandVariables(value, status, context = {}, keepEmpty = false, _depth = 0) {
     const now = Date.now();
     const table = variableTable(status, context, now);
-    const tplMap = new Map((status.customVars || []).filter(v => v.type === 'template').map(v => [`var.${v.name}`, v.value]));
-    const numberNames = new Set((status.customVars || []).filter(v => v.type === 'number' || v.type === 'counter').map(v => `var.${v.name}`));
+    const enabledVars = (status.customVars || []).filter(v => status.modules?.variableSets !== false || !v.setId);
+    const tplMap = new Map(enabledVars.filter(v => v.type === 'template' && !v.setId).map(v => [`var.${v.name}`, v.value]));
+    for (const [key, type] of Object.entries(table.__types)) if (type === 'template') tplMap.set(key, table[key]);
+    const numberNames = new Set(enabledVars.filter(v => v.type === 'number' || v.type === 'counter').map(v => `var.${v.name}`));
     return String(value ?? '').replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*(?:\|([^{}]*?))?\s*\}\}/g, (match, name, format) => {
         if (name.startsWith('var.') && name.endsWith('.icon')) {
             const iconCls = String(table[name] || '').trim();
@@ -833,7 +860,8 @@ function expandVariables(value, status, context = {}, keepEmpty = false, _depth 
             }
             return keepEmpty ? match : '';
         }
-        if (name.startsWith('var.') && format !== undefined && !isListKey(name)) {
+        const isNumber = !isListKey(name, table) && (numberNames.has(name) || ['number', 'counter'].includes(table.__types[name]));
+        if (name.startsWith('var.') && format !== undefined && !isListKey(name, table)) {
             const trimmedFmt = format.trim();
             const raw = table[name];
             const str = raw === undefined || raw === null ? '' : String(raw);
@@ -845,12 +873,15 @@ function expandVariables(value, status, context = {}, keepEmpty = false, _depth 
                 return trimmedFmt === 'icon' ? iconTok : (context?.inlineIcons ? `${iconTok} ${str}` : str);
             }
             if (str === '') {
+                const setVar = (status.customVars || []).some(v => v.setId && (name === `var.${v.name}` || name.startsWith(`var.${v.name}.`)));
+                if (setVar && !table.__types[name] && isListFormat(trimmedFmt)) return '';
+                if (table.__types[name] && (/^number:/.test(trimmedFmt) || ['date', 'datetime', 'time'].includes(table.__types[name]))) return '';
                 const fb = trimmedFmt;
                 return fb === '' && keepEmpty ? match : fb;
             }
         }
-        const numeric = numberNames.has(name) ? formatNumberVariable(table[name], format?.trim()) : undefined;
-        const resolved = numeric !== undefined ? numeric : format === undefined || numberNames.has(name) ? table[name] : applyFormat(name, table[name], isListKey(name) ? format.replace(/^\s+/, '') : format.trim(), now, table);
+        const numeric = isNumber && table[name] !== '' ? formatNumberVariable(table[name], format?.trim()) : undefined;
+        const resolved = numeric !== undefined ? numeric : format === undefined || isNumber ? table[name] : applyFormat(name, table[name], isListKey(name, table) ? format.replace(/^\s+/, '') : format.trim(), now, table);
         const text = resolved === undefined || resolved === null ? '' : String(resolved);
         return text === '' && keepEmpty ? match : text;
     });
@@ -868,9 +899,25 @@ function variableSnapshot(status, context) {
     return JSON.stringify(table);
 }
 
+let pendingSets = null;
+let retrySetsAt = 0;
 async function loadLiveExtras(status, elements = null) {
-    await loadDisplayLibrary(status, elements);
+    if (status.modules?.variableSets !== false) await loadDisplayLibrary(status, elements);
     try {
+        const needsSets = !Array.isArray(elements) || elements.some(el => el.type === 'alert' || /\{\{\s*var\./i.test(JSON.stringify(el)));
+        if (needsSets && status.modules?.variableSets !== false && !Array.isArray(status.variableSets) && Date.now() >= retrySetsAt) {
+            try {
+                if (!pendingSets) pendingSets = fetch('/api/variables', { cache: 'no-store' }).then(async response => {
+                    if (!response.ok) throw new Error('Variable sets unavailable');
+                    const data = await response.json();
+                    if (!Array.isArray(data.sets)) throw new Error('Invalid variable sets');
+                    return data;
+                }).finally(() => { pendingSets = null; });
+                const data = await pendingSets;
+                if (typeof data.variableSetsEnabled === 'boolean') status.modules = { ...status.modules, variableSets: data.variableSetsEnabled };
+                status.variableSets = data.variableSetsEnabled === false ? [] : data.sets;
+            } catch { retrySetsAt = Date.now() + 5000; }
+        }
         let needTimers = true, needGoals = true, needPlan = true, needWeather = true;
         if (Array.isArray(elements)) {
             const raw = elements.map(el => `${el.type || ''} ${el.content || ''} ${el.progress?.label || ''} ${(el.items || []).join(' ')}`).join(' ');

@@ -3,7 +3,7 @@
  */
 
 import {
-    $, esc, state, pagesOn, byId, setSelection, changed, displayName, toast, defaultImageGroupConfig
+    $, esc, state, pagesOn, byId, setSelection, changed, displayName, toast
 } from './editor-state.js';
 
 const TRANSITION_OPTIONS = [
@@ -50,8 +50,7 @@ export function loadVariableSets({ force = false } = {}) {
                 state.liveStatus.modules = { ...(state.liveStatus.modules || {}), variableSets: d.variableSetsEnabled };
                 const tabSets = $('tab-sets');
                 if (tabSets) tabSets.hidden = !d.variableSetsEnabled;
-                const groupStripBtn = $('menu-add-image-group');
-                if (groupStripBtn) groupStripBtn.hidden = !d.variableSetsEnabled;
+                if ($('menu-add-data-display')) $('menu-add-data-display').hidden = !d.variableSetsEnabled;
             }
         }
         loadingSets = false;
@@ -69,8 +68,15 @@ export function findElementsUsingSet(setId) {
     const normalized = String(setId).toLowerCase();
     const needle = `{{var.${normalized}_`;
     return (state.overlay.elements || []).filter(el => {
-        if (el.type === 'image' && el.imageGroup?.enabled && String(el.imageGroup?.setId || '').toLowerCase() === normalized) {
-            return true;
+        if (el.type === 'data-display') {
+            const sets = state.liveStatus?.variableSets || [];
+            const definition = state.liveStatus?.variableDisplays?.find(display => display.id === el.display?.displayId);
+            if ([el.display?.setId, definition?.catalogId].some(id => String(id || '').toLowerCase() === normalized)) return true;
+            let source = sets.find(set => set.id === el.display?.setId);
+            for (const key of el.display?.path || []) {
+                source = sets.find(set => set.id === source?.fields?.find(field => field.key === key && field.type === 'ref')?.targetSet);
+                if (source?.id?.toLowerCase() === normalized) return true;
+            }
         }
         const hay = [el.content, ...(el.items || []), el.src, el.embedUrl, el.qrText, el.progress?.label]
             .filter(Boolean).join(' ').toLowerCase();
