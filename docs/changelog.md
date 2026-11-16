@@ -35,6 +35,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - **Alerts replay**: Support replaying the last `1`–`50` shown alerts in order via `POST` or `GET /api/alerts/replay?count=N` (defaults to `1`).
 
 ### Fixed
+- **Overlay rendering**: Cull off-screen stars, cache particle seeds, reduce grain/radial-border repainting and pause hidden-tab effects.
 - **Poll element**: Labels and help now identify native StreamPulse and Twitch polls, with native voting/results taking priority.
 - **Overlay editor**: Keep color pickers open during slider adjustments; refresh dependent controls after editing.
 - **Analytics CRM**: Prevent `td .sub` from stretching `.tag-badge.sub` subscriber pills full-width.

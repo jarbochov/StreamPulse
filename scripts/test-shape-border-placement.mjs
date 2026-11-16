@@ -213,7 +213,7 @@ try {
             for (const placement of placements) {
                 await render(page, mode, makeFixture({ borderPlacement: placement, shape: 'circle', borderAnimation: { type, color2: '#ff0000', size: 100 } }));
                 await bounds(page, mode, 12 * ({ inside: 0, center: 0.5, outside: 1 }[placement]));
-                const painted = await page.$eval(nodeSelector(mode), node => getComputedStyle(node._borderFxRing).animationName);
+                const painted = await page.$eval(nodeSelector(mode), node => getComputedStyle(node._borderFxRing.querySelector('[data-border-fx="radial"]') || node._borderFxRing).animationName);
                 assert.notEqual(painted, 'none', `${mode}/${type}: actual animated renderer must remain enabled`);
                 assert.ok((await pixels(page)).outerCorner[1] > 200, `${mode}/${type}: ellipse corners must not become rectangular`);
             }

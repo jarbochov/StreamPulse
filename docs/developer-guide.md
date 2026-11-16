@@ -48,6 +48,8 @@ The bundle remains a synchronous classic script exposing `window.OverlayShared`.
 
 `StreamPulsePatterns.drawProceduralPattern(..., { detail: 'exact' })` bypasses dense procedural sampling for fidelity checks; the default samples selected motifs at zoom <=20% on canvases of at least 768×768 equivalent area. Browser loop exports use two scratch surfaces for a forward-motion seam crossfade. Canvas-less test contexts retain the vector fallback rather than that raster transition.
 
+Starfields and sparkles cache deterministic particle seeds (at most 8,000 particles) and cull against the inverse-transformed canvas viewport, preserving visible pixels under zoom, pan and rotation. Film grain moves a cached texture using transforms rather than repainting its background. Radial borders move a gradient behind a fixed SVG mask; promoted gradient surfaces are limited to 4 MP, with the original background-position renderer retained above that bound. Hidden documents pause CSS effects and pattern frames without overriding a user's manual Effects pause. Unsupported starfield spin alone does not schedule animation frames.
+
 ### Run Full Test Suite
 
 ```bash

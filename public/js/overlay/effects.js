@@ -7,19 +7,20 @@ import { root } from './environment.js';
 const patternRunners = new Set();
 let fxPaused = false;
 function fxResume() {
+    if (typeof document !== 'undefined') {
+        document.documentElement.classList.toggle('sp-fx-paused', fxPaused || document.hidden);
+    }
     for (const wake of patternRunners) wake();
 }
 function setEffectsPaused(paused) {
     fxPaused = !!paused;
-    if (typeof document !== 'undefined') {
-        document.documentElement.classList.toggle('sp-fx-paused', fxPaused);
-    }
     if (root.OverlayFilters?.setEffectsPaused) root.OverlayFilters.setEffectsPaused(paused);
     if (root.OverlayRetro?.setEffectsPaused) root.OverlayRetro.setEffectsPaused(paused);
     fxResume();
 }
 if (typeof document !== 'undefined') {
     document.addEventListener('visibilitychange', fxResume);
+    if (document.hidden) fxResume();
 }
 
 export { fxPaused, patternRunners, setEffectsPaused };

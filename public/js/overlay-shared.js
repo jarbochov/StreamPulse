@@ -271,13 +271,13 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
 
   // public/js/overlay/effects.js
   function fxResume() {
+    if (typeof document !== "undefined") {
+      document.documentElement.classList.toggle("sp-fx-paused", fxPaused || document.hidden);
+    }
     for (const wake of patternRunners) wake();
   }
   function setEffectsPaused(paused) {
     fxPaused = !!paused;
-    if (typeof document !== "undefined") {
-      document.documentElement.classList.toggle("sp-fx-paused", fxPaused);
-    }
     if (root.OverlayFilters?.setEffectsPaused) root.OverlayFilters.setEffectsPaused(paused);
     if (root.OverlayRetro?.setEffectsPaused) root.OverlayRetro.setEffectsPaused(paused);
     fxResume();
@@ -290,6 +290,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       fxPaused = false;
       if (typeof document !== "undefined") {
         document.addEventListener("visibilitychange", fxResume);
+        if (document.hidden) fxResume();
       }
     }
   });
@@ -664,7 +665,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     if (document.getElementById("sp-border-keyframes")) return;
     const tag = document.createElement("style");
     tag.id = "sp-border-keyframes";
-    tag.textContent = '@property --sp-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; } @keyframes sp-border-spin { from { --sp-angle: 0deg; } to { --sp-angle: 360deg; } } @keyframes sp-border-pulse { 0%, 100% { opacity: 0.35; filter: brightness(0.85); } 50% { opacity: 1; filter: brightness(1.38) drop-shadow(0 0 10px currentColor); } } @keyframes sp-border-surge { 0%, 52%, 100% { opacity: 0.72; filter: brightness(0.95); } 60% { opacity: 1; filter: brightness(1.9) drop-shadow(0 0 14px currentColor); } 67% { opacity: 0.52; filter: brightness(0.82); } 74% { opacity: 1; filter: brightness(1.75) drop-shadow(0 0 10px currentColor); } 88% { opacity: 0.82; filter: brightness(1.06); } } @keyframes sp-border-gradient-shift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } } @keyframes sp-border-rainbow { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } } @keyframes sp-border-marching { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -32; } } @keyframes sp-border-marching-bg { from { background-position: 0 0; } to { background-position: 40px 0; } } @keyframes sp-border-laser { from { --sp-angle: 0deg; } to { --sp-angle: 360deg; } } @keyframes sp-border-plasma { 0% { --sp-angle: 0deg; filter: saturate(1.15) brightness(1); } 50% { --sp-angle: 180deg; filter: saturate(1.5) brightness(1.26); } 100% { --sp-angle: 360deg; filter: saturate(1.15) brightness(1); } } @keyframes sp-border-radial-circuit { 0% { background-position: 0% 0%; } 25% { background-position: 100% 0%; } 50% { background-position: 100% 100%; } 75% { background-position: 0% 100%; } 100% { background-position: 0% 0%; } } @keyframes sp-border-radial-circuit-rev { 0% { background-position: 0% 0%; } 25% { background-position: 0% 100%; } 50% { background-position: 100% 100%; } 75% { background-position: 100% 0%; } 100% { background-position: 0% 0%; } } .sp-fx-paused [data-border-fx], .sp-fx-paused [data-border-ring], .sp-fx-paused [data-border-fx-ring] { animation-play-state: paused !important; }';
+    tag.textContent = '@property --sp-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; } @keyframes sp-border-spin { from { --sp-angle: 0deg; } to { --sp-angle: 360deg; } } @keyframes sp-border-pulse { 0%, 100% { opacity: 0.35; filter: brightness(0.85); } 50% { opacity: 1; filter: brightness(1.38) drop-shadow(0 0 10px currentColor); } } @keyframes sp-border-surge { 0%, 52%, 100% { opacity: 0.72; filter: brightness(0.95); } 60% { opacity: 1; filter: brightness(1.9) drop-shadow(0 0 14px currentColor); } 67% { opacity: 0.52; filter: brightness(0.82); } 74% { opacity: 1; filter: brightness(1.75) drop-shadow(0 0 10px currentColor); } 88% { opacity: 0.82; filter: brightness(1.06); } } @keyframes sp-border-gradient-shift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } } @keyframes sp-border-rainbow { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } } @keyframes sp-border-marching { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -32; } } @keyframes sp-border-marching-bg { from { background-position: 0 0; } to { background-position: 40px 0; } } @keyframes sp-border-laser { from { --sp-angle: 0deg; } to { --sp-angle: 360deg; } } @keyframes sp-border-plasma { 0% { --sp-angle: 0deg; filter: saturate(1.15) brightness(1); } 50% { --sp-angle: 180deg; filter: saturate(1.5) brightness(1.26); } 100% { --sp-angle: 360deg; filter: saturate(1.15) brightness(1); } } @keyframes sp-border-radial-circuit { 0%,100% { transform:translate(0,0); } 25% { transform:translate(var(--sp-border-travel),0); } 50% { transform:translate(var(--sp-border-travel),var(--sp-border-travel)); } 75% { transform:translate(0,var(--sp-border-travel)); } } @keyframes sp-border-radial-circuit-rev { 0%,100% { transform:translate(0,0); } 25% { transform:translate(0,var(--sp-border-travel)); } 50% { transform:translate(var(--sp-border-travel),var(--sp-border-travel)); } 75% { transform:translate(var(--sp-border-travel),0); } } @keyframes sp-border-radial-paint { 0%,100% { background-position:0% 0%; } 25% { background-position:100% 0%; } 50% { background-position:100% 100%; } 75% { background-position:0% 100%; } } @keyframes sp-border-radial-paint-rev { 0%,100% { background-position:0% 0%; } 25% { background-position:0% 100%; } 50% { background-position:100% 100%; } 75% { background-position:100% 0%; } } .sp-fx-paused [data-border-fx], .sp-fx-paused [data-border-ring], .sp-fx-paused [data-border-fx-ring] { animation-play-state: paused !important; }';
     document.head.appendChild(tag);
   }
   function computeBoxShadow(style = {}, width = 0, outset = 0) {
@@ -1268,6 +1269,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         let colorRule = "";
         let filterRule = isNeon ? `drop-shadow(0 0 ${Math.max(5, width * 1.5)}px ${neonGlowCol})` : "";
         let dimNeonFrame = false;
+        let radialSurface = 0;
         if (animType === "rotating") {
           const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 4));
           const size = Math.max(10, Math.min(100, Number(anim.size) || 35));
@@ -1313,6 +1315,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           const mid = anim.color3 && anim.color3 !== "transparent" && anim.color3 !== "none" ? anim.color3 : basePaintMid;
           const pctSize = Math.max(160, Math.min(320, Math.round(150 + size * 1.5)));
           bgSize = `${pctSize}% ${pctSize}%`;
+          if (rw * rh * (pctSize / 100) ** 2 <= 4194304) radialSurface = pctSize;
           let stops = "";
           if (mode === "rainbow") {
             stops = "#ff0055 0%, #ff9900 17%, #ffee00 33%, #00ff66 50%, #00bbff 67%, #8800ff 83%, #ff0055 100%";
@@ -1327,7 +1330,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
             stops = mid ? `${head} 0%, ${mid} ${Math.round(spreadRatio * 0.45)}%, ${trail} ${spreadRatio}%, transparent ${Math.min(100, Math.round(spreadRatio * 1.5))}%` : `${head} 0%, ${trail} ${spreadRatio}%, transparent ${Math.min(100, Math.round(spreadRatio * 1.5))}%`;
             dimNeonFrame = true;
           }
-          const animName = direction === "ccw" ? "sp-border-radial-circuit-rev" : "sp-border-radial-circuit";
+          const animName = radialSurface ? direction === "ccw" ? "sp-border-radial-circuit-rev" : "sp-border-radial-circuit" : direction === "ccw" ? "sp-border-radial-paint-rev" : "sp-border-radial-paint";
           const animDir = direction === "alternate" ? "alternate" : "normal";
           paintBg = `radial-gradient(circle, ${stops})`;
           animRule = `${animName} ${speed}s ease-in-out infinite ${animDir}`;
@@ -1358,12 +1361,19 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           bgSize = "40px 40px";
           animRule = `sp-border-marching-bg ${speed}s linear infinite`;
         }
-        const fxSig = `fx|${paintBg}|${bgSize}|${animRule}|${colorRule}|${filterRule}`;
+        const fxSig = `fx|${paintBg}|${bgSize}|${animRule}|${colorRule}|${filterRule}|${radialSurface}`;
         if (fxRing._sig !== fxSig) {
           fxRing._sig = fxSig;
           fxRing._maskSig = null;
           fxRing.querySelectorAll("svg").forEach((el) => el.remove());
-          fxRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border-radius:inherit;pointer-events:none;background:${paintBg};background-size:${bgSize};animation:${animRule};z-index:2;` + (colorRule ? `color:${colorRule};` : "") + (filterRule ? `filter:${filterRule};` : "");
+          fxRing.querySelector('[data-border-fx="radial"]')?.remove();
+          fxRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border-radius:inherit;pointer-events:none;background:${radialSurface ? "transparent" : paintBg};background-size:${bgSize};animation:${radialSurface ? "none" : animRule};z-index:2;` + (colorRule ? `color:${colorRule};` : "") + (filterRule ? `filter:${filterRule};` : "");
+          if (radialSurface) {
+            const surface = document.createElement("div");
+            surface.dataset.borderFx = "radial";
+            surface.style.cssText = `position:absolute;top:0;left:0;width:${radialSurface}%;height:${radialSurface}%;background:${paintBg};--sp-border-travel:${-100 * (radialSurface - 100) / radialSurface}%;animation:${animRule};`;
+            fxRing.appendChild(surface);
+          }
         }
         applyRingStyleMask(fxRing, borderStyle, width, rw, rh, style, element, outset, isNeon, neonGlowCol, dimNeonFrame);
       }
@@ -5727,7 +5737,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     const procP = element.pattern || {};
     const pMotion = options.animate === false ? "none" : procP.motion || "none";
     const pInPlace = options.animate === false ? "none" : procP.inPlace ?? (pMotion !== "none" ? "auto" : "none");
-    const pSpin = options.animate === false ? "none" : procP.spin || "none";
+    const pSpin = options.animate === false || procP.preset === "starfield" ? "none" : procP.spin || "none";
     const pColorAnim = options.animate === false ? "none" : procP.colorAnim || "none";
     const hasProcAnim = pMotion !== "none" || pInPlace !== "none" && pInPlace !== false && pInPlace !== 0 || pSpin !== "none" && pSpin !== false || pColorAnim !== "none";
     return { procP, pMotion, pInPlace, pSpin, pColorAnim, hasProcAnim };

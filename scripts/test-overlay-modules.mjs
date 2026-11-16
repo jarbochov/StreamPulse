@@ -46,6 +46,10 @@ try {
     });
 
     const publicKeys = 'cleanupMedia cleanupNode alertSample ALERT_SAMPLE ALERT_SAMPLE_IMAGE setEffectsPaused isListKey isListFormat LIST_FORMAT_PRESETS applyBorderEffects BORDER_STYLES BORDER_ANIM_TYPES TEXT_ANIM_TYPES applyBorderGradient applyTextAnimation resolveBorderRadius resolveColorToken resolveStyleVariables renderImageGroupStrip hasBoxFill textEffectStyle wrapMarquee fitText refreshTextSources pruneSourceCaches textSourceState textSourceKey elementContent elementItems qrUrl renderIcon renderInlineText sanitizeIconClass prepareAlertNode playAlert playBuiltinSound playSoundValue resolveSoundUrl zzfxSamples BUILTIN_SOUNDS renderGameList renderSpeakerBadge matchesPeriodFilter matchesPeriodToken mountSlideshow slideshowItems mountPattern mountTextCycle resolveCycleLines createVarRotationEngine decorationStyle renderProgress GOOGLE_FONTS VARIABLE_GROUPS variableGroups variableTable formatDuration formatDate applyFormat isDateKey FORMAT_PRESETS hasTicking loadLiveExtras assetFonts loadAssetFonts expandVariables variableSnapshot renderMarkdown loadGoogleFont parseYouTubeUrl embedUrl applyMediaFilter shadowClipStyle borderPlacement ALERT_PRESENTATION_KEYS resolveAlertLook normalizeNumericBindings numericBindingField resolveNumericConfig resolveNumericElement'.split(' ').sort();
+    const hiddenPreload = await page.evaluateOnNewDocument(() => Object.defineProperty(document, 'hidden', { configurable: true, value: true }));
+    await page.goto(`${origin}/`);
+    assert.equal(await page.evaluate(() => document.documentElement.classList.contains('sp-fx-paused')), true, 'effects start paused when the document loads in the background');
+    await page.removeScriptToEvaluateOnNewDocument(hiddenPreload.identifier);
     for (const path of ['/', '/?legacy=1']) {
         await page.goto(`${origin}${path}`);
         assert.equal(await page.evaluate(() => window.fixtureImmediate), 'Hello Fictional show', 'blocking classic consumers receive the API immediately');
@@ -381,6 +385,64 @@ try {
         active: 1, inPlace: 'auto', immediatePaused: 0, paused: 0, frozen: 0, motion: 'none', disposed: true
     })), 'procedural dispatch preserves settings and lifecycle without allocating unused tile stamps');
     console.log('PASS procedural dispatch, static/frozen frames, canvas cap and tile-stamp separation');
+
+    const ambientEffects = await page.evaluate(() => {
+        const shared = window.OverlayShared, fixture = window.fixtureRender;
+        const node = document.createElement('div');
+        node.style.cssText = 'width:640px;height:360px';
+        document.body.appendChild(node);
+        const element = { type: 'procedural-pattern', width: 640, height: 360, pattern: { preset: 'starfield', spin: 'sway', inPlace: 'none' } };
+        const handle = shared.mountPattern(node, element);
+        fixture.flush();
+        const inactive = fixture.frames.size;
+        element.pattern.inPlace = 'gentle';
+        handle.update(element);
+        fixture.flush();
+        const active = fixture.frames.size;
+        shared.applyMediaFilter(node, { ...element, mediaFilter: { grain: { enabled: true, animate: true, amount: .2, size: 2 } } });
+        const grain = node.querySelector('.sp-grain-texture');
+        const grainProperties = grain.getAnimations()[0].effect.getKeyframes().flatMap(frame => Object.keys(frame));
+        Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+        document.dispatchEvent(new Event('visibilitychange'));
+        const hidden = { frames: fixture.frames.size, paused: document.documentElement.classList.contains('sp-fx-paused'), grain: getComputedStyle(grain).animationPlayState };
+        shared.setEffectsPaused(true);
+        delete document.hidden;
+        document.dispatchEvent(new Event('visibilitychange'));
+        const stillPaused = document.documentElement.classList.contains('sp-fx-paused');
+        shared.setEffectsPaused(false);
+        fixture.flush();
+        const resumed = fixture.frames.size;
+        shared.cleanupNode(node);
+        node.remove();
+        return { inactive, active, hidden, stillPaused, resumed, pending: fixture.frames.size, transform: grainProperties.includes('transform'), repaints: grainProperties.includes('backgroundPosition') };
+    });
+    assert.deepEqual(ambientEffects, { inactive: 0, active: 1, hidden: { frames: 0, paused: true, grain: 'paused' }, stillPaused: true, resumed: 1, pending: 0, transform: true, repaints: false });
+    console.log('PASS ambient animation culling, composited grain and hidden/manual pause lifecycle');
+
+    const radialEffects = await page.evaluate(() => {
+        const shared = window.OverlayShared, node = document.createElement('div');
+        node.style.cssText = 'width:320px;height:180px';
+        document.body.appendChild(node);
+        const element = { type: 'shape', width: 320, height: 180 };
+        const style = { borderWidth: 12, borderStyle: 'notched', borderColor: '#ffffff', borderAnimation: { type: 'radial', size: 54, mode: 'rainbow' } };
+        shared.applyBorderEffects(node, style, element);
+        const surface = node.querySelector('[data-border-fx="radial"]');
+        const keys = surface.getAnimations()[0].effect.getKeyframes().flatMap(frame => Object.keys(frame));
+        const mask = node._borderFxRing.style.maskImage || node._borderFxRing.style.webkitMaskImage;
+        const first = { transform: keys.includes('transform'), repaints: keys.includes('backgroundPosition'), masked: mask.includes('svg') };
+        node.style.width = '3840px'; node.style.height = '2160px';
+        shared.applyBorderEffects(node, style, { ...element, width: 3840, height: 2160 });
+        const bounded = !node.querySelector('[data-border-fx="radial"]') && getComputedStyle(node._borderFxRing).animationName === 'sp-border-radial-paint';
+        node.style.width = '320px'; node.style.height = '180px';
+        shared.applyBorderEffects(node, style, element);
+        shared.applyBorderEffects(node, { ...style, borderAnimation: { type: 'rainbow' } }, element);
+        const replaced = !node.querySelector('[data-border-fx="radial"]');
+        shared.cleanupNode(node);
+        node.remove();
+        return { ...first, bounded, replaced };
+    });
+    assert.deepEqual(radialEffects, { transform: true, repaints: false, masked: true, bounded: true, replaced: true });
+    console.log('PASS masked radial borders use bounded compositor surfaces and retire them on changes');
 
     await page.evaluate(() => window.fixtureRender.mount(320, 180));
     await page.waitForFunction(() => window.fixtureRender.frames.size > 0);

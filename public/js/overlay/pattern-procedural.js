@@ -6,7 +6,7 @@ function proceduralAnimation(element, options) {
     const procP = element.pattern || {};
     const pMotion = options.animate === false ? 'none' : (procP.motion || 'none');
     const pInPlace = options.animate === false ? 'none' : (procP.inPlace ?? (pMotion !== 'none' ? 'auto' : 'none'));
-    const pSpin = options.animate === false ? 'none' : (procP.spin || 'none');
+    const pSpin = options.animate === false || procP.preset === 'starfield' ? 'none' : (procP.spin || 'none');
     const pColorAnim = options.animate === false ? 'none' : (procP.colorAnim || 'none');
     const hasProcAnim = pMotion !== 'none' || (pInPlace !== 'none' && pInPlace !== false && pInPlace !== 0) || (pSpin !== 'none' && pSpin !== false) || pColorAnim !== 'none';
     return { procP, pMotion, pInPlace, pSpin, pColorAnim, hasProcAnim };

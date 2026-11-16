@@ -1103,7 +1103,7 @@
         if (typeof document === 'undefined' || document.getElementById('sp-grain-style')) return;
         const style = document.createElement('style');
         style.id = 'sp-grain-style';
-        style.textContent = '@keyframes sp-grain{0%{background-position:0 0}10%{background-position:-37px 21px}20%{background-position:19px -43px}30%{background-position:-52px -14px}40%{background-position:41px 33px}50%{background-position:-9px 58px}60%{background-position:63px -27px}70%{background-position:-28px 47px}80%{background-position:34px -56px}90%{background-position:-61px 12px}100%{background-position:0 0}}.sp-fx-paused .sp-grain{animation-play-state:paused!important}';
+        style.textContent = '@keyframes sp-grain{0%,100%{transform:translate(0,0)}10%{transform:translate(-37px,21px)}20%{transform:translate(19px,-43px)}30%{transform:translate(-52px,-14px)}40%{transform:translate(41px,33px)}50%{transform:translate(-9px,58px)}60%{transform:translate(63px,-27px)}70%{transform:translate(-28px,47px)}80%{transform:translate(34px,-56px)}90%{transform:translate(-61px,12px)}}.sp-fx-paused .sp-grain-texture{animation-play-state:paused!important}';
         document.head.append(style);
     }
 
@@ -1331,7 +1331,14 @@
                     node.appendChild(grain);
                 }
                 const size = Math.max(0.5, Math.min(4, Number(f.grain.size) || 1));
-                grain.style.cssText = `position:absolute;inset:0;pointer-events:none;border-radius:inherit;mix-blend-mode:overlay;background-image:${getGrainCssUrl()};background-size:${Math.round(160 * size)}px;opacity:${f.grain.amount};${f.grain.animate ? 'animation:sp-grain .6s steps(1) infinite;' : ''}`;
+                grain.style.cssText = `position:absolute;inset:0;overflow:hidden;pointer-events:none;border-radius:inherit;mix-blend-mode:overlay;opacity:${f.grain.amount};`;
+                let texture = grain.firstElementChild;
+                if (!texture) {
+                    texture = document.createElement('div');
+                    texture.className = 'sp-grain-texture';
+                    grain.appendChild(texture);
+                }
+                texture.style.cssText = `position:absolute;inset:-64px;background-image:${getGrainCssUrl()};background-position:64px 64px;background-size:${Math.round(160 * size)}px;${f.grain.animate ? 'animation:sp-grain .6s steps(1) infinite;' : ''}`;
             } else if (node._fxGrain) {
                 node._fxGrain.remove();
                 node._fxGrain = null;

@@ -368,7 +368,31 @@ try {
             }
         }
         check(seamDelta < 720 * 8, `sample repeat introduced a hard lattice seam: ${seamDelta}`);
-        return { widthResults, full, exact, lod, centerDeltas, seamDelta, workByPattern };
+        const starWork = [];
+        for (const [pattern, motion, zoom, angle] of [
+            ['starfield', 'none', 105, 0], ['sparkles', 'drift', 200, 0],
+            ['starfield', 'pan', 10, 0], ['sparkles', 'fall', 500, 0],
+            ['starfield', 'orbit', 100, -15], ['sparkles', 'sway', 100, 45]
+        ]) {
+            const options = { ...base, density: 5950, scale: zoom, motion, inPlace: 'gentle', spin: 'sway',
+                time: 123.4, scatter: 65, sizeVariance: 70, rotationVariance: 100, colorMode: 'spiral' };
+            const renderStars = uncull => {
+                const canvas = canv(960, 540), ctx = canvas.getContext('2d', { willReadFrequently: true });
+                ctx.translate(480, 270); ctx.rotate(angle * Math.PI / 180); ctx.translate(-480, -270);
+                // A deliberately oversized viewport is the unculled vector reference.
+                if (uncull) ctx.getTransform = () => ({ a: 1e-8, b: 0, c: 0, d: 1e-8, e: 480, f: 270 });
+                let fills = 0;
+                const fill = ctx.fill.bind(ctx);
+                ctx.fill = (...args) => { fills++; return fill(...args); };
+                draw(ctx, pattern, 960, 540, options);
+                return { pixels: ctx.getImageData(0, 0, 960, 540).data, fills };
+            };
+            const optimized = renderStars(false), reference = renderStars(true);
+            check(diff(optimized.pixels, reference.pixels).count === 0, `${pattern}/${motion}/${zoom}: culling changed visible pixels`);
+            if (zoom >= 100) check(optimized.fills < reference.fills * 0.35, `${pattern}: off-screen stars still issue drawing calls`);
+            starWork.push({ pattern, motion, zoom, fills: optimized.fills, reference: reference.fills });
+        }
+        return { widthResults, full, exact, lod, centerDeltas, seamDelta, workByPattern, starWork };
     });
     assert.ok(result.lod.operations < result.exact.operations);
     console.log('Chromium pattern rendering passed:', JSON.stringify(result));

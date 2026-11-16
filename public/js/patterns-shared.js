@@ -153,6 +153,18 @@
         return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
     }
 
+    let starSeeds = new Float64Array(0);
+    function getStarSeeds(count) {
+        if (starSeeds.length >= count * 6) return starSeeds;
+        const next = new Float64Array(count * 6);
+        next.set(starSeeds);
+        for (let i = starSeeds.length / 6; i < count; i++) {
+            for (const [offset, seed] of [1, 2, 3, 5, 6, 8].entries()) next[i * 6 + offset] = hash2D(i, seed);
+        }
+        starSeeds = next;
+        return next;
+    }
+
     function drawFourPointStar(ctx, x, y, r) {
         ctx.beginPath();
         ctx.moveTo(x, y - r);
@@ -1351,14 +1363,31 @@
             const count = Math.max(6, Math.min(8000, Math.round(Number(options.density ?? options.count) || defaultCount)));
             const wrapW = Math.max(fullWidth * 2.5, width * 1.5);
             const wrapH = Math.max(fullHeight * 2.5, height * 1.5);
+            const seeds = getStarSeeds(count);
+            let left = -Infinity, right = Infinity, top = -Infinity, bottom = Infinity;
+            // Cull in pattern space, including rotated/scaled caller transforms.
+            const matrix = ctx.getTransform?.();
+            const determinant = matrix && matrix.a * matrix.d - matrix.b * matrix.c;
+            if (determinant && ctx.canvas) {
+                const corners = [[0, 0], [ctx.canvas.width, 0], [0, ctx.canvas.height], [ctx.canvas.width, ctx.canvas.height]];
+                const points = corners.map(([x, y]) => [
+                    (matrix.d * (x - matrix.e) - matrix.c * (y - matrix.f)) / determinant,
+                    (matrix.a * (y - matrix.f) - matrix.b * (x - matrix.e)) / determinant
+                ]);
+                left = Math.min(...points.map(point => point[0]));
+                right = Math.max(...points.map(point => point[0]));
+                top = Math.min(...points.map(point => point[1]));
+                bottom = Math.max(...points.map(point => point[1]));
+            }
 
             for (let i = 0; i < count; i++) {
-                const u = hash2D(i, 1);
-                const v = hash2D(i, 2);
-                const sizeHash = hash2D(i, 3);
+                const offset = i * 6;
+                const u = seeds[offset];
+                const v = seeds[offset + 1];
+                const sizeHash = seeds[offset + 2];
                 const sizeVarMult = (1 - sizeVarAmount * 0.45) + sizeHash * (sizeVarAmount * 0.95);
-                const scatterX = (hash2D(i, 5) - 0.5) * (fullWidth * 0.35) * scatterAmount;
-                const scatterY = (hash2D(i, 6) - 0.5) * (fullHeight * 0.35) * scatterAmount;
+                const scatterX = (seeds[offset + 3] - 0.5) * (fullWidth * 0.35) * scatterAmount;
+                const scatterY = (seeds[offset + 4] - 0.5) * (fullHeight * 0.35) * scatterAmount;
 
                 const rawX = (u - 0.5) * wrapW;
                 const rawY = (v - 0.5) * wrapH;
@@ -1367,11 +1396,13 @@
                 const x = screenX - motionTransX;
                 const y = screenY - motionTransY;
 
-                const twinkleMult = hasInPlaceAnim ? (0.65 + 0.35 * Math.sin(inPlacePhase * 1.5 + i * 1.7)) : 1;
-                const tier = hash2D(i, 8);
+                const tier = seeds[offset + 5];
                 const mag = tier > 0.90 ? 2.0 : (tier > 0.70 ? 1.3 : 0.75);
                 const baseSize = Math.max(0.8, (fullWidth / (pattern === 'starfield' ? 460 : 250))) * (sizeVarAmount > 0 ? mag * (1 + (i % 3) * 0.25) * sizeVarMult : (tier > 0.92 ? 1.5 : (tier > 0.75 ? 1.15 : 0.85)));
                 const size = baseSize / Math.pow(scale, 0.45);
+                const radius = size * 2;
+                if (x + radius < left || x - radius > right || y + radius < top || y - radius > bottom) continue;
+                const twinkleMult = hasInPlaceAnim ? (0.65 + 0.35 * Math.sin(inPlacePhase * 1.5 + i * 1.7)) : 1;
                 const cIdx = getCellColorIndex(0, 0, screenX, screenY, i);
                 const pColor = getPatternColor(palette, cIdx, accent, secondary);
                 const baseAlphaVal = hasFill ? Number.parseInt(fillHex, 16) : (tier > 0.7 ? 0xcc : 0x75);

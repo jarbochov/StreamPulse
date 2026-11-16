@@ -145,8 +145,10 @@ function ensureBorderKeyframes() {
         + '@keyframes sp-border-marching-bg { from { background-position: 0 0; } to { background-position: 40px 0; } } '
         + '@keyframes sp-border-laser { from { --sp-angle: 0deg; } to { --sp-angle: 360deg; } } '
         + '@keyframes sp-border-plasma { 0% { --sp-angle: 0deg; filter: saturate(1.15) brightness(1); } 50% { --sp-angle: 180deg; filter: saturate(1.5) brightness(1.26); } 100% { --sp-angle: 360deg; filter: saturate(1.15) brightness(1); } } '
-        + '@keyframes sp-border-radial-circuit { 0% { background-position: 0% 0%; } 25% { background-position: 100% 0%; } 50% { background-position: 100% 100%; } 75% { background-position: 0% 100%; } 100% { background-position: 0% 0%; } } '
-        + '@keyframes sp-border-radial-circuit-rev { 0% { background-position: 0% 0%; } 25% { background-position: 0% 100%; } 50% { background-position: 100% 100%; } 75% { background-position: 100% 0%; } 100% { background-position: 0% 0%; } } '
+        + '@keyframes sp-border-radial-circuit { 0%,100% { transform:translate(0,0); } 25% { transform:translate(var(--sp-border-travel),0); } 50% { transform:translate(var(--sp-border-travel),var(--sp-border-travel)); } 75% { transform:translate(0,var(--sp-border-travel)); } } '
+        + '@keyframes sp-border-radial-circuit-rev { 0%,100% { transform:translate(0,0); } 25% { transform:translate(0,var(--sp-border-travel)); } 50% { transform:translate(var(--sp-border-travel),var(--sp-border-travel)); } 75% { transform:translate(var(--sp-border-travel),0); } } '
+        + '@keyframes sp-border-radial-paint { 0%,100% { background-position:0% 0%; } 25% { background-position:100% 0%; } 50% { background-position:100% 100%; } 75% { background-position:0% 100%; } } '
+        + '@keyframes sp-border-radial-paint-rev { 0%,100% { background-position:0% 0%; } 25% { background-position:0% 100%; } 50% { background-position:100% 100%; } 75% { background-position:100% 0%; } } '
         + '.sp-fx-paused [data-border-fx], .sp-fx-paused [data-border-ring], .sp-fx-paused [data-border-fx-ring] { animation-play-state: paused !important; }';
     document.head.appendChild(tag);
 }
@@ -732,6 +734,7 @@ function applyBorderEffects(node, style = {}, element = {}) {
             let colorRule = '';
             let filterRule = isNeon ? `drop-shadow(0 0 ${Math.max(5, width * 1.5)}px ${neonGlowCol})` : '';
             let dimNeonFrame = false;
+            let radialSurface = 0;
 
             if (animType === 'rotating') {
                 const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 4));
@@ -778,6 +781,8 @@ function applyBorderEffects(node, style = {}, element = {}) {
                 const mid = (anim.color3 && anim.color3 !== 'transparent' && anim.color3 !== 'none') ? anim.color3 : basePaintMid;
                 const pctSize = Math.max(160, Math.min(320, Math.round(150 + size * 1.5)));
                 bgSize = `${pctSize}% ${pctSize}%`;
+                // Bound promoted textures to 4 MP instead of allocating huge 4K surfaces.
+                if (rw * rh * (pctSize / 100) ** 2 <= 4194304) radialSurface = pctSize;
                 let stops = '';
                 if (mode === 'rainbow') {
                     stops = '#ff0055 0%, #ff9900 17%, #ffee00 33%, #00ff66 50%, #00bbff 67%, #8800ff 83%, #ff0055 100%';
@@ -794,7 +799,9 @@ function applyBorderEffects(node, style = {}, element = {}) {
                         : `${head} 0%, ${trail} ${spreadRatio}%, transparent ${Math.min(100, Math.round(spreadRatio * 1.5))}%`;
                     dimNeonFrame = true;
                 }
-                const animName = direction === 'ccw' ? 'sp-border-radial-circuit-rev' : 'sp-border-radial-circuit';
+                const animName = radialSurface
+                    ? (direction === 'ccw' ? 'sp-border-radial-circuit-rev' : 'sp-border-radial-circuit')
+                    : (direction === 'ccw' ? 'sp-border-radial-paint-rev' : 'sp-border-radial-paint');
                 const animDir = direction === 'alternate' ? 'alternate' : 'normal';
                 paintBg = `radial-gradient(circle, ${stops})`;
                 animRule = `${animName} ${speed}s ease-in-out infinite ${animDir}`;
@@ -826,14 +833,21 @@ function applyBorderEffects(node, style = {}, element = {}) {
                 animRule = `sp-border-marching-bg ${speed}s linear infinite`;
             }
 
-            const fxSig = `fx|${paintBg}|${bgSize}|${animRule}|${colorRule}|${filterRule}`;
+            const fxSig = `fx|${paintBg}|${bgSize}|${animRule}|${colorRule}|${filterRule}|${radialSurface}`;
             if (fxRing._sig !== fxSig) {
                 fxRing._sig = fxSig;
                 fxRing._maskSig = null;
                 fxRing.querySelectorAll('svg').forEach(el => el.remove());
-                fxRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border-radius:inherit;pointer-events:none;background:${paintBg};background-size:${bgSize};animation:${animRule};z-index:2;`
+                fxRing.querySelector('[data-border-fx="radial"]')?.remove();
+                fxRing.style.cssText = `position:absolute;inset:0;box-sizing:border-box;border-radius:inherit;pointer-events:none;background:${radialSurface ? 'transparent' : paintBg};background-size:${bgSize};animation:${radialSurface ? 'none' : animRule};z-index:2;`
                     + (colorRule ? `color:${colorRule};` : '')
                     + (filterRule ? `filter:${filterRule};` : '');
+                if (radialSurface) {
+                    const surface = document.createElement('div');
+                    surface.dataset.borderFx = 'radial';
+                    surface.style.cssText = `position:absolute;top:0;left:0;width:${radialSurface}%;height:${radialSurface}%;background:${paintBg};--sp-border-travel:${-100 * (radialSurface - 100) / radialSurface}%;animation:${animRule};`;
+                    fxRing.appendChild(surface);
+                }
             }
             applyRingStyleMask(fxRing, borderStyle, width, rw, rh, style, element, outset, isNeon, neonGlowCol, dimNeonFrame);
         }
