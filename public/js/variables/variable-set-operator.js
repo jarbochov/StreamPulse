@@ -83,9 +83,17 @@ function getActiveSet() {
     const sets = state.sets || [];
     if (!sets.length) return null;
     const found = sets.find(s => s.id === activeSetId) || sets[0];
-    if (found && found.id !== activeSetId) {
-        activeSetId = found.id;
-        localStorage.setItem(STORAGE_KEY, activeSetId);
+    if (found) {
+        if (found.id !== activeSetId) {
+            activeSetId = found.id;
+            localStorage.setItem(STORAGE_KEY, activeSetId);
+        }
+        if (getSetIdFromUrl() !== found.id) {
+            const url = new URL(location.href);
+            url.searchParams.delete('set');
+            url.hash = encodeURIComponent(found.id);
+            history.replaceState(null, '', url);
+        }
     }
     return found;
 }
@@ -616,7 +624,7 @@ function bindEvents() {
             const slot = Number(slotBtn.dataset.opAssignSlot) || 0;
             const entryId = slotBtn.dataset.opEntry;
             try {
-                await api(`/api/variables/sets/${encodeURIComponent(setObj.id)}/assign`, 'POST', { slot, entryId });
+                await api(`/api/variables/sets/${encodeURIComponent(setObj.id)}/assign`, 'POST', { slot, entry: entryId });
                 await loadData(false);
             } catch (err) {
                 toast(err.message, 'error');
