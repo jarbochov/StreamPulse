@@ -236,7 +236,7 @@ function getEntrySummary(setObj, entry) {
                 return count ? `${count} active` : '';
             }
             if (f.type === 'ref' && raw) {
-                const target = (state.sets || []).find(s => s.id === f.targetSet);
+                const target = (state.variableSets || []).find(s => s.id === f.targetSet);
                 const match = target?.roster?.find(r => r.id === raw);
                 return match?.label || raw;
             }
@@ -677,6 +677,14 @@ export function renderSets() {
                             <span title="${slotsCount > 0 ? 'Drag entries onto any output slot' : 'Activate a saved preset'}">${slotsCount > 0 ? 'Roster library' : 'Saved presets'}</span>
                             <div style="display:flex; gap:.35rem; align-items:center; text-transform:none; letter-spacing:0; font-weight:500; flex-wrap:wrap;">
                                 ${(activeSet.roster || []).length > 4 ? `<input type="search" id="set-roster-filter" value="${esc(rosterFilter)}" placeholder="Filter entries..." style="padding:.22rem .55rem; font-size:.78rem; width:10rem;">` : ''}
+                                ${(() => {
+                                    const hasChecklist = (activeSet.fields || []).some(f => f.type === 'checklist');
+                                    if (hasChecklist) {
+                                        return `<a class="b sm" href="/variable-set-operator.html#${encodeURIComponent(activeSet.id)}/matrix" style="text-decoration:none;">Checklist Matrix</a>`;
+                                    }
+                                    const matrixOwner = (state.variableSets || []).find(s => s.id !== activeSet.id && (s.fields || []).some(f => f.type === 'checklist' && f.targetSet === activeSet.id));
+                                    return matrixOwner ? `<a class="b sm" href="/variable-set-operator.html#${encodeURIComponent(matrixOwner.id)}/matrix" style="text-decoration:none;">Matrix: ${esc(matrixOwner.name)}</a>` : '';
+                                })()}
                                 <a class="b sm" href="/variable-set-operator.html#${encodeURIComponent(activeSet.id)}" style="text-decoration:none;">Operator Grid</a>
                                 <a class="b sm" href="/api/variables/sets/${encodeURIComponent(activeSet.id)}/export?format=csv" download="${esc(activeSet.id)}-roster.csv" style="text-decoration:none;">Export CSV</a>
                                 <label class="b sm" style="display:inline-flex; align-items:center; cursor:pointer;">Import CSV<input type="file" data-set-csv-import accept=".csv,text/csv" hidden></label>
@@ -739,7 +747,7 @@ export function openSetModal(existing = null) {
         { key: 'image', label: 'Image', type: 'image' }
     ]).map(f => ({ ...f }));
 
-    const availableTargets = (state.sets || []).filter(s => !existing || s.id !== existing.id);
+    const availableTargets = (state.variableSets || []).filter(s => !existing || s.id !== existing.id);
 
     const renderFieldRows = host => {
         if (fields.some(f => f.icon)) window.IconPicker?.ensureFont?.();
@@ -1002,7 +1010,7 @@ function openEntryModal(setObj, existingEntry = null) {
             `;
         }
         if (f.type === 'ref') {
-            const targetSet = (state.sets || []).find(s => s.id === f.targetSet);
+            const targetSet = (state.variableSets || []).find(s => s.id === f.targetSet);
             const opts = (targetSet?.roster || []).map(r => `<option value="${esc(r.id)}" ${val === r.id ? 'selected' : ''}>${esc(r.label || r.id)}</option>`).join('');
             return `
                 <label data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">
@@ -1015,7 +1023,7 @@ function openEntryModal(setObj, existingEntry = null) {
             `;
         }
         if (f.type === 'checklist') {
-            const targetSet = (state.sets || []).find(s => s.id === f.targetSet);
+            const targetSet = (state.variableSets || []).find(s => s.id === f.targetSet);
             const maxTier = Math.max(1, Number(f.maxTier) || 1);
             const map = parseChecklistMap(values[f.key]);
             const items = targetSet?.roster || [];

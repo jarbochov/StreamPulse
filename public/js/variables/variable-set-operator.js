@@ -14,16 +14,26 @@ const SVG_SORT_DESC = '<svg width="11" height="11" viewBox="0 0 24 24" fill="non
 const SVG_CHECK = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
 const SVG_DOT = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="5"/></svg>';
 
-function getSetIdFromUrl() {
+function getHashParts() {
     const rawHash = (location.hash || '').replace(/^#/, '').trim();
     if (rawHash) {
-        if (rawHash.startsWith('set=')) return decodeURIComponent(rawHash.slice(4));
-        return decodeURIComponent(rawHash);
+        if (rawHash.startsWith('set=')) return { id: decodeURIComponent(rawHash.slice(4)), matrix: false };
+        const hasMatrix = rawHash.endsWith('/matrix');
+        const clean = hasMatrix ? rawHash.slice(0, -7) : rawHash;
+        return { id: decodeURIComponent(clean), matrix: hasMatrix };
     }
-    return new URLSearchParams(location.search).get('set') || '';
+    return { id: new URLSearchParams(location.search).get('set') || '', matrix: false };
 }
 
-let activeSetId = getSetIdFromUrl() || localStorage.getItem(STORAGE_KEY) || '';
+function getSetIdFromUrl() {
+    return getHashParts().id;
+}
+
+const initialHash = getHashParts();
+let activeSetId = initialHash.id || localStorage.getItem(STORAGE_KEY) || '';
+if (initialHash.id && initialHash.matrix) {
+    localStorage.setItem(`${VIEW_MODE_PREFIX}${initialHash.id}`, 'matrix');
+}
 let searchQuery = '';
 let filterMode = 'all';
 let saveTimer = null;
@@ -418,7 +428,13 @@ function renderOperator() {
     const viewCfg = getViewConfig(setObj);
     renderColumnToolbar(setObj, viewCfg);
     if (fields.some(f => f.type === 'icon')) window.IconPicker?.ensureFont?.();
-    if (stats) stats.textContent = `${roster.length} items · ${fields.length} fields · ${setObj.slotsCount ? `${setObj.slotsCount} slots` : 'Preset mode'}`;
+    if (stats) {
+        const baseStats = `${roster.length} items · ${fields.length} fields · ${setObj.slotsCount ? `${setObj.slotsCount} slots` : 'Preset mode'}`;
+        const matrixOwner = !hasChecklist ? sets.find(s => s.id !== setObj.id && (s.fields || []).some(f => f.type === 'checklist' && f.targetSet === setObj.id)) : null;
+        stats.innerHTML = matrixOwner
+            ? `${esc(baseStats)} · <a href="#${encodeURIComponent(matrixOwner.id)}/matrix" style="color:var(--accent);text-decoration:none;font-weight:600;">Open ${esc(matrixOwner.name)} Matrix</a>`
+            : esc(baseStats);
+    }
     if (rotBar) rotBar.hidden = (setObj.slotsCount || 0) >= 2 || roster.filter(r => r.enabled !== false).length < 2;
 
     if (hasChecklist && viewMode === 'matrix') {
@@ -513,11 +529,14 @@ function bindEvents() {
     });
 
     window.addEventListener('hashchange', () => {
-        const nextId = getSetIdFromUrl();
-        if (nextId && nextId !== activeSetId) {
-            activeSetId = nextId;
-            localStorage.setItem(STORAGE_KEY, activeSetId);
-            renderOperator();
+        const next = getHashParts();
+        if (next.id) {
+            if (next.matrix) localStorage.setItem(`${VIEW_MODE_PREFIX}${next.id}`, 'matrix');
+            if (next.id !== activeSetId || next.matrix) {
+                activeSetId = next.id;
+                localStorage.setItem(STORAGE_KEY, activeSetId);
+                renderOperator();
+            }
         }
     });
 
@@ -565,7 +584,7 @@ function bindEvents() {
         const setObj = getActiveSet();
         if (!setObj) return;
         try {
-            await api(`/api/variables/sets/${encodeURIComponent(setObj.id)}/rotate`, 'POST', { dir });
+            await api(`/api/variables/sets/${encodeURIComponent(setObj.id)}/rotation/${dir < 0 ? 'prev' : 'next'}`, 'POST', {});
             await loadData(false);
         } catch (err) {
             toast(err.message, 'error');
@@ -735,9 +754,10 @@ function bindEvents() {
         setSaveBadge('Saving…');
         try {
             const res = await api(`/api/variables/sets/${encodeURIComponent(setObj.id)}/checklist/step`, 'POST', body);
-            if (res?.set) {
-                const idx = state.sets.findIndex(s => s.id === res.set.id);
-                if (idx >= 0) state.sets[idx] = res.set;
+            const updated = res?.set || (res?.id ? res : null);
+            if (updated) {
+                const idx = state.sets.findIndex(s => s.id === updated.id);
+                if (idx >= 0) state.sets[idx] = updated;
             }
             setSaveBadge('Saved');
             renderOperator();
