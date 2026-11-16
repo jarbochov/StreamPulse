@@ -1084,3 +1084,224 @@ test('Variable Sets: Group Roster Mode delimiters, empty wrappers, entry toggle 
         store.dispose();
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('Linked Variable Sets: ref materialization (1-hop, shorthand, named slot) and targetSet updates', async () => {
+    const dir = makeTmpDir();
+    const store = createVariablesStore({ dataDir: dir });
+    try {
+        store.upsertSet('weapons', {
+            slotsCount: 0,
+            fields: [{ key: 'name', type: 'text' }, { key: 'atk', type: 'number' }],
+            roster: [{ id: 'sword', values: { name: 'Master Sword', atk: 30 } }]
+        });
+        store.upsertSet('heroes', {
+            slotsCount: 1,
+            fields: [
+                { key: 'name', type: 'text' },
+                { key: 'icon', type: 'image' },
+                { key: 'weapon', type: 'ref', targetSet: 'weapons' }
+            ],
+            roster: [
+                { id: 'link', values: { name: 'Link', icon: '/link.png', weapon: 'sword' } },
+                { id: 'zelda', values: { name: 'Zelda', icon: '/zelda.png', weapon: '' } }
+            ]
+        });
+        store.upsertSet('match', {
+            slotsCount: 2,
+            slotNames: ['Player 1', 'Player 2'],
+            fields: [
+                { key: 'tag', type: 'text' },
+                { key: 'fighter', type: 'ref', targetSet: 'heroes' }
+            ],
+            roster: [
+                { id: 'alex', values: { tag: 'ALX', fighter: 'link' } },
+                { id: 'sam', values: { tag: 'SAM', fighter: 'zelda' } }
+            ]
+        });
+
+        store.assignSetSlot('match', 1, 'alex');
+        store.assignSetSlot('match', 2, 'sam');
+
+        const vals = store.values();
+        // Slot 1 + shorthand + named alias
+        assert.equal(vals.match_1_fighter, 'link');
+        assert.equal(vals.match_1_fighter_name, 'Link');
+        assert.equal(vals.match_1_fighter_icon, '/link.png');
+        assert.equal(vals.match_fighter_name, 'Link');
+        assert.equal(vals.match_player_1_fighter_name, 'Link');
+        // Slot 2 + named alias
+        assert.equal(vals.match_2_fighter_name, 'Zelda');
+        assert.equal(vals.match_player_2_fighter_name, 'Zelda');
+        // 1-hop max: nested ref field 'weapon' on heroes is NOT expanded onto match
+        assert.equal(vals.match_1_fighter_weapon_name, undefined);
+
+        // Updating targetSet re-materializes referencing sets
+        store.upsertSet('heroes', {
+            roster: [
+                { id: 'link', values: { name: 'Hero Link', icon: '/link2.png', weapon: 'sword' } },
+                { id: 'zelda', values: { name: 'Zelda', icon: '/zelda.png', weapon: '' } }
+            ]
+        });
+        assert.equal(store.values().match_1_fighter_name, 'Hero Link');
+        assert.equal(store.values().match_fighter_icon, '/link2.png');
+
+        // Clearing slot resets ref target fields to defaults
+        store.clearSetSlot('match', 1);
+        assert.equal(store.values().match_1_fighter, '');
+        assert.equal(store.values().match_1_fighter_name, '');
+        assert.equal(store.values().match_fighter_name, '');
+
+        // 0-slot activeEntry ref materialization
+        store.upsertSet('spotlight', {
+            slotsCount: 0,
+            fields: [{ key: 'hero', type: 'ref', targetSet: 'heroes' }],
+            roster: [{ id: 'p1', values: { hero: 'link' } }],
+            activeEntry: 'p1'
+        });
+        assert.equal(store.values().spotlight_hero_name, 'Hero Link');
+
+        store.dispose();
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('Linked Variable Sets: syncSlot updates targetSet slot and guards against cycles', async () => {
+    const dir = makeTmpDir();
+    const store = createVariablesStore({ dataDir: dir });
+    try {
+        store.upsertSet('chars', {
+            slotsCount: 2,
+            fields: [{ key: 'name', type: 'text' }],
+            roster: [
+                { id: 'mario', values: { name: 'Mario' } },
+                { id: 'luigi', values: { name: 'Luigi' } }
+            ]
+        });
+        store.upsertSet('players', {
+            slotsCount: 1,
+            fields: [
+                { key: 'name', type: 'text' },
+                { key: 'char', type: 'ref', targetSet: 'chars', syncSlot: 2 }
+            ],
+            roster: [
+                { id: 'p1', values: { name: 'Alex', char: 'mario' } },
+                { id: 'p2', values: { name: 'Jordan', char: 'luigi' } }
+            ]
+        });
+
+        store.assignSetSlot('players', 1, 'p1');
+        assert.equal(getSet(store, 'chars').slots[1], 'mario');
+        assert.equal(store.values().chars_2_name, 'Mario');
+
+        store.cycleSetSlot('players', 1, 1);
+        assert.equal(getSet(store, 'chars').slots[1], 'luigi');
+        assert.equal(store.values().chars_2_name, 'Luigi');
+
+        store.clearSetSlot('players', 1);
+        assert.equal(getSet(store, 'chars').slots[1], '');
+        assert.equal(store.values().chars_2_name, '');
+
+        // Mutual cycle A <-> B with syncSlot must terminate cleanly
+        store.upsertSet('cycle_a', {
+            slotsCount: 1,
+            fields: [{ key: 'b', type: 'ref', targetSet: 'cycle_b', syncSlot: 1 }],
+            roster: [{ id: 'a1', values: { b: 'b1' } }]
+        });
+        store.upsertSet('cycle_b', {
+            slotsCount: 1,
+            fields: [{ key: 'a', type: 'ref', targetSet: 'cycle_a', syncSlot: 1 }],
+            roster: [{ id: 'b1', values: { a: 'a1' } }]
+        });
+        store.assignSetSlot('cycle_a', 1, 'a1');
+        assert.equal(getSet(store, 'cycle_a').slots[0], 'a1');
+        assert.equal(getSet(store, 'cycle_b').slots[0], 'b1');
+
+        // Self-referencing set with syncSlot must also terminate cleanly
+        store.upsertSet('self_ref', {
+            slotsCount: 1,
+            fields: [{ key: 'next', type: 'ref', targetSet: 'self_ref', syncSlot: 1 }],
+            roster: [{ id: 's1', values: { next: 's1' } }]
+        });
+        store.assignSetSlot('self_ref', 1, 's1');
+        assert.equal(getSet(store, 'self_ref').slots[0], 's1');
+
+        store.dispose();
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('Linked Variable Sets: checklist schema, set/toggle/step endpoints, clamping, wrapping, and persistence', async () => {
+    const dir = makeTmpDir();
+    const store = createVariablesStore({ dataDir: dir });
+    try {
+        store.upsertSet('items', {
+            slotsCount: 0,
+            fields: [{ key: 'name', type: 'text' }],
+            roster: [
+                { id: 'sword', label: 'Sword', values: { name: 'Sword' } },
+                { id: 'shield', label: 'Shield', values: { name: 'Shield' } }
+            ]
+        });
+        store.upsertSet('runners', {
+            slotsCount: 1,
+            fields: [
+                { key: 'name', type: 'text' },
+                { key: 'gear', type: 'checklist', targetSet: 'items', maxTier: 3 },
+                { key: 'flags', type: 'checklist', targetSet: 'items' } // default maxTier = 1
+            ],
+            roster: [
+                { id: 'alex', values: { name: 'Alex', gear: { sword: 2, invalid_zero: 0, over: 99 } } },
+                { id: 'sam', values: { name: 'Sam' } }
+            ],
+            slots: ['alex']
+        });
+
+        const runnerSet = getSet(store, 'runners');
+        assert.equal(runnerSet.fields[1].maxTier, 3);
+        assert.equal(runnerSet.fields[2].maxTier, 1);
+        assert.deepEqual(runnerSet.roster[0].values.gear, { sword: 2, over: 3 });
+
+        // GET toggle (wraps 0 -> 1 -> 2 -> 3 -> 0 when delta omitted) using slot
+        let r = await callApi(store, 'GET', '/api/variables/sets/runners/checklist/toggle?slot=1&field=gear&target=shield');
+        assert.equal(r.status, 200);
+        assert.equal(r.json.roster[0].values.gear.shield, 1);
+
+        r = await callApi(store, 'POST', '/api/variables/sets/runners/checklist/step', { slot: 1, field: 'gear', target: 'shield' });
+        assert.equal(r.status, 200);
+        assert.equal(r.json.roster[0].values.gear.shield, 2);
+
+        r = await callApi(store, 'GET', '/api/variables/sets/runners/checklist/step?slot=1&field=gear&target=shield');
+        assert.equal(r.json.roster[0].values.gear.shield, 3);
+
+        r = await callApi(store, 'GET', '/api/variables/sets/runners/checklist/toggle?slot=1&field=gear&target=shield');
+        assert.equal(r.json.roster[0].values.gear.shield, undefined);
+
+        // Step by explicit delta clamps 0..maxTier
+        r = await callApi(store, 'POST', '/api/variables/sets/runners/checklist/step', { entry: 'sam', field: 'gear', target: 'sword', delta: 5 });
+        assert.equal(r.status, 200);
+        assert.equal(r.json.roster[1].values.gear.sword, 3);
+
+        r = await callApi(store, 'POST', '/api/variables/sets/runners/checklist/step', { entry: 'sam', field: 'gear', target: 'sword', delta: -10 });
+        assert.equal(r.status, 200);
+        assert.equal(r.json.roster[1].values.gear.sword, undefined);
+
+        // Set clamps 0..maxTier and materializes JSON string
+        r = await callApi(store, 'GET', '/api/variables/sets/runners/checklist/set?slot=1&field=gear&target=sword&value=10');
+        assert.equal(r.status, 200);
+        assert.equal(JSON.parse(store.values().runners_1_gear).sword, 3);
+
+        r = await callApi(store, 'POST', '/api/variables/sets/runners/checklist/set', { entry: 'alex', field: 'flags', target: 'Sword', value: 1 });
+        assert.equal(r.status, 200);
+        assert.deepEqual(JSON.parse(store.values().runners_flags), { sword: 1 });
+
+        // Error cases
+        const badField = await callApi(store, 'GET', '/api/variables/sets/runners/checklist/set?slot=1&field=name&target=sword&value=1');
+        assert.equal(badField.status, 400);
+        const badVal = await callApi(store, 'GET', '/api/variables/sets/runners/checklist/set?slot=1&field=gear&target=sword&value=abc');
+        assert.equal(badVal.status, 400);
+
+        // Persists across reload
+        store.reload();
+        assert.equal(getSet(store, 'runners').roster[0].values.gear.sword, 3);
+
+        store.dispose();
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
