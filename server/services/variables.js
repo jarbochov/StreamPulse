@@ -6,13 +6,14 @@ const path = require('path');
 const NAME_RE = /^[a-z0-9_]{1,40}$/;
 const VALID_TYPES = ['counter', 'number', 'text', 'list', 'image', 'icon', 'toggle', 'color', 'template', 'font'];
 const normalizeNumber = require('./variable-numbers');
-const VALID_SET_FIELD_TYPES = ['text', 'number', 'counter', 'image', 'icon', 'color', 'toggle', 'font', 'list', 'template', 'ref', 'checklist'];
+const VALID_SET_FIELD_TYPES = ['text', 'number', 'counter', 'image', 'icon', 'color', 'toggle', 'font', 'list', 'template', 'date', 'time', 'datetime', 'duration', 'ref', 'ref_list', 'checklist'];
 
 function defaultSetFieldValue(type) {
     if (type === 'toggle') return 'false';
     if (type === 'color') return '#3b82f6';
     if (type === 'counter' || type === 'number') return '0';
     if (type === 'checklist') return '{}';
+    if (type === 'ref_list') return '[]';
     return '';
 }
 
@@ -22,6 +23,11 @@ function resolveSetFieldValue(field, entry) {
         if (raw && typeof raw === 'object' && !Array.isArray(raw)) return JSON.stringify(raw);
         if (typeof raw === 'string' && raw.trim()) return raw.trim();
         return '{}';
+    }
+    if (field.type === 'ref_list') {
+        if (Array.isArray(raw)) return JSON.stringify(raw);
+        if (typeof raw === 'string' && raw.trim()) return raw.trim();
+        return '[]';
     }
     if (field.type === 'template') {
         const tpl = String(raw || '');
@@ -264,7 +270,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             const icon = sanitizeIcon(f?.icon);
             const type = VALID_SET_FIELD_TYPES.includes(f?.type) ? f.type : 'text';
             const extra = {};
-            if (type === 'ref' || type === 'checklist') {
+            if (type === 'ref' || type === 'ref_list' || type === 'checklist') {
                 const targetSet = normSetId(f?.targetSet || '');
                 if (targetSet) extra.targetSet = targetSet;
             }
@@ -304,6 +310,10 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
                 else if (f.type === 'toggle') valuesMap[f.key] = normalizeBool(rawVal);
                 else if (f.type === 'image') valuesMap[f.key] = String(rawVal).trim().slice(0, 1000);
                 else if (f.type === 'ref') valuesMap[f.key] = normSetId(rawVal || '');
+                else if (f.type === 'ref_list') {
+                    const arr = Array.isArray(rawVal) ? rawVal : (typeof rawVal === 'string' && rawVal.trim().startsWith('[') ? (() => { try { return JSON.parse(rawVal); } catch { return []; } })() : String(rawVal || '').split(',').map(s => s.trim()).filter(Boolean));
+                    valuesMap[f.key] = [...new Set(arr.map(x => normSetId(x)).filter(Boolean))].slice(0, 40);
+                }
                 else if (f.type === 'checklist') valuesMap[f.key] = normalizeChecklistMap(rawVal, f.maxTier || 1);
                 else valuesMap[f.key] = String(rawVal).slice(0, 500);
             }
@@ -311,7 +321,17 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             const label = String(r.label || (typeof firstVal === 'string' ? firstVal : '') || entryId).trim().slice(0, 60) || entryId;
             const enabled = r.enabled !== false && r.enabled !== 'false' && r.enabled !== 0 && r.enabled !== '0';
             const inGroup = r.inGroup !== false && r.inGroup !== 'false' && r.inGroup !== 0 && r.inGroup !== '0';
-            roster.push({ id: entryId, label, enabled, inGroup, values: valuesMap });
+            const tiers = Array.isArray(r.tiers)
+                ? r.tiers.slice(0, 20).map((t, tIdx) => ({
+                    level: Math.max(1, parseInt(t?.level, 10) || (tIdx + 1)),
+                    label: String(t?.label || '').trim().slice(0, 80),
+                    image: String(t?.image || '').trim().slice(0, 1000),
+                    description: String(t?.description || '').trim().slice(0, 300),
+                    ...(t?.color ? { color: normalizeColor(t.color) } : {}),
+                    ...(t?.icon ? { icon: sanitizeIcon(t.icon) } : {})
+                }))
+                : undefined;
+            roster.push({ id: entryId, label, enabled, inGroup, values: valuesMap, ...(tiers?.length ? { tiers } : {}) });
         }
 
         const prevSlots = Array.isArray(patch?.slots) ? patch.slots : (cur?.slots || []);
@@ -888,32 +908,53 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         }
 
         let entry = null;
-        const rawEntry = String(opts.entry ?? '').trim();
-        if (rawEntry) {
-            const normEntry = normSetId(rawEntry);
-            entry = (setObj.roster || []).find(r => r.id === normEntry || r.id === rawEntry || r.label.toLowerCase() === rawEntry.toLowerCase()) || null;
-            if (!entry) throw new Error(`Roster entry "${rawEntry}" not found`);
-        } else if (setObj.slotsCount === 0) {
-            const activeId = setObj.activeEntry || '';
-            entry = activeId ? (setObj.roster || []).find(r => r.id === activeId) || null : null;
-            if (!entry) throw new Error('No active entry in set');
-        } else {
-            const idx = parseSlotIndex(setObj, opts.slot ?? 1);
-            const slotEntryId = setObj.slots?.[idx] || '';
-            entry = slotEntryId ? (setObj.roster || []).find(r => r.id === slotEntryId) || null : null;
-            if (!entry) throw new Error(`Slot ${idx + 1} is empty`);
+        const resetAll = mode === 'reset' && (opts.all === true || opts.all === '1' || opts.all === 'true');
+        if (!resetAll) {
+            const rawEntry = String(opts.entry ?? '').trim();
+            if (rawEntry) {
+                const normEntry = normSetId(rawEntry);
+                entry = (setObj.roster || []).find(r => r.id === normEntry || r.id === rawEntry || r.label.toLowerCase() === rawEntry.toLowerCase()) || null;
+                if (!entry) throw new Error(`Roster entry "${rawEntry}" not found`);
+            } else if (setObj.slotsCount === 0) {
+                const activeId = setObj.activeEntry || '';
+                entry = activeId ? (setObj.roster || []).find(r => r.id === activeId) || null : null;
+                if (!entry) throw new Error('No active entry in set');
+            } else {
+                const idx = parseSlotIndex(setObj, opts.slot ?? 1);
+                const slotEntryId = setObj.slots?.[idx] || '';
+                entry = slotEntryId ? (setObj.roster || []).find(r => r.id === slotEntryId) || null : null;
+                if (!entry) throw new Error(`Slot ${idx + 1} is empty`);
+            }
         }
 
         const rawTarget = String(opts.target ?? '').trim();
         let targetId = normSetId(rawTarget);
-        if (!targetId) throw new Error('Target entry is required');
         const targetSet = field.targetSet ? sets[normSetId(field.targetSet)] : null;
-        if (targetSet) {
-            const foundTarget = (targetSet.roster || []).find(r => r.id === targetId || r.label.toLowerCase() === rawTarget.toLowerCase());
-            if (foundTarget) targetId = foundTarget.id;
+
+        if (mode === 'reset') {
+            if (opts.all === true || opts.all === '1' || opts.all === 'true') {
+                for (const r of setObj.roster || []) {
+                    if (!r.values || typeof r.values !== 'object') r.values = {};
+                    r.values[field.key] = {};
+                }
+            } else {
+                if (!entry.values || typeof entry.values !== 'object') entry.values = {};
+                entry.values[field.key] = {};
+            }
+            setObj.updatedAt = Date.now();
+            materializeSetVars(setObj);
+            saveSets({ saveVarsAlso: true });
+            return setObj;
         }
 
-        const maxTier = Math.max(1, parseInt(field.maxTier, 10) || 1);
+        if (!targetId) throw new Error('Target entry is required');
+        let targetEntry = null;
+        if (targetSet) {
+            targetEntry = (targetSet.roster || []).find(r => r.id === targetId || r.label.toLowerCase() === rawTarget.toLowerCase()) || null;
+            if (targetEntry) targetId = targetEntry.id;
+        }
+
+        const maxTier = Math.max(1, parseInt(field.maxTier, 10) || 1, targetEntry?.tiers?.length || 1);
         if (!entry.values || typeof entry.values !== 'object') entry.values = {};
         const curMap = normalizeChecklistMap(entry.values[field.key], maxTier);
         const curVal = curMap[targetId] || 0;
@@ -1099,6 +1140,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
     const setChecklist = (setId, opts) => atomic(() => mutateChecklistRaw(setId, 'set', opts));
     const toggleChecklist = (setId, opts) => atomic(() => mutateChecklistRaw(setId, 'toggle', opts));
     const stepChecklist = (setId, opts) => atomic(() => mutateChecklistRaw(setId, 'step', opts));
+    const resetChecklist = (setId, opts) => atomic(() => mutateChecklistRaw(setId, 'reset', opts));
     const importBundle = (...a) => atomic(() => importBundleRaw(...a));
     const manageGroup = (name, members = [], { createOnly = false, originalName = null } = {}) => atomic(() => {
         if (!Array.isArray(members)) throw new Error('Group members must be an array of variable names');
@@ -1251,7 +1293,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
             }
 
             // Variable Sets & Slots: /api/variables/sets/:setId[/assign|clear|next|prev|swap|advance|rewind|export|import|group|entry/toggle|entry/group-toggle|checklist/*|queue/*]
-            const setMatch = pathname.match(/^\/api\/variables\/sets\/([^/]+)(?:\/(assign|clear|next|prev|swap|advance|rewind|export|import|group|entry\/toggle|entry\/group-toggle|checklist\/set|checklist\/toggle|checklist\/step|queue\/add|queue\/remove|queue\/clear|rotation|rotation\/start|rotation\/stop|rotation\/toggle|rotation\/next|rotation\/prev))?$/);
+            const setMatch = pathname.match(/^\/api\/variables\/sets\/([^/]+)(?:\/(assign|clear|next|prev|swap|advance|rewind|export|import|group|entry\/toggle|entry\/group-toggle|checklist\/set|checklist\/toggle|checklist\/step|checklist\/reset|queue\/add|queue\/remove|queue\/clear|rotation|rotation\/start|rotation\/stop|rotation\/toggle|rotation\/next|rotation\/prev))?$/);
             if (setMatch) {
                 const setId = decodeURIComponent(setMatch[1]);
                 const action = setMatch[2];
@@ -1322,6 +1364,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
                         if (action === 'checklist/set') return json(200, setChecklist(setId, checklistOpts)), true;
                         if (action === 'checklist/toggle') return json(200, toggleChecklist(setId, checklistOpts)), true;
                         if (action === 'checklist/step') return json(200, stepChecklist(setId, checklistOpts)), true;
+                        if (action === 'checklist/reset') return json(200, resetChecklist(setId, { ...checklistOpts, all: query.all ?? body.all })), true;
                     }
                     if (action === 'queue/add') return json(200, enqueueSetSlot(setId, slot, query.entry ?? body.entry ?? '')), true;
                     if (action === 'queue/remove') return json(200, removeSetSlotQueue(setId, slot, query.index ?? body.index ?? query.entry ?? body.entry ?? 0)), true;
@@ -1375,6 +1418,7 @@ module.exports = function createVariables({ dataDir, onChange = null }) {
         setChecklist,
         toggleChecklist,
         stepChecklist,
+        resetChecklist,
         swapSetSlots,
         advanceSetQueue,
         enqueueSetSlot,

@@ -759,12 +759,19 @@ export function openSetModal(existing = null) {
                         <span class="muted">Target Set</span>
                         <select data-f-prop="targetSet" style="flex:1;">${targetOptions}</select>
                     </label>
-                    <label style="display:inline-flex;align-items:center;gap:.35rem;" title="0 = off, 1..N = sync target set slot when active entry changes">
-                        <span class="muted">Sync Slot</span>
+                    <label style="display:inline-flex;align-items:center;gap:.35rem;" title="0 = off, 1..N = when active, also update Target Set slot">
+                        <span class="muted">Also set Target Slot</span>
                         <input type="number" min="0" max="24" data-f-prop="syncSlot" value="${Number(f.syncSlot) || 0}" style="width:4.5rem;">
                     </label>
                 </div>`
-                : f.type === 'checklist'
+                : f.type === 'ref_list'
+                    ? `<div class="vp-field-subrow" style="grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; padding: .2rem 0 .25rem .6rem; border-left: 2px solid var(--border); font-size: .78rem;">
+                        <label style="display:inline-flex;align-items:center;gap:.35rem;flex:1;min-width:160px;">
+                            <span class="muted">Target Set</span>
+                            <select data-f-prop="targetSet" style="flex:1;">${targetOptions}</select>
+                        </label>
+                    </div>`
+                    : f.type === 'checklist'
                     ? `<div class="vp-field-subrow" style="grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; padding: .2rem 0 .25rem .6rem; border-left: 2px solid var(--border); font-size: .78rem;">
                         <label style="display:inline-flex;align-items:center;gap:.35rem;flex:1;min-width:160px;">
                             <span class="muted">Target Set</span>
@@ -791,7 +798,12 @@ export function openSetModal(existing = null) {
                     <option value="font" ${f.type === 'font' ? 'selected' : ''}>Font</option>
                     <option value="list" ${f.type === 'list' ? 'selected' : ''}>List</option>
                     <option value="template" ${f.type === 'template' ? 'selected' : ''}>Template</option>
+                    <option value="date" ${f.type === 'date' ? 'selected' : ''}>Date</option>
+                    <option value="time" ${f.type === 'time' ? 'selected' : ''}>Time</option>
+                    <option value="datetime" ${f.type === 'datetime' ? 'selected' : ''}>Date &amp; Time</option>
+                    <option value="duration" ${f.type === 'duration' ? 'selected' : ''}>Duration</option>
                     <option value="ref" ${f.type === 'ref' ? 'selected' : ''}>Reference</option>
+                    <option value="ref_list" ${f.type === 'ref_list' ? 'selected' : ''}>Reference List</option>
                     <option value="checklist" ${f.type === 'checklist' ? 'selected' : ''}>Checklist</option>
                 </select>
                 <button type="button" class="b sm vp-f-icon-btn" data-f-icon="${idx}" title="${f.icon ? `Field icon: ${esc(f.icon)}` : 'Optional icon (e.g. fa-brands fa-twitch)'}">${f.icon ? `<i class="${esc(f.icon)}"></i>` : 'Icon'}</button>
@@ -895,6 +907,8 @@ export function openSetModal(existing = null) {
                         base.targetSet = String(f.targetSet || '').trim();
                         const syncSlot = parseInt(f.syncSlot, 10);
                         if (Number.isFinite(syncSlot) && syncSlot > 0) base.syncSlot = syncSlot;
+                    } else if (f.type === 'ref_list') {
+                        base.targetSet = String(f.targetSet || '').trim();
                     } else if (f.type === 'checklist') {
                         base.targetSet = String(f.targetSet || '').trim();
                         base.maxTier = Math.max(1, parseInt(f.maxTier, 10) || 1);
@@ -1009,6 +1023,76 @@ function openEntryModal(setObj, existingEntry = null) {
                 </label>
             `;
         }
+        if (f.type === 'date' || f.type === 'time' || f.type === 'datetime') {
+            const inputType = f.type === 'datetime' ? 'datetime-local' : f.type;
+            return `
+                <label data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">
+                    ${head}
+                    <input type="${inputType}" data-entry-field="${esc(f.key)}" value="${esc(val)}">
+                </label>
+            `;
+        }
+        if (f.type === 'duration') {
+            return `
+                <label data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">
+                    ${head}
+                    <input type="text" data-entry-field="${esc(f.key)}" value="${esc(val)}" placeholder="e.g. 45m or 1:30:00">
+                </label>
+            `;
+        }
+        if (f.type === 'ref_list') {
+            const targetSet = (state.variableSets || []).find(s => s.id === f.targetSet);
+            const selectedIds = Array.isArray(values[f.key]) ? values[f.key] : (() => { try { const p = JSON.parse(val || '[]'); return Array.isArray(p) ? p : []; } catch { return []; } })();
+            const items = targetSet?.roster || [];
+            const chipsHtml = items.length
+                ? items.map(item => {
+                    const on = selectedIds.includes(item.id);
+                    return `<button type="button" class="b sm" data-entry-reflist-item="${esc(item.id)}" data-entry-reflist-field="${esc(f.key)}" style="${on ? 'border-color:var(--accent);color:var(--text);' : 'opacity:.55;'}">${esc(item.label || item.id)}</button>`;
+                }).join('')
+                : `<span class="muted" style="font-size:.8rem;">${targetSet ? 'Target set has no items yet.' : `Target set "${esc(f.targetSet || '')}" not found.`}</span>`;
+            return `
+                <div class="${spanCls}" data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">
+                    ${head}
+                    <input type="hidden" data-entry-field="${esc(f.key)}" value="${esc(JSON.stringify(selectedIds))}">
+                    <div style="display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.35rem;">${chipsHtml}</div>
+                </div>
+            `;
+        }
+        if (f.type === 'date' || f.type === 'time' || f.type === 'datetime') {
+            const inputType = f.type === 'datetime' ? 'datetime-local' : f.type;
+            return `
+                <label data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">
+                    ${head}
+                    <input type="${inputType}" data-entry-field="${esc(f.key)}" value="${esc(val)}">
+                </label>
+            `;
+        }
+        if (f.type === 'duration') {
+            return `
+                <label data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">
+                    ${head}
+                    <input type="text" data-entry-field="${esc(f.key)}" value="${esc(val)}" placeholder="e.g. 45m or 1:30:00">
+                </label>
+            `;
+        }
+        if (f.type === 'ref_list') {
+            const targetSet = (state.variableSets || []).find(s => s.id === f.targetSet);
+            const selectedIds = Array.isArray(values[f.key]) ? values[f.key] : (() => { try { const p = JSON.parse(val || '[]'); return Array.isArray(p) ? p : []; } catch { return []; } })();
+            const items = targetSet?.roster || [];
+            const chipsHtml = items.length
+                ? items.map(item => {
+                    const on = selectedIds.includes(item.id);
+                    return `<button type="button" class="b sm" data-entry-reflist-item="${esc(item.id)}" data-entry-reflist-field="${esc(f.key)}" style="${on ? 'border-color:var(--accent);color:var(--text);' : 'opacity:.55;'}">${esc(item.label || item.id)}</button>`;
+                }).join('')
+                : `<span class="muted" style="font-size:.8rem;">${targetSet ? 'Target set has no items yet.' : `Target set "${esc(f.targetSet || '')}" not found.`}</span>`;
+            return `
+                <div class="${spanCls}" data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">
+                    ${head}
+                    <input type="hidden" data-entry-field="${esc(f.key)}" value="${esc(JSON.stringify(selectedIds))}">
+                    <div style="display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.35rem;">${chipsHtml}</div>
+                </div>
+            `;
+        }
         if (f.type === 'ref') {
             const targetSet = (state.variableSets || []).find(s => s.id === f.targetSet);
             const opts = (targetSet?.roster || []).map(r => `<option value="${esc(r.id)}" ${val === r.id ? 'selected' : ''}>${esc(r.label || r.id)}</option>`).join('');
@@ -1062,6 +1146,13 @@ function openEntryModal(setObj, existingEntry = null) {
             <div class="vp-entry-grid ${useTwoCol ? '' : 'single-col'}">
                 ${fieldsHtml}
             </div>
+            <details id="vp-entry-tiers-wrap" style="margin-top:.75rem;border:1px solid var(--border);border-radius:8px;padding:.5rem .7rem;" ${(existingEntry?.tiers?.length) ? 'open' : ''}>
+                <summary style="cursor:pointer;font-size:.8rem;font-weight:600;display:flex;justify-content:space-between;align-items:center;">
+                    <span>Levels / Tiers (Optional)</span>
+                    <button type="button" class="b sm" id="vp-add-tier">${SVG_PLUS} Add Level</button>
+                </summary>
+                <div id="vp-entry-tiers-list" style="display:grid;gap:.45rem;margin-top:.55rem;"></div>
+            </details>
         </form>
     `, `
         <button type="button" class="b" data-vp-close>Cancel</button>
@@ -1133,6 +1224,76 @@ function openEntryModal(setObj, existingEntry = null) {
             btn.addEventListener('click', () => stepChecklistChip(btn, 1));
             btn.addEventListener('contextmenu', e => { e.preventDefault(); stepChecklistChip(btn, -1); });
         });
+        modal.querySelectorAll('[data-entry-reflist-item]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const key = btn.dataset.entryReflistField;
+                const targetId = btn.dataset.entryReflistItem;
+                const input = modal.querySelector(`[data-entry-field="${CSS.escape(key)}"]`);
+                if (!input) return;
+                let arr = [];
+                try { arr = JSON.parse(input.value || '[]'); } catch { arr = []; }
+                if (!Array.isArray(arr)) arr = [];
+                const exists = arr.includes(targetId);
+                arr = exists ? arr.filter(id => id !== targetId) : [...arr, targetId];
+                input.value = JSON.stringify(arr);
+                btn.style.opacity = !exists ? '1' : '.55';
+                btn.style.borderColor = !exists ? 'var(--accent)' : '';
+                btn.style.color = !exists ? 'var(--text)' : '';
+            });
+        });
+        const tiersState = (existingEntry?.tiers || []).map((t, i) => ({
+            level: t.level || (i + 1),
+            label: t.label || '',
+            image: t.image || '',
+            description: t.description || ''
+        }));
+        const tiersHost = modal.querySelector('#vp-entry-tiers-list');
+        const renderTiers = () => {
+            if (!tiersHost) return;
+            tiersHost.innerHTML = tiersState.length ? tiersState.map((t, idx) => `
+                <div data-tier-idx="${idx}" style="display:grid;grid-template-columns:4rem 1fr 1.2fr 1fr auto;gap:.35rem;align-items:center;">
+                    <span class="badge" style="justify-self:start;">Lv.${idx + 1}</span>
+                    <input type="text" data-tier-prop="label" value="${esc(t.label)}" placeholder="Level name">
+                    <div class="vp-img-row">
+                        <input type="text" data-tier-prop="image" value="${esc(t.image)}" placeholder="Image URL">
+                        <button type="button" class="b sm" data-tier-pick="${idx}">Assets</button>
+                    </div>
+                    <input type="text" data-tier-prop="description" value="${esc(t.description)}" placeholder="Description">
+                    <button type="button" class="b sm danger" data-tier-remove="${idx}">${SVG_TRASH}</button>
+                </div>`).join('') : '<span class="muted" style="font-size:.78rem;">No custom levels yet. Click + Add Level to override name, image, or description per tier.</span>';
+        };
+        renderTiers();
+        modal.querySelector('#vp-add-tier')?.addEventListener('click', e => {
+            e.preventDefault();
+            const details = modal.querySelector('#vp-entry-tiers-wrap');
+            if (details) details.open = true;
+            tiersState.push({ level: tiersState.length + 1, label: '', image: '', description: '' });
+            renderTiers();
+        });
+        tiersHost?.addEventListener('input', e => {
+            const row = e.target.closest('[data-tier-idx]');
+            if (!row) return;
+            const idx = Number(row.dataset.tierIdx);
+            const prop = e.target.dataset.tierProp;
+            if (tiersState[idx] && prop) tiersState[idx][prop] = e.target.value;
+        });
+        tiersHost?.addEventListener('click', e => {
+            const pick = e.target.closest('[data-tier-pick]');
+            if (pick) {
+                const idx = Number(pick.dataset.tierPick);
+                pickImage(tiersState[idx]?.image || '', url => {
+                    if (!tiersState[idx]) return;
+                    tiersState[idx].image = url || '';
+                    renderTiers();
+                });
+                return;
+            }
+            const rem = e.target.closest('[data-tier-remove]');
+            if (rem) {
+                tiersState.splice(Number(rem.dataset.tierRemove), 1);
+                renderTiers();
+            }
+        });
         modal.querySelector('#vp-entry-form').onsubmit = async e => {
             e.preventDefault();
             const nextValues = {};
@@ -1141,19 +1302,24 @@ function openEntryModal(setObj, existingEntry = null) {
                     nextValues[f.key] = modal.querySelector(`[data-entry-toggle="${CSS.escape(f.key)}"]`).checked ? 'true' : 'false';
                 } else if (f.type === 'checklist') {
                     nextValues[f.key] = parseChecklistMap(modal.querySelector(`[data-entry-field="${CSS.escape(f.key)}"]`).value);
+                } else if (f.type === 'ref_list') {
+                    try { nextValues[f.key] = JSON.parse(modal.querySelector(`[data-entry-field="${CSS.escape(f.key)}"]`).value || '[]'); } catch { nextValues[f.key] = []; }
                 } else {
                     nextValues[f.key] = modal.querySelector(`[data-entry-field="${CSS.escape(f.key)}"]`).value;
                 }
             }
+            const nextTiers = tiersState
+                .map((t, idx) => ({ level: idx + 1, label: t.label.trim(), image: t.image.trim(), description: t.description.trim() }))
+                .filter(t => t.label || t.image || t.description);
             const nextEnabled = modal.querySelector('#vp-entry-enabled')?.checked !== false;
             const firstKey = fields[0]?.key || 'name';
             const label = String(nextValues[firstKey] || existingEntry?.label || `Entry ${(setObj.roster?.length || 0) + 1}`).trim();
             const roster = [...(setObj.roster || [])];
             if (isEdit) {
                 const idx = roster.findIndex(r => r.id === existingEntry.id);
-                if (idx >= 0) roster[idx] = { ...roster[idx], label, enabled: nextEnabled, values: nextValues };
+                if (idx >= 0) roster[idx] = { ...roster[idx], label, enabled: nextEnabled, values: nextValues, ...(nextTiers.length ? { tiers: nextTiers } : { tiers: undefined }) };
             } else {
-                roster.push({ id: slugId(label) || `entry_${Date.now()}`, label, enabled: nextEnabled, values: nextValues });
+                roster.push({ id: slugId(label) || `entry_${Date.now()}`, label, enabled: nextEnabled, values: nextValues, ...(nextTiers.length ? { tiers: nextTiers } : {}) });
             }
             try {
                 await api(`/api/variables/sets/${encodeURIComponent(setObj.id)}`, 'PUT', { roster });

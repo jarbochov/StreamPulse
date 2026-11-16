@@ -3919,6 +3919,13 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
   function resolveTieredValue(member, baseKey, level, isImage = false) {
     if (!member || !baseKey) return "";
     const vals = member.values || {};
+    if (level >= 1 && Array.isArray(member.tiers) && member.tiers.length) {
+      const tierObj = member.tiers.find((t) => Number(t.level) === level) || member.tiers[level - 1];
+      if (tierObj) {
+        const direct = isImage ? tierObj.image : tierObj.label || tierObj.description;
+        if (direct && String(direct).trim()) return String(direct).trim();
+      }
+    }
     if (level >= 1) {
       const candidates = [
         `${baseKey}_tier_${level}`,
