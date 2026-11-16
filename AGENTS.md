@@ -16,6 +16,10 @@ This document provides project architecture context, mandatory UI/UX design rule
 
 ### Optimized for Low Overhead & High Efficiency
 - StreamPulse runs locally on live broadcasting computers alongside OBS Studio, real-time hardware encoders, and demanding games. System overhead (CPU, GPU, RAM) must be minimal.
+- **Mandatory Performance Standard**: Treat maximum practical performance and minimum CPU/GPU usage as acceptance criteria for every feature and change, not optional follow-up work. Proactively identify and mitigate expensive rendering, repainting, compositing, polling, and background processing.
+- **Do Less Work**: Cull off-screen drawing, reuse bounded caches and rendering surfaces, update only changed data/DOM, and avoid redundant animation loops, allocations, layout reads, and full-surface repaints. Prefer compositor-friendly transforms where appropriate, while bounding texture memory; moving work from CPU to GPU is not automatically an optimization.
+- **Idle Means Idle**: Pause unnecessary work in hidden tabs, inactive views, and unused previews. Resume cleanly without overriding explicit user pause settings, and fully dispose of timers, listeners, observers, and rendering resources.
+- **Measure and Preserve Quality**: Profile representative dense overlays and effect combinations before and after performance-sensitive changes. Verify CPU/GPU cost, frame pacing, memory bounds, and cleanup in the relevant browser/OBS environment; distinguish measured results from assumptions or shared-process usage. Preserve intended visuals, animation speed, and saved settings rather than silently reducing quality or disabling features.
 - **Zero Redundant Dependencies**: Favor modern Web standards and native Node.js / browser APIs over bloated third-party libraries.
 - **Flicker-Free, Zero-Lag Live Previews**: Never perform full iframe reloads on user input. Use direct `postMessage` synchronization and targeted DOM / CSS variable updates for instantaneous 60fps real-time live previewing.
 - **Resource Management**:
