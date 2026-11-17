@@ -43,7 +43,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - **Overlay control**: Separate Pages, Media (videos/slideshows/cutouts), and Speakers into standard `.tabs-nav` tabs with `#pages`/`#media`/`#speakers` deep links and count pills, clean up the Speakers panel, list trigger/event pages below rotation pages, and remove the full app nav bar.
 - **Sessions**: Record native Twitch subscriptions and keep title/category history live-only.
 - **Trivia overlays**: Respect boxed styles and keep enabled hints at zero, never with voting off.
-- **Subscription alerts**: Deduplicate delayed Twitch/SSN notifications, preserve native gift counts and anonymous attribution, and use observed tenure when Twitch omits months.
+- **Subscription alerts**: Select Prime from Twitch/SSN announcements, deduplicate delayed notifications, and preserve native gift counts and anonymous attribution.
 - **Windows builds**: Prevent embedded startup from opening an authorization browser and hanging desktop validation.
 - **Trivia**: Chat-voting silence, saved sound/blur/collapse controls, live-edit preservation, question ordering/tracking, auto-advance, and Companion state mapping.
 - **Subathon**: Preserve omitted donation settings during rule edits and update idle overlays when timed boosts expire.

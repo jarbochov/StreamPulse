@@ -10,7 +10,13 @@ Amount-based rules can fire at **At least**, **Between** or **Equal to** an amou
 
 ### Returning Subscribers
 
-Twitch subscription notifications can omit cumulative months. When StreamPulse has already observed more than one month for that viewer, it uses that known tenure to match Resub rules instead of New Subscriber rules. `{{alert.months}}` is the observed count, not an inferred extra month. A subscription message containing Twitch's cumulative count takes precedence; unknown tenure is not guessed.
+Twitch's basic subscription events use tier `1000` for **both Prime and paid Tier 1**. Prime is selected from `is_prime` in native `channel.chat.notification` announcements or explicit SSN subscription metadata/system text such as “subscribed with Prime.” Mentioning Prime in viewer chat text does not override the native Prime flag.
+
+When native chat notifications are registered or SSN is connected, basic native subscription events update session counts and goals immediately **without selecting an alert**. The first native chat announcement or SSN announcement selects one matching Prime/paid rule with its real months and message; the other delivery only enriches the record. Returning subscribers therefore alert when their renewal is announced/shared in chat, not on a silent renewal. Different viewers remain independent.
+
+Native chat notifications use the existing `user:read:chat` permission; reconnect Twitch if that permission is missing. SSN remains a supported source of Prime details, not just a backup for chat. No new setting, polling or Companion action is required.
+
+If neither announcement source is available, basic native events remain the alert fallback, using already-observed tenure when cumulative months are absent. `{{alert.months}}` is observed, not an inferred extra month; Prime cannot be inferred from `1000` or historical tenure. An announcement with Twitch's cumulative count takes precedence in session metadata.
 
 Subscription notifications for the same Twitch viewer within two minutes share one alert and subscription count, even when the shared resub message arrives later or reports newer months. Later messages remain in chat history and enrich observed tenure without replaying the alert. This is per viewer, not a rule-wide cooldown, so different viewers can still alert together.
 

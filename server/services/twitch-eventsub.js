@@ -142,7 +142,7 @@ function createTwitchEventSubService(options = {}) {
 
         const candidateSubscriptions = [];
         if (scopes.includes('user:read:chat')) {
-            for (const type of ['channel.chat.message', 'channel.chat.message_delete', 'channel.chat.clear_user_messages', 'channel.chat.clear']) {
+            for (const type of ['channel.chat.message', 'channel.chat.notification', 'channel.chat.message_delete', 'channel.chat.clear_user_messages', 'channel.chat.clear']) {
                 candidateSubscriptions.push({ type, version: '1', condition: { broadcaster_user_id: broadcasterId, user_id: broadcasterId } });
             }
         }
@@ -262,6 +262,22 @@ function createTwitchEventSubService(options = {}) {
         if (!ev) return;
 
         switch (type) {
+            case 'channel.chat.notification': {
+                if (!['sub', 'resub'].includes(ev.notice_type)) break;
+                const sub = ev[ev.notice_type];
+                if (!sub || sub.is_gift) break;
+                onSubscribe({
+                    userId: ev.chatter_user_id,
+                    user: ev.chatter_user_name || ev.chatter_user_login,
+                    tier: sub.is_prime === true || (sub.is_prime == null && /\bPrime\b/i.test(ev.system_message || ''))
+                        ? 'prime' : sub.sub_tier || sub.sub_plan || '1000',
+                    months: ev.notice_type === 'resub' ? Number(sub.cumulative_months || 1) : 1,
+                    streak: Number(sub.streak_months || 0),
+                    message: ev.message?.text || '',
+                    sourceEvent: 'channel.chat.notification'
+                });
+                break;
+            }
             case 'channel.chat.message': {
                 onChatMessage({
                     id: ev.message_id, broadcasterId: ev.broadcaster_user_id,

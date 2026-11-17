@@ -111,7 +111,8 @@ test('Twitch EventSub: chat identity, deletes and clears use broadcaster chat-re
         }));
         await new Promise(resolve => setTimeout(resolve, 20));
         const chat = subscriptions.filter(subscription => subscription.type.startsWith('channel.chat.'));
-        assert.equal(chat.length, 4);
+        assert.equal(chat.length, 5);
+        assert.ok(chat.some(subscription => subscription.type === 'channel.chat.notification'));
         for (const subscription of chat) assert.deepEqual(subscription.condition, { broadcaster_user_id: '99', user_id: '99' });
         service.handleNotification({ subscription_type: 'channel.chat.message' }, { event: {
             broadcaster_user_id: '99', chatter_user_id: '42', chatter_user_login: 'fixtureviewer', message_id: 'native-uuid', message: { text: 'fixture text' }
@@ -245,6 +246,66 @@ test('native subscriptions populate session accounting and retain shared message
     ssn.saveChatLog();
     assert.equal(JSON.parse(fs.readFileSync(path.join(dataDir, 'chat.json'))).subscribers.length, 3);
     assert.match(fs.readFileSync(path.join(dataDir, 'chat-log.jsonl'), 'utf8'), /channel\.subscription\.message/);
+});
+
+test('SSN and native chat announcements select Prime once without ambiguous basic events stealing the alert', t => {
+    t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-17T02:00:00Z') });
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-prime-announcement-'));
+    const chat = createEmptyChatData(), stats = createEmptyStatsData();
+    const engine = createAlertEngine({ dataDir, log() {} });
+    engine.setConfig({ rules: [
+        { id: 'paid', trigger: 'resub', conditions: { tiers: ['1000'] }, variants: [{ title: 'Paid {{alert.months}}' }] },
+        { id: 'prime', trigger: 'resub', conditions: { tiers: ['prime'] }, variants: [{ title: 'Prime {{alert.months}}' }] }
+    ] });
+    const ssn = createSsnService({
+        dataDir, getChatData: () => chat, getStatsData: () => stats,
+        getTwitchEventSubStatus: () => ({ connected: true, activeSubscriptions: ['channel.chat.notification'] }),
+        alertEngine: engine, log() {}, warn() {}
+    });
+    let counted = 0;
+    const twitch = createTwitchService({
+        getSubscriptionMonths: () => 64,
+        onSubscribe: data => { if (ssn.processTwitchSubscription(data)) counted++; }, log() {}, warn() {}
+    });
+    const notify = (type, event) => twitch.getEventSub().handleNotification({ subscription_type: type }, { event });
+    t.after(() => { twitch.stopEventSub(); engine.stop(); ssn.disconnectSSN(); fs.rmSync(dataDir, { recursive: true, force: true }); });
+    notify('channel.subscribe', { user_name: 'PrimeViewer', tier: '1000' });
+    assert.equal(chat.subscribers.length, 1, 'accounting updates immediately before an announcement');
+    assert.equal(counted, 1);
+    assert.equal(engine.getQueueState().events.length, 0, 'ambiguous tier1000 does not select paid Tier1 early');
+    t.mock.timers.tick(19000);
+    notify('channel.subscription.message', { user_name: 'PrimeViewer', tier: '1000', cumulative_months: 65, message: { text: 'Thanks - again' } });
+    assert.equal(engine.getQueueState().events.length, 0);
+    ssn.processChatMessage({
+        chatname: 'PrimeViewer', type: 'twitch', event: 'resub', membership: 'Subscriber',
+        subtitle: '65 months', chatmessage: "PrimeViewer subscribed with Prime. They've subscribed for 65 months! - Thanks - again"
+    });
+    assert.equal(engine.getQueueState().events.length, 1);
+    assert.equal(engine.getQueueState().events[0].event.tier, 'prime');
+    assert.equal(engine.getQueueState().events[0].title, 'Prime 65');
+    assert.equal(engine.getQueueState().events[0].event.message, 'Thanks - again');
+    notify('channel.chat.notification', {
+        notice_type: 'resub', chatter_user_name: 'PrimeViewer',
+        resub: { sub_tier: '1000', is_prime: true, cumulative_months: 65, streak_months: 3 },
+        message: { text: 'Thanks - again' }
+    });
+    assert.equal(engine.getQueueState().events.length, 1, 'native announcement cannot duplicate the SSN alert');
+    assert.equal(counted, 1, 'all native/SSN deliveries share the same accounting');
+    notify('channel.chat.notification', {
+        notice_type: 'resub', chatter_user_name: 'PaidViewer',
+        resub: { sub_tier: '1000', is_prime: false, cumulative_months: 12, streak_months: 2 },
+        message: { text: 'Prime is great' }
+    });
+    assert.equal(engine.getQueueState().events[0].title, 'Paid 12', 'viewer text cannot override authoritative paid-tier metadata');
+    assert.equal(engine.getQueueState().events[0].event.streak, 2);
+    ssn.processChatMessage({
+        chatname: 'PaidViewer', type: 'twitch', event: 'resub', membership: 'Subscriber',
+        subtitle: '12 months', chatmessage: 'PaidViewer subscribed at Tier 1. - Prime is great'
+    });
+    assert.equal(engine.getQueueState().events.length, 2, 'SSN following native is deduplicated too');
+    notify('channel.chat.notification', { notice_type: 'shared_chat_resub', chatter_user_name: 'OtherChannel', shared_chat_resub: { is_prime: true } });
+    notify('channel.chat.notification', { notice_type: 'resub', chatter_user_name: 'GiftRecipient', resub: { is_gift: true } });
+    assert.equal(engine.getQueueState().events.length, 2, 'shared-channel and gift recipient notices do not create subscription alerts');
 });
 
 test('native gift batches own Twitch alerts while SSN enriches anonymous recipients and falls back when unavailable', t => {

@@ -61,7 +61,9 @@ function contentImageHtml(contentimg) {
 function alertTierLabel(msg) {
     const text = `${msg.membership || ''} ${msg.subtitle || ''} ${msg.chatmessage || ''}`;
     const metaTier = msg.meta && typeof msg.meta === 'object' ? String(msg.meta.sub_tier || msg.meta.tier || '') : '';
-    if (/prime/i.test(text) || /prime/i.test(metaTier)) return { tier: 'prime', label: 'Prime' };
+    if (/prime/i.test(metaTier) || (msg.source !== 'twitch-eventsub'
+        && (/\bprime\b/i.test(`${msg.membership || ''} ${msg.subtitle || ''}`)
+            || /\bsubscribed\s+(?:with|using)\s+(?:a\s+)?Prime\b/i.test(msg.chatmessage || '')))) return { tier: 'prime', label: 'Prime' };
     const n = (text.match(/tier\s*(\d)/i) || [])[1] || (metaTier.match(/^(\d)000$/) || [])[1];
     return n ? { tier: `${n}000`, label: `Tier ${n}` } : { tier: '', label: '' };
 }
@@ -859,12 +861,34 @@ function createSsnService({
         const message = String(data.message || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         return processChatMessage({
             chatname: data.user, userId: data.userId, type: 'twitch', source: 'twitch-eventsub',
-            sourceEvent: Object.hasOwn(data, 'message') ? 'channel.subscription.message' : 'channel.subscribe',
+            sourceEvent: data.sourceEvent || (Object.hasOwn(data, 'message') ? 'channel.subscription.message' : 'channel.subscribe'),
             event: months > 1 ? 'resub' : 'new_subscriber', membership: 'Subscriber',
             subtitle: months ? `${months} months` : null,
             chatmessage: message, messageText: String(data.message || ''),
-            meta: { cumulative_months: months, sub_tier: data.tier }
+            meta: { cumulative_months: months, sub_tier: data.tier, streak_months: data.streak }
         }) !== false;
+    }
+
+    function alertSubscription(msg, record) {
+        if (record.subscriptionAlertedAt && Date.now() - record.subscriptionAlertedAt < SUBSCRIPTION_DEDUPE_MS) return;
+        const native = getTwitchEventSubStatus();
+        const hasAnnouncements = native?.connected === true
+            && native.activeSubscriptions?.includes('channel.chat.notification');
+        if (msg.source === 'twitch-eventsub' && msg.sourceEvent !== 'channel.chat.notification'
+            && (hasAnnouncements || ssnSocket?.readyState === WebSocket.OPEN)) return;
+        const months = parseSubMonths(msg);
+        const tier = alertTierLabel(msg);
+        const text = String(msg.chatmessage || '').replace(/<[^>]+>/g, '').trim();
+        const split = text.indexOf(' - ');
+        record.subscriptionAlertedAt = Date.now();
+        resolveAlertEngine()?.handleEvent({
+            type: msg.event === 'resub' || months > 1 ? 'resub' : 'sub',
+            user: msg.chatname, avatar: msg.chatimg, months: months || '',
+            streak: Number(msg.meta?.streak_months) || Number(text.match(/(\d+)\s*-?\s*month\s+streak/i)?.[1]) || '',
+            tier: tier.tier, tierLabel: tier.label,
+            message: msg.source === 'twitch-eventsub' ? String(msg.messageText || '')
+                : split >= 0 ? text.slice(split + 3) : text
+        });
     }
 
     function processChatMessage(msg) {
@@ -959,6 +983,7 @@ function createSsnService({
                 const repeatedNative = native && existing.twitchEventAt
                     && Date.now() - existing.twitchEventAt < SUBSCRIPTION_DEDUPE_MS;
                 if (native && !repeatedNative) existing.twitchEventAt = Date.now();
+                alertSubscription(msg, existing);
                 scheduleChatUpdateBroadcast();
                 // Keep SSN chatbot handling and the first native-only effects, regardless of delivery order.
                 return repeatedNative ? false : undefined;
@@ -1142,24 +1167,15 @@ function createSsnService({
                 }
             } else {
                 const subMonths = parseSubMonths(msg);
-                const subTier = alertTierLabel(msg);
-                const streakMatch = String(msg.chatmessage || '').match(/(\d+)\s*-?\s*month\s+streak/i);
-                resolveAlertEngine()?.handleEvent({
-                    type: msg.event === 'resub' || subMonths > 1 ? 'resub' : 'sub',
-                    user: chatname, avatar: msg.chatimg, months: subMonths || '',
-                    streak: streakMatch ? parseInt(streakMatch[1], 10) : '',
-                    tier: subTier.tier, tierLabel: subTier.label,
-                    message: msg.source === 'twitch-eventsub' ? String(msg.messageText || '')
-                        : String(msg.chatmessage || '').replace(/<[^>]+>/g, '').split(' - ')[0].trim()
-                });
-                const existingSub = chatData.subscribers.find(s => String(s.chatname).toLowerCase() === chatname.toLowerCase());
+                let existingSub = chatData.subscribers.find(s => String(s.chatname).toLowerCase() === chatname.toLowerCase());
                 if (!existingSub) {
-                    chatData.subscribers.push({
+                    existingSub = {
                         chatname, membership: msg.membership || null, subtitle: msg.subtitle || null,
                         chatimg: msg.chatimg, event: msg.event || null, timestamp: Date.now(),
                         type: msg.type || null, months: subMonths || 0,
                         twitchEventAt: msg.source === 'twitch-eventsub' ? Date.now() : undefined
-                    });
+                    };
+                    chatData.subscribers.push(existingSub);
                     log(`[SSN] Sub: ${chatname} - ${msg.membership || msg.event}${msg.subtitle ? ' (' + msg.subtitle + ')' : ''}`);
                     if (clipCandidateConfig.enabled && clipCandidateConfig.include_subscriptions) {
                         addClipCandidate('subscription', { user: chatname, tier: msg.membership || msg.event }, Date.now(), 0.6);
@@ -1170,6 +1186,7 @@ function createSsnService({
                     existingSub.months = Math.max(existingSub.months || 0, subMonths);
                     if (msg.source === 'twitch-eventsub') existingSub.twitchEventAt = Date.now();
                 }
+                alertSubscription(msg, existingSub);
             }
         }
 
