@@ -1154,7 +1154,7 @@
                 {
                     method: 'GET', path: '/api/alerts',
                     desc: 'Alert rules, settings and queue state',
-                    details: 'Returns { settings, rules, queue: { pending, current, paused, history }, meta }.'
+                    details: 'Returns {settings,rules,queue:{pending,current,paused,muted,history,events,state,machine},meta}. Same-viewer Twitch subscription notices within 120s share one alert/count; later messages enrich tenure and remain in chat history. With EventSub connected and channel.subscription.gift registered, native gift batches supply the giver/count; SSN can enrich a pending batch but cannot queue another alert. SSN remains the fallback otherwise. Anonymous recipients are not treated as givers. No new parameters or polling. Recorded history is not rewritten; explicit replay still replays the recorded alert.'
                 },
                 {
                     method: 'PUT', path: '/api/alerts',

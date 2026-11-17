@@ -12,6 +12,14 @@ Amount-based rules can fire at **At least**, **Between** or **Equal to** an amou
 
 Twitch subscription notifications can omit cumulative months. When StreamPulse has already observed more than one month for that viewer, it uses that known tenure to match Resub rules instead of New Subscriber rules. `{{alert.months}}` is the observed count, not an inferred extra month. A subscription message containing Twitch's cumulative count takes precedence; unknown tenure is not guessed.
 
+Subscription notifications for the same Twitch viewer within two minutes share one alert and subscription count, even when the shared resub message arrives later or reports newer months. Later messages remain in chat history and enrich observed tenure without replaying the alert. This is per viewer, not a rule-wide cooldown, so different viewers can still alert together.
+
+### Gift Subscription Sources
+
+When Twitch EventSub is connected **and** `channel.subscription.gift` is registered, its gift batches supply the alert's giver and full count. SSN can add recipient/avatar details to a pending matching batch, but cannot increase that count or start another alert. SSN remains the alert fallback when Twitch disconnects, lacks the gift subscription, or the event belongs to another platform. Anonymous gifts are attributed to **Anonymous**, never to the recipient after “to.”
+
+No extra polling, settings or Companion changes are required. The existing alert queue, replay, mute and test endpoints are unchanged. Replaying a historical alert preserves its recorded content; this fix does not rewrite old alerts or historical gift totals.
+
 ### Testing Channel Point Rewards
 
 `{{alert.reward}}` is the title of the reward actually redeemed, not a list of every checked reward. The rule's reward checkboxes control which redemptions match.

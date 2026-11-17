@@ -9,10 +9,25 @@ const { normalizeSsnSessionId } = require('../ssn-config');
 const MAX_IN_MEMORY_CHAT_MESSAGES = 2000;
 const CHAT_WINDOWS = [5, 10, 15, 30, 60];
 const SUB_EVENTS = ['new_subscriber', 'resub', 'subscription_gift', 'sponsorship', 'giftpurchase', 'giftredemption'];
+const SUBSCRIPTION_DEDUPE_MS = 120000;
 
 function isGiftSubscription(msg) {
-    return Boolean(msg.event === 'subscription_gift' || msg.event === 'giftpurchase'
+    return Boolean(msg.event === 'subscription_gift' || msg.event === 'giftpurchase' || msg.event === 'giftredemption'
         || /gift/i.test(msg.membership || '') || msg.contentimg);
+}
+
+function giftParticipants(msg) {
+    const text = `${msg.subtitle || ''} ${msg.chatmessage || ''}`.replace(/<[^>]*>/g, ' ');
+    const recipient = text.match(/gifted\s+(?:a\s+)?(?:Tier\s+\d\s+)?Sub(?:scription)?\s+to\s+([a-z0-9_]+)/i)?.[1] || null;
+    const anonymous = /^(?:an\s*)?anonymous(?:\s*gifter)?$/i.test(msg.chatname || '')
+        || /\ban\s+anonymous\s+(?:gifter|user)\b/i.test(text);
+    if (msg.event === 'giftredemption' || String(msg.membership).toLowerCase() === 'gift_recipient') {
+        const giver = text.match(/gifted\s+by\s+([a-z0-9_]+)/i)?.[1] || 'Anonymous';
+        return { gifter: anonymous || /^(?:an\s*)?anonymous(?:\s*gifter)?$/i.test(giver) ? 'Anonymous' : giver, recipient: msg.chatname };
+    }
+    const gifter = anonymous ? 'Anonymous' : msg.chatname === 'Viewer'
+        ? text.match(/(?:^|\s)([a-z0-9_]+)\s+gifted\b/i)?.[1] || 'Anonymous' : msg.chatname;
+    return { gifter: /^(?:an\s*)?anonymous(?:\s*gifter)?$/i.test(gifter || '') ? 'Anonymous' : gifter, recipient };
 }
 
 function parseNumericAmount(value) {
@@ -363,6 +378,7 @@ function createSsnService({
     getConfig = () => ({}),
     getSsnSessionId = () => '',
     getSsnServer = () => 'wss://io.socialstream.ninja',
+    getTwitchEventSubStatus = () => null,
     getBannedUsers = () => [],
     messageDeletions = null,
     getExcludeUsers = () => [],
@@ -690,16 +706,7 @@ function createSsnService({
             if (!statsData.subscribers) statsData.subscribers = {};
             const isGift = isGiftSubscription(msg);
             if (isGift) {
-                let statsGifter;
-                if (msg.event === 'giftredemption' || (msg.membership && msg.membership.toLowerCase() === 'gift_recipient')) {
-                    const giftedByMatch = (msg.subtitle || '').match(/gifted\s+by\s+(\S+)/i);
-                    statsGifter = giftedByMatch ? giftedByMatch[1] : 'Anonymous';
-                } else if (chatname === 'Viewer' || chatname === 'AnAnonymousGifter') {
-                    const nameAfterTo = (msg.chatmessage || '').match(/gifted\s+(?:a\s+)?(?:Tier \d\s+)?Sub(?:scription)?\s+to\s+(\S+)/i);
-                    statsGifter = nameAfterTo ? nameAfterTo[1].replace(/[.!,]$/, '') : 'Anonymous';
-                } else {
-                    statsGifter = chatname;
-                }
+                const { gifter: statsGifter } = giftParticipants(msg);
                 if (!statsData.giftSubs[statsGifter]) {
                     statsData.giftSubs[statsGifter] = {
                         chatimg: msg.chatimg, firstSeen: nowISO, lastSeen: nowISO, days: {}
@@ -940,7 +947,7 @@ function createSsnService({
             const existing = chatData.subscribers?.find(sub => String(sub.type).toLowerCase() === 'twitch'
                 && String(sub.chatname).toLowerCase() === chatname.toLowerCase()
                 && Date.now() - (sub.lastEventAt || sub.timestamp) >= 0
-                && Date.now() - (sub.lastEventAt || sub.timestamp) < 8000);
+                && Date.now() - (sub.lastEventAt || sub.timestamp) < SUBSCRIPTION_DEDUPE_MS);
             if (existing) {
                 recordSubTenure(chatname, msg, new Date().toISOString());
                 const months = parseSubMonths(msg);
@@ -950,7 +957,7 @@ function createSsnService({
                 existing.chatimg = msg.chatimg || existing.chatimg;
                 const native = msg.source === 'twitch-eventsub';
                 const repeatedNative = native && existing.twitchEventAt
-                    && Date.now() - existing.twitchEventAt < 8000;
+                    && Date.now() - existing.twitchEventAt < SUBSCRIPTION_DEDUPE_MS;
                 if (native && !repeatedNative) existing.twitchEventAt = Date.now();
                 scheduleChatUpdateBroadcast();
                 // Keep SSN chatbot handling and the first native-only effects, regardless of delivery order.
@@ -1110,27 +1117,16 @@ function createSsnService({
             if (isGift) {
                 log(`[SSN] Gift event raw: chatname=${chatname}, event=${msg.event}, membership=${msg.membership || ''}, subtitle=${msg.subtitle || ''}, chatmessage=${(msg.chatmessage || '').substring(0, 120)}, meta=${JSON.stringify(msg.meta || {})}`);
 
-                const nameAfterTo = (msg.chatmessage || '').match(/gifted\s+(?:a\s+)?(?:Tier \d\s+)?Sub(?:scription)?\s+to\s+(\S+)/i);
-                const parsedName = nameAfterTo ? nameAfterTo[1].replace(/[.!,]$/, '') : null;
-                const giftedByMatch = (msg.subtitle || '').match(/gifted\s+by\s+(\S+)/i);
-
-                let gifter, recipient;
-                if (msg.event === 'giftredemption' || (msg.membership && msg.membership.toLowerCase() === 'gift_recipient')) {
-                    recipient = chatname;
-                    gifter = giftedByMatch ? giftedByMatch[1] : 'Anonymous';
-                } else if (chatname === 'Viewer' || chatname === 'AnAnonymousGifter') {
-                    gifter = parsedName || 'Anonymous';
-                    recipient = null;
-                } else {
-                    gifter = chatname;
-                    recipient = parsedName || null;
-                }
+                const { gifter, recipient } = giftParticipants(msg);
 
                 const gifterAvatar = (chatname === gifter && msg.chatimg) ? msg.chatimg
                     : (chatData.chatters?.[gifter] ? chatData.chatters[gifter].chatimg : null);
 
                 const giftTier = alertTierLabel(msg);
-                resolveAlertEngine()?.noteGift({ user: gifter, avatar: gifterAvatar, recipient, tier: giftTier.tier, tierLabel: giftTier.label });
+                const native = getTwitchEventSubStatus();
+                const enrichOnly = String(msg.type).toLowerCase() === 'twitch' && native?.connected === true
+                    && native.activeSubscriptions?.includes('channel.subscription.gift') === true;
+                resolveAlertEngine()?.noteGift({ user: gifter, avatar: gifterAvatar, recipient, tier: giftTier.tier, tierLabel: giftTier.label, enrichOnly });
 
                 const existingGift = chatData.giftSubs.find(g => g.gifter === gifter);
                 if (existingGift) {

@@ -857,7 +857,11 @@ Deletes a custom user preset pack.
 
 ## Alerts Replay & Queue Control
 
+`GET /api/alerts` returns `{settings,rules,queue:{pending,current,paused,muted,history,events,state,machine},meta}`. Same-viewer Twitch subscription notifications within 120 seconds share one alert/count, while subsequent messages remain in chat history and enrich tenure. When EventSub is connected with `channel.subscription.gift` registered, native gift batches own alert giver/count; SSN can enrich pending recipients without creating another alert or increasing the count. Otherwise SSN remains the fallback. Anonymous gifts are never attributed to the recipient. No new request parameters, methods, polling or Companion controls are required.
+
 - **Replay Recent Alerts**: `POST /api/alerts/replay` or `GET /api/alerts/replay?count=3` replays the last `N` shown alerts from history in chronological order (defaults to `count=1` when omitted; capped at `50`). You can also pass `{ "alertId": "..." }` to re-queue an exact alert from history or `{ "eventId": "..." }` to re-evaluate a stored event through current rules.
+
+History is not rewritten by ingestion fixes. Exact-alert replay reproduces the original recorded content; event replay re-evaluates the recorded event, not a newly fetched Twitch event.
 
 ---
 

@@ -8,6 +8,7 @@ const path = require('node:path');
 const { createTwitchService } = require('../server/services/twitch');
 const { createSsnService, createEmptyChatData, createEmptyStatsData } = require('../server/services/ssn');
 const { createViewerService } = require('../server/services/viewers');
+const { createAlertEngine } = require('../server/services/alerts');
 
 class MockWebSocket extends EventEmitter {
     constructor(url) {
@@ -166,6 +167,7 @@ test('Twitch subscriptions without cumulative months retain observed tenure thro
 });
 
 test('native subscriptions populate session accounting and retain shared messages without duplicate counts', t => {
+    t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-17T02:00:00Z') });
     const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-native-subs-'));
     const chat = createEmptyChatData();
     const stats = createEmptyStatsData();
@@ -198,6 +200,7 @@ test('native subscriptions populate session accounting and retain shared message
     assert.equal(records[0].sourceEvent, 'channel.subscribe');
     assert.equal(records[0].message, '', 'a basic subscription must not fabricate a shared viewer message');
     assert.equal(alerts[0].tier, '1000');
+    t.mock.timers.tick(19000);
     eventsub.handleNotification({ subscription_type: 'channel.subscription.message' }, { event: {
         user_id: 'fixture-id', user_name: 'ReturningViewer', tier: '1000',
         cumulative_months: 16, message: { text: 'Another month together' }
@@ -242,6 +245,44 @@ test('native subscriptions populate session accounting and retain shared message
     ssn.saveChatLog();
     assert.equal(JSON.parse(fs.readFileSync(path.join(dataDir, 'chat.json'))).subscribers.length, 3);
     assert.match(fs.readFileSync(path.join(dataDir, 'chat-log.jsonl'), 'utf8'), /channel\.subscription\.message/);
+});
+
+test('native gift batches own Twitch alerts while SSN enriches anonymous recipients and falls back when unavailable', t => {
+    t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: Date.parse('2026-11-17T02:00:00Z') });
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-native-gifts-'));
+    const chat = createEmptyChatData(), stats = createEmptyStatsData();
+    let native = { connected: true, activeSubscriptions: ['channel.subscription.gift'] };
+    const engine = createAlertEngine({ dataDir, log() {} });
+    engine.setConfig({ rules: [{ id: 'gift', trigger: 'gift', variants: [{ title: '{{alert.user}} to {{alert.recipient}}' }] }] });
+    const ssn = createSsnService({
+        dataDir, getChatData: () => chat, getStatsData: () => stats,
+        getTwitchEventSubStatus: () => native, alertEngine: engine, log() {}, warn() {}
+    });
+    t.after(() => { engine.stop(); ssn.disconnectSSN(); fs.rmSync(dataDir, { recursive: true, force: true }); });
+    engine.noteGift({ user: 'An Anonymous Gifter', count: 1, tier: '1000' });
+    ssn.processChatMessage({ chatname: 'Viewer', type: 'twitch', event: 'subscription_gift',
+        chatmessage: 'AnAnonymousGifter gifted a Tier 1 Sub to FictionalRecipient!' });
+    t.mock.timers.tick(4000);
+    const gifts = () => engine.getQueueState().events.filter(entry => entry.event.type === 'gift');
+    assert.equal(gifts().length, 1);
+    assert.equal(gifts()[0].event.user, 'Anonymous');
+    assert.equal(gifts()[0].event.recipient, 'FictionalRecipient');
+    assert.equal(gifts()[0].event.count, 1);
+    assert.equal(chat.giftSubs[0].gifter, 'Anonymous');
+    assert.equal(chat.giftSubs[0].recipient, 'FictionalRecipient');
+    assert.ok(stats.giftSubs.Anonymous);
+    assert.equal(stats.giftSubs.FictionalRecipient, undefined);
+    ssn.processChatMessage({ chatname: 'FictionalRecipient', type: 'twitch', event: 'giftredemption' });
+    t.mock.timers.tick(4000);
+    assert.equal(gifts().length, 1, 'recipient notices cannot start a second native gift alert');
+    native = { connected: false, activeSubscriptions: ['channel.subscription.gift'] };
+    ssn.processChatMessage({ chatname: 'FallbackGifter', type: 'twitch', event: 'giftpurchase', chatmessage: 'FallbackGifter gifted a Sub to Friend' });
+    t.mock.timers.tick(4000);
+    assert.equal(gifts().length, 2, 'SSN remains a fallback when EventSub disconnects');
+    native = { connected: true, activeSubscriptions: [] };
+    ssn.processChatMessage({ chatname: 'UnsubscribedGifter', type: 'twitch', event: 'giftpurchase' });
+    t.mock.timers.tick(4000);
+    assert.equal(gifts().length, 3, 'a connected socket without gift authorization does not suppress SSN');
 });
 
 test('Twitch channel updates record live history only, with the actual live-start baseline', t => {

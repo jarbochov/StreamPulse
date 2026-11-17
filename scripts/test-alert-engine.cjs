@@ -48,6 +48,27 @@ test('alert deduplication stays bounded during bursts and releases removed-rule 
     }
 });
 
+test('native gift batches preserve totals and metadata-only SSN notices never increase counts', t => {
+    t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: Date.parse('2026-11-17T02:00:00Z') });
+    const { engine, cleanup } = createTempEngine({
+        rules: [{ id: 'gift', trigger: 'gift', variants: [{ title: '{{alert.user}} gifted {{alert.count}}' }] }]
+    });
+    try {
+        engine.noteGift({ user: 'GenerousViewer', count: 5 });
+        engine.noteGift({ user: 'GenerousViewer', recipient: 'FriendA', enrichOnly: true });
+        engine.noteGift({ user: 'GenerousViewer', recipient: 'FriendB', enrichOnly: true });
+        t.mock.timers.tick(4000);
+        const gifts = engine.getQueueState().events.filter(entry => entry.event.type === 'gift');
+        assert.equal(gifts.length, 1);
+        assert.equal(gifts[0].event.count, 5);
+        assert.equal(gifts[0].event.amount, 5);
+        assert.equal(gifts[0].event.recipient, 'FriendA, FriendB');
+        engine.noteGift({ user: 'GenerousViewer', recipient: 'FriendC', enrichOnly: true });
+        t.mock.timers.tick(4000);
+        assert.equal(engine.getQueueState().events.length, 1);
+    } finally { cleanup(); }
+});
+
 test('subscription tiers normalization and backward compatibility', () => {
     // Legacy c.tier string
     const cfg1 = normalizeConfig({

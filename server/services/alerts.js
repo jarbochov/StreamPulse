@@ -977,20 +977,23 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
     }
 
     // Gift subs arrive one event at a time, so batch them per gifter into a single alert
-    function noteGift({ user, avatar, recipient, tier, tierLabel }) {
+    function noteGift({ user, avatar, recipient, tier, tierLabel, count = 1, enrichOnly = false }) {
+        if (/^(?:an\s*)?anonymous(?:\s*gifter)?$/i.test(user || '')) user = 'Anonymous';
         const key = String(user || 'Anonymous').toLowerCase();
         const now = Date.now();
         let batch = gifts.get(key);
+        if (!batch && enrichOnly) return;
         if (!batch) {
             batch = { user: user || 'Anonymous', avatar, recipient, tier, tierLabel, count: 0, first: now, timer: null, recipients: [] };
             gifts.set(key, batch);
         }
-        batch.count++;
+        if (!enrichOnly) batch.count += Number.isFinite(Number(count)) ? Math.max(1, Math.floor(Number(count))) : 1;
         if (recipient) {
             batch.recipient = recipient;
             if (!batch.recipients.includes(recipient)) batch.recipients.push(recipient);
         }
         if (avatar) batch.avatar = avatar;
+        if (enrichOnly) return;
         clearTimeout(batch.timer);
         const wait = Math.max(0, Math.min(GIFT_QUIET_MS, batch.first + GIFT_MAX_MS - now));
         batch.timer = setTimeout(() => {

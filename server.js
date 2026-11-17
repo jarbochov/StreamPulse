@@ -399,6 +399,7 @@ const ssnService = createSsnService({
     getConfig: () => config,
     getSsnSessionId: () => SSN_SESSION_ID,
     getSsnServer: () => SSN_SERVER,
+    getTwitchEventSubStatus: () => twitchService.getEventSubStatus(),
     getBannedUsers: () => userModeration.bannedNames(),
     getExcludeUsers: () => EXCLUDE_USERS,
     getChatData: () => chatData,
