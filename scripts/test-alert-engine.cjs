@@ -69,6 +69,110 @@ test('native gift batches preserve totals and metadata-only SSN notices never in
     } finally { cleanup(); }
 });
 
+test('history correction previews and atomically audits Prime/gift repairs without replay or queue changes', async () => {
+    const { engine, dispatched, tempDir, cleanup } = createTempEngine({
+        rules: [
+            { id: 'paid', trigger: 'resub', conditions: { tiers: ['1000'] }, variants: [{ title: 'Paid {{alert.months}}' }] },
+            { id: 'prime', name: 'Prime subscriptions', trigger: 'resub', conditions: { tiers: ['prime'] }, variants: [{ title: 'Prime {{alert.months}}' }] },
+            { id: 'gift', name: 'Gifts', trigger: 'gift', variants: [{ title: '{{alert.user}} gifted {{alert.count}}' }] }
+        ]
+    });
+    try {
+        for (const event of [
+            { type: 'resub', user: 'FictionalViewer', tier: '1000', months: 64 },
+            { type: 'resub', user: 'FictionalViewer', tier: '1000', months: 65 },
+            { type: 'gift', user: 'Anonymous', count: 1, amount: 1 },
+            { type: 'gift', user: 'FictionalRecipient', count: 1, amount: 1 }
+        ]) engine.handleEvent({ ...event, dedupeMs: 0 });
+        const old = JSON.parse(JSON.stringify(engine.getQueueState().events));
+        const prime = old.find(e => e.event.months === 65), primeDup = old.find(e => e.event.months === 64);
+        const gift = old.find(e => e.event.user === 'Anonymous'), giftDup = old.find(e => e.event.user === 'FictionalRecipient');
+        const change = (entry, event, ruleId, title, duplicateOf = null) => ({ id: entry.id, expected: entry, event, ruleId, title, duplicateOf });
+        const request = { reason: 'Correct fictional subscription metadata', corrections: [
+            change(prime, { tier: 'prime', tierLabel: 'Prime', months: 65 }, 'prime', 'FictionalViewer renewed with Prime for 65 months'),
+            change(primeDup, { tier: 'prime', tierLabel: 'Prime', months: 65 }, 'prime', 'Duplicate Prime renewal', prime.id),
+            change(gift, { user: 'Anonymous', recipient: 'FictionalRecipient' }, 'gift', 'Anonymous gifted to FictionalRecipient'),
+            change(giftDup, { user: 'Anonymous', recipient: 'FictionalRecipient' }, 'gift', 'Duplicate anonymous gift', gift.id)
+        ] };
+        const { createOverlayRoutes } = require('../server/routes/overlays');
+        const router = createOverlayRoutes({ alertEngine: engine });
+        async function call(body, method = 'POST') {
+            const req = require('stream').Readable.from([JSON.stringify(body)]);
+            req.method = method;
+            let status, data;
+            const res = { writeHead(code) { status = code; }, end(text) { data = JSON.parse(text); } };
+            const url = new URL('http://localhost/api/alerts/history/correct');
+            await router(req, res, url, url.pathname);
+            return { status, data };
+        }
+        const before = JSON.parse(JSON.stringify(engine.getQueueState()));
+        const notifications = dispatched.length;
+        const preview = await call({ ...request, dryRun: true });
+        assert.equal(preview.status, 200);
+        assert.equal(preview.data.replayed, false);
+        assert.equal(preview.data.backup, null);
+        assert.deepEqual(engine.getQueueState().events, old);
+        assert.equal(fs.existsSync(path.join(tempDir, 'backups')), false);
+        assert.equal((await call(request, 'GET')).status, 405);
+        const applied = await call(request);
+        assert.equal(applied.status, 200);
+        assert.equal(applied.data.replayed, false);
+        assert.deepEqual(JSON.parse(fs.readFileSync(path.join(tempDir, applied.data.backup))), old);
+        const repaired = engine.getQueueState().events;
+        assert.equal(repaired.find(e => e.id === prime.id).ruleId, 'prime');
+        assert.equal(repaired.find(e => e.id === gift.id).event.recipient, 'FictionalRecipient');
+        assert.equal(repaired.find(e => e.id === giftDup.id).event.user, 'Anonymous');
+        assert.equal(repaired.find(e => e.id === giftDup.id).revisions[0].original.event.user, 'FictionalRecipient');
+        assert.equal(repaired.find(e => e.id === primeDup.id).revisions[0].original.event.months, 64);
+        assert.equal(repaired.filter(e => e.status === 'duplicate').length, 2);
+        const after = JSON.parse(JSON.stringify(engine.getQueueState()));
+        assert.deepEqual({ ...after, events: [] }, { ...before, events: [] }, 'playing alerts, queue and playback snapshots are untouched');
+        assert.equal(dispatched.length, notifications, 'history repair broadcasts no live alert');
+        assert.throws(() => engine.correctEvents({
+            reason: 'Invalid canonical identity change',
+            corrections: [change(JSON.parse(JSON.stringify(repaired.find(e => e.id === prime.id))), { user: 'AnotherFictionalViewer' }, 'prime', 'Invalid identity')]
+        }), /same viewer and type/, 'editing a canonical event must preserve matching dependent duplicates');
+        assert.throws(() => engine.replayEvent(giftDup.id), /Duplicate events cannot be replayed/);
+        assert.equal((await call(request)).status, 409, 'stale correction cannot overwrite a newer repair');
+        assert.deepEqual(JSON.parse(fs.readFileSync(path.join(tempDir, 'alert-events.json'))), repaired);
+        engine.reload();
+        assert.deepEqual(engine.getQueueState().events, repaired, 'audit and duplicate markers survive reload');
+    } finally { cleanup(); }
+});
+
+test('history correction rejects invalid batches and leaves memory/disk unchanged on write failure', t => {
+    const { engine, tempDir, cleanup } = createTempEngine({
+        rules: [{ id: 'gift', trigger: 'gift', variants: [{ title: 'Gift' }] }]
+    });
+    try {
+        engine.handleEvent({ type: 'gift', user: 'FictionalGifter' });
+        const entry = JSON.parse(JSON.stringify(engine.getQueueState().events[0]));
+        const change = { id: entry.id, expected: entry, event: { recipient: 'Friend' }, ruleId: 'gift', title: 'Gift to Friend', duplicateOf: null };
+        const request = { reason: 'Fictional correction', corrections: [change] };
+        for (const corrections of [
+            [null], [{ ...change, id: 'missing' }], [change, change],
+            [{ ...change, event: { type: 'donation' } }], [{ ...change, event: { amount: Infinity } }],
+            [{ ...change, duplicateOf: entry.id }], [{ ...change, duplicateOf: '' }], [{ ...change, ruleId: 'missing-rule' }]
+        ]) {
+            assert.throws(() => engine.correctEvents({ ...request, corrections }));
+            assert.deepEqual(engine.getQueueState().events, [entry]);
+        }
+        const eventsPath = path.join(tempDir, 'alert-events.json');
+        fs.writeFileSync(eventsPath, JSON.stringify([entry]));
+        fs.writeFileSync(path.join(tempDir, 'backups'), 'Block backup creation');
+        assert.throws(() => engine.correctEvents(request));
+        assert.deepEqual(engine.getQueueState().events, [entry]);
+        assert.deepEqual(JSON.parse(fs.readFileSync(eventsPath)), [entry]);
+        fs.unlinkSync(path.join(tempDir, 'backups'));
+        t.mock.method(fs, 'renameSync', () => { throw new Error('Simulated rename failure'); });
+        assert.throws(() => engine.correctEvents(request), /Simulated rename failure/);
+        t.mock.restoreAll();
+        assert.deepEqual(engine.getQueueState().events, [entry]);
+        assert.deepEqual(JSON.parse(fs.readFileSync(eventsPath)), [entry]);
+        assert.equal(fs.readdirSync(tempDir).some(name => name.endsWith('.tmp')), false);
+    } finally { cleanup(); }
+});
+
 test('subscription tiers normalization and backward compatibility', () => {
     // Legacy c.tier string
     const cfg1 = normalizeConfig({
@@ -1191,7 +1295,7 @@ test('redeem rule test respects the reward title override separately from the vi
     } finally { cleanup(); }
 });
 
-test('Alerts Simulator sends selected reward identity and title and rule previews use the checked reward', async t => {
+test('Alerts Studio previews reward identity and shows repaired Prime/gift history without duplicate replay controls', async t => {
     const http = require('node:http');
     const { createStaticRouter } = require('../server/static-router');
     const { engine, cleanup } = createTempEngine({
@@ -1201,6 +1305,11 @@ test('Alerts Simulator sends selected reward identity and title and rule preview
     });
     t.after(cleanup);
     const requests = [];
+    const historyFixture = { pending: 0, current: null, paused: false, history: [], events: [
+        { id: 'prime-fixed', at: new Date().toISOString(), status: 'corrected', event: { type: 'resub', user: 'FictionalViewer', tierLabel: 'Prime', months: 65 } },
+        { id: 'gift-fixed', at: new Date().toISOString(), status: 'corrected', event: { type: 'gift', user: 'Anonymous', recipient: 'FictionalRecipient', amount: 1 } },
+        { id: 'gift-duplicate', at: new Date().toISOString(), status: 'duplicate', duplicateOf: 'gift-fixed', event: { type: 'gift', user: 'Anonymous' } }
+    ] };
     const staticRouter = createStaticRouter({ rootDir: path.resolve(__dirname, '..') });
     const server = http.createServer(async (req, res) => {
         const url = new URL(req.url, 'http://localhost');
@@ -1211,7 +1320,7 @@ test('Alerts Simulator sends selected reward identity and title and rule preview
         const parsed = body ? JSON.parse(body) : {};
         if (url.pathname === '/api/alerts') {
             if (req.method === 'PUT') engine.setConfig(parsed);
-            data = engine.getConfig();
+            data = { ...engine.getConfig(), queue: historyFixture };
         } else if (url.pathname === '/api/twitch/rewards') {
             data = { rewards: [{ id: 'fixture-reward', title: 'Fictional Stretch', cost: 250, enabled: true }, { id: 'other-reward', title: 'Other reward', cost: 100, enabled: true }] };
         } else if (url.pathname === '/api/alerts/test-event') {
@@ -1258,6 +1367,22 @@ test('Alerts Simulator sends selected reward identity and title and rule preview
         page.click('[data-test-rule]')
     ]);
     assert.match((await preview.json()).alert.title, /Fictional Stretch/);
+    await page.evaluate(async () => {
+        const state = await import('/js/alerts/alerts-state.js');
+        const panels = await import('/js/alerts/alerts-panels.js');
+        state.setQueue((await (await fetch('/api/alerts')).json()).queue);
+        panels.renderEvents();
+    });
+    const historyText = await page.$eval('#events', el => el.textContent);
+    assert.match(historyText, /Prime.*65 months/s);
+    assert.match(historyText, /Anonymous.*to FictionalRecipient/s);
+    assert.ok(await page.$('[data-replay-event="prime-fixed"]'));
+    assert.equal(await page.$('[data-replay-event="gift-duplicate"]'), null);
+    await page.goto(`http://127.0.0.1:${server.address().port}/alert-queue.html`, { waitUntil: 'networkidle0' });
+    await page.waitForSelector('[data-event="prime-fixed"]');
+    assert.match(await page.$eval('#events', el => el.textContent), /Prime.*65 months/s);
+    assert.match(await page.$eval('#events', el => el.textContent), /Anonymous.*to FictionalRecipient/s);
+    assert.equal(await page.$('[data-event="gift-duplicate"]'), null);
     assert.deepEqual(errors, []);
 });
 

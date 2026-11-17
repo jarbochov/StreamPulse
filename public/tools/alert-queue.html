@@ -206,7 +206,7 @@ g.addEventListener('click',ev=>{const b=ev.target.closest('button[data-id]');if(
             if (hideUnmatched && e.status === 'no matching rule') return false;
             if (!matchesTypeFilter(e.event?.type, e.test || e.status === 'test')) return false;
             if (searchQuery) {
-                const combined = `${e.event?.user || ''} ${e.event?.name || ''} ${e.event?.command || ''} ${e.event?.type || ''} ${e.status || ''}`;
+                const combined = `${e.event?.user || ''} ${e.event?.name || ''} ${e.event?.command || ''} ${e.event?.type || ''} ${e.event?.recipient || ''} ${e.event?.tierLabel || ''} ${e.event?.months || ''} ${e.status || ''}`;
                 if (!matchesSearch(combined)) return false;
             }
             return true;
@@ -223,10 +223,10 @@ g.addEventListener('click',ev=>{const b=ev.target.closest('button[data-id]');if(
 
             return `<div>
                 <span class="grow">
-                    <span class="event-title">${esc(TYPES[e.event.type] || e.event.type)}: ${esc(e.event.user || e.event.name || '')}${e.event.command ? ' (!' + esc(e.event.command) + ')' : ''}${e.event.amount ? ' · ' + esc(e.event.amount) : ''}</span>
+                    <span class="event-title">${esc(TYPES[e.event.type] || e.event.type)}: ${esc(e.event.user || e.event.name || '')}${e.event.command ? ' (!' + esc(e.event.command) + ')' : ''}${e.event.amount ? ' · ' + esc(e.event.amount) : ''}${e.event.recipient ? ' to ' + esc(e.event.recipient) : ''}${e.event.tierLabel ? ' · ' + esc(e.event.tierLabel) : ''}${e.event.months ? ' · ' + esc(e.event.months) + ' months' : ''}</span>
                     <span class="sub">${statusBadge}<span>${new Date(e.at).toLocaleTimeString()}</span></span>
                 </span>
-                <button class="rp" data-event="${esc(e.id)}" title="Run through current rules again">${REPLAY_ICON}</button>
+                ${e.status === 'duplicate' || e.duplicateOf ? '' : `<button class="rp" data-event="${esc(e.id)}" title="Run through current rules again">${REPLAY_ICON}</button>`}
             </div>`;
         }).join('') : `<div class="empty">${hideUnmatched && rawEvents.length ? 'All events filtered or hidden. Adjust your filters to view them.' : 'No events matching current filter.'}</div>`;
         if (eventsHtml !== _lastEventsHtml) {

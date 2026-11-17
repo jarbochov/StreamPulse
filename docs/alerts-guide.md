@@ -26,6 +26,14 @@ When Twitch EventSub is connected **and** `channel.subscription.gift` is registe
 
 No extra polling, settings or Companion changes are required. The existing alert queue, replay, mute and test endpoints are unchanged. Replaying a historical alert preserves its recorded content; this fix does not rewrite old alerts or historical gift totals.
 
+### Correcting Saved Alert History
+
+Confirmed historical mistakes can be corrected without putting another alert on stream. Administrative maintenance supports a preview, original-record audit, backup and duplicate markers. It changes saved event metadata only, not subscription/gift totals, goals, rules, the live queue or previous playback payloads.
+
+The Alerts page and OBS queue dock display Prime, months, gift recipients and corrected/duplicate statuses. Duplicates have no Replay button and cannot be replayed as events. Canonical event replay remains a separate explicit live action, never part of a history correction.
+
+The safe preview/apply procedure and full request reference are in the installed app's **Docs → Alerts** and **API Reference**. Refresh the Studio or OBS dock after maintenance to load the updated saved records. This is intentionally not a live Companion button.
+
 ### Testing Channel Point Rewards
 
 `{{alert.reward}}` is the title of the reward actually redeemed, not a list of every checked reward. The rule's reward checkboxes control which redemptions match.

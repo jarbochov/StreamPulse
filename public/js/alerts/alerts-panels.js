@@ -29,13 +29,13 @@ export function renderEvents() {
             <span class="grow">
                 <span class="al-s51">
                     <span style="color:${meta.color}">${meta.icon}</span>
-                    <b>${esc(TRIGGERS[e.event.type] || e.event.type)}</b>: ${esc(e.event.user || e.event.name || 'Anonymous')}${e.event.amount ? ` · <b>${esc(e.event.amount)}</b>` : ''}
+                    <b>${esc(TRIGGERS[e.event.type] || e.event.type)}</b>: ${esc(e.event.user || e.event.name || 'Anonymous')}${e.event.amount ? ` · <b>${esc(e.event.amount)}</b>` : ''}${e.event.recipient ? ` to ${esc(e.event.recipient)}` : ''}${e.event.tierLabel ? ` · ${esc(e.event.tierLabel)}` : ''}${e.event.months ? ` · ${esc(e.event.months)} months` : ''}
                 </span>
                 <span class="st ${e.status === 'shown' ? 'shown' : ''}">${esc(e.status)} · ${new Date(e.at).toLocaleTimeString()}</span>
             </span>
-            <button type="button" class="btn sm" data-replay-event="${esc(e.id)}" title="Run this event through your current rules again">
+            ${e.status === 'duplicate' || e.duplicateOf ? '' : `<button type="button" class="btn sm" data-replay-event="${esc(e.id)}" title="Run this event through your current rules again">
                 ${ICONS.refresh} Replay
-            </button>
+            </button>`}
         </div>`;
     }).join('') : '<p class="al-s52 hint">Real stream events appear here as they occur in real time.</p>';
 

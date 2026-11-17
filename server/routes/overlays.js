@@ -335,6 +335,20 @@ function createOverlayRoutes({
             return true;
         }
 
+        if (pathname === '/api/alerts/history/correct') {
+            if (req.method !== 'POST') {
+                sendJson(res, { error: 'History correction requires POST' }, 405);
+                return true;
+            }
+            try {
+                const body = JSON.parse(await readRequestBody(req) || '{}');
+                sendJson(res, alertEngine.correctEvents(body));
+            } catch (err) {
+                sendError(res, err, err.status || (err instanceof SyntaxError ? 400 : 500));
+            }
+            return true;
+        }
+
         if (pathname === '/api/alerts/replay' && (req.method === 'POST' || req.method === 'GET')) {
             try {
                 const body = await parseJsonOrQuery(req, url);

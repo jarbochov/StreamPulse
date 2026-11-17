@@ -275,8 +275,21 @@ const dummyAlertsState = {
             {
                 id: 'ev-2',
                 at: Date.now() - 1000 * 120,
-                status: 'shown',
-                event: { type: 'sub', user: 'CosmicVoyager', amount: 'Tier 1 (12 mo)' }
+                status: 'corrected',
+                event: { type: 'resub', user: 'CosmicVoyager', tierLabel: 'Prime', months: 12 }
+            },
+            {
+                id: 'ev-gift',
+                at: Date.now() - 1000 * 180,
+                status: 'corrected',
+                event: { type: 'gift', user: 'Anonymous', recipient: 'StarGazer', count: 1, amount: 1 }
+            },
+            {
+                id: 'ev-gift-duplicate',
+                at: Date.now() - 1000 * 179,
+                status: 'duplicate',
+                duplicateOf: 'ev-gift',
+                event: { type: 'gift', user: 'Anonymous', recipient: 'StarGazer', count: 1, amount: 1 }
             },
             {
                 id: 'ev-3',

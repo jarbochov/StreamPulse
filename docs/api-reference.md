@@ -865,6 +865,77 @@ Deletes a custom user preset pack.
 
 History is not rewritten by ingestion fixes. Exact-alert replay reproduces the original recorded content; event replay re-evaluates the recorded event, not a newly fetched Twitch event.
 
+### Correct Saved Alert History
+
+**`POST /api/alerts/history/correct`**, JSON body; no query parameters or GET equivalent. This is administrative history maintenance, not a Companion live trigger. It does not enqueue, replay, broadcast or execute actions, and does not change subscription/gift totals, goals, rules, live queue/current state or the volatile playback history.
+
+| Body field | Meaning |
+|---|---|
+| `reason` | Required nonblank string, maximum 500 characters; saved in the audit. |
+| `dryRun` | Boolean, defaults to `false`. Use `true` to preview without any writes. |
+| `corrections` | Required array of 1–50 corrections, with unique event IDs. |
+| `corrections[].id` | Existing ID from `GET /api/alerts` → `queue.events`. |
+| `corrections[].expected` | Complete current record from that response, including revisions. Must deep-equal the current saved record or the whole batch fails with 409. |
+| `corrections[].event` | Required patch object. Only `user`, `recipient`, `tier`, `tierLabel`, `message` (strings, maximum 2000 characters each), and `months`, `streak`, `count`, `amount` (finite nonnegative numbers) are allowed. Other fields remain unchanged; type cannot change. |
+| `corrections[].title` | Required literal corrected history title, string, maximum 2000 characters; no template evaluation. |
+| `corrections[].ruleId` | Required existing rule matching the event type; a milestone rule is also accepted for a resub. `ruleName` is copied from that rule. Rules are not executed or edited. |
+| `corrections[].duplicateOf` | Required `null` for a canonical corrected event, or another existing canonical event ID for a duplicate. Both records must have the same event type and case-insensitive corrected user. No self-reference, chains or cycles; a canonical event already referenced by duplicates cannot become a duplicate. |
+
+IDs, original timestamps and event types are immutable. At most ten audit revisions are permitted per event. All entries are validated before writing. A successful response is:
+
+```json
+{
+  "ok": true,
+  "dryRun": false,
+  "replayed": false,
+  "backup": "backups/alert-events-before-repair-<UUID>.json",
+  "events": [{
+    "id": "event-id",
+    "at": "2026-01-01T12:00:00.000Z",
+    "event": {"type":"resub","user":"FictionalViewer","tier":"prime","tierLabel":"Prime","months":12},
+    "status": "corrected",
+    "title": "FictionalViewer resubscribed with Prime for 12 months!",
+    "ruleId": "prime-rule-id",
+    "ruleName": "Prime Subs",
+    "duplicateOf": null,
+    "revisions": [{"at":"2026-01-01T12:30:00.000Z","reason":"Confirmed Prime announcement","original":{"id":"event-id","at":"2026-01-01T12:00:00.000Z","event":{"type":"resub","user":"FictionalViewer","tier":"1000","months":12},"status":"shown","title":"FictionalViewer resubscribed!","ruleId":"paid-rule-id","ruleName":"Paid Subs"}}]
+  }]
+}
+```
+
+For `dryRun:true`, `backup` is `null`, with the same proposed records/audit shape; nothing is persisted. An apply creates a unique JSON backup of the full previous in-memory log under the configured data directory before atomic replacement of `alert-events.json`. Audit entries preserve each previous full record except its already-retained `revisions`, avoiding recursive nesting. Failed persistence leaves the engine's event list unchanged; the backup can remain available if replacement fails.
+
+HTTP errors return `{error:"..."}`: **400** malformed JSON/invalid fields, incompatible rule or duplicate links, or revision limit; **404** correction event not found; **405** non-POST method; **409** stale `expected`; **500** backup/write failure. Refresh and re-preview after resolving any conflict.
+
+After applying, refresh Alerts/queue dock (no live broadcast is sent). Corrected records have `status:"corrected"`; duplicates have `status:"duplicate"` and the canonical ID in `duplicateOf`. Duplicate event replay is rejected and its Replay button is hidden in both views. Explicit canonical replay still re-evaluates current rules; exact-alert/count replay uses the separate unchanged playback history, not corrected records. No new Companion action or variable is exposed.
+
+**Preview/apply example:** in the StreamPulse browser console, substitute an actual saved event ID and matching rule name from the initial GET. The identity below is fictional.
+
+```js
+const snapshot = await (await fetch('/api/alerts')).json();
+const original = snapshot.queue.events.find(e => e.id === 'event-id');
+const primeRule = snapshot.rules.find(r => r.name === 'Prime Subs');
+const repair = {
+    reason: 'Confirmed Prime announcement; paid tier was recorded incorrectly',
+    dryRun: true,
+    corrections: [{
+        id: original.id,
+        expected: original,
+        event: { tier: 'prime', tierLabel: 'Prime', months: 12 },
+        title: 'FictionalViewer resubscribed with Prime for 12 months!',
+        ruleId: primeRule.id,
+        duplicateOf: null
+    }]
+};
+const preview = await (await fetch('/api/alerts/history/correct', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(repair)
+})).json();
+console.log(preview);
+```
+
+Inspect every returned record. Only after approval, repeat the POST with `repair.dryRun = false`, retaining the same originals in `expected`. Refresh Studio or the OBS queue dock afterward. Keep repair requests separate from live Companion replay buttons; a history correction never requires replay.
+
 ---
 
 ## 10. WebSocket Live Push Protocol

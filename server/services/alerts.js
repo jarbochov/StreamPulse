@@ -5,6 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 const { createStateMachine } = require('./state-machine');
+const { correctAlertHistory } = require('./alert-history');
 
 const TRIGGERS = {
     follow: 'Follow',
@@ -1017,6 +1018,7 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
     function replayEvent(eventId) {
         const entry = events.find(item => item.id === eventId);
         if (!entry) throw new Error('Event not found');
+        if (entry.status === 'duplicate' || entry.duplicateOf) throw new Error('Duplicate events cannot be replayed; use the canonical event');
         const payload = handleEvent({ ...entry.event }, { test: true });
         if (!payload) throw new Error('No enabled rule matches that event right now');
         return payload;
@@ -1189,6 +1191,15 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
             machine: alertMachine.toSnapshot()
         }),
         getStateMachine: () => alertMachine,
+        correctEvents: request => {
+            const { next, result } = correctAlertHistory({ ...request, dataDir, events, rules: config.rules });
+            if (!result.dryRun) {
+                clearTimeout(saveEventsTimer);
+                saveEventsTimer = null;
+                events = next;
+            }
+            return result;
+        },
         replayEvent, replayAlert, replayLast,
         handleEvent, fireRule, trigger, noteGift, pressCompanion, control, setMuted, stop,
         alertAssetUsers, rewriteAlertReferences
