@@ -8,6 +8,147 @@ const { createSessionService, categoryMinutesFor, getSessionCategorySegments } =
 const { createCrmService } = require('../server/services/crm');
 const { getSessionStreamInfo, createStreamInfoService } = require('../server/services/stream-info');
 const { createStatusService } = require('../server/services/status');
+const { createSsnService } = require('../server/services/ssn');
+
+function giftRepairFixture(t, pastGifts = false) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-gift-repair-'));
+    t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+    const day = new Date().toISOString().slice(0, 10);
+    const gift = { chatname: 'FictionalRecipient', gifter: 'FictionalRecipient', recipient: null, chatimg: '/wrong-avatar.png', count: 1, timestamp: Date.now(), event: 'subscription_gift' };
+    const chat = { startedAt: new Date().toISOString(), giftSubs: [gift], chatters: {}, messageCount: 0 };
+    const stats = { giftSubs: { FictionalRecipient: { firstSeen: chat.startedAt, lastSeen: chat.startedAt, days: { [day]: 1, ...(pastGifts ? { '2020-01-01': 2 } : {}) } } }, totalMessages: { unrelated: 5 } };
+    if (pastGifts) {
+        chat.giftSubs.push({ chatname: 'Anonymous', gifter: 'Anonymous', recipient: 'OtherFictionalRecipient', count: 2, timestamp: gift.timestamp - 5000 });
+        stats.giftSubs.Anonymous = { days: { [day]: 2 }, firstSeen: new Date(gift.timestamp - 5000).toISOString() };
+    }
+    const chatPath = path.join(dir, 'chat.json'), statsPath = path.join(dir, 'stats.json');
+    fs.writeFileSync(chatPath, JSON.stringify(chat));
+    fs.writeFileSync(statsPath, JSON.stringify(stats));
+    const broadcasts = [];
+    const service = createSsnService({
+        dataDir: dir, getChatData: () => chat, getStatsData: () => stats,
+        broadcastToOverlays: (type, data) => broadcasts.push({ type, data }),
+        alertEngine: { noteGift() { throw new Error('Repairs must never replay gifts'); } },
+        log: () => {}, warn: () => {}
+    });
+    service.loadStats();
+    const request = {
+        reason: 'Correct fictional anonymous gift attribution', dryRun: true,
+        from: 'FictionalRecipient', to: 'Anonymous', recipient: 'FictionalRecipient', timestamp: gift.timestamp, day, count: 1,
+        expected: JSON.parse(JSON.stringify({ startedAt: chat.startedAt, gift, sourceStats: stats.giftSubs.FictionalRecipient, targetStats: stats.giftSubs.Anonymous || null }))
+    };
+    return { dir, day, chat, stats, chatPath, statsPath, service, broadcasts, request };
+}
+
+test('gift attribution repair corrects session and lifetime credits, preserves unrelated gifts, and renders both real credits sources', async t => {
+    const fixture = giftRepairFixture(t, true);
+    const { dir, day, chat, stats, chatPath, statsPath, service, broadcasts, request } = fixture;
+    const original = JSON.parse(JSON.stringify({ chat, stats }));
+    const { createSessionRoutes } = require('../server/routes/session');
+    const router = createSessionRoutes({ ssnService: service, sessionService: { getArchivedSessions: () => [] } });
+    async function call(body, method = 'POST') {
+        const req = require('stream').Readable.from([JSON.stringify(body)]);
+        req.method = method;
+        let status, data;
+        const res = { writeHead(code) { status = code; }, end(text) { data = JSON.parse(text); } };
+        const url = new URL('http://localhost/api/gift-subs/correct');
+        await router(req, res, url, url.pathname);
+        return { status, data };
+    }
+    const preview = await call(request);
+    assert.equal(preview.status, 200);
+    assert.equal(preview.data.backup, null);
+    assert.equal(preview.data.replayed, false);
+    assert.deepEqual({ chat, stats }, original);
+    assert.equal(broadcasts.length, 0);
+    assert.equal(fs.existsSync(path.join(dir, 'backups')), false);
+    assert.equal((await call(request, 'GET')).status, 405);
+    const applied = await call({ ...request, dryRun: false });
+    assert.equal(applied.status, 200);
+    assert.equal(applied.data.replayed, false);
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, applied.data.backup))).original, original);
+    assert.equal(chat.giftSubs.length, 1, 'merge into an existing canonical giver');
+    assert.equal(chat.giftSubs[0].gifter, 'Anonymous');
+    assert.equal(chat.giftSubs[0].recipient, 'FictionalRecipient');
+    assert.equal(chat.giftSubs[0].count, 3);
+    assert.equal(chat.giftSubs[0].chatimg, null, 'recipient avatar is not reused for the anonymous giver');
+    assert.deepEqual(stats.giftSubs.FictionalRecipient.days, { '2020-01-01': 2 }, 'unrelated legitimate past gifts survive');
+    assert.equal(stats.giftSubs.Anonymous.days[day], 3);
+    const total = data => Object.values(data.giftSubs).reduce((sum, entry) => sum + Object.values(entry.days).reduce((a, b) => a + b, 0), 0);
+    assert.equal(total(stats), total(original.stats), 'lifetime gift total is unchanged');
+    assert.equal(chat.giftSubs.reduce((sum, entry) => sum + entry.count, 0), original.chat.giftSubs.reduce((sum, entry) => sum + entry.count, 0), 'session gift total is unchanged');
+    assert.deepEqual(stats.totalMessages, original.stats.totalMessages);
+    assert.deepEqual(JSON.parse(fs.readFileSync(chatPath)), chat);
+    assert.deepEqual(JSON.parse(fs.readFileSync(statsPath)), stats);
+    assert.deepEqual(broadcasts.map(message => message.type), ['update'], 'snapshot refresh only, never an alert');
+    assert.equal((await call({ ...request, dryRun: false })).status, 404, 'same correction cannot transfer the gift twice');
+
+    const http = require('http');
+    const { createStaticRouter } = require('../server/static-router');
+    const staticRouter = createStaticRouter({ rootDir: path.resolve(__dirname, '..') });
+    let source = 'session';
+    const server = http.createServer((req, res) => {
+        const pathname = new URL(req.url, 'http://localhost').pathname;
+        let data;
+        if (pathname === '/api/config') data = {
+            theme: {}, exclude_users: [], credits: {
+                header: { title: '' }, social: { links: [] }, closing: '', custom_sections: [],
+                sections: { gift_subs: { enabled: true, title: 'Gift Subs', source } }
+            }
+        };
+        else if (pathname === '/api/chat' || pathname === '/data/chat.json') data = chat;
+        else if (pathname === '/api/stats' || pathname === '/data/stats.json') data = stats;
+        else if (pathname.startsWith('/data/') || pathname === '/api/highlights') data = [];
+        else { staticRouter.handleRequest(req, res); return; }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(data));
+    });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    t.after(() => new Promise(resolve => server.close(resolve)));
+    const { default: puppeteer } = await import('puppeteer');
+    const browser = await puppeteer.launch({ headless: true });
+    t.after(() => browser.close());
+    const page = await browser.newPage();
+    for (source of ['session', 'stats']) {
+        await page.goto(`http://127.0.0.1:${server.address().port}/credits.html?preview=1`, { waitUntil: 'networkidle0' });
+        await page.waitForFunction(() => document.querySelector('#credits-container')?.textContent.includes('Anonymous'));
+        const names = await page.$$eval('#credits-container .person', nodes => nodes.map(node => node.textContent));
+        assert.deepEqual(names, [source === 'session' ? 'Anonymous to FictionalRecipient' : 'Anonymous (3)'], `${source} credits never list the recipient as giver`);
+    }
+});
+
+test('gift correction rejects stale/invalid input and rolls back both stores on replacement failure', t => {
+    const { day, chat, stats, chatPath, statsPath, service, broadcasts, request } = giftRepairFixture(t);
+    const original = JSON.parse(JSON.stringify({ chat, stats }));
+    for (const patch of [
+        { expected: { ...request.expected, startedAt: 'different-session' } },
+        { count: 2 }, { count: 0.5 }, { day: '2026-02-31' }, { to: request.from }
+    ]) assert.throws(() => service.correctGiftAttribution({ ...request, ...patch }));
+    const rename = fs.renameSync;
+    t.mock.method(fs, 'renameSync', (from, to) => {
+        if (to === chatPath) throw new Error('Injected chat replacement failure');
+        return rename(from, to);
+    });
+    assert.throws(() => service.correctGiftAttribution({ ...request, dryRun: false }), /Injected/);
+    t.mock.restoreAll();
+    assert.deepEqual({ chat, stats }, original);
+    assert.deepEqual(JSON.parse(fs.readFileSync(chatPath)), original.chat);
+    assert.deepEqual(JSON.parse(fs.readFileSync(statsPath)), original.stats, 'earlier stats replacement rolled back');
+    assert.equal(fs.readdirSync(path.dirname(chatPath)).some(name => name.endsWith('.tmp')), false);
+    assert.equal(broadcasts.length, 0);
+    service.correctGiftAttribution({ ...request, dryRun: false });
+    assert.equal(stats.giftSubs.FictionalRecipient, undefined, 'remove the incorrect giver when no legitimate gifts remain');
+    assert.equal(stats.giftSubs.Anonymous.days[day], 1);
+    assert.equal(chat.giftSubs[0].gifter, 'Anonymous');
+    const restoredChat = JSON.parse(fs.readFileSync(chatPath)), restoredStats = {};
+    const restored = createSsnService({
+        dataDir: path.dirname(chatPath), getChatData: () => restoredChat, getStatsData: () => restoredStats,
+        log: () => {}, warn: () => {}
+    });
+    restored.loadStats();
+    assert.equal(restoredStats.giftSubs.Anonymous.days[day], 1, 'attribution survives disk reload');
+    assert.equal(restoredStats.giftSubs.FictionalRecipient, undefined);
+});
 
 test('legacy pre-stream edits become one live-start baseline without rewriting history or bridging offline gaps', t => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-live-stream-info-'));

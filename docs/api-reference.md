@@ -163,6 +163,57 @@ Session views, timelines and exports accept legacy channel updates using `time` 
 
 `POST /api/restart` saves and preserves the current session while restarting the server. In desktop mode the backend restarts in-process; in CLI mode the process is replaced. `POST /api/shutdown` ends and archives the current session and exits StreamPulse.
 
+### Correct Gift Attribution in Credits
+
+**`POST /api/gift-subs/correct`**, JSON body; no query parameters or GET trigger. This administrative operation corrects the giver/recipient in the current session's `giftSubs` and transfers the matching daily count in lifetime `stats.giftSubs`. Correcting `/api/alerts/history/correct` alone does **not** change either credits source. This endpoint does not change alert history, replay alerts, run actions, change rules, edit chat logs or recalculate archived sessions.
+
+| Body field | Meaning |
+|---|---|
+| `reason` | Required nonblank audit explanation, maximum 500 characters. |
+| `from`, `to`, `recipient` | Required names, 1–100 characters without leading/trailing whitespace. `from` is the incorrect giver, `to` the true giver (use `Anonymous` for anonymous gifts). Use exact existing name casing. Givers must differ case-insensitively. |
+| `timestamp` | Required positive safe-integer millisecond timestamp from the affected current-session gift; must identify exactly one entry for `from`. |
+| `day` | Required valid `YYYY-MM-DD` **existing stats bucket**. Use the key from `stats.giftSubs[from].days`, not a guessed UTC conversion; daily buckets use the server's local date. |
+| `count` | Required positive safe integer matching the entire current-session entry's count. The source daily bucket must contain at least this count. This is not a partial-session-entry splitter. |
+| `expected` | Required `{startedAt,gift,sourceStats,targetStats}` copied from `GET /api/chat` and `GET /api/stats`: current session ID/time, full affected gift entry, full `stats.giftSubs[from]`, full `stats.giftSubs[to]` or `null` when absent. All must match current values; unrelated chat activity does not invalidate the request. |
+| `dryRun` | Boolean, default `false`. Always preview with `true` before applying the same request with `false`. |
+
+Both **session and lifetime total gifts remain unchanged**. Existing target giver counts are merged, recipient avatars are not assigned to the true giver, and anonymous avatars are cleared. Other source days and legitimate historical gifts are preserved; an empty incorrect giver stats entry is removed. Surviving source date metadata is retained; target date bounds include the transferred gift timestamp. Unrelated chat/stats fields are unchanged apart from the session's `lastUpdated`.
+
+Response: `{ok:true,dryRun,replayed:false,backup,from,to,recipient,day,count,sessionGift,sourceStats,targetStats}`. `sessionGift` is the resulting canonical session entry (possibly merged); `sourceStats` is the remaining incorrect giver's stats or `null` if removed; `targetStats` is the corrected giver's stats. A preview has `backup:null`, makes no writes and sends no updates.
+
+An apply first saves a JSON audit/backup at `data/backups/gift-attribution-repair-<UUID>.json` under the configured data directory. `backup` returns the relative `backups/...json` path; this is not a ZIP in Backups UI. It retains `{at,reason,from,to,recipient,day,count,original:{chat,stats},corrected:{sessionGift,sourceStats,targetStats}}`. Both files are staged before replacement; a failed second replacement rolls back the first, and memory is updated only after both succeed. An interrupted process or rollback failure may require recovery from the retained original snapshots; the two files are not a single power-failure-atomic transaction.
+
+After applying, the server sends an ordinary `update` chat snapshot, **never an `alert`**. Refresh any already-open OBS credits browser source/preview: stats-based credits cache their stats at initialization, and a rolling credits source intentionally disconnects live updates. Start a fresh roll to verify the selected session or lifetime source.
+
+HTTP errors return `{error:"..."}`: **400** malformed JSON, invalid names/date/count, insufficient daily count or ambiguous target; **404** no unique matching current-session gift (including an already-applied transfer); **405** non-POST; **409** stale expected data/session or stats not loaded; **500** backup/replacement failure. Refetch and re-preview conflicts. No new Companion action or variable is exposed.
+
+**Example workflow** (fictional identities; run from the installed StreamPulse page's browser console):
+
+```js
+const chat = await (await fetch('/api/chat')).json();
+const stats = await (await fetch('/api/stats')).json();
+const gift = chat.giftSubs.find(g => g.gifter === 'FictionalRecipient');
+const repair = {
+    reason: 'Confirmed anonymous gift; recipient was incorrectly credited as giver',
+    from: 'FictionalRecipient', to: 'Anonymous', recipient: 'FictionalRecipient',
+    timestamp: gift.timestamp, count: gift.count,
+    day: '2026-01-01', // Replace with the verified source stats bucket.
+    expected: {
+        startedAt: chat.startedAt, gift,
+        sourceStats: stats.giftSubs.FictionalRecipient,
+        targetStats: stats.giftSubs.Anonymous || null
+    },
+    dryRun: true
+};
+const preview = await (await fetch('/api/gift-subs/correct', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(repair)
+})).json();
+console.log(preview);
+```
+
+Inspect the resulting giver, recipient, remaining source days and target count. Only after approval repeat the POST with `repair.dryRun = false`, retaining the same originals in `expected`. Verify `GET /api/chat`, `GET /api/stats` and fresh credits renders for both sources. For OBS, right-click the existing browser source and choose **Refresh cache of current page**; for Companion, no replay action is part of this procedure.
+
 ### Update capabilities and release checks
 
 - `GET /api/update/info` detects the installation without contacting GitHub. Returns `installation` (`desktop`, `git`, or `release-folder`), `canApply`, and `supportsNightly`. Desktop results include the installed version, release link, and manual-install instructions.

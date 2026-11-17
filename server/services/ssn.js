@@ -5,6 +5,7 @@ const https = require('https');
 const WebSocket = require('ws');
 const { createHash } = require('crypto');
 const { normalizeSsnSessionId } = require('../ssn-config');
+const { correctGiftAttribution } = require('./gift-history');
 
 const MAX_IN_MEMORY_CHAT_MESSAGES = 2000;
 const CHAT_WINDOWS = [5, 10, 15, 30, 60];
@@ -1525,6 +1526,22 @@ function createSsnService({
         processTwitchSubscription,
         updateStats,
         recordSubTenure,
+        correctGiftAttribution: request => {
+            if (!statsLoaded) throw Object.assign(new Error('Stats must be loaded before correction'), { status: 409 });
+            const chat = getChatData(), stats = getStatsData();
+            const { nextChat, nextStats, result } = correctGiftAttribution({
+                ...request, dataDir, liveChatPath, statsPath, chat, stats
+            });
+            if (!result.dryRun) {
+                chat.giftSubs = nextChat.giftSubs;
+                chat.lastUpdated = nextChat.lastUpdated;
+                stats.giftSubs = nextStats.giftSubs;
+                lastSavedChatData = null;
+                lastSavedStats = null;
+                broadcastToOverlays('update', chat);
+            }
+            return result;
+        },
         recentChatSummary,
         saveChatData,
         saveStats,

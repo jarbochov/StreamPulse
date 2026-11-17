@@ -34,6 +34,8 @@ The Alerts page and OBS queue dock display Prime, months, gift recipients and co
 
 The safe preview/apply procedure and full request reference are in the installed app's **Docs → Alerts** and **API Reference**. Refresh the Studio or OBS dock after maintenance to load the updated saved records. This is intentionally not a live Companion button.
 
+Alert history and credits use separate records. Confirmed gift-attribution mistakes can also be repaired at the source for both session and lifetime credits, with backups and unchanged total gifts. An alert-history correction alone does not rewrite those credits stores.
+
 ### Testing Channel Point Rewards
 
 `{{alert.reward}}` is the title of the reward actually redeemed, not a list of every checked reward. The rule's reward checkboxes control which redemptions match.

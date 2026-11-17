@@ -322,7 +322,7 @@ test('native gift batches own Twitch alerts while SSN enriches anonymous recipie
     t.after(() => { engine.stop(); ssn.disconnectSSN(); fs.rmSync(dataDir, { recursive: true, force: true }); });
     engine.noteGift({ user: 'An Anonymous Gifter', count: 1, tier: '1000' });
     ssn.processChatMessage({ chatname: 'Viewer', type: 'twitch', event: 'subscription_gift',
-        chatmessage: 'AnAnonymousGifter gifted a Tier 1 Sub to FictionalRecipient!' });
+        chatmessage: 'An anonymous user gifted a Tier 1 sub to FictionalRecipient!' });
     t.mock.timers.tick(4000);
     const gifts = () => engine.getQueueState().events.filter(entry => entry.event.type === 'gift');
     assert.equal(gifts().length, 1);

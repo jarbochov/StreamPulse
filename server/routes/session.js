@@ -10,7 +10,7 @@ const {
 const { getSessionStreamTimes, getSessionCategorySegments, getStreamInfoChangedAt } = require('../services/session');
 const { getSessionStreamInfo, getCurrentChannelInfo } = require('../services/stream-info');
 const { createAnalyticsInsights } = require('../services/analytics-insights');
-const { sendJson: sendResponseJson, sendText, sendError } = require('./helpers');
+const { readRequestBody, sendJson: sendResponseJson, sendText, sendError } = require('./helpers');
 
 function createSessionRoutes({
     sessionService,
@@ -87,6 +87,20 @@ function createSessionRoutes({
         }
 
         // --- 3. Stats & Analytics ---
+        if (pathname === '/api/gift-subs/correct') {
+            if (req.method !== 'POST') {
+                sendError(res, 'Gift attribution correction requires POST', 405);
+                return true;
+            }
+            try {
+                const request = JSON.parse(await readRequestBody(req) || '{}');
+                sendJson(res, ssnService.correctGiftAttribution(request));
+            } catch (err) {
+                sendError(res, err, err.status || (err instanceof SyntaxError ? 400 : 500));
+            }
+            return true;
+        }
+
         if (pathname === '/api/stats') {
             const chatData = getChatData();
             const isSession = url.searchParams.get('scope') === 'session' || url.searchParams.get('session') === '1' || url.searchParams.get('session') === 'true' || url.searchParams.get('range') === 'session';

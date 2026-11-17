@@ -11,7 +11,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 ## [Unreleased]
 
 ### Added
-- **Alert History**: Audited, backed-up corrections and duplicate markers without replaying alerts.
+- **History Repairs**: Audited, backed-up alert corrections and gift-attribution repairs across session and lifetime credits without replay.
 - **Display Library**: Reusable inventories, ordered tables and member badges/strips, with shared designs, independent live sources, source diagnostics and dependency-aware deletion.
 - **Linked Variable Sets**: Ordered entry links, readable linked placeholders, guarded live edits, dependency-aware deletion and per-owner item trackers with upgrade labels and images.
 - **Temporal Variables**: Standalone Date, Time, Date & Time, and Duration values with inline editing, inspector controls and type filters.
