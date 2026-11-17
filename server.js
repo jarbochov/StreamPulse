@@ -888,7 +888,10 @@ const sessionService = createSessionService({
     ensureTwitchToken: () => ensureToken(),
     fetchTwitchStream: async () => {
         const result = await twitchApiRequest('/streams', { user_id: BROADCASTER_ID });
-        return result.status === 200 ? result.body.data?.[0] || null : null;
+        if (result.status !== 200 || !Array.isArray(result.body?.data)) {
+            throw new Error(`Twitch stream status unavailable (HTTP ${result.status})`);
+        }
+        return result.body.data[0] || null;
     },
     fetchTwitchData: () => fetchTwitchData(),
     fetchStreamInfo: () => fetchStreamInfo(),

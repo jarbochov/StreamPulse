@@ -163,6 +163,8 @@ Session views, timelines and exports accept legacy channel updates using `time` 
 
 `POST /api/restart` saves and preserves the current session while restarting the server. In desktop mode the backend restarts in-process; in CLI mode the process is replaced. `POST /api/shutdown` ends and archives the current session and exits StreamPulse.
 
+With automatic lifecycle enabled, after a restart the first successful Twitch check confirming the channel is offline uses the saved stream-end timestamp to recover the original grace deadline. While grace remains, `lifecycle.state` is `ending` and `lifecycle.endsAt` is the deadline. If grace already elapsed, normal auto-end runs on that check. Failed Twitch checks do not confirm offline status.
+
 ### Correct Gift Attribution in Credits
 
 **`POST /api/gift-subs/correct`**, JSON body; no query parameters or GET trigger. This administrative operation corrects the giver/recipient in the current session's `giftSubs` and transfers the matching daily count in lifetime `stats.giftSubs`. Correcting `/api/alerts/history/correct` alone does **not** change either credits source. This endpoint does not change alert history, replay alerts, run actions, change rules, edit chat logs or recalculate archived sessions.

@@ -433,14 +433,21 @@ function createSessionService(options = {}) {
     async function lifecycleOnOffline(cfg) {
         lifecycle.liveStreak = 0;
         lifecycle.suppressed = false;
-        if (!lifecycle.lastLiveAt || !isSessionActive()) return;
-        if (!lifecycle.offlineSince) lifecycle.offlineSince = Date.now();
-        if (Date.now() - lifecycle.offlineSince < cfg.end_grace_minutes * 60000) return;
-
+        if (!isSessionActive()) return;
         const chatData = getChatData();
-        const startMs = Date.parse(normalizeViewerStats(chatData?.viewerStats).streamStartedAt || '');
-        const endedAtIso = new Date(lifecycle.lastLiveAt).toISOString();
-        const tooShort = Number.isFinite(startMs) && lifecycle.lastLiveAt - startMs < cfg.min_session_minutes * 60000;
+        const stats = normalizeViewerStats(chatData?.viewerStats);
+        const startMs = Date.parse(stats.streamStartedAt || '');
+        const savedEndMs = Date.parse(stats.streamEndedAt || '');
+        const now = Date.now();
+        // A restored session may already be offline before this process ever sees it live.
+        const recoveredEnd = !lifecycle.lastLiveAt && !stats.live && savedEndMs > startMs && savedEndMs <= now ? savedEndMs : 0;
+        const endMs = lifecycle.lastLiveAt || recoveredEnd;
+        if (!endMs) return;
+        if (!lifecycle.offlineSince) lifecycle.offlineSince = recoveredEnd || now;
+        if (now - lifecycle.offlineSince < cfg.end_grace_minutes * 60000) return;
+
+        const endedAtIso = new Date(endMs).toISOString();
+        const tooShort = Number.isFinite(startMs) && endMs - startMs < cfg.min_session_minutes * 60000;
         const generation = watcherGeneration;
         const ended = await endSessionNow({ endedAtIso, discard: tooShort });
         if (generation !== watcherGeneration) return;

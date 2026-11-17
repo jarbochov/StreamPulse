@@ -37,6 +37,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - **Alerts replay**: Support replaying the last `1`–`50` shown alerts in order via `POST` or `GET /api/alerts/replay?count=N` (defaults to `1`).
 
 ### Fixed
+- **Session lifecycle**: Resume the original offline grace period after a restart instead of leaving the finished session active.
 - **Overlay rendering**: Cull off-screen stars, cache particle seeds, reduce grain/radial-border repainting and pause hidden-tab effects.
 - **Poll element**: Labels and help now identify native StreamPulse and Twitch polls, with native voting/results taking priority.
 - **Overlay editor**: Expose Placeholder / Variable image sources with an image-only picker; keep color pickers open during slider adjustments and refresh dependent controls.

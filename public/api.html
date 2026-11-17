@@ -167,7 +167,7 @@
                     method: 'GET', path: '/api/status',
                     desc: 'Server health, connections, session stats, hourly volume, and module states',
                     companion: true,
-                    details: 'Returns uptime, SSN connection state, Twitch token status, session counters, sessionActive flag, hourly volume, and feature modules. overlayClients counts registered top-level overlay pages (not dashboards/editors, embedded previews or preview=true URLs); websocketClients counts all live transport connections. An overlay opened in a normal browser tab counts like an OBS source, not as an inventory of configured OBS sources.'
+                    details: 'Returns uptime, SSN connection state, Twitch token status, session counters, sessionActive flag, hourly volume, and feature modules. After restart, a successful Twitch offline check recovers the automatic end grace deadline from the saved stream end. lifecycle.state is ending with lifecycle.endsAt while grace remains; an expired deadline triggers normal auto-end. Failed checks do not confirm offline status. overlayClients counts registered top-level overlay pages (not dashboards/editors, embedded previews or preview=true URLs); websocketClients counts all live transport connections. An overlay opened in a normal browser tab counts like an OBS source, not as an inventory of configured OBS sources.'
                 },
                 {
                     method: 'GET', path: '/api/start-session',

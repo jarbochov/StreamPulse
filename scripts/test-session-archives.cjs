@@ -150,6 +150,69 @@ test('gift correction rejects stale/invalid input and rolls back both stores on 
     assert.equal(restoredStats.giftSubs.FictionalRecipient, undefined);
 });
 
+test('restored offline session archives at its original grace deadline after a successful Twitch check', async t => {
+    const now = Date.parse('2026-01-05T12:10:00Z');
+    t.mock.timers.enable({ apis: ['Date'], now });
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-restored-session-'));
+    t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+    const streamEndedAt = '2026-01-05T12:00:00.000Z';
+    const chat = {
+        startedAt: '2026-01-05T11:00:00.000Z', messageCount: 1,
+        viewerStats: { live: false, streamStartedAt: '2026-01-05T11:00:00.000Z', streamEndedAt }
+    };
+    let failPoll = true;
+    const createService = () => createSessionService({
+        dataDir: dir, getChatData: () => chat, isSessionActive: () => active,
+        setSessionActive: value => { active = value; },
+        getTwitchClientId: () => 'fixture', getBroadcasterId: () => '1',
+        ensureTwitchToken: async () => true,
+        fetchTwitchStream: async () => { if (failPoll) throw new Error('offline check failed'); return null; },
+        saveChatData: () => fs.writeFileSync(path.join(dir, 'chat.json'), JSON.stringify(chat)),
+        log: () => {}, warn: () => {}
+    });
+    let active = true;
+    const svc = createService();
+    await svc.pollLifecycle();
+    assert.equal(svc.getLifecycleStatus().endsAt, null);
+    failPoll = false;
+    await svc.pollLifecycle();
+    assert.equal(svc.getLifecycleStatus().endsAt, '2026-01-05T12:15:00.000Z');
+    assert.equal(active, true);
+    t.mock.timers.setTime(now + 6 * 60000);
+    const restarted = createService();
+    failPoll = true;
+    await restarted.pollLifecycle();
+    assert.equal(active, true, 'a failed Twitch check never ends a session');
+    failPoll = false;
+    await restarted.pollLifecycle();
+    assert.equal(active, false);
+    const { sessions: archives } = restarted.getArchivedSessions();
+    assert.equal(archives.length, 1);
+    assert.equal(archives[0].viewerStats.streamEndedAt, streamEndedAt);
+});
+
+test('expired offline recovery still waits for valid stream evidence and does not end a live session', async () => {
+    const chat = { messageCount: 1, viewerStats: { streamStartedAt: '2026-01-05T11:00:00.000Z' } };
+    let stream = null;
+    let active = true;
+    const svc = createSessionService({
+        getChatData: () => chat, isSessionActive: () => active, setSessionActive: value => { active = value; },
+        getTwitchClientId: () => 'fixture', getBroadcasterId: () => '1',
+        ensureTwitchToken: async () => true, fetchTwitchStream: async () => stream,
+        saveChatData: () => assert.fail('must not archive'), log: () => {}, warn: () => {}
+    });
+    for (const end of [null, 'not-a-date', '2026-01-05T10:00:00Z', '9999-01-01T00:00:00Z']) {
+        chat.viewerStats.streamEndedAt = end;
+        await svc.pollLifecycle();
+        assert.equal(svc.getLifecycleStatus().endsAt, null);
+    }
+    chat.viewerStats.streamEndedAt = '2026-01-05T12:00:00Z';
+    stream = { id: 'fixture', started_at: chat.viewerStats.streamStartedAt };
+    await svc.pollLifecycle();
+    assert.equal(svc.getLifecycleStatus().state, 'live');
+    assert.equal(active, true);
+});
+
 test('legacy pre-stream edits become one live-start baseline without rewriting history or bridging offline gaps', t => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-live-stream-info-'));
     t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
