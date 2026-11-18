@@ -1182,6 +1182,16 @@ function createAlertEngine({ dataDir, broadcast, broadcastToOverlays, runTimerAc
         },
         getQueueState: () => ({
             pending: queue.length,
+            waiting: queue.slice(0, 25).map(item => ({
+                id: item.id,
+                title: item.title || '',
+                message: item.message || '',
+                ruleName: item.ruleName || '',
+                user: item.user || '',
+                type: item.type || '',
+                test: Boolean(item.test),
+                at: item.at || ''
+            })),
             current,
             paused,
             muted,

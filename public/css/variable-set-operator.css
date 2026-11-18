@@ -40,6 +40,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sa
 
 .op-inline-group { display: flex; align-items: center; gap: .35rem; min-width: 150px; }
 .op-counter-group { display: inline-flex; align-items: center; gap: .25rem; }
+.op-counter-wrap { display: flex; align-items: center; gap: .3rem; flex-wrap: wrap; }
+.op-counter-input { width: 78px !important; min-width: 64px !important; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; flex: none; }
 .op-counter-group input[type="number"] { width: 76px; min-width: 64px; text-align: center; font-variant-numeric: tabular-nums; }
 .op-step-btn { height: 32px; min-width: 30px; padding: 0 .45rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-inset); color: var(--text); font: inherit; font-size: .78rem; font-weight: 700; cursor: pointer; }
 .op-step-btn:hover { border-color: var(--accent); color: var(--accent); }
@@ -116,7 +118,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sa
 .op-var-card-title a:hover { text-decoration: underline; }
 .op-var-card-actions { display: inline-flex; align-items: center; gap: .2rem; flex-shrink: 0; }
 .op-var-card-body { display: flex; flex-direction: column; gap: .45rem; }
-.op-var-card-lines { display: grid; gap: .3rem; max-height: 170px; overflow-y: auto; }
+.op-var-card-lines { display: grid; gap: .3rem; max-height: 280px; overflow-y: auto; }
+.op-var-list-details { border: 1px solid var(--border); border-radius: 7px; background: var(--bg-card); padding: .35rem .5rem; }
+.op-var-list-details summary { cursor: pointer; font-size: .76rem; font-weight: 600; color: var(--text-muted); user-select: none; list-style: none; display: flex; align-items: center; justify-content: space-between; }
+.op-var-list-details summary::-webkit-details-marker { display: none; }
+.op-var-list-details[open] summary { color: var(--text); padding-bottom: .35rem; margin-bottom: .35rem; border-bottom: 1px solid var(--border); }
 @media (max-width: 720px) { .op-var-grid { grid-template-columns: 1fr; padding: .75rem; } }
 .op-btn[hidden] { display: none; }
 .op-var-card[draggable="true"] .op-var-card-head { cursor: grab; }

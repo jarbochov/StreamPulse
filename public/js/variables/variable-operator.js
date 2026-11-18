@@ -126,16 +126,24 @@ function renderControlForVar(v, compactList = false) {
     }
     if (v.type === 'list' && compactList) {
         const lines = getListLines(v);
+        const savedOpen = localStorage.getItem(`streampulse_var_lines_open_${v.name}`);
+        const isOpen = savedOpen !== null ? savedOpen === '1' : lines.length <= 5;
         const rows = lines.map((line, idx) => `<div style="display:flex;gap:.3rem;align-items:center;">
             <input type="text" class="op-cell-input" data-vo-line-idx="${idx}" data-vo-line-var="${name}" value="${esc(line)}">
             <button type="button" class="op-btn sm danger" data-vo-del-line="${idx}" data-vo-line-var="${name}" title="Remove line">${SVG_TRASH}</button>
         </div>`).join('');
         return `<form class="vo-card-add-form" data-vo-add-var="${name}" style="display:flex;gap:.35rem;">
-            <input type="text" class="op-cell-input" data-vo-add-input="${name}" placeholder="Add line…" autocomplete="off">
-            <button type="submit" class="op-btn sm primary">${SVG_PLUS}</button>
+            <input type="text" class="op-cell-input" data-vo-add-input="${name}" placeholder="Add one line…" autocomplete="off">
+            <button type="submit" class="op-btn sm primary" title="Add line">${SVG_PLUS}</button>
             <button type="button" class="op-btn sm" data-vo-roll="${name}" title="Roll next">Next</button>
         </form>
-        <div class="op-var-card-lines">${rows || '<span style="color:var(--text-muted);font-size:.78rem;">No lines yet.</span>'}</div>`;
+        <details class="op-var-list-details" data-vo-list-details="${name}"${isOpen ? ' open' : ''}>
+            <summary><span>Lines (${lines.length})</span><span style="font-size:.7rem;">${isOpen ? 'Hide' : 'Show all'}</span></summary>
+            <div class="op-var-card-lines">${rows || '<span style="color:var(--text-muted);font-size:.78rem;">No lines yet.</span>'}</div>
+        </details>`;
+    }
+    if (val.includes('\n')) {
+        return `<textarea class="op-cell-textarea" rows="4" data-vo-val="${name}" placeholder="Value">${esc(val)}</textarea>`;
     }
     return `<input type="text" class="op-cell-input" data-vo-val="${name}" value="${esc(val)}" placeholder="Value">`;
 }
@@ -436,6 +444,14 @@ export function initVariableOperator({ onReload, onBadge, onModeSync } = {}) {
         await saveListLines(name, [...lines, line]);
         host.querySelector(`[data-vo-add-input="${CSS.escape(name)}"]`)?.focus();
     });
+
+    host.addEventListener('toggle', e => {
+        const details = e.target.closest?.('[data-vo-list-details]');
+        if (!details) return;
+        localStorage.setItem(`streampulse_var_lines_open_${details.dataset.voListDetails}`, details.open ? '1' : '0');
+        const label = details.querySelector('summary span:last-child');
+        if (label) label.textContent = details.open ? 'Hide' : 'Show all';
+    }, true);
 
     host.addEventListener('change', async e => {
         const t = e.target;

@@ -511,9 +511,9 @@ function bindEvents() {
         if (!act || ['value', 'items', 'mode', 'color-picker', 'group'].includes(act) || !row) return;
         const name = row.dataset.n;
         if (act === 'bookmark-var') {
-            const bm = `${location.origin}/variable-set-operator.html#var=${encodeURIComponent(name)}`;
+            const bm = `${location.origin}/operator.html#var=${encodeURIComponent(name)}`;
             await copyToClipboard(bm);
-            window.open(`/variable-set-operator.html#var=${encodeURIComponent(name)}`, '_blank', 'noopener');
+            window.open(`/operator.html#var=${encodeURIComponent(name)}`, '_blank', 'noopener');
             return;
         }
         const url = `/api/variables/${encodeURIComponent(name)}`;

@@ -114,9 +114,9 @@ Each Variable Set defines its own custom fields:
 
 You can import and export Variable Set entries via **CSV** directly from the Variable Sets panel (`GET /api/variables/sets/:setId/export` and `POST /api/variables/sets/:setId/import`).
 
-### Variable Set Operator Console (`/variable-set-operator.html`)
+### Variable Set Operator Console (`/operator.html`)
 
-For fast live-show updates, open **Operator Grid** on any Variable Set (or navigate to `/variable-set-operator.html#<setId>`) to edit all entries and fields in a dense, spreadsheet-style console with live WebSocket sync:
+For fast live-show updates, open **Operator Grid** on any Variable Set (or navigate to `/operator.html#<setId>` — or the unified **Variables** tab in [Operator Mode](operator-guide.md)) to edit all entries and fields in a dense, spreadsheet-style console with live WebSocket sync:
 
 - **Inline Field Editing**: Edit values directly, including native date/time controls, a Linked entry dropdown, and a searchable checkbox picker for Linked entries.
 - **Tracker**: Select the tracker field to see reusable items as rows and their owners as columns. Click / Enter cycles `0 -> 1 -> ... -> maximum -> 0`; right-click or Shift+Enter decrements. Each item's explicit upgrade levels determine its maximum; **Default levels** applies to items without custom levels. **Reset** clears one owner's selected tracker, while **Reset everyone** clears it for all owners, including hidden owners, after confirmation. Other trackers and item definitions are untouched.

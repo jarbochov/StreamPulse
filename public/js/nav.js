@@ -125,7 +125,7 @@
             ]},
             { heading: 'Data & Social' },
             { label: 'Placeholders & Variables', href: '/placeholders.html' },
-            { label: 'Variable Set Operator', href: '/variable-set-operator.html' },
+            { label: 'Operator Mode', href: '/operator.html' },
             { label: 'Hashtag Tools', href: '/manage-hashtags.html', module: 'hashtags' }
         ]},
         { label: 'Library', children: [

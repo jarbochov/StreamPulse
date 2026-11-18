@@ -14,6 +14,7 @@ const createVariables = require('../server/services/variables.js');
 const { createAlertEngine } = require('../server/services/alerts.js');
 const { createCrmService } = require('../server/services/crm.js');
 const { createOverlayService } = require('../server/services/overlays.js');
+const { createOperatorService } = require('../server/services/operator.js');
 
 test('Backup coverage includes all feature data files and reloads in-memory services upon restore', () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-backup-coverage-'));
@@ -30,6 +31,7 @@ test('Backup coverage includes all feature data files and reloads in-memory serv
         'variables.json',
         'variable-groups.json',
         'variable-displays.json',
+        'operator-profiles.json',
         'randomizer-presets.json',
         'randomizer-button-presets.json',
         'randomizer-quote-presets.json',
@@ -222,6 +224,17 @@ test('Backup coverage includes all feature data files and reloads in-memory serv
     }));
     overlayService.loadAssetTags();
     assert.deepEqual(overlayService.getAssetTags()['badge.png'], ['icon', 'restored']);
+
+    // Operator profiles service
+    const operatorService = createOperatorService({ dataDir });
+    assert.equal(typeof operatorService.reload, 'function', 'operatorService must export reload()');
+    fs.writeFileSync(path.join(dataDir, 'operator-profiles.json'), JSON.stringify({
+        version: 1,
+        activeProfileId: 'restored-op',
+        profiles: [{ id: 'restored-op', name: 'Restored Preset', board: { columns: 2, cards: [] }, overlays: [] }]
+    }));
+    operatorService.reload();
+    assert.equal(operatorService.getActiveProfile()?.name, 'Restored Preset');
 
     // 3. Create zip with all files and ensure AdmZip unpacks cleanly
     const zip = new AdmZip();

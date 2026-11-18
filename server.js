@@ -65,6 +65,8 @@ const { createTriviaService } = require('./server/services/trivia');
 const { createTriviaRoutes } = require('./server/routes/trivia');
 const { createSubathonService } = require('./server/services/subathon');
 const { createSubathonRoutes } = require('./server/routes/subathon');
+const { createOperatorService } = require('./server/services/operator');
+const { createOperatorRoutes } = require('./server/routes/operator');
 const { safeWriteFileSync, escapeHtml } = require('./server/routes/helpers');
 const { createCrmService } = require('./server/services/crm');
 const { createCommunityInsights } = require('./server/services/community-insights');
@@ -575,6 +577,11 @@ const subathonService = createSubathonService({
     safeWriteFileSync
 });
 const handleSubathonRoutes = createSubathonRoutes({ subathonService });
+const operatorService = createOperatorService({
+    dataDir: DATA_DIR,
+    broadcastToOverlays: (type, data) => broadcastToOverlays(type, data)
+});
+const handleOperatorRoutes = createOperatorRoutes({ operatorService });
 
 // The credits header and custom credit sections can use library images.
 function creditsAssetUsers(name) {
@@ -1646,6 +1653,7 @@ function handleRestoreReload({ previousConfig }) {
     try { variablesStore.reload(); } catch (err) { console.warn('[Restore] Variables reload failed:', err.message); }
     variableDisplays.reload();
     migrateSavedBadges();
+    try { operatorService.reload(); } catch (err) { console.warn('[Restore] Operator reload failed:', err.message); }
     try { alertEngine.reload(); } catch (err) { console.warn('[Restore] Alert engine reload failed:', err.message); }
     try { crmService.reload(); } catch (err) { console.warn('[Restore] CRM reload failed:', err.message); }
     userModeration.reload();
@@ -1658,6 +1666,7 @@ function handleRestoreReload({ previousConfig }) {
     broadcastToOverlays('timers-snapshot', buildTimersSnapshot());
     broadcastToOverlays('goals-update', buildGoalsSnapshot());
     broadcastToOverlays('game-plan-update', buildGamePlanSnapshot());
+    try { broadcastToOverlays('operator-update', operatorService.getState()); } catch { /* ignore */ }
     try { broadcastToOverlays('matchup-update', matchupService.getMatchup()); } catch { /* ignore */ }
     try { broadcastToOverlays('poll-update', pollService.getActivePoll()); } catch { /* ignore */ }
     try { broadcastToOverlays('tournament-update', pollService.getTournament()); } catch { /* ignore */ }
@@ -1839,6 +1848,7 @@ const server = createHttpServer(async (req, res) => {
 
     if (await handleTimersRoutes(req, res, pathname)) return;
     if (await handleSubathonRoutes(req, res, pathname)) return;
+    if (await handleOperatorRoutes(req, res, url, pathname)) return;
 
     if (await handleWeatherRoutes(req, res, url, pathname)) return;
 

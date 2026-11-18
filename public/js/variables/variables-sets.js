@@ -681,12 +681,12 @@ export function renderSets() {
                                 ${(() => {
                                     const hasChecklist = (activeSet.fields || []).some(f => f.type === 'checklist');
                                     if (hasChecklist) {
-                                        return `<a class="b sm" href="/variable-set-operator.html#${encodeURIComponent(activeSet.id)}/matrix" style="text-decoration:none;">Open Tracker</a>`;
+                                        return `<a class="b sm" href="/operator.html#${encodeURIComponent(activeSet.id)}/matrix" style="text-decoration:none;">Open Tracker</a>`;
                                     }
                                     const matrixOwner = (state.variableSets || []).find(s => s.id !== activeSet.id && (s.fields || []).some(f => f.type === 'checklist' && f.targetSet === activeSet.id));
-                                    return matrixOwner ? `<a class="b sm" href="/variable-set-operator.html#${encodeURIComponent(matrixOwner.id)}/matrix" style="text-decoration:none;">Tracker: ${esc(matrixOwner.name)}</a>` : '';
+                                    return matrixOwner ? `<a class="b sm" href="/operator.html#${encodeURIComponent(matrixOwner.id)}/matrix" style="text-decoration:none;">Tracker: ${esc(matrixOwner.name)}</a>` : '';
                                 })()}
-                                <a class="b sm" href="/variable-set-operator.html#${encodeURIComponent(activeSet.id)}" style="text-decoration:none;">Operator Grid</a>
+                                <a class="b sm" href="/operator.html#${encodeURIComponent(activeSet.id)}" style="text-decoration:none;">Operator Grid</a>
                                 <a class="b sm" href="/api/variables/sets/${encodeURIComponent(activeSet.id)}/export?format=csv" download="${esc(activeSet.id)}-roster.csv" style="text-decoration:none;">Export CSV</a>
                                 <label class="b sm" style="display:inline-flex; align-items:center; cursor:pointer;">Import CSV<input type="file" data-set-csv-import accept=".csv,text/csv" hidden></label>
                             </div>

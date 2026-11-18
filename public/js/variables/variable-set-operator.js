@@ -19,12 +19,7 @@ const SVG_DOT = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" str
 function getHashParts() {
     const rawHash = (location.hash || '').replace(/^#/, '').trim();
     if (rawHash) {
-        if (rawHash.startsWith('var=')) return { mode: 'var', key: decodeURIComponent(rawHash.slice(4)), id: '', matrix: false };
-        if (rawHash.startsWith('group=')) return { mode: 'group', key: decodeURIComponent(rawHash.slice(6)), id: '', matrix: false };
-        if (rawHash.startsWith('set=')) return { mode: 'sets', key: '', id: decodeURIComponent(rawHash.slice(4)), matrix: false };
-        const hasMatrix = rawHash.endsWith('/matrix');
-        const clean = hasMatrix ? rawHash.slice(0, -7) : rawHash;
-        return { mode: 'sets', key: '', id: decodeURIComponent(clean), matrix: hasMatrix };
+        return getHashPartsFromRaw(rawHash);
     }
     return { mode: 'sets', key: '', id: new URLSearchParams(location.search).get('set') || '', matrix: false };
 }
@@ -52,6 +47,16 @@ let saveQueue = Promise.resolve();
 let saveError = null;
 let trackerBusy = false;
 let writesPending = 0;
+let unifiedUnlocked = false;
+const isUnifiedHost = () => typeof document !== 'undefined' && document.documentElement?.dataset?.operatorHost === 'unified';
+const canSyncVariableHash = () => !isUnifiedHost() || document.body?.dataset?.operatorTab === 'variables';
+function replaceVariableHash(hash) {
+    if (!canSyncVariableHash()) return;
+    const url = new URL(location.href);
+    url.searchParams.delete('set');
+    url.hash = hash || '';
+    history.replaceState(null, '', url);
+}
 const savedRosters = new Map();
 const dirtySets = new Set();
 const sameValue = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -65,6 +70,16 @@ function parseChecklistMap(raw) {
         } catch {}
     }
     return {};
+}
+
+function getHashPartsFromRaw(raw) {
+    if (raw.startsWith('var=')) return { mode: 'var', key: decodeURIComponent(raw.slice(4)), id: '', matrix: false };
+    if (raw.startsWith('group=')) return { mode: 'group', key: decodeURIComponent(raw.slice(6)), id: '', matrix: false };
+    if (raw.startsWith('set=')) return { mode: 'sets', key: '', id: decodeURIComponent(raw.slice(4)), matrix: false };
+    if (raw.startsWith('tab=')) return { mode: 'sets', key: '', id: '', matrix: false, ignored: true };
+    const hasMatrix = raw.endsWith('/matrix');
+    const clean = hasMatrix ? raw.slice(0, -7) : raw;
+    return { mode: 'sets', key: '', id: decodeURIComponent(clean), matrix: hasMatrix };
 }
 
 function getViewMode(setObj) {
@@ -158,11 +173,8 @@ function getActiveSet() {
             activeSetId = found.id;
             localStorage.setItem(STORAGE_KEY, activeSetId);
         }
-        if (getSetIdFromUrl() !== found.id) {
-            const url = new URL(location.href);
-            url.searchParams.delete('set');
-            url.hash = encodeURIComponent(found.id);
-            history.replaceState(null, '', url);
+        if (getSetIdFromUrl() !== found.id && canSyncVariableHash()) {
+            replaceVariableHash(encodeURIComponent(found.id));
         }
     }
     return found;
@@ -651,22 +663,19 @@ async function loadData(preserveFocus = false) {
 }
 
 function bindEvents() {
+    if (isUnifiedHost() && !unifiedUnlocked) return;
     document.getElementById('op-mode-tabs')?.addEventListener('click', e => {
         const btn = e.target.closest('[data-op-mode]');
         if (!btn) return;
         const mode = btn.dataset.opMode;
         applyOperatorMode(mode);
         if (mode === 'sets') {
-            const url = new URL(location.href);
-            url.hash = activeSetId ? encodeURIComponent(activeSetId) : '';
-            history.replaceState(null, '', url);
+            replaceVariableHash(activeSetId ? encodeURIComponent(activeSetId) : '');
             renderOperator();
         } else {
             setVariableOperatorTarget(mode);
             renderVariableOperator();
-            const url = new URL(location.href);
-            url.hash = getVariableOperatorHash();
-            history.replaceState(null, '', url);
+            replaceVariableHash(getVariableOperatorHash());
         }
     });
     document.getElementById('op-copy-bookmark')?.addEventListener('click', async () => {
@@ -682,9 +691,7 @@ function bindEvents() {
         onBadge: setSaveBadge,
         onModeSync: (hash, nextMode) => {
             if (nextMode) applyOperatorMode(nextMode);
-            const url = new URL(location.href);
-            url.hash = hash;
-            history.replaceState(null, '', url);
+            replaceVariableHash(hash);
         }
     });
     document.getElementById('op-save-state')?.addEventListener('keydown', event => {
@@ -723,15 +730,13 @@ function bindEvents() {
     document.getElementById('op-set-select')?.addEventListener('change', e => {
         activeSetId = e.target.value;
         localStorage.setItem(STORAGE_KEY, activeSetId);
-        const url = new URL(location.href);
-        url.searchParams.delete('set');
-        url.hash = activeSetId ? encodeURIComponent(activeSetId) : '';
-        history.replaceState(null, '', url);
+        replaceVariableHash(activeSetId ? encodeURIComponent(activeSetId) : '');
         renderOperator();
     });
 
     window.addEventListener('hashchange', () => {
         const next = getHashParts();
+        if (next.ignored) return;
         if (next.mode === 'var' || next.mode === 'group') {
             setVariableOperatorTarget(next.mode, next.key);
             applyOperatorMode(next.mode);
@@ -1136,9 +1141,36 @@ function bindEvents() {
 }
 
 bindEvents();
-loadData(false).catch(err => toast(err.message, 'error'));
-connectLiveSocket({
-    onMessage: msg => {
-        if (msg.type === 'variables' || msg.type === 'variables-update' || msg.type === 'status') loadData(true);
+if (!isUnifiedHost()) {
+    loadData(false).catch(err => toast(err.message, 'error'));
+    connectLiveSocket({
+        onMessage: msg => {
+            if (msg.type === 'variables' || msg.type === 'variables-update' || msg.type === 'status') loadData(true);
+        }
+    });
+}
+
+let unifiedEventsBound = false;
+export async function mountUnifiedVariablesOperator() {
+    if (!unifiedEventsBound) {
+        unifiedUnlocked = true;
+        unifiedEventsBound = true;
+        bindEvents();
     }
-});
+    const next = getHashParts();
+    if (!next.ignored) {
+        if (next.mode === 'var' || next.mode === 'group') {
+            setVariableOperatorTarget(next.mode, next.key);
+            applyOperatorMode(next.mode);
+        } else if (next.id) {
+            operatorMode = 'sets';
+            activeSetId = next.id;
+            if (next.matrix) localStorage.setItem(`${VIEW_MODE_PREFIX}${next.id}`, 'matrix');
+        }
+    }
+    await loadData(false);
+}
+
+export function refreshUnifiedVariablesOperator(preserveFocus = true) {
+    return loadData(preserveFocus);
+}

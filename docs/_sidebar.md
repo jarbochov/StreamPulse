@@ -5,6 +5,7 @@
   * [Download](quickstart.md)
 
 * **Make it your show**
+  * [Operator Mode](operator-guide.md)
   * [Custom Overlays](custom-overlays.md)
   * [Variables & Sets](variables-guide.md)
   * [Promos & Announcements](promo-creator.md)

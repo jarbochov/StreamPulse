@@ -623,7 +623,7 @@ export function textSourceBlock(el) {
         const varOpts = [['', 'Select a variable…'], ...listVars.map(v => [v.name, `${v.group ? `${v.group} / ` : ''}${v.name} (${v.type})`])];
         body += F.select('source.variable', el.type === 'random-text' ? 'List / Text Variable' : 'Variable', src.variable || '', varOpts);
         if (src.variable) {
-            body += `<div class="field"><span>Quick Update</span><a class="b sm" href="/variable-set-operator.html#var=${encodeURIComponent(src.variable)}" target="_blank" style="text-decoration:none;text-align:center;">Open Variable Operator</a></div>`;
+            body += `<div class="field"><span>Quick Update</span><a class="b sm" href="/operator.html#var=${encodeURIComponent(src.variable)}" target="_blank" style="text-decoration:none;text-align:center;">Open Operator Mode</a></div>`;
         }
         if (el.type === 'random-text') body += F.select('source.split', 'Each entry is', src.split || 'lines', [['lines', 'One line'], ['blocks', 'A paragraph (separated by blank lines)']]);
         body += `<div class="hint" id="source-status">${esc(sourceStatusText(el))}</div>`;

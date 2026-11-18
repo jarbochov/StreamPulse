@@ -2274,6 +2274,65 @@
             ]
         },
         {
+            section: 'Operator Mode',
+            items: [
+                {
+                    method: 'GET', path: '/api/operator',
+                    desc: 'Full Operator Mode preset state and active profile ID',
+                    details: 'Returns { ok: true, version: 1, activeProfileId, profiles: [...] }. Saved in data/operator-profiles.json and covered by Backup & Restore.'
+                },
+                {
+                    method: 'GET', path: '/api/operator/status',
+                    desc: 'Lightweight Operator status summary for Companion polling',
+                    details: 'Returns { ok: true, activeProfileId, activeProfileName, profileCount, cardCount, overlayCount }.'
+                },
+                {
+                    method: 'POST', path: '/api/operator/profiles',
+                    desc: 'Create or update an Operator preset',
+                    params: [
+                        { name: 'select', desc: 'Activate the preset immediately after saving', values: '1', default: '—' }
+                    ],
+                    details: 'Body: { id?, name, description?, board: { columns: 1..4, cards: [...] }, overlays: ["overlay-id"], tabs: { hidden: [] } }.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/operator/profile/select',
+                    desc: 'Activate an Operator preset by ID or name (Companion-friendly)',
+                    params: [
+                        { name: 'id', desc: 'Preset ID to activate', values: 'string', default: '—' },
+                        { name: 'name', desc: 'Case-insensitive preset name fallback', values: 'string', default: '—' }
+                    ],
+                    details: 'Switches the server active preset and broadcasts operator-active-profile via WebSocket. Normal /operator.html windows sync live; windows opened with ?profile=<id> stay pinned to their URL preset.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/operator/profiles/:id/activate',
+                    desc: 'Activate a specific preset by ID',
+                    details: 'Same WebSocket live sync behavior as /api/operator/profile/select.'
+                },
+                {
+                    method: 'GET / PUT / DELETE', path: '/api/operator/profiles/:id',
+                    desc: 'Inspect, update, or delete a single Operator preset',
+                    details: 'Cannot delete the final remaining preset (returns HTTP 400).'
+                },
+                {
+                    method: 'GET', path: '/api/operator/export',
+                    desc: 'Export Operator presets as JSON',
+                    params: [
+                        { name: 'id', desc: 'Export a single preset instead of all presets', values: 'string', default: '— (all)' },
+                        { name: 'download', desc: 'Send Content-Disposition attachment header', values: '1', default: '—' }
+                    ],
+                    details: 'Exports all presets or one specific preset in streampulse-operator-profiles v1 format.'
+                },
+                {
+                    method: 'POST', path: '/api/operator/import',
+                    desc: 'Import Operator presets JSON bundle',
+                    params: [
+                        { name: 'mode', desc: 'Merge into existing presets or replace all', values: 'merge, replace', default: 'merge' }
+                    ],
+                    details: 'Validates profiles and merges into or replaces existing server presets.'
+                }
+            ]
+        },
+        {
             section: 'WebSocket',
             items: [
                 {

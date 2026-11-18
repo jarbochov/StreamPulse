@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" data-operator-host="unified">
+<head>
+    <link rel="stylesheet" href="/admin.css">
+    <link rel="stylesheet" href="/css/studio-common.css">
+    <link rel="stylesheet" href="/css/variable-set-operator.css">
+    <link rel="stylesheet" href="/css/variable-links.css">
+    <link rel="stylesheet" href="/css/operator.css">
+    <script src="/appearance.js"></script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Operator Mode</title>
+</head>
+<body>
+    <header class="header">
+        <h1>StreamPulse <span>Operator Mode</span></h1>
+        <div id="main-nav" class="nav"></div>
+    </header>
+
+    <main class="op-shell">
+        <div class="op-top-bar">
+            <nav class="tabs-nav" id="op-domain-tabs" role="tablist" aria-label="Operator domains"></nav>
+            <div class="op-top-meta">
+                <select id="op-global-profile" class="op-profile-select" aria-label="Active Operator preset"></select>
+                <button type="button" class="op-btn sm" id="op-presets-btn" title="Manage presets, import and export">Presets</button>
+                <button type="button" class="op-btn sm" id="op-customize-tabs-btn" title="Customize visible tabs">Tabs</button>
+                <button type="button" class="op-btn sm" id="op-focus-btn" title="Focus mode: expand only one panel at a time">Focus</button>
+                <button type="button" class="op-btn sm" id="op-dense-btn" title="Toggle compact density to fit more controls">Compact</button>
+                <select id="op-lock-mode" class="op-lock-select" aria-label="Operator lock mode" title="Lock board layout or switch to read-only Show Mode">
+                    <option value="none">Unlocked</option>
+                    <option value="layout">Lock Layout</option>
+                    <option value="show">Show Mode (Read-Only)</option>
+                </select>
+                <span class="op-pill is-live" id="op-profile-lock-pill" hidden>Pinned</span>
+                <span class="op-pill" id="op-live-pill"><span class="op-badge-dot is-offline"></span> Connecting</span>
+            </div>
+        </div>
+
+        <!-- Domain Panels (lazy-mounted) -->
+        <section id="op-domain-board" class="op-domain-panel" hidden></section>
+        <section id="op-domain-overlays" class="op-domain-panel" hidden></section>
+        <section id="op-domain-timers" class="op-domain-panel" hidden></section>
+        <section id="op-domain-alerts" class="op-domain-panel" hidden></section>
+        <section id="op-domain-music" class="op-domain-panel" hidden></section>
+
+        <!-- Variables Domain (hosts reusable Sets / Single Variable / Variable Group Operator DOM) -->
+        <section id="op-domain-variables" class="op-domain-panel" hidden>
+            <div class="op-domain-stack">
+                <nav class="tabs-nav" id="op-mode-tabs" role="tablist" aria-label="Variable operator mode">
+                    <button type="button" class="tab-btn active" role="tab" aria-selected="true" data-op-mode="sets">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                        <span>Variable Sets</span>
+                    </button>
+                    <button type="button" class="tab-btn" role="tab" aria-selected="false" data-op-mode="var">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+                        <span>Single Variable</span>
+                    </button>
+                    <button type="button" class="tab-btn" role="tab" aria-selected="false" data-op-mode="group">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                        <span>Variable Groups</span>
+                    </button>
+                </nav>
+
+                <div class="op-toolbar" style="padding:.6rem 1rem;">
+                    <div class="op-toolbar-left">
+                        <span class="op-pill" id="op-stats">Loading…</span>
+                        <span class="op-pill is-ok" id="op-save-state" hidden>Saved</span>
+                    </div>
+                    <div class="op-toolbar-right">
+                        <button type="button" class="op-btn sm" id="op-copy-bookmark" title="Copy direct bookmark URL">Copy Bookmark</button>
+                        <a class="op-btn sm" id="op-back-link" href="/placeholders.html#sets">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+                            Edit Sets &amp; Fields
+                        </a>
+                        <button type="button" class="op-btn sm primary" id="op-add-entry">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            Add Item
+                        </button>
+                    </div>
+                </div>
+
+                <div id="op-sets-view">
+                    <section class="op-toolbar" aria-label="Operator controls">
+                        <div class="op-toolbar-left">
+                            <select id="op-set-select" class="op-set-select" aria-label="Select Variable Set"></select>
+                            <input type="search" id="op-search" class="op-search" placeholder="Filter items or values…" aria-label="Filter items">
+                            <div class="op-filter-seg" id="op-filter-seg" role="group" aria-label="Item filter">
+                                <button type="button" class="op-filter-btn active" data-op-filter="all">All</button>
+                                <button type="button" class="op-filter-btn" data-op-filter="enabled">Enabled</button>
+                                <button type="button" class="op-filter-btn" data-op-filter="group">In Group</button>
+                                <button type="button" class="op-filter-btn" data-op-filter="slotted">On Air</button>
+                            </div>
+                            <div class="op-filter-seg" id="op-view-seg" role="group" aria-label="View mode" hidden>
+                                <button type="button" class="op-filter-btn active" data-op-view="table">Table</button>
+                                <button type="button" class="op-filter-btn" data-op-view="matrix">Tracker</button>
+                            </div>
+                            <div class="op-layout-bar" aria-label="Column layouts">
+                                <select id="op-layout-select" class="op-layout-select" aria-label="Saved column layouts"></select>
+                                <button type="button" class="op-btn sm" id="op-save-layout" title="Save current columns, order, and sort as a named layout">Save Layout</button>
+                                <button type="button" class="op-btn sm danger" id="op-del-layout" title="Delete selected layout" hidden>Delete</button>
+                                <div class="op-cols-wrap">
+                                    <button type="button" class="op-btn sm" id="op-cols-btn" aria-expanded="false" aria-controls="op-cols-pop">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+                                        Columns
+                                    </button>
+                                    <div class="op-cols-pop" id="op-cols-pop" hidden></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="op-toolbar-right" id="op-rotation-bar" hidden>
+                            <button type="button" class="op-btn sm" id="op-rot-prev" title="Previous enabled item">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+                                Prev
+                            </button>
+                            <button type="button" class="op-btn sm" id="op-rot-next" title="Next enabled item">
+                                Next
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+                            </button>
+                        </div>
+                    </section>
+                    <section class="op-card" aria-label="Variable Set items" style="margin-top:.85rem;">
+                        <div class="op-table-scroll" id="op-table-host"></div>
+                    </section>
+                </div>
+
+                <div id="op-vars-view" hidden>
+                    <section class="op-toolbar" aria-label="Variable and Group controls">
+                        <div class="op-toolbar-left">
+                            <select id="vo-target-select" class="op-set-select" aria-label="Select Variable or Group"></select>
+                            <input type="search" id="vo-search" class="op-search" placeholder="Filter lines or cards…" aria-label="Filter lines or cards">
+                            <div class="op-cols-wrap" id="vo-cards-wrap" hidden>
+                                <button type="button" class="op-btn sm" id="vo-cards-btn" aria-expanded="false" aria-controls="vo-cards-pop">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                                    Cards
+                                </button>
+                                <div class="op-cols-pop" id="vo-cards-pop" hidden></div>
+                            </div>
+                        </div>
+                        <div class="op-toolbar-right" id="vo-toolbar-actions"></div>
+                    </section>
+                    <section class="op-card" aria-label="Variable operator panels" style="margin-top:.85rem;">
+                        <div class="op-table-scroll" id="vo-host"></div>
+                    </section>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Shared Modal -->
+    <div class="op-modal-backdrop" id="op-modal" hidden>
+        <div class="op-modal" role="dialog" aria-modal="true" aria-labelledby="op-modal-title">
+            <header class="op-modal-head">
+                <h2 id="op-modal-title">Modal</h2>
+                <button type="button" class="op-icon-btn" data-modal-close="1" aria-label="Close">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </header>
+            <div class="op-modal-body" id="op-modal-body"></div>
+            <footer class="op-modal-foot" id="op-modal-foot"></footer>
+        </div>
+    </div>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+
+    <script src="/nav.js"></script>
+    <script src="/js/image-picker.js"></script>
+    <script src="/icon-picker.js"></script>
+    <script src="/js/overlay-shared.js"></script>
+    <script type="module" src="/js/operator/operator-main.js"></script>
+</body>
+</html>

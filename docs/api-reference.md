@@ -1136,3 +1136,22 @@ Group management is **POST only**, body `{"name":"Theme","variables":["accent"],
 | `/api/variables/sets/:setId/queue/clear` | `GET`, `POST` | Clear the rotation queue |
 
 See [Custom Variables & Variable Sets](variables-guide.md) for token syntax, Group Roster formatting, and overlay integration.
+
+---
+
+## Operator Mode (`/operator.html`)
+
+Saved Operator Mode presets live in `data/operator-profiles.json` (included in full backups and restored via `operatorService.reload()`).
+
+| Endpoint | Methods | Description |
+| --- | --- | --- |
+| `/api/operator` | `GET` | Return full Operator state (`{ version, activeProfileId, profiles }`) |
+| `/api/operator/status` | `GET` | Lightweight status summary for Companion polling (`activeProfileId`, `activeProfileName`, `profileCount`, `cardCount`, `overlayCount`) |
+| `/api/operator/profiles` | `GET`, `POST` | List presets, or upsert a preset (`?select=1` or `{ activate: true }` activates it immediately) |
+| `/api/operator/profiles/:id` | `GET`, `PUT`, `DELETE` | Fetch, save, or delete a specific preset (cannot delete the last remaining preset) |
+| `/api/operator/profiles/:id/activate` | `GET`, `POST` | Activate preset by ID and broadcast `operator-active-profile` over WebSocket |
+| `/api/operator/profile/select` | `GET`, `POST` | Companion trigger accepting `?id=<id>` or `?name=<name>` |
+| `/api/operator/export` | `GET` | Export preset JSON (`?id=<id>` for single preset, `?download=1` for attachment) |
+| `/api/operator/import` | `POST` | Import JSON presets (`?mode=merge` default or `?mode=replace`) |
+
+WebSocket broadcasts: `operator-active-profile` updates normal `/operator.html` tabs live while keeping URL-pinned `?profile=<id>` docks locked; `operator-update` broadcasts preset additions, edits, deletions, and restores. See [Operator Mode Guide](operator-guide.md).
