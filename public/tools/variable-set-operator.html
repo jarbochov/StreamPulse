@@ -13,12 +13,18 @@
 <body>
     <header class="op-header">
         <div class="op-title-group">
-            <h1>Variable Set <span>Operator</span></h1>
+            <h1>Operator <span>Console</span></h1>
+            <div class="tabs-nav" id="op-mode-tabs" role="tablist" aria-label="Operator mode">
+                <button type="button" class="tab-btn active" role="tab" aria-selected="true" data-op-mode="sets">Sets</button>
+                <button type="button" class="tab-btn" role="tab" aria-selected="false" data-op-mode="var">Variable</button>
+                <button type="button" class="tab-btn" role="tab" aria-selected="false" data-op-mode="group">Groups</button>
+            </div>
             <span class="op-pill" id="op-stats">Loading…</span>
             <span class="op-pill is-ok" id="op-save-state" hidden>Saved</span>
         </div>
         <div class="op-header-actions">
-            <a class="op-btn" href="/placeholders.html#sets">
+            <button type="button" class="op-btn" id="op-copy-bookmark" title="Copy direct bookmark URL">Copy Bookmark</button>
+            <a class="op-btn" id="op-back-link" href="/placeholders.html#sets">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
                 Edit Sets &amp; Fields
             </a>
@@ -30,6 +36,7 @@
     </header>
 
     <main class="op-wrap">
+        <div id="op-sets-view">
         <section class="op-toolbar" aria-label="Operator controls">
             <div class="op-toolbar-left">
                 <select id="op-set-select" class="op-set-select" aria-label="Select Variable Set"></select>
@@ -72,6 +79,27 @@
         <section class="op-card" aria-label="Variable Set items">
             <div class="op-table-scroll" id="op-table-host"></div>
         </section>
+        </div>
+
+        <div id="op-vars-view" hidden>
+            <section class="op-toolbar" aria-label="Variable and Group controls">
+                <div class="op-toolbar-left">
+                    <select id="vo-target-select" class="op-set-select" aria-label="Select Variable or Group"></select>
+                    <input type="search" id="vo-search" class="op-search" placeholder="Filter lines or cards…" aria-label="Filter lines or cards">
+                    <div class="op-cols-wrap" id="vo-cards-wrap" hidden>
+                        <button type="button" class="op-btn sm" id="vo-cards-btn" aria-expanded="false" aria-controls="vo-cards-pop">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                            Cards
+                        </button>
+                        <div class="op-cols-pop" id="vo-cards-pop" hidden></div>
+                    </div>
+                </div>
+                <div class="op-toolbar-right" id="vo-toolbar-actions"></div>
+            </section>
+            <section class="op-card" aria-label="Variable operator panels">
+                <div class="op-table-scroll" id="vo-host"></div>
+            </section>
+        </div>
     </main>
 
     <script src="/nav.js"></script>

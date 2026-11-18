@@ -1095,8 +1095,9 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
         headingSpan: type === 'markdown' && Number.isFinite(Number(element.headingSpan)) ? Math.max(0, Math.min(6, Math.round(Number(element.headingSpan)))) : 6,
         textFit: ['shrink', 'fit'].includes(element.textFit) && TEXT_SOURCE_TYPES.has(type) ? element.textFit : 'none',
         source: {
-            mode: ['library', 'file'].includes(element.source?.mode) && TEXT_SOURCE_TYPES.has(type) ? element.source.mode : 'inline',
+            mode: ['library', 'file', 'variable'].includes(element.source?.mode) && TEXT_SOURCE_TYPES.has(type) ? element.source.mode : 'inline',
             path: String(element.source?.path || '').trim().slice(0, 1000),
+            variable: String(element.source?.variable || '').trim().slice(0, 80),
             split: element.source?.split === 'blocks' ? 'blocks' : 'lines'
         },
         items: Array.isArray(element.items) ? element.items.map(item => String(item).slice(0, 2000)).filter(Boolean).slice(0, 2000) : [],

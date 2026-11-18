@@ -107,3 +107,23 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sa
     .op-table:not(.op-matrix-table) td { border: 0; padding: .2rem 0; }
     .op-table:not(.op-matrix-table) td[data-col-label]::before { content: attr(data-col-label); display: block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin-bottom: .2rem; }
 }
+
+.op-var-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: .85rem; padding: 1rem; }
+.op-var-card { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 10px; padding: .85rem; display: flex; flex-direction: column; gap: .6rem; min-width: 0; }
+.op-var-card-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.op-var-card-title { display: flex; align-items: center; gap: .45rem; min-width: 0; }
+.op-var-card-title a { color: var(--accent); font-weight: 600; font-size: .88rem; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.op-var-card-title a:hover { text-decoration: underline; }
+.op-var-card-actions { display: inline-flex; align-items: center; gap: .2rem; flex-shrink: 0; }
+.op-var-card-body { display: flex; flex-direction: column; gap: .45rem; }
+.op-var-card-lines { display: grid; gap: .3rem; max-height: 170px; overflow-y: auto; }
+@media (max-width: 720px) { .op-var-grid { grid-template-columns: 1fr; padding: .75rem; } }
+.op-btn[hidden] { display: none; }
+.op-var-card[draggable="true"] .op-var-card-head { cursor: grab; }
+.op-var-card.is-dragging { opacity: .45; }
+.op-var-card.is-drag-over { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(88,166,255,.25); }
+.op-var-drag { color: var(--text-muted); display: inline-flex; align-items: center; flex-shrink: 0; }
+.op-var-single { padding: 1.25rem; display: grid; gap: .9rem; max-width: 720px; }
+.op-var-single-head { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
+.op-var-single-img { max-width: 100%; max-height: 180px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-inset); object-fit: contain; padding: .35rem; }
+.op-var-single-icon { width: 56px; height: 56px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-inset); display: inline-flex; align-items: center; justify-content: center; font-size: 1.65rem; }

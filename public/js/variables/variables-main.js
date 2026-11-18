@@ -29,8 +29,22 @@ function applyVariableSetsVisibility() {
 }
 
 function showTab(name) {
-    const [tab, groupFragment = ''] = name.split('#');
-    name = tab;
+    const raw = String(name || '');
+    let focusVar = '';
+    let groupFragment = '';
+    if (raw.startsWith('var=')) {
+        name = 'variables';
+        focusVar = decodeURIComponent(raw.slice(4));
+    } else if (raw.startsWith('group=')) {
+        name = 'variables';
+        groupFragment = raw.slice(6);
+    } else {
+        const parts = raw.split('#');
+        name = parts[0];
+        const rest = parts[1] || '';
+        if (rest.startsWith('var=')) focusVar = decodeURIComponent(rest.slice(4));
+        else groupFragment = rest;
+    }
     const activeKey = (name === 'sets' && state.variableSetsEnabled !== false) ? 'sets' : (name === 'vars' || name === 'variables') ? 'variables' : 'placeholders';
     document.querySelectorAll('#tabs button').forEach(b => {
         const isSel = b.dataset.t === activeKey;
@@ -40,8 +54,12 @@ function showTab(name) {
     document.querySelectorAll('.tab-content').forEach(c => {
         c.hidden = c.dataset.tab !== activeKey;
     });
-    state.varGroupQuery = activeKey === 'variables' ? groupQueryFromFragment(groupFragment) : '';
-    history.replaceState(null, '', `#${activeKey}${activeKey === 'variables' && groupFragment ? `#${groupFragment}` : ''}`);
+    state.focusVar = activeKey === 'variables' ? focusVar : '';
+    state.varGroupQuery = activeKey === 'variables' && !focusVar ? groupQueryFromFragment(groupFragment) : '';
+    const nextHash = focusVar
+        ? `#var=${encodeURIComponent(focusVar)}`
+        : `#${activeKey}${activeKey === 'variables' && groupFragment ? `#${groupFragment}` : ''}`;
+    history.replaceState(null, '', nextHash);
     renderVars();
 }
 
@@ -71,8 +89,10 @@ export function renderVars() {
     }
     const typeFilter = state.varTypeFilter;
     const visibleGroups = q.hasGroup && !q.ungrouped && !q.text && typeFilter === 'all' ? q.groups : null;
+    const focusName = (state.focusVar || '').trim();
     const filtered = (state.customVars || []).filter(v => {
         if (v.hidden) return false;
+        if (focusName) return v.name === focusName || S.variableKey(v) === focusName;
         if ((state.variableSetsEnabled === false || !state.showSetVars) && v.setId) return false;
         if (typeFilter !== 'all' && v.type !== typeFilter && !(typeFilter === 'number' && v.type === 'counter')) return false;
         if (!matchesVariableQuery(v, q)) return false;
@@ -95,16 +115,51 @@ export function renderVars() {
     const manage = $('var-group-manage');
     manage.hidden = q.ungrouped || q.groups.length !== 1;
     manage.dataset.manageGroup = q.groups[0] || '';
+    const focusedVar = focusName ? filtered[0] : null;
+    const focusBanner = focusName
+        ? `<div class="card" id="var-focus-banner" style="padding:.75rem 1rem;margin-bottom:.75rem;display:flex;flex-wrap:wrap;gap:.65rem;align-items:center;justify-content:space-between;">
+            <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
+                <strong>Focused Variable:</strong>
+                <code>${esc(focusedVar ? focusedVar.name : focusName)}</code>
+                <button type="button" class="b sm" data-act="copy-focus-bookmark">Copy Bookmark</button>
+                <a class="b sm" href="#variables" style="text-decoration:none;">Show All Variables</a>
+            </div>
+            ${focusedVar?.type === 'list' ? `<form id="var-quick-add-form" style="display:flex;gap:.4rem;flex:1;min-width:240px;max-width:460px;">
+                <input type="text" id="var-quick-add-line" placeholder="Add a new line and press Enter…" style="flex:1;" autocomplete="off">
+                <button type="submit" class="b sm primary">Add Line</button>
+            </form>` : ''}
+        </div>`
+        : '';
     if (!filtered.length && !visibleGroups?.length) {
-        container.innerHTML = `<div class="muted" style="padding:.5rem 0;">${(state.customVars || []).length ? 'No variables match your current filter.' : 'No custom variables defined yet. Create one above!'}</div>`;
+        container.innerHTML = `${focusBanner}<div class="muted" style="padding:.5rem 0;">${focusName ? `Variable "${esc(focusName)}" not found.` : (state.customVars || []).length ? 'No variables match your current filter.' : 'No custom variables defined yet. Create one above!'}</div>`;
         return;
     }
-    container.innerHTML = filtered.length ? `<div class="variable-table-heading"><span>Variable</span><span>Type</span><span>Value</span></div>` + filtered.map(variable =>
+    container.innerHTML = focusBanner + (filtered.length ? `<div class="variable-table-heading"><span>Variable</span><span>Type</span><span>Value</span></div>` + filtered.map(variable =>
         `<div class="var-row variable-studio-row${variableInspector?.selected() === variable.name ? ' is-selected' : ''}" data-n="${esc(variable.name)}" data-type="${esc(variable.type)}">
             <button type="button" class="variable-name" data-select-variable="${esc(variable.name)}"${variable.setId ? '' : ` draggable="true" data-drag-variable="${esc(variable.name)}"`} title="Open variable inspector${variable.setId ? '' : '; drag to a group'}">${esc(S.variableKey(variable))}${variable.group && !q.hasGroup ? `<small>${esc(variable.group)}</small>` : ''}</button>
             <span class="variable-type">${esc(variable.type === 'counter' ? 'number' : variable.type === 'datetime' ? 'date & time' : variable.type)}</span>
-            <div class="var-controls">${variable.type === 'toggle' ? renderVarControls(variable) : inlineValue(variable)}${['number', 'counter'].includes(variable.type) ? numberControls(variable) : variable.type === 'list' ? '<button type="button" class="b sm" data-act="roll">Next</button>' : ''}</div>
-        </div>`).join('') : '<p class="muted">This group is empty. Drag a variable here or use Manage members.</p>';
+            <div class="var-controls">${variable.type === 'toggle' ? renderVarControls(variable) : inlineValue(variable)}${['number', 'counter'].includes(variable.type) ? numberControls(variable) : variable.type === 'list' ? '<button type="button" class="b sm" data-act="roll">Next</button>' : ''}<button type="button" class="b sm" data-act="bookmark-var" title="Copy direct bookmark link">#</button></div>
+        </div>`).join('') : '<p class="muted">This group is empty. Drag a variable here or use Manage members.</p>');
+    const quickForm = $('var-quick-add-form');
+    if (quickForm && focusedVar) {
+        quickForm.onsubmit = async ev => {
+            ev.preventDefault();
+            const inp = $('var-quick-add-line');
+            const line = (inp?.value || '').trim();
+            if (!line) return;
+            const cur = String(focusedVar.value || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+            const nextVal = [...cur, line].join('\n');
+            try {
+                await api(`/api/variables/${encodeURIComponent(focusedVar.name)}`, 'PUT', { value: nextVal });
+                inp.value = '';
+                toast('Line added', 'success');
+                await loadAllVars();
+                $('var-quick-add-line')?.focus();
+            } catch (err) {
+                toast(err.message, 'error');
+            }
+        };
+    }
 }
 
 // Placeholders rendering
@@ -447,9 +502,20 @@ function bindEvents() {
         }
         const btn = event.target.closest('[data-act]');
         const act = btn?.dataset.act;
+        if (act === 'copy-focus-bookmark') {
+            const url = `${location.origin}/placeholders.html#var=${encodeURIComponent(state.focusVar || '')}`;
+            await copyToClipboard(url);
+            return;
+        }
         const row = event.target.closest('[data-n]');
         if (!act || ['value', 'items', 'mode', 'color-picker', 'group'].includes(act) || !row) return;
         const name = row.dataset.n;
+        if (act === 'bookmark-var') {
+            const bm = `${location.origin}/variable-set-operator.html#var=${encodeURIComponent(name)}`;
+            await copyToClipboard(bm);
+            window.open(`/variable-set-operator.html#var=${encodeURIComponent(name)}`, '_blank', 'noopener');
+            return;
+        }
         const url = `/api/variables/${encodeURIComponent(name)}`;
 
         try {

@@ -2,6 +2,7 @@
 import { connectLiveSocket } from '../shared/client-core.js';
 import { api, esc, pickImage, slugId, state, toast } from './variables-state.js';
 import { bindLinkControls, linkControl } from './variables-links.js';
+import { getVariableOperatorHash, initVariableOperator, renderVariableOperator, setVariableOperatorTarget, updateVariableOperatorData } from './variable-operator.js';
 
 const STORAGE_KEY = 'streampulse_operator_set';
 const LAYOUTS_PREFIX = 'streampulse_operator_layouts_';
@@ -18,12 +19,14 @@ const SVG_DOT = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" str
 function getHashParts() {
     const rawHash = (location.hash || '').replace(/^#/, '').trim();
     if (rawHash) {
-        if (rawHash.startsWith('set=')) return { id: decodeURIComponent(rawHash.slice(4)), matrix: false };
+        if (rawHash.startsWith('var=')) return { mode: 'var', key: decodeURIComponent(rawHash.slice(4)), id: '', matrix: false };
+        if (rawHash.startsWith('group=')) return { mode: 'group', key: decodeURIComponent(rawHash.slice(6)), id: '', matrix: false };
+        if (rawHash.startsWith('set=')) return { mode: 'sets', key: '', id: decodeURIComponent(rawHash.slice(4)), matrix: false };
         const hasMatrix = rawHash.endsWith('/matrix');
         const clean = hasMatrix ? rawHash.slice(0, -7) : rawHash;
-        return { id: decodeURIComponent(clean), matrix: hasMatrix };
+        return { mode: 'sets', key: '', id: decodeURIComponent(clean), matrix: hasMatrix };
     }
-    return { id: new URLSearchParams(location.search).get('set') || '', matrix: false };
+    return { mode: 'sets', key: '', id: new URLSearchParams(location.search).get('set') || '', matrix: false };
 }
 
 function getSetIdFromUrl() {
@@ -31,6 +34,10 @@ function getSetIdFromUrl() {
 }
 
 const initialHash = getHashParts();
+let operatorMode = initialHash.mode || 'sets';
+if (initialHash.mode === 'var' || initialHash.mode === 'group') {
+    setVariableOperatorTarget(initialHash.mode, initialHash.key);
+}
 let activeSetId = initialHash.id || localStorage.getItem(STORAGE_KEY) || '';
 if (initialHash.id && initialHash.matrix) {
     localStorage.setItem(`${VIEW_MODE_PREFIX}${initialHash.id}`, 'matrix');
@@ -604,9 +611,30 @@ async function flushSaves() {
     await saveQueue;
 }
 
+function applyOperatorMode(mode = operatorMode) {
+    operatorMode = mode;
+    const setsView = document.getElementById('op-sets-view');
+    const varsView = document.getElementById('op-vars-view');
+    const addBtn = document.getElementById('op-add-entry');
+    const backLink = document.getElementById('op-back-link');
+    const isSets = mode === 'sets';
+    if (setsView) setsView.hidden = !isSets;
+    if (varsView) varsView.hidden = isSets;
+    if (addBtn) addBtn.hidden = !isSets;
+    if (backLink) {
+        backLink.href = isSets ? '/placeholders.html#sets' : '/placeholders.html#variables';
+        backLink.lastChild.textContent = isSets ? ' Edit Sets & Fields' : ' All Variables';
+    }
+    document.querySelectorAll('#op-mode-tabs [data-op-mode]').forEach(btn => {
+        const active = btn.dataset.opMode === mode;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-selected', String(active));
+    });
+}
+
 async function loadData(preserveFocus = false) {
     const activeEl = preserveFocus ? document.activeElement : null;
-    const interacting = element => element?.dataset?.opEntry || element?.dataset?.opSwatch || element?.closest?.('#op-table-host');
+    const interacting = element => element?.dataset?.opEntry || element?.dataset?.opSwatch || element?.closest?.('#op-table-host') || element?.closest?.('#vo-host');
     if (pendingSave || trackerBusy || saveError || writesPending || dirtySets.size) return;
     if (interacting(activeEl)) return;
     await saveQueue;
@@ -616,10 +644,49 @@ async function loadData(preserveFocus = false) {
     state.sets = data.sets || [];
     for (const setObj of state.sets) savedRosters.set(setObj.id, structuredClone(setObj.roster));
     state.variables = data.variables || [];
-    renderOperator();
+    updateVariableOperatorData(data.variables || [], data.groups || []);
+    applyOperatorMode(operatorMode);
+    if (operatorMode === 'sets') renderOperator();
+    else renderVariableOperator();
 }
 
 function bindEvents() {
+    document.getElementById('op-mode-tabs')?.addEventListener('click', e => {
+        const btn = e.target.closest('[data-op-mode]');
+        if (!btn) return;
+        const mode = btn.dataset.opMode;
+        applyOperatorMode(mode);
+        if (mode === 'sets') {
+            const url = new URL(location.href);
+            url.hash = activeSetId ? encodeURIComponent(activeSetId) : '';
+            history.replaceState(null, '', url);
+            renderOperator();
+        } else {
+            setVariableOperatorTarget(mode);
+            renderVariableOperator();
+            const url = new URL(location.href);
+            url.hash = getVariableOperatorHash();
+            history.replaceState(null, '', url);
+        }
+    });
+    document.getElementById('op-copy-bookmark')?.addEventListener('click', async () => {
+        try {
+            await navigator.clipboard.writeText(location.href);
+            toast('Bookmark URL copied', 'success');
+        } catch {
+            toast(location.href, 'info');
+        }
+    });
+    initVariableOperator({
+        onReload: loadData,
+        onBadge: setSaveBadge,
+        onModeSync: (hash, nextMode) => {
+            if (nextMode) applyOperatorMode(nextMode);
+            const url = new URL(location.href);
+            url.hash = hash;
+            history.replaceState(null, '', url);
+        }
+    });
     document.getElementById('op-save-state')?.addEventListener('keydown', event => {
         if (event.key !== 'Enter' && event.key !== ' ') return;
         event.preventDefault();
@@ -665,7 +732,14 @@ function bindEvents() {
 
     window.addEventListener('hashchange', () => {
         const next = getHashParts();
+        if (next.mode === 'var' || next.mode === 'group') {
+            setVariableOperatorTarget(next.mode, next.key);
+            applyOperatorMode(next.mode);
+            renderVariableOperator();
+            return;
+        }
         if (next.id) {
+            applyOperatorMode('sets');
             if (next.matrix) localStorage.setItem(`${VIEW_MODE_PREFIX}${next.id}`, 'matrix');
             if (next.id !== activeSetId || next.matrix) {
                 activeSetId = next.id;

@@ -92,7 +92,7 @@
     }
 
     function setRandomText(node, element) {
-        const pool = shared.elementItems(element);
+        const pool = shared.elementItems(element, liveStatus);
         const items = pool.length ? pool : [element.content || ''];
         const config = element.random || {};
         let index = randomIndexes.get(element.id) || 0;
@@ -171,8 +171,14 @@
     const usesVarSets = overlay => Boolean(
         overlay?.variableSetRotations?.length
         || Object.values(overlay?.variableSetFollow || {}).some(Boolean)
-        || (overlay?.elements || []).some(el => el.imageGroup?.enabled || el.type === 'data-display')
+        || (overlay?.elements || []).some(el => el.imageGroup?.enabled || el.type === 'data-display' || el.source?.mode === 'variable')
     );
+    const variableSourceSig = (overlay, status) => (overlay?.elements || [])
+        .filter(el => el.source?.mode === 'variable' && el.source?.variable)
+        .map(el => {
+            const v = (status?.customVars || []).find(item => item.name === el.source.variable);
+            return `${el.source.variable}:${v ? String(v.value ?? '') : ''}`;
+        }).join('\0');
     const triggerPageVarRotations = pageId => varRotEngine.triggerPage(pageId);
     const effectiveStatus = () => varRotEngine.effectiveStatus(liveStatus);
 
@@ -462,7 +468,7 @@
     const fitNodes = [];
     function refit() {
         for (const { node, element } of fitNodes) {
-            const probe = element.type === 'random-text' ? shared.elementItems(element).map(expandVariables).reduce((a, b) => (b.length > a.length ? b : a), '') : null;
+            const probe = element.type === 'random-text' ? shared.elementItems(element, liveStatus).map(expandVariables).reduce((a, b) => (b.length > a.length ? b : a), '') : null;
             shared.fitText(node, shared.resolveNumericElement ? shared.resolveNumericElement(element, effectiveStatus()) : element, probe);
         }
     }
@@ -1215,7 +1221,7 @@
         const morphedNodesSet = new Set(morphedShared.map(m => m.node));
         for (const { node, element } of fitNodes) {
             if (morphedNodesSet.has(node)) continue;
-            const probe = element.type === 'random-text' ? shared.elementItems(element).map(expandVariables).reduce((a, b) => (b.length > a.length ? b : a), '') : null;
+            const probe = element.type === 'random-text' ? shared.elementItems(element, liveStatus).map(expandVariables).reduce((a, b) => (b.length > a.length ? b : a), '') : null;
             shared.fitText(node, shared.resolveNumericElement ? shared.resolveNumericElement(element, effectiveStatus()) : element, probe);
         }
         if (!ms || !isMorph) updateCutoutMask();
@@ -1382,16 +1388,17 @@
             try {
                 if (statusResponse?.ok) liveStatus = { ...liveStatus, ...(await statusResponse.json()) };
             } catch {}
-            if (needVars && liveStatus.modules?.variableSets !== false) {
+            if (needVars) {
                 const varsData = await fetch('/api/variables', { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).catch(() => null);
                 if (varsData) {
                     liveStatus = { ...liveStatus, customVars: varsData.variables || liveStatus.customVars,
                         variableSets: varsData.variableSetsEnabled === false ? [] : varsData.sets || [],
                         modules: typeof varsData.variableSetsEnabled === 'boolean' ? { ...liveStatus.modules, variableSets: varsData.variableSetsEnabled } : liveStatus.modules };
+                    if (overlay.elements?.some(el => el.source?.mode === 'variable')) render(overlay);
                 } else if (!Array.isArray(liveStatus.variableSets)) {
                     liveStatus = { ...liveStatus, variableSets: [] };
                 }
-                setupVarRotations(overlay);
+                if (liveStatus.modules?.variableSets !== false) setupVarRotations(overlay);
             }
             await shared.loadLiveExtras(liveStatus, overlay.elements);
             await shared.refreshTextSources(overlay.elements);
@@ -1649,6 +1656,7 @@
                     const before = shared.variableSnapshot(effectiveStatus(), variableContext());
                     const numericNames = variables => (variables || []).filter(variable => ['number', 'counter'].includes(variable.type)).map(variable => variable.name).join('\0');
                     const numericBefore = numericNames(liveStatus.customVars);
+                    const varSrcBefore = variableSourceSig(currentOverlay, liveStatus);
                     liveStatus = {
                         ...liveStatus,
                         customVars: message.data.variables || [],
@@ -1657,7 +1665,7 @@
                     };
                     varRotEngine.recompute();
                     if (message.data.rotated && varRotEngine.serverRotated(message.data.rotated)) return;
-                    if (currentOverlay && (shared.variableSnapshot(effectiveStatus(), variableContext()) !== before || numericNames(liveStatus.customVars) !== numericBefore)) render(currentOverlay);
+                    if (currentOverlay && (shared.variableSnapshot(effectiveStatus(), variableContext()) !== before || numericNames(liveStatus.customVars) !== numericBefore || variableSourceSig(currentOverlay, liveStatus) !== varSrcBefore)) render(currentOverlay);
                 }
                 else if (message.type === 'custom-overlay-update' && message.data?.id === overlayId) {
                     if (message.data.overlay) {

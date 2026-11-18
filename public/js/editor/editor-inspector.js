@@ -587,7 +587,14 @@ export function mediaSourceBlock(el) {
 
 export function sourceStatusText(el) {
     const src = el.source || {};
-    if (src.mode === 'inline' || !src.path) return '';
+    if (src.mode === 'inline') return '';
+    if (src.mode === 'variable') {
+        if (!src.variable) return 'Select a variable above.';
+        const live = effectiveLiveStatus();
+        const count = el.type === 'random-text' ? `${shared.elementItems ? shared.elementItems(el, live).length : 0} entries` : `${(shared.elementContent ? shared.elementContent(el, live) : '').length.toLocaleString()} characters`;
+        return `Bound to variable "${src.variable}" (${count}). Updates live without opening the editor.`;
+    }
+    if (!src.path) return '';
     const stateVal = shared.textSourceState ? shared.textSourceState(el) : null;
     if (!stateVal) return 'Reading file…';
     if (stateVal.error) return `Warning: ${stateVal.error}. The fallback text is shown instead.`;
@@ -603,11 +610,24 @@ export function updateSourceStatus() {
 export function textSourceBlock(el) {
     const src = el.source || { mode: 'inline', path: '', split: 'lines' };
     const typed = `<label class="field"><span>${el.type === 'random-text' ? 'Fallback text' : el.type === 'markdown' ? 'Markdown' : 'Text'}</span><textarea id="prop-content" data-path="content" data-kind="text" spellcheck="true">${esc(el.content)}</textarea></label>`;
-    let body = tabBar('Source', 'data-source-mode', src.mode, [['inline', 'Typed'], ['library', 'Library'], ['file', 'File on computer']]);
+    let body = tabBar('Source', 'data-source-mode', src.mode, [['inline', 'Typed'], ['library', 'Library'], ['file', 'File on computer'], ['variable', 'Variable']]);
     if (src.mode === 'inline') {
         body += typed;
         if (el.type === 'random-text') body += `<label class="field"><span>Phrase pool</span><textarea id="prop-items" data-path="items" data-kind="lines" style="min-height:120px">${esc((el.items || []).join('\n'))}</textarea><span class="hint">One phrase per line. Placeholders work here too.</span></label>`;
         body += `<div class="field"><span>Placeholders &amp; Icons</span><div class="grid2"><button type="button" id="open-variables">Insert placeholder…</button><button type="button" id="insert-inline-icon">Insert icon…</button></div></div>`;
+    } else if (src.mode === 'variable') {
+        const liveVars = (effectiveLiveStatus()?.customVars || []).filter(v => !v.setId && !v.hidden);
+        const listVars = el.type === 'random-text'
+            ? liveVars.filter(v => v.type === 'list' || v.type === 'text')
+            : liveVars;
+        const varOpts = [['', 'Select a variable…'], ...listVars.map(v => [v.name, `${v.group ? `${v.group} / ` : ''}${v.name} (${v.type})`])];
+        body += F.select('source.variable', el.type === 'random-text' ? 'List / Text Variable' : 'Variable', src.variable || '', varOpts);
+        if (src.variable) {
+            body += `<div class="field"><span>Quick Update</span><a class="b sm" href="/variable-set-operator.html#var=${encodeURIComponent(src.variable)}" target="_blank" style="text-decoration:none;text-align:center;">Open Variable Operator</a></div>`;
+        }
+        if (el.type === 'random-text') body += F.select('source.split', 'Each entry is', src.split || 'lines', [['lines', 'One line'], ['blocks', 'A paragraph (separated by blank lines)']]);
+        body += `<div class="hint" id="source-status">${esc(sourceStatusText(el))}</div>`;
+        body += `<details class="sub-details"><summary>Fallback text</summary>${typed}</details>`;
     } else {
         if (src.mode === 'library') {
             body += `<div class="field"><span>Library file</span><span class="upload-row"><input readonly value="${esc(friendlyAssetName(src.path))}" placeholder="No file chosen"><button type="button" id="source-library">Choose…</button></span></div>`;

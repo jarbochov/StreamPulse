@@ -77,7 +77,7 @@ function renderMarkdown(source, el) {
 
 // ---- text sources: text / markdown / random-text elements can read a library or on-disk file ----
 const textSources = new Map();
-const textSourceKey = el => (el?.source && el.source.mode !== 'inline' && el.source.path ? `${el.source.mode}|${el.source.path}` : '');
+const textSourceKey = el => (el?.source && (el.source.mode === 'library' || el.source.mode === 'file') && el.source.path ? `${el.source.mode}|${el.source.path}` : '');
 async function loadTextSource(key) {
     const [mode, ...rest] = key.split('|');
     try {
@@ -117,9 +117,25 @@ function wrapMarquee(node) {
     requestAnimationFrame(measure);
     if (document.fonts?.ready) document.fonts.ready.then(measure);
 }
-const elementContent = el => { const text = sourceText(el); return text !== null && el.type !== 'random-text' ? text : el.content; };
-function elementItems(el) {
+function variableSourceText(el, status) {
+    if (el?.source?.mode !== 'variable' || !el.source.variable) return null;
+    const key = String(el.source.variable).trim();
+    const list = status?.customVars || [];
+    const found = list.find(v => v && (v.name === key || (v.group ? `${v.group}.${v.name}` === key : false)));
+    if (!found) return '';
+    if (found.type === 'list' && Array.isArray(found.items)) return found.items.join('\n');
+    return String(found.value ?? '');
+}
+const elementContent = (el, status) => {
+    if (el?.source?.mode === 'variable' && el.type !== 'random-text') {
+        const vt = variableSourceText(el, status);
+        if (vt !== null) return vt;
+    }
     const text = sourceText(el);
+    return text !== null && el.type !== 'random-text' ? text : el.content;
+};
+function elementItems(el, status) {
+    const text = el?.source?.mode === 'variable' ? variableSourceText(el, status) : sourceText(el);
     if (text === null) return el.items || [];
     const parts = el.source.split === 'blocks' ? text.split(/\r?\n\s*\r?\n/) : text.split(/\r?\n/);
     const items = parts.map(part => part.trim()).filter(Boolean);

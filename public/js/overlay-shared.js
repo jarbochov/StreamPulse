@@ -7617,8 +7617,17 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     requestAnimationFrame(measure);
     if (document.fonts?.ready) document.fonts.ready.then(measure);
   }
-  function elementItems(el) {
-    const text = sourceText(el);
+  function variableSourceText(el, status) {
+    if (el?.source?.mode !== "variable" || !el.source.variable) return null;
+    const key = String(el.source.variable).trim();
+    const list = status?.customVars || [];
+    const found = list.find((v) => v && (v.name === key || (v.group ? `${v.group}.${v.name}` === key : false)));
+    if (!found) return "";
+    if (found.type === "list" && Array.isArray(found.items)) return found.items.join("\n");
+    return String(found.value ?? "");
+  }
+  function elementItems(el, status) {
+    const text = el?.source?.mode === "variable" ? variableSourceText(el, status) : sourceText(el);
     if (text === null) return el.items || [];
     const parts = el.source.split === "blocks" ? text.split(/\r?\n\s*\r?\n/) : text.split(/\r?\n/);
     const items = parts.map((part) => part.trim()).filter(Boolean);
@@ -7675,13 +7684,17 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       init_environment();
       init_icons();
       textSources = /* @__PURE__ */ new Map();
-      textSourceKey = (el) => el?.source && el.source.mode !== "inline" && el.source.path ? `${el.source.mode}|${el.source.path}` : "";
+      textSourceKey = (el) => el?.source && (el.source.mode === "library" || el.source.mode === "file") && el.source.path ? `${el.source.mode}|${el.source.path}` : "";
       textSourceState = (el) => textSources.get(textSourceKey(el))?.state || null;
       sourceText = (el) => {
         const state = textSourceState(el);
         return state && typeof state.text === "string" ? state.text : null;
       };
-      elementContent = (el) => {
+      elementContent = (el, status) => {
+        if (el?.source?.mode === "variable" && el.type !== "random-text") {
+          const vt = variableSourceText(el, status);
+          if (vt !== null) return vt;
+        }
         const text = sourceText(el);
         return text !== null && el.type !== "random-text" ? text : el.content;
       };

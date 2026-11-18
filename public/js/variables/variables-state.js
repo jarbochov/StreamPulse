@@ -12,7 +12,8 @@ export const state = {
     showSetVars: false,
     varQuery: '',
     varGroupQuery: '',
-    varTypeFilter: 'all'
+    varTypeFilter: 'all',
+    focusVar: ''
 };
 
 export async function copyToClipboard(text) {

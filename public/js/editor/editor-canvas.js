@@ -820,7 +820,7 @@ export function buildContent(node, el, playback) {
     } else if (el.type === 'markdown') {
         node.innerHTML = shared.renderMarkdown ? shared.renderMarkdown(expandInlineText(shared.elementContent(el)), el) : expandInlineText(el.content);
     } else if (el.type === 'random-text') {
-        const first = shared.elementItems ? shared.elementItems(el).find(Boolean) ?? el.content ?? '' : el.content;
+        const first = shared.elementItems ? shared.elementItems(el, effectiveLiveStatus()).find(Boolean) ?? el.content ?? '' : el.content;
         if (el.random?.typewriter) {
             const caret = document.createElement('span');
             caret.className = 'overlay-caret'; caret.textContent = expand(first);
@@ -1064,7 +1064,7 @@ export function renderCanvas(only) {
         }
         applyNodeStyle(node, el, index);
         if (TEXT_TYPES.has(el.type) && el.textFit && el.textFit !== 'none' && shared.fitText) {
-            const probe = el.type === 'random-text' ? (shared.elementItems ? shared.elementItems(el).map(expand).reduce((a, b) => (b.length > a.length ? b : a), '') : null) : null;
+            const probe = el.type === 'random-text' ? (shared.elementItems ? shared.elementItems(el, effectiveLiveStatus()).map(expand).reduce((a, b) => (b.length > a.length ? b : a), '') : null) : null;
             shared.fitText(node, prefs.live && shared.resolveNumericElement ? shared.resolveNumericElement(el, effectiveLiveStatus()) : el, probe);
         }
     });
