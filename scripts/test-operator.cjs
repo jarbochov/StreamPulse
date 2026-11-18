@@ -6,6 +6,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 
+const http = require('node:http');
+const puppeteer = require('puppeteer');
+const staticRouter = require('../server/static-router');
+const { createTimerService } = require('../server/services/timers');
+const { createTimersRoutes } = require('../server/routes/timers');
 const { createOperatorService, slugifyProfileId } = require('../server/services/operator');
 const { createOperatorRoutes } = require('../server/routes/operator');
 
@@ -185,4 +190,70 @@ test('Operator Routes handle REST + Companion GET triggers and validation errors
     assert.equal(del.json.activeProfileId, 'default');
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
+});
+
+test('Operator Mode loads real timers keyed-object /api/timers snapshot in browser and controls timer', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-operator-timers-'));
+    const timerSvc = createTimerService({ dataDir: tmpDir });
+    timerSvc.upsertTimer({ id: 'show-break', label: 'Intermission Break', kind: 'countdown', mode: 'duration', durationMs: 300000 });
+    timerSvc.upsertTimer({ id: 'split-clock', label: 'Chapter Split', kind: 'stopwatch' });
+
+    const opSvc = createOperatorService({ dataDir: tmpDir });
+    opSvc.upsertProfile({
+        id: 'default',
+        name: 'Main Show',
+        board: { columns: 2, cards: [{ id: 'c-timers', type: 'timers-list', title: 'Live Timers', span: 1 }] },
+        overlays: [],
+        tabs: { hidden: [] }
+    });
+
+    const handleTimers = createTimersRoutes({ timerService: timerSvc });
+    const handleOp = createOperatorRoutes({ operatorService: opSvc });
+    const router = staticRouter.createStaticRouter({ rootDir: path.join(__dirname, '..') });
+
+    const server = http.createServer(async (req, res) => {
+        const url = new URL(req.url, 'http://127.0.0.1');
+        if (url.pathname === '/api/status') {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            return res.end(JSON.stringify({ modules: { alerts: true, music: false, subathon: false, overlays: true, variables: true }, alerts: { enabled: true } }));
+        }
+        if (await handleTimers(req, res, url.pathname)) return;
+        if (await handleOp(req, res, url, url.pathname)) return;
+        if (url.pathname.startsWith('/api/')) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            return res.end('{}');
+        }
+        router.handleRequest(req, res);
+    });
+
+    await new Promise(r => server.listen(0, '127.0.0.1', r));
+    const port = server.address().port;
+    const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+
+    try {
+        const page = await browser.newPage();
+        await page.setViewport({ width: 1280, height: 800 });
+
+        // Live Board card check
+        await page.goto(`http://127.0.0.1:${port}/operator.html`, { waitUntil: 'networkidle0' });
+        await page.waitForSelector('[data-timer-card="show-break"]', { timeout: 10000 });
+        const boardText = await page.$eval('[data-card-id="c-timers"]', el => el.textContent);
+        assert.match(boardText, /Intermission Break/);
+        assert.match(boardText, /Chapter Split/);
+        assert.match(boardText, /00:05:00/);
+        assert.doesNotMatch(boardText, /No timers configured/);
+
+        // Domain Timers tab + live +1m action check
+        await page.click('[data-domain-tab="timers"]');
+        await page.waitForSelector('.op-domain-panel:not([hidden]) [data-timer-card="show-break"]', { timeout: 10000 });
+        await page.click('.op-domain-panel:not([hidden]) [data-timer-act="add_time"][data-timer-id="show-break"][data-minutes="1"]');
+        await page.waitForFunction(
+            () => (document.querySelector('.op-domain-panel:not([hidden]) [data-timer-readout="show-break"]')?.textContent || '').includes('00:06:00'),
+            { timeout: 5000 }
+        );
+    } finally {
+        await browser.close();
+        await new Promise(r => server.close(r));
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
 });

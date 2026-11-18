@@ -11,6 +11,25 @@ let domainContainer = null;
 let tickInterval = null;
 const activeTickers = new Set();
 
+/** Normalize `/api/timers` response (`{ timers: { id: snapshot } }` or Array) to an array. */
+function normalizeTimersList(raw) {
+    if (Array.isArray(raw)) return raw.filter(Boolean);
+    if (raw && typeof raw === 'object') return Object.values(raw).filter(Boolean);
+    return [];
+}
+
+/** Merge a single live `timer-update` snapshot into cached state. */
+function upsertTimerSnapshot(snapshot) {
+    if (!snapshot?.id) return false;
+    const list = [...(timersState.timers || [])];
+    const idx = list.findIndex(t => t.id === snapshot.id);
+    if (idx >= 0) list[idx] = snapshot;
+    else list.push(snapshot);
+    timersState = { timers: list };
+    syncTickLoop();
+    return true;
+}
+
 function formatMs(ms, showHours = true) {
     const clamped = Math.max(0, Math.floor(Number(ms) || 0));
     const totalSec = Math.floor(clamped / 1000);
@@ -24,14 +43,22 @@ function formatMs(ms, showHours = true) {
 
 function liveTimerMs(t) {
     if (!t) return 0;
+    const now = Date.now();
     if (t.kind === 'stopwatch') {
         if (t.state === 'running' && t.startedAt) {
-            return (Number(t.accumulatedMs) || 0) + Math.max(0, Date.now() - Number(t.startedAt));
+            return Math.max(0, (Number(t.accumulatedMs) || 0) + Math.max(0, now - Number(t.startedAt)));
         }
-        return Number(t.elapsedMs) || Number(t.accumulatedMs) || 0;
+        return Math.max(0, Number(t.elapsedMs) || Number(t.accumulatedMs) || 0);
     }
-    if (t.state === 'running' && t.endsAt) {
-        return Math.max(0, Number(t.endsAt) - Date.now());
+    if (t.state === 'running') {
+        if (t.endsAt) return Math.max(0, Number(t.endsAt) - now);
+        if (t.startedAt && t.startingRemainingMs !== undefined) {
+            return Math.max(0, Number(t.startingRemainingMs) - Math.max(0, now - Number(t.startedAt)));
+        }
+    }
+    if (t.mode === 'date' && t.state === 'idle' && t.targetAt) {
+        const targetMs = Date.parse(t.targetAt);
+        if (Number.isFinite(targetMs)) return Math.max(0, targetMs - now);
     }
     return Math.max(0, Number(t.remainingMs) || 0);
 }
@@ -69,7 +96,7 @@ document.addEventListener('visibilitychange', () => {
 
 async function fetchTimersData(includeSubathon = false) {
     const timersRes = await api('/api/timers');
-    timersState = { timers: Array.isArray(timersRes.timers) ? timersRes.timers : [] };
+    timersState = { timers: normalizeTimersList(timersRes?.timers ?? timersRes) };
     if (includeSubathon) {
         try {
             subathonState = await api('/api/subathon');
@@ -223,10 +250,14 @@ registerOperatorModule({
     },
     onSocket(type, data, ctx) {
         if (!domainMounted || !domainContainer) return;
-        if (type === 'timers-snapshot' && Array.isArray(data?.timers)) {
-            timersState = { timers: data.timers };
+        if (type === 'timers-snapshot' && data?.timers) {
+            timersState = { timers: normalizeTimersList(data.timers) };
             syncTickLoop();
             renderDomain(domainContainer, ctx.status);
+        } else if (type === 'timer-update' && upsertTimerSnapshot(data?.timer)) {
+            renderDomain(domainContainer, ctx.status);
+        } else if (type === 'timer-delete' || type === 'timer-deleted' || type === 'timers-deleted') {
+            fetchTimersData(Boolean(ctx.status?.modules?.subathon)).then(() => renderDomain(domainContainer, ctx.status));
         } else if (type === 'subathon-update') {
             fetchTimersData(Boolean(ctx.status?.modules?.subathon)).then(() => renderDomain(domainContainer, ctx.status));
         }
@@ -267,9 +298,13 @@ registerCardType({
         el._opRefresh();
     },
     onSocket(el, card, type, data) {
-        if (type === 'timers-snapshot' && Array.isArray(data?.timers)) {
-            timersState = { timers: data.timers };
+        if (type === 'timers-snapshot' && data?.timers) {
+            timersState = { timers: normalizeTimersList(data.timers) };
             el._opRender?.();
+        } else if (type === 'timer-update' && upsertTimerSnapshot(data?.timer)) {
+            el._opRender?.();
+        } else if (type === 'timer-delete' || type === 'timer-deleted' || type === 'timers-deleted') {
+            el._opRefresh?.();
         }
     },
     unmount(el) {
@@ -316,9 +351,13 @@ registerCardType({
         el._opRefresh();
     },
     onSocket(el, card, type, data) {
-        if (type === 'timers-snapshot' && Array.isArray(data?.timers)) {
-            timersState = { timers: data.timers };
+        if (type === 'timers-snapshot' && data?.timers) {
+            timersState = { timers: normalizeTimersList(data.timers) };
             el._opRender?.();
+        } else if (type === 'timer-update' && upsertTimerSnapshot(data?.timer)) {
+            el._opRender?.();
+        } else if (type === 'timer-delete' || type === 'timer-deleted' || type === 'timers-deleted') {
+            el._opRefresh?.();
         }
     },
     unmount(el) {

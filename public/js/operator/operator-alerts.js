@@ -29,8 +29,8 @@ function formatAlertLabel(item) {
 function renderQueueControlsHtml() {
     const paused = Boolean(rulesState.paused);
     const muted = Boolean(rulesState.muted);
-    const pending = Number(rulesState.pending) || 0;
     const waiting = Array.isArray(queueDetailState.waiting) ? queueDetailState.waiting : [];
+    const pending = Number(queueDetailState.pending ?? rulesState.pending) || waiting.length;
     const recent = Array.isArray(queueDetailState.history) ? queueDetailState.history.slice(0, 10) : [];
     const currentTitle = formatAlertLabel(rulesState.current);
     const hasCurrent = Boolean(rulesState.current);
