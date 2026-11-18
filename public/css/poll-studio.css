@@ -19,11 +19,12 @@ body {
     gap: 1rem;
 }
 .header h1 {
-    font-size: 1.25rem;
+    font-size: 1.15rem;
     font-weight: 700;
     display: flex;
     align-items: center;
-    gap: .6rem;
+    gap: .55rem;
+    white-space: nowrap;
 }
 .header h1 span { color: var(--accent); }
 .badge-studio {
@@ -33,12 +34,15 @@ body {
     border: 1px solid var(--accent);
     color: var(--accent);
     letter-spacing: .06em;
+    white-space: nowrap;
     font-weight: 700;
     text-transform: uppercase;
 }
+@media (max-width: 1380px) { .header .badge-studio { display: none; } }
 
 /* Layout */
 .container {
+    width: 100%;
     max-width: 1280px;
     margin: 0 auto;
     padding: 1.25rem 1.75rem 2.5rem;
@@ -382,6 +386,7 @@ input:checked + .slider:before {
     font-weight: 700;
     text-transform: uppercase;
 }
+@media (max-width: 1380px) { .header .badge-studio { display: none; } }
 .badge-winner {
     background: color-mix(in srgb, var(--success, #10b981) 18%, transparent);
     color: var(--success, #10b981);

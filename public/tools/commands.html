@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <link rel="stylesheet" href="/admin.css">
+    <link rel="stylesheet" href="/css/studio-common.css">
     <script src="/appearance.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
@@ -11,6 +12,7 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg-page); color: var(--text); min-height: 100vh; }
         html.embedded body { min-height: 0; overflow: hidden; }
+        html.embedded .header { display: none; }
         html.embedded .wrap { max-width: none; padding: 0.9rem; }
         html.embedded h1 { display: none; }
         .wrap { max-width: 860px; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; display: grid; gap: 1rem; }
@@ -33,6 +35,11 @@
 </head>
 <body>
 <script>if (new URLSearchParams(location.search).get('embed') === '1') document.documentElement.classList.add('embedded');</script>
+<header class="header">
+    <h1>StreamPulse <span>Chat Commands</span></h1>
+    <div id="main-nav" class="nav"></div>
+</header>
+<script src="/nav.js"></script>
 <div class="wrap">
     <h1>StreamPulse <span>Chat Commands</span></h1>
     <div class="card" style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;">

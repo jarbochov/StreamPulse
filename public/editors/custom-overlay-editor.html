@@ -13,6 +13,7 @@
     <div class="app">
         <header class="topbar">
             <a class="back" href="/custom-overlays.html" title="Back to custom overlays"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg><span>Overlays</span></a>
+            <button type="button" id="nav-palette-trigger" class="ghost hide-narrow" title="Jump to any StreamPulse page (⌘K / Ctrl+K)" aria-label="Open navigation menu"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:0.25rem;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Pages</button>
             <input id="overlay-name" class="name-input" aria-label="Overlay name" placeholder="Overlay name" maxlength="120" autocomplete="off">
             <span id="dirty" class="dirty-badge" hidden>Unsaved changes</span>
             <span class="spacer"></span>
@@ -452,6 +453,7 @@
     <script src="/icon-picker.js"></script>
     <script src="/overlay-presets.js"></script>
     <script src="/poll.js"></script>
+    <script src="/nav.js"></script>
     <script type="module" src="/js/editor/editor-main.js"></script>
 </body>
 </html>

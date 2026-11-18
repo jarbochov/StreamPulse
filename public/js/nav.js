@@ -842,6 +842,9 @@
     function initializeNav() {
         buildNav();
         initCommandPalette();
+        document.getElementById('nav-palette-trigger')?.addEventListener('click', () => {
+            if (typeof openCommandPalette === 'function') openCommandPalette();
+        });
         navReady = true;
         startNavStatus();
     }
