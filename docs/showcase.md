@@ -1,58 +1,103 @@
 # See what your show could look like
 
-A starting screen that feels like your channel. A game-night bracket your chat can follow. An outro that gives people a reason to stay.
+A starting screen that feels like your channel. A game-night bracket your chat can follow. A live control board at your fingertips. An outro that gives people a reason to stay.
 
 These examples use **fictional names and sample data**. Use them for inspiration, then make the look your own.
 
-## A scene with your personality
+## Live Control & OBS Docks
 
-Arrange artwork, text, video, and live information in Custom Overlay Studio. Build a full layout or just the pieces your current scene is missing.
+Run your show from a multi-column control board or pin just what you need into a compact OBS Studio Custom Browser Dock.
 
-![Custom Overlay Studio with a fictional broadcast layout](images/custom-overlay-studio.png)
+<div class="doc-gallery doc-gallery--2">
+  <figure>
+    <img src="images/operator-studio.png" alt="Operator Mode Live Board showing alerts, timers, overlays, and music">
+    <figcaption><strong>Operator Mode Live Board</strong>[Explore Operator Mode](operator-guide.md)</figcaption>
+  </figure>
+  <figure class="is-portrait">
+    <img src="images/operator-dock.png" alt="Operator Mode compact OBS Custom Browser Dock">
+    <figcaption><strong>OBS Custom Browser Dock</strong>Built for narrow sidebars alongside your scenes.</figcaption>
+  </figure>
+</div>
 
-[Meet Custom Overlay Studio](custom-overlays.md).
+## Scenes & Broadcast Branding
 
-## Announce the night before it starts
+Arrange artwork, text, video, and live information in Custom Overlay Studio, or design reusable announcements in Promo Creator.
 
-Create a reusable promo with your headline, artwork, and channel link. Adapt the design for square, landscape, and portrait posts.
-
-![Promo Creator arranging a fictional expedition announcement](images/promo-creator.png)
-
-[Explore Promo Creator](promo-creator.md).
+<div class="doc-gallery doc-gallery--2">
+  <figure>
+    <img src="images/custom-overlay-studio.png" alt="Custom Overlay Studio with a fictional broadcast layout">
+    <figcaption><strong>Custom Overlay Studio</strong>[Meet Custom Overlay Studio](custom-overlays.md)</figcaption>
+  </figure>
+  <figure>
+    <img src="images/promo-creator.png" alt="Promo Creator arranging a fictional expedition announcement">
+    <figcaption><strong>Promo Creator</strong>[Explore Promo Creator](promo-creator.md)</figcaption>
+  </figure>
+</div>
 
 ## Make the lineup part of the show
 
-Let viewers see tonight's games and what's next. Use cards, a schedule, or a ticker to fit the information into your scene.
+Let viewers see tonight's games and what's next across schedules, cards, checklists, or lower-third tickers.
 
-![A Game Plan overlay showing a sample lineup as cards](images/overlay-game-plan-cards.png)
+<div class="doc-gallery doc-gallery--2">
+  <figure>
+    <img src="images/game-plan-studio.png" alt="Game Plan broadcast scheduler calendar">
+    <figcaption><strong>Game Plan Calendar</strong>[Explore Game Plan](game-plan-guide.md)</figcaption>
+  </figure>
+  <figure>
+    <img src="images/game-plan-overlay-schedule.png" alt="Game Plan schedule cards overlay">
+    <figcaption><strong>Schedule Cards Overlay</strong>Share upcoming stream nights automatically.</figcaption>
+  </figure>
+  <figure>
+    <img src="images/game-plan-overlay-ticker.png" alt="Game Plan ticker bar overlay">
+    <figcaption><strong>Lower-Third Ticker</strong>Highlight Playing Now &amp; Up Next cleanly.</figcaption>
+  </figure>
+  <figure>
+    <img src="images/overlay-game-plan-cards.png" alt="A Game Plan overlay showing a sample lineup as cards">
+    <figcaption><strong>Featured Game Widget</strong>Embed game lineups straight inside custom scenes.</figcaption>
+  </figure>
+</div>
 
-[Explore Game Plan](game-plan-guide.md).
+## Chat Voting, Tier Lists & Tournaments
 
-## Give chat a decision worth watching
+Involve your audience with live chat polls, collaborative Tier List consensus voting, tournament brackets, and head-to-head scoreboards.
 
-Show the choices, watch votes come in, and give the winner a moment. Tournament brackets turn a series of decisions into a whole event.
+<div class="doc-gallery doc-gallery--2">
+  <figure>
+    <img src="images/tier-list-studio.png" alt="Tier List Maker with fictional games">
+    <figcaption><strong>Tier List Maker</strong>[Explore Tier Lists](tier-list-guide.md)</figcaption>
+  </figure>
+  <figure>
+    <img src="images/tier-list-overlay.png" alt="Animated Tier List OBS overlay">
+    <figcaption><strong>Tier List Broadcast Overlay</strong>Smooth card placements driven by chat consensus.</figcaption>
+  </figure>
+  <figure>
+    <img src="images/polls-studio.png" alt="Poll Manager with a fictional audience vote">
+    <figcaption><strong>Poll Studio</strong>[Explore Polls &amp; Brackets](polls-guide.md)</figcaption>
+  </figure>
+  <figure>
+    <img src="images/tournament-overlay.png" alt="Tournament overlay with fictional competitors">
+    <figcaption><strong>Tournament Overlay</strong>Live brackets and grand final reveals.</figcaption>
+  </figure>
+</div>
 
-![Poll Manager with a fictional audience vote](images/polls-studio.png)
+## Celebrations, Reveals & Outro Credits
 
-![Tournament overlay with fictional competitors](images/tournament-overlay.png)
+Celebrate stream moments with custom alerts, spin the wheel with Choice Randomizer, and wrap the night with closing credits.
 
-[Explore polls and tournaments](polls-guide.md).
-
-## Reveal the unexpected
-
-Let a wheel, roller, or card reveal choose the next game or challenge from your prepared list.
-
-![Choice Randomizer displaying a sample on-screen reveal](images/randomizer-overlay.png)
-
-[Meet Choice Randomizer](randomizer-guide.md).
-
-## Close with a proper thank-you
-
-Bring supporters, chat activity, and your own messages together in an end-credits roll.
-
-![A closing credits roll with fictional community names](images/overview-credits-roll.png)
-
-[Explore Credits Studio](credits-guide.md).
+<div class="doc-gallery doc-gallery--3">
+  <figure>
+    <img src="images/alert-looks.png" alt="Alert Studio custom alert look preview">
+    <figcaption><strong>Custom Alert Looks</strong>[Explore Alerts](alerts-guide.md)</figcaption>
+  </figure>
+  <figure>
+    <img src="images/randomizer-overlay.png" alt="Choice Randomizer displaying a sample on-screen reveal">
+    <figcaption><strong>Choice Randomizer</strong>[Meet Choice Randomizer](randomizer-guide.md)</figcaption>
+  </figure>
+  <figure>
+    <img src="images/overview-credits-roll.png" alt="A closing credits roll with fictional community names">
+    <figcaption><strong>Closing Credits Roll</strong>[Explore Credits Studio](credits-guide.md)</figcaption>
+  </figure>
+</div>
 
 <div class="button-row">
   <a class="docs-button" href="#/quickstart">Make it your show</a>

@@ -1,7 +1,12 @@
-# Looking for documentation?
+# Technical & API Reference
 
-Open **Docs** or **API Reference** in StreamPulse for setup instructions, studio controls, and automation details.
+Looking for HTTP endpoints, Stream Deck / Companion actions, JSON payloads, or developer details? You're in the right place.
 
-This website now focuses on what you can create with StreamPulse. Older [API](api-reference.md), [developer](developer-guide.md), [architecture](architecture.md), and [server-management](server-management.md) pages remain available for existing links, but may not match your installed version.
+- **[API & Endpoints Reference](api-reference.md)** — Full REST and Companion-friendly `GET` endpoints across Overlays, Operator Mode, Alerts, Timers, Polls, Trivia, Tier Lists, Variables, and System routes.
+- **[Bitfocus Companion Integration](companion.md)** — Stream Deck button setups, dynamic variables, and feedback states.
+- **[Variable Operations](variable-operations.md)** — Cell-level patch mutations, dependency checks, and checklist action contracts.
+- **[Developer & Architecture Notes](developer-guide.md)** — [System Architecture](architecture.md) and [Server Management](server-management.md) references.
 
-[Explore the features](features.md) · [Download the app](quickstart.md) · [Get support](support.md)
+> When running StreamPulse locally, you can also open the interactive **API Reference** page right from the app navigation (`http://localhost:3000/api.html`).
+
+[Explore StreamPulse features](features.md) · [Download the app](quickstart.md) · [Get support](support.md)

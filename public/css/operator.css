@@ -233,6 +233,8 @@ html[data-operator-dock="1"] #op-live-pill {
     padding: .18rem;
     border-color: transparent;
     background: transparent;
+    font-size: 0;
+    gap: 0;
 }
 html[data-operator-dock="1"] #op-focus-btn {
     padding: 0 .32rem;

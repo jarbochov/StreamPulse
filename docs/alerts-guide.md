@@ -2,7 +2,24 @@
 
 Alerts help important stream events feel seen without making every moment compete for attention. Shape how follows, subscriptions, cheers, raids, and other events appear, then keep an eye on what’s coming through the queue.
 
-![Alert Queue showing fictional stream events](images/alert-queue.png)
+<div class="doc-gallery doc-gallery--2">
+  <figure>
+    <img src="images/alerts-studio.png" alt="Alert Studio rule editor with conditions, variants, and preview">
+    <figcaption><strong>Alerts Studio</strong>Configure triggers, conditions, artwork variants, and audio cues per event.</figcaption>
+  </figure>
+  <figure>
+    <img src="images/alert-queue.png" alt="Alert Queue showing fictional stream events and replay controls">
+    <figcaption><strong>Live Alert Queue</strong>Pause, skip, mute, filter unmatched activity, and replay past moments.</figcaption>
+  </figure>
+  <figure>
+    <img src="images/alerts-reward-simulator.png" alt="Simulator with fictional reward data">
+    <figcaption><strong>Event Simulator</strong>Safely test rules, Channel Point rewards, and filters off-stream.</figcaption>
+  </figure>
+  <figure>
+    <img src="images/alert-looks.png" alt="Alert look editing with fictional break-card artwork">
+    <figcaption><strong>Alert Box Looks</strong>Design custom visual looks in Custom Overlay Studio for specific alert rules.</figcaption>
+  </figure>
+</div>
 
 Give different kinds of support their own look and sound, and preview the result before it becomes part of your show. The queue helps you review recent events, revisit a missed moment, or pause the flow when you need to focus. A filter for unmatched activity makes it easier to focus on alerts that actually triggered.
 
@@ -40,11 +57,9 @@ Alert history and credits use separate records. Confirmed gift-attribution mista
 
 `{{alert.reward}}` is the title of the reward actually redeemed, not a list of every checked reward. The rule's reward checkboxes control which redemptions match.
 
-In **Alerts → Simulator**, choose **Channel point redeem**, then pick a reward in **Channel Point Reward** that is checked in your rule. Enter a fictional user and optional viewer message in the text field, then click **Run Event Through Rules**. The simulator sends both the Twitch reward ID and title, so reward-checkbox matching works. Picking an unchecked reward tests the no-match path (unless another active rule handles it).
+In **Alerts → Simulator**, choose **Channel point redeem**, then pick a reward in **Channel Point Reward** that is checked in your rule. Enter a fictional user and optional viewer message in the text field, then click **Run Event Through Rules** to verify reward-checkbox matching. Picking an unchecked reward tests the no-match path (unless another active rule handles it).
 
-**Test Rule** and variant previews use the first checked reward's title; they bypass conditions. For **All redeems**, or when a selected reward is no longer listed, a test title is used. The simulator's **Custom reward title** option uses the text field as the title without an ID, so it cannot match ID-filtered rules. An unlisted selected reward can still test its saved ID with a title supplied in the text field.
-
-![Simulator with fictional reward data](images/alerts-reward-simulator.png)
+**Test Rule** and variant previews use the first checked reward's title; they bypass conditions. For **All redeems**, or when a selected reward is no longer listed, a test title is used. The simulator's **Custom reward title** option lets you test text-only matching without an ID.
 
 ### Reordering Alerts
 Drag the grip handle on an alert in the left-hand list to reorder it (a line shows the drop position), or focus a row and press **Alt+Up / Alt+Down**. Reordering is available while no search or filter is active, and the order is saved with **Save**. Your last selected alert is remembered between visits.
@@ -83,16 +98,15 @@ Alert rules can trigger external automation via HTTP POST or GET webhooks:
 - **Webhook Delay**: Set a delay in seconds (0 to 300s) before firing the HTTP request to synchronize hardware cues, lighting changes, or soundboard triggers with broadcast alert timings or video animations.
 - **Action only (silent automation)**: Toggle **Action only** in a rule's More menu to hide its text, media and variants and run only its actions (webhook, timer, chat, Companion) with no on-screen alert, sound or page takeover. Silent rules are recorded in the Alert Queue with a distinct cyan `Webhook` badge.
 - **Direct Webhook Testing**: Use the **Test Webhook** button directly inside the Actions card to verify connectivity and receive instant HTTP status feedback (`✓ 200 OK` or diagnostic advice) without needing a live stream event.
-- **Preview & Test Integration**: Clicking **Test Rule** or **Preview** runs configured actions so you can preview both on-screen overlays and external hardware triggers in tandem.
+- **Test Rule & Preview Integration**: Clicking **Test Rule** or **Preview** runs configured actions so you can verify both on-screen overlays and external hardware triggers together.
+- **Mute Alerts**: Hold incoming alerts temporarily in the queue while keeping playback clean — release anytime from the Alerts panel, **Operator Mode**, or a Companion panic button.
+- **Priority & Expiry**: Assign Low, Normal, High, or Critical priority per rule so urgent events play first (Critical can interrupt active alerts), and optionally drop stale queued alerts after a timeout.
+- **Replay Recent Alerts**: Replay the last shown alert or pick any specific historical alert from the queue drawer.
+- **Announcements**: Dedicated manual announcement triggers fire only when triggered from Announcements, **Operator Mode**, or Companion.
+- **Chat Message Action**: Sends an automatic chat reply through SocialStream when a rule fires.
+- **Companion Button Action**: Presses a configured Stream Deck button page/row/column on your local Bitfocus Companion server.
 
-- **Mute display**: `POST /api/alerts/mute` with `{ "muted": true }` holds alerts in the queue (for panic buttons such as an embedded host's `muteAlerts`); `{ "muted": false }` releases them. `GET /api/alerts` reports `queue.muted`. A Companion action, variable and feedback are included.
-
-- **Priority**: each rule has Low/Normal/High/Critical priority (higher plays first, FIFO within a level). Critical can interrupt the alert on screen. Expire after N seconds drops stale queued alerts; the queue cap setting (default 200) drops lowest priority/oldest first. Drops show as `dropped` in history.
-- **Manual trigger**: `POST /api/alerts/trigger` with `{ "rule": "<id or name>", "message": "...", "user": "...", "amount": 0 }`; `GET /api/alerts/rules` lists rules.
-- **Replay recent alerts**: `POST` or `GET /api/alerts/replay?count=3` (default `count=1` when no ID is given) replays the last 1–50 shown alerts in chronological order; `alertId` or `eventId` replays a specific entry.
-- **Announcements**: rules with the Announcement trigger fire only manually, from the Announcements tab, the OBS Dock tab or `/tools/announcements-dock.html`. Tokens: message, user, title.
-- **Chat message action**: sends a templated message through SocialStream (400 char cap, per-rule cooldown).
-- **Companion button action**: presses `page/row/column` on the Companion address in settings (default `http://127.0.0.1:8000`); only that host is contacted. Companion's HTTP API has no verified page/button listing, so numeric fields are used.
+*(For HTTP automation endpoints like mute, manual triggers, or replay webhooks, see the [API Reference](api-reference.md) under **The Project → Technical**.)*
 
 ## Editing rules
 
@@ -104,8 +118,6 @@ Alert rules can trigger external automation via HTTP POST or GET webhooks:
 - **Find rules:** search by name, trigger, title or message; filter by trigger type or Active/Inactive. Toggle media thumbnails on or off.
 - **Hype train trigger:** fires from Twitch EventSub on train start, each level up or end (pick one in "When"). Placeholders: `{{alert.level}}`, `{{alert.user}}` (top contributor), `{{alert.total}}`, `{{alert.goal}}`, `{{alert.minutes}}` (end only). Reconnect Twitch once to grant `channel:read:hype_train`.
 - **Look:** select an Alert box in the custom overlay editor and open **Style → Looks**. Choose **Inherited (base styling)** or add a named look. The existing controls below edit and preview its full presentation: layout, typography, colors, background, borders, shadows, spacing and media effects. For a title over artwork with no message, choose the media layout and **Hide message (title only)**. Tick the rules using that look; unassigned rules inherit the base styling. Position, size, event filters, sound permissions and alert content remain shared. The Alerts page shows assigned looks read-only.
-
-![Alert look editing with fictional break-card artwork](images/alert-looks.png)
 - **Duplicate:** clones a variant (text, media, sound, timing) right below it.
 - **Import / Export:** export all or the selected rule as JSON (webhook URLs are included), import with Merge (new ids) or Replace; nothing is saved until you Save, and Revert discards it.
 - **Shortcuts:** Cmd/Ctrl+S save, Cmd/Ctrl+Enter test, Cmd/Ctrl+D duplicate, `/` search, Alt+Up/Down reorder, Esc closes menus.

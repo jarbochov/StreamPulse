@@ -2,9 +2,24 @@
 
 Build a display once in **Library → Display Library**, then place it in any Custom Overlay. Choose **Inventory**, **Table** or **Badge**. Each placement can follow different live data while sharing the same arrangement and appearance.
 
-![Display Library with fictional saved designs](images/display-library.png)
-
-![Inventory Builder using fictional equipment and players](images/inventory-builder.png)
+<div class="doc-gallery doc-gallery--2">
+  <figure>
+    <img src="images/display-library.png" alt="Display Library with fictional saved designs">
+    <figcaption><strong>Display Library</strong>Create shared Inventory, Table, and Badge layouts to reuse across scenes.</figcaption>
+  </figure>
+  <figure>
+    <img src="images/inventory-builder.png" alt="Inventory Builder using fictional equipment and players">
+    <figcaption><strong>Inventory Builder</strong>Arrange items, sections, and upgrade tiers for live co-op or RPG overlays.</figcaption>
+  </figure>
+  <figure>
+    <img src="images/table-builder.png" alt="Table Builder with a fictional expedition schedule">
+    <figcaption><strong>Table Builder</strong>Turn a Variable Set into a structured schedule, scoreboard, or leaderboard grid.</figcaption>
+  </figure>
+  <figure>
+    <img src="images/badge-display-builder.png" alt="Badge Builder using fictional members">
+    <figcaption><strong>Badge &amp; Strip Builder</strong>Design member nameplates and call-in strips linked to live speakers or rosters.</figcaption>
+  </figure>
+</div>
 
 **Variable Sets own the data.** Your equipment catalog contains reusable item names, images and optional upgrade levels. Each person's Tracker contains only that person's progress.
 
@@ -33,8 +48,6 @@ Create a **Table**, choose a Variable Set, then select and reorder its columns. 
 
 Choose column labels, proportions, alignment and presentation for text, images, colors or toggles. Arrange rows manually or sort by a field. In the overlay, choose all enabled entries, the active entry, occupied slots, grouped entries or explicitly ordered rows. A linked-entry list can supply a curated lineup. These are row selections, not inventory Trackers.
 
-![Table Builder with a fictional expedition schedule](images/table-builder.png)
-
 ## Badge design belongs in the library
 
 Choose **Badge** for reusable member cards and strips. Badge fields, images, zones, presets, typography and visual styling live in Display Library rather than an overlay dialog. Place a Saved Display and choose its live source in the overlay inspector; use **Edit display** to return to the designer.
@@ -55,16 +68,10 @@ For Table and Badge, choose a source set and **Linked members** to select one or
 
 ### Remove a design safely
 
-Deleting a display first checks saved overlays and presets and names the placements using it. Remove or replace those placements before deleting the design. The API enforces the same rule, including when a placement is added after the initial check. Variable Sets and entries have corresponding dependency checks for links, trackers and saved displays; see [Variable operations](variable-operations.md).
+Deleting a display first checks saved overlays and presets and names the placements using it. Remove or replace those placements before deleting the design.
 
-![Badge Builder using fictional members](images/badge-display-builder.png)
+## Backups and sharing
 
-## Persistence and transfer
+Saved displays, placements, and uploaded artwork are all included together when you create a **full backup** in **System → Backups**. (Standalone overlay export bundles cannot include external Saved Display references; use a full backup when transferring linked displays between setups.)
 
-Designs live in `data/variable-displays.json`; sources and placements live in the custom overlay; progress remains in Variable Sets. Full backups include all three and the uploaded assets. Selective overlay/preset share ZIPs reject Saved Display dependencies with a clear message: use a **full backup** when transferring these linked designs.
-
-## Built to grow with your show
-
-The Display Library separates reusable designs from live data and placement. Inventory, Table and Badge are focused workflows on that shared foundation, without crowding the overlay inspector.
-
-Open **Docs → Display Library** and **API → Saved Displays** inside StreamPulse for complete setup instructions, request/response shapes, validation limits, placement examples and live-update events. Companion's existing Tracker actions operate progress without turning the deck into another design editor.
+For developer details and dependency-check contracts, see [Variable Operations](variable-operations.md) and the [API Reference](api-reference.md) under **The Project → Technical**.

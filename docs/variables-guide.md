@@ -4,7 +4,16 @@ Custom Variables let you create live, shared broadcast tokens (`{{var.name}}`) t
 
 **Variable Sets** extend this with structured multi-field rosters, reusable linked entries, per-owner progress, live per-slot tokens and dynamic group strings. Build reusable inventories, tables and member cards/strips in **Display Library**, then place them in Custom Overlays using **Saved Display**.
 
-![Variables Directory](images/variables-directory.png)
+<div class="doc-gallery doc-gallery--2">
+  <figure>
+    <img src="images/variables-directory.png" alt="Variables Directory showing grouped custom variables">
+    <figcaption><strong>Variables Studio</strong>Organize global counters, colors, lists, images, and formulas by group.</figcaption>
+  </figure>
+  <figure>
+    <img src="images/variable-sets-roster.png" alt="Variable Sets roster with slots and live entries">
+    <figcaption><strong>Variable Sets</strong>Manage reusable rosters for hosts, guests, schedules, and equipment.</figcaption>
+  </figure>
+</div>
 
 ---
 
@@ -36,40 +45,18 @@ These temporal types are available both here and in Variable Sets. Create one fr
 
 #### Group-qualified paths
 
-Ordinary grouped variables use `{{var.<group_namespace>.<name>}}`. For example, `accent` in **Theme** becomes `{{var.theme.accent}}`; **Broadcast Theme** becomes `broadcast_theme`. Namespaces lowercase the group name, remove common accent marks, replace runs of spaces/punctuation with underscores, trim edge underscores and limit the result to 60 characters. Group namespaces must contain ASCII letters/numbers/underscores, cannot be empty or duplicate another group's namespace, and cannot shadow an ungrouped or set-generated variable root. Variable names remain globally unique.
+When a variable sits inside a group, its placeholder includes the group name — for example, putting `accent` inside the **Theme** group turns its token into `{{var.theme.accent}}` (**Broadcast Theme** becomes `broadcast_theme`).
 
-The Variables list, inspector, reference and all typed placeholder pickers show the qualified path and search its group/name. Image, Color and Font bindings use that same token; Number bindings store `theme.size` without `var.`. List random and icon suffixes follow the path: `{{var.theme.topic.random}}`, `{{var.theme.accent.icon}}`. Templates can reference grouped paths.
+1. Create a group via **New Group** (for example **Theme**), then create your Color, Font, Image, or Text variable inside it.
+2. In **Custom Overlay Editor**, click any text, image, color, or font picker and select `theme.accent` from the placeholder picker.
+3. Moving a variable between groups or renaming a group updates its placeholder name immediately, so remember to re-pick it in any overlays using the old name (your saved value stays intact).
+4. In **Bitfocus Companion**, variables show their group path next to their name so you always know which one you're updating.
 
-**Breaking change:** grouped variables no longer expose `{{var.accent}}`. Moving a variable or renaming its group changes its path immediately, with no aliases, automatic reference rewrites or migration. Update saved overlay text, image/color/font tokens, templates, chat messages and Number bindings yourself. Existing values are not changed. Ungrouped `{{var.name}}` and Variable Set tokens are unchanged.
-
-API records expose `name` (unchanged storage/control identity) and `key` (derived placeholder path). For example:
-
-```json
-{ "name": "accent", "key": "theme.accent", "group": "Theme", "type": "color", "value": "#38bdf8" }
-```
-
-1. Create **Theme** through **New Group**, then create a Color variable with API name `accent` in that group.
-2. Select it in an overlay's color placeholder picker to insert `{{var.theme.accent}}`; use the image/font/Number pickers for their respective types. OBS overlay URLs do not change.
-3. Use `PUT` or `POST /api/variables/accent` with JSON `{"value":"#a78bfa"}` (or `GET /api/variables/accent?plain=1` to read it). Never put the group prefix in this API name.
-4. Manage group membership/renaming with `POST /api/variables/groups/manage`, e.g. `{"name":"Theme","variables":["accent"],"createOnly":true}` for creation or `{"name":"New Theme","originalName":"Theme","variables":["accent"]}` for rename. GET is not a group-mutation trigger. Success returns `{group,variables,groups}`; invalid names, namespace collisions or members return HTTP 400 `{error}` without a partial group edit.
-5. In Companion, select the variable whose label shows `theme.accent`; its module ID remains `$(streampulse:var_accent)` and actions take `accent`. Generic placeholder lookup uses `var.theme.accent`. After a move/rename, manually update any StreamPulse placeholder references.
-
-Insert any variable into a **Text** element, **Image** URL, or **Color** field using double curly braces:
-
-```text
-{{var.deaths}}
-{{var.score}}
-{{var.guest_name}}
-```
+Insert any variable into a **Text** element, **Image** URL, or **Color** field using the placeholder picker or double curly braces such as `{{var.deaths}}`, `{{var.score}}`, or `{{var.guest_name}}`.
 
 #### Fallback Values
 
-Provide a default fallback with `|` in case a variable is empty or not yet initialized:
-
-```text
-{{var.guest_name|Solo Stream}}
-{{var.sponsor_tagline|Support the channel!}}
-```
+Provide a default fallback with `|` in case a variable is empty or not yet initialized, for example `{{var.guest_name|Solo Stream}}` or `{{var.sponsor_tagline|Support the channel!}}`.
 
 #### Dynamic Actions
 
@@ -88,31 +75,7 @@ When tracking people, teams, or sponsors with multiple attributes (name, avatar,
 
 Enable the module in **Settings -> Feature Modules** (`variable_sets_enabled`), then open **Admin -> Variables -> Variable Sets**.
 
-![Variable Sets Roster](images/variable-sets-roster.png)
-
-### Defining Schema Fields
-
-Each Variable Set defines its own custom fields:
-
-| Field Type | Description |
-| :--- | :--- |
-| **text** | Display name, handle, role, or short bio |
-| **number** | Numeric value (score, rank, seed, or rating) |
-| **counter** | Live integer counter with inline `-1` / `+1` steppers |
-| **image** | Avatar portrait, emblem, or secondary badge icon |
-| **icon** | Font Awesome icon class (`fa-solid`, `fa-brands`, etc.) |
-| **color** | Per-member accent or badge color (`#RRGGBB` / `#RRGGBBAA`) |
-| **toggle** | Boolean flag (e.g., `verified`, `captain`, `muted`) |
-| **font** | Per-member font family override |
-| **list** | Multi-line item list (one entry per line) |
-| **template** | Dynamic text composed from other fields via `@fieldKey` (e.g., `@name (@role)`) |
-| **date / time / datetime** | Calendar date, local time, or local date and time |
-| **duration** | Duration such as `45m` or `1:30:00` |
-| **Linked entry (`ref`)** | Choose one reusable entry from a linked set (`targetSet`); stores its entry ID |
-| **Linked entries (`ref_list`)** | Search and select several reusable entries; stores an array of entry IDs |
-| **Tracker (`checklist`)** | Each owner keeps a current level map `{ "item_id": 2 }` for items in a linked set. Zero is not owned / not completed; no history is stored |
-
-You can import and export Variable Set entries via **CSV** directly from the Variable Sets panel (`GET /api/variables/sets/:setId/export` and `POST /api/variables/sets/:setId/import`).
+You can import and export Variable Set entries via **CSV** directly from the Variable Sets panel.
 
 ### Variable Set Operator Console (`/operator.html`)
 
@@ -189,31 +152,7 @@ The same model works for a production rundown's presenters, a team's roster, or 
 4. Create an Inventory in Display Library using Equipment. Arrange items into sections or fixed cells and save. Add it as a Saved Display, follow People, a fixed person (or active entry), and Gear. Choose dimmed inactive items for an equipment board, or earned-only items for unlocked rewards.
 5. Use the per-person Reset before a new run, or Reset everyone. There is deliberately no historical/run record.
 
-### Linked data & Companion API
-
-Create/update a set with `PUT` or `POST /api/variables/sets/:setId` (JSON); `GET` returns the complete set and `DELETE` removes it. Field definitions use `{ "key": "host", "label": "Host", "type": "ref", "targetSet": "people" }`, `type: "ref_list"` for several links, or `{ "key": "gear", "label": "Gear", "type": "checklist", "targetSet": "equipment", "maxTier": 1 }`.
-
-Entry values are `{ "host": "alex", "guests": ["sam"], "gear": { "sword": 2 } }`. Item definitions optionally include `tiers: [{ "level": 1, "label": "Wood", "image": "/assets/wood.png", "description": "Starter" }]`; levels are saved consecutively from 1. `maxTier` is the fallback item maximum (1–100); explicit item definitions support up to 20 levels.
-
-Tracker endpoints support **POST JSON and GET query parameters**, with the same names:
-
-| Endpoint suffix after `/api/variables/sets/:setId` | Parameters | Behavior |
-| --- | --- | --- |
-| `/checklist/set` | `field`, `target`, `value`, `entry` or `slot` | Set a level, clamped to 0–item maximum |
-| `/checklist/step` | `field`, `target`, optional `delta`, `entry` or `slot` | Without delta, cycle and wrap; explicit delta adds/subtracts and clamps |
-| `/checklist/toggle` | Same as step | Same cycling behavior |
-| `/checklist/reset` | `field`, `entry` or `slot`; or `field`, `all=true` | Clear the selected tracker for one owner or every owner |
-
-`field` may be omitted only when there is exactly one tracker. `target` must be an existing entry ID (or label) in the linked catalog. `entry` accepts the owner ID or label; otherwise `slot` defaults to 1, or the active entry for a slotless set. Empty selections, missing items and invalid values return HTTP 400 `{ "error": "..." }`. Success returns the full updated set object directly: `{ "id": "people", "fields": [...], "roster": [{ "id": "alex", "values": { "gear": { "sword": 2 } } }], "slots": [...], ... }`; zero-level items are omitted from the map. A `variables-update` WebSocket message refreshes operators and overlays.
-
-For Companion, use discovered **Tracker** actions or an HTTP GET trigger:
-`/api/variables/sets/people/checklist/step?entry=alex&field=gear&target=sword`.
-For an explicit level, POST `/api/variables/sets/people/checklist/set` with `{ "entry": "alex", "field": "gear", "target": "sword", "value": 2 }`.
-Reset everyone with `/api/variables/sets/people/checklist/reset?field=gear&all=true`.
-
-Saved Display layers use `type: "data-display"` and a placement-level `display` binding. For a schedule's people, use `{ "displayId": "people-badges", "setId": "schedule", "selector": "active", "fields": ["player_1", "player_2"] }`. An inventory can use `{ "displayId": "equipment-grid", "setId": "people", "selector": "entry:alex", "tracker": "gear", "showMode": "dim" }`. Selectors are `active` (Slot 1 for slotted sets), `slot:N`, or `entry:ID`; `path` follows single linked-entry fields before reading the tracker. `showMode: "active"` hides level zero, while `"dim"` keeps unearned items visible. Badge appearance belongs to the saved definition, not the placement.
-
-Choose an active-entry or occupied-slots source to restrict the displayed roster. Overlays wait for hydrated `variableSets` status before rendering filtered strips, preventing unselected entries from flashing on initial load.
+- **Tracker**: Trackers keep each person or owner's current progress on reusable catalog items (like items collected, upgrades unlocked, or goals checked off), updated directly in **Operator Mode** or via **Bitfocus Companion** actions. Wait for your overlay to load live Variable Sets before filtering rosters so unselected entries never flash briefly on startup.
 
 ### Formatting Group Text & Empty Wrappers
 
@@ -286,17 +225,6 @@ Attach a Font Awesome icon (such as `fa-brands fa-twitch` or `fa-brands fa-youtu
 
 ---
 
-## 6. Bitfocus Companion & HTTP Automation
+## 6. Bitfocus Companion & Technical Automation
 
-Every Variable and Variable Set action exposes Companion-friendly `GET` and `POST` endpoints:
-
-- Read any variable as plain text for Companion dynamic labels:
-  `GET /api/variables/deaths?plain=1`
-- Trigger live updates from a Stream Deck button:
-  `GET /api/variables/deaths/increment`
-  `GET /api/variables/squad/assign?slot=1&entry=alex-rivera`
-  `GET /api/variables/squad/rotation/next`
-  `GET /api/variables/squad/entry/group-toggle?entry=jordan-kim&inGroup=1`
-  `GET /api/variables/sets/players/checklist/step?slot=1&field=items&target=hookshot` (also `POST .../checklist/set` and `.../checklist/toggle`)
-
-See the [API Reference](api-reference.md#variables-amp-variable-sets-api) for the complete endpoint list and payload schemas.
+Stream Deck buttons and HTTP triggers can update counters, switch slots, step trackers, and read live values automatically. See **[Bitfocus Companion](companion.md)**, **[Variable Operations](variable-operations.md)**, and the **[API Reference](api-reference.md#variables-amp-variable-sets-api)** under **The Project → Technical**.

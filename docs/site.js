@@ -4,9 +4,10 @@
   const escapeHtml = text => String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const pages = [
     '/', '/features', '/showcase', '/support', '/quickstart', '/socialstream-setup', '/companion',
-    '/custom-overlays', '/overlay-wizards', '/credits-guide', '/randomizer-guide',
-    '/game-plan-guide', '/community-guide', '/alerts-guide', '/chatbot-guide', '/clips-beta',
-    '/polls-guide', '/promo-creator', '/desktop-app', '/streamer-guide', '/troubleshooting', '/changelog'
+    '/operator-guide', '/custom-overlays', '/overlay-wizards', '/variables-guide', '/variable-displays',
+    '/credits-guide', '/randomizer-guide', '/game-plan-guide', '/tier-list-guide', '/community-guide',
+    '/alerts-guide', '/chatbot-guide', '/clips-beta', '/polls-guide', '/trivia-guide', '/promo-creator',
+    '/sessions-hashtags', '/desktop-app', '/streamer-guide', '/troubleshooting', '/changelog'
   ];
   const syncNavigationState = () => {
     document.querySelector('.sidebar-toggle')?.setAttribute('aria-expanded', String(document.body.classList.contains('close')));

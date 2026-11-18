@@ -702,6 +702,227 @@ const dummySessionsList = [
     }
 ];
 
+const makeCoverSvg = (bg1, bg2, fg, title) =>
+    `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 220"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${bg1}"/><stop offset="1" stop-color="${bg2}"/></linearGradient></defs><rect width="160" height="220" rx="14" fill="url(#g)"/><circle cx="115" cy="52" r="24" fill="${fg}" opacity="0.28"/><path d="M0 165 L52 115 L96 148 L134 102 L160 132 V220 H0 Z" fill="#090d16" opacity="0.45"/><text x="16" y="196" font-family="sans-serif" font-size="14" font-weight="700" fill="#f8fafc">${title}</text></svg>`)}`;
+
+const currentYm = new Date().toISOString().slice(0, 7);
+const todayDate = new Date().toISOString().slice(0, 10);
+
+const dummyGamePlan = {
+    lists: [
+        { id: 'list-coop', name: 'Co-op Night' },
+        { id: 'list-indie', name: 'Indie Gems' }
+    ],
+    tiers: [
+        { id: 'S', label: 'S', color: '#ff7f7f' },
+        { id: 'A', label: 'A', color: '#ffbf7f' },
+        { id: 'B', label: 'B', color: '#ffdf7f' },
+        { id: 'C', label: 'C', color: '#bfff7f' }
+    ],
+    tierSets: {},
+    periods: ['Tonight', 'This Week', 'Next Month'],
+    playingNowId: 'gp-moon-harbor',
+    items: [
+        {
+            id: 'gp-moon-harbor',
+            name: 'Moon Harbor Odyssey',
+            status: 'tonight',
+            tonight: true,
+            playingNow: true,
+            gameType: 'playthrough',
+            streamDate: todayDate,
+            streamTime: '20:00',
+            streamDuration: 180,
+            period: 'Tonight',
+            note: 'Harbor puzzle shrine & co-op boss',
+            twitchCategory: 'Moon Harbor',
+            customCover: '/custom-overlay-assets/fictional-picker-0.svg',
+            cover: '/custom-overlay-assets/fictional-picker-0.svg',
+            rating: 5,
+            tier: 'S',
+            tags: ['co-op', 'adventure']
+        },
+        {
+            id: 'gp-star-valley',
+            name: 'Star Valley Express',
+            status: 'scheduled',
+            tonight: true,
+            gameType: 'one-off',
+            streamDate: `${currentYm}-12`,
+            streamTime: '19:30',
+            streamDuration: 150,
+            period: 'Tonight',
+            note: 'Timed conductor relay with chat alerts',
+            twitchCategory: 'Star Valley',
+            customCover: '/custom-overlay-assets/fictional-picker-2.svg',
+            cover: '/custom-overlay-assets/fictional-picker-2.svg',
+            rating: 4.5,
+            tier: 'A',
+            tags: ['speedrun']
+        },
+        {
+            id: 'gp-cloud-ridge',
+            name: 'Cloud Ridge Tactics',
+            status: 'scheduled',
+            gameType: 'playthrough',
+            streamDate: `${currentYm}-20`,
+            streamTime: '20:00',
+            streamDuration: 180,
+            period: 'This Week',
+            note: 'Permadeath campaign chapter 3',
+            twitchCategory: 'Cloud Ridge',
+            customCover: '/custom-overlay-assets/fictional-picker-3.svg',
+            cover: '/custom-overlay-assets/fictional-picker-3.svg',
+            rating: 4.5,
+            tier: 'A',
+            tags: ['strategy']
+        },
+        {
+            id: 'gp-aurora-coast',
+            name: 'Aurora Coast Drift',
+            status: 'scheduled',
+            gameType: 'one-off',
+            streamDate: `${currentYm}-26`,
+            streamTime: '18:00',
+            streamDuration: 120,
+            period: 'This Week',
+            note: 'Weekend community race night',
+            twitchCategory: 'Aurora Coast',
+            customCover: '/custom-overlay-assets/fictional-picker-4.svg',
+            cover: '/custom-overlay-assets/fictional-picker-4.svg',
+            rating: 4,
+            tier: 'B',
+            tags: ['racing', 'community']
+        },
+        {
+            id: 'gp-orbit-garden',
+            name: 'Orbit Garden',
+            status: 'played',
+            gameType: 'playthrough',
+            streamDate: `${currentYm}-04`,
+            finished: `${currentYm}-04`,
+            period: 'Completed',
+            note: '100% greenhouse unlock finale',
+            customCover: '/custom-overlay-assets/fictional-picker-6.svg',
+            cover: '/custom-overlay-assets/fictional-picker-6.svg',
+            rating: 5,
+            tier: 'S'
+        }
+    ]
+};
+
+const dummyTierList = {
+    id: 'tl-fictional-1',
+    title: 'Cozy & Retro Expeditions Tier List',
+    description: 'Community live ranking from this season’s stream nights',
+    theme: {
+        layout: 'board',
+        theme: 'dark',
+        cardScale: 'medium',
+        cardAspect: '3/4',
+        showTitles: true,
+        hideUnranked: false
+    },
+    tiers: [
+        { id: 'tier-s', label: 'S', color: '#ff7f7f', description: 'Instant Classics' },
+        { id: 'tier-a', label: 'A', color: '#ffbf7f', description: 'Great Run' },
+        { id: 'tier-b', label: 'B', color: '#ffdf7f', description: 'Fun Night' },
+        { id: 'tier-c', label: 'C', color: '#ffff7f', description: 'Solid Indulgence' },
+        { id: 'tier-d', label: 'D', color: '#bfff7f', description: 'Slow Pacing' }
+    ],
+    items: [
+        { id: 'tl-1', name: 'Moon Harbor', tierId: 'tier-s', imageUrl: makeCoverSvg('#1e3a8a', '#3b82f6', '#bae6fd', 'Moon Harbor') },
+        { id: 'tl-2', name: 'Silver Meadow', tierId: 'tier-s', imageUrl: makeCoverSvg('#14532d', '#10b981', '#bbf7d0', 'Silver Meadow') },
+        { id: 'tl-3', name: 'Star Valley', tierId: 'tier-a', imageUrl: makeCoverSvg('#4c1d95', '#8b5cf6', '#ddd6fe', 'Star Valley') },
+        { id: 'tl-4', name: 'Cloud Ridge', tierId: 'tier-a', imageUrl: makeCoverSvg('#7c2d12', '#f97316', '#fed7aa', 'Cloud Ridge') },
+        { id: 'tl-5', name: 'Aurora Coast', tierId: 'tier-b', imageUrl: makeCoverSvg('#155e75', '#06b6d4', '#cffafe', 'Aurora Coast') },
+        { id: 'tl-6', name: 'Orbit Garden', tierId: 'tier-b', imageUrl: makeCoverSvg('#831843', '#ec4899', '#fbcfe8', 'Orbit Garden') },
+        { id: 'tl-7', name: 'Violet Lagoon', tierId: null, imageUrl: makeCoverSvg('#312e81', '#6366f1', '#e0e7ff', 'Violet Lagoon') },
+        { id: 'tl-8', name: 'Lunar Summit', tierId: null, imageUrl: makeCoverSvg('#1e293b', '#475569', '#e2e8f0', 'Lunar Summit') }
+    ],
+    activeVote: {
+        itemId: 'tl-7',
+        itemName: 'Violet Lagoon',
+        itemImage: makeCoverSvg('#312e81', '#6366f1', '#e0e7ff', 'Violet Lagoon'),
+        consensusMode: 'weighted_mean',
+        startedAt: Date.now() - 18000,
+        votes: {},
+        consensus: {
+            mode: 'weighted_mean',
+            totalVotes: 28,
+            totalWeight: 36,
+            subVotes: 8,
+            agreementPercent: 64,
+            consensusTier: { id: 'tier-a', label: 'A', color: '#ffbf7f' },
+            consensusIndex: 1,
+            recentVoters: [
+                { name: 'PixelKnight', tierLabel: 'S', tierColor: '#ff7f7f', isSub: true },
+                { name: 'CosmicVoyager', tierLabel: 'A', tierColor: '#ffbf7f', isSub: true },
+                { name: 'RetroSamurai', tierLabel: 'A', tierColor: '#ffbf7f', isSub: false },
+                { name: 'NebulaFox', tierLabel: 'B', tierColor: '#ffdf7f', isSub: false }
+            ],
+            distribution: [
+                { tierId: 'tier-s', label: 'S', color: '#ff7f7f', count: 6, weightedCount: 9, percent: 25 },
+                { tierId: 'tier-a', label: 'A', color: '#ffbf7f', count: 16, weightedCount: 21, percent: 58 },
+                { tierId: 'tier-b', label: 'B', color: '#ffdf7f', count: 5, weightedCount: 5, percent: 14 },
+                { tierId: 'tier-c', label: 'C', color: '#ffff7f', count: 1, weightedCount: 1, percent: 3 },
+                { tierId: 'tier-d', label: 'D', color: '#bfff7f', count: 0, weightedCount: 0, percent: 0 }
+            ]
+        }
+    },
+    presets: [
+        { id: 'preset-standard', name: 'Standard (S - F)', description: 'Classic 6-tier ranking' }
+    ],
+    settings: {
+        chatVoting: true,
+        consensusMode: 'weighted_mean',
+        subWeight: 2,
+        announceInChat: true
+    }
+};
+
+const dummyOperatorOverlay = {
+    id: 'border-showcase',
+    name: 'Broadcast Layout',
+    pages: {
+        enabled: true,
+        activePage: 'page-1',
+        items: [
+            { id: 'page-1', name: 'Main Show' },
+            { id: 'page-2', name: 'Intermission' },
+            { id: 'page-3', name: 'Ending Soon' }
+        ]
+    },
+    elements: [
+        { id: 'op-cutout-1', type: 'cutout', name: 'Webcam Frame', page: 'page-1', visible: true }
+    ]
+};
+
+const dummyOperatorProfile = {
+    id: 'main-show',
+    name: 'Main Show',
+    description: 'Primary showrunner console with live alerts, timers, and overlay deck',
+    lockMode: 'none',
+    board: {
+        columns: 2,
+        cards: [
+            { id: 'op-alerts', type: 'alerts-queue', title: 'Alert Queue', span: 1 },
+            { id: 'op-timers', type: 'timers-list', title: 'Live Timers', span: 1 },
+            { id: 'op-overlay', type: 'overlay-control', title: 'Broadcast Layout', span: 1, config: { overlayId: 'border-showcase' } },
+            { id: 'op-music', type: 'music-now-playing', title: 'Now Playing', span: 1 }
+        ]
+    },
+    overlays: ['border-showcase'],
+    tabs: { hidden: [] }
+};
+
+const dummyTimersPayload = {
+    timers: [
+        { id: 'tm-intermission', label: 'Intermission Break', kind: 'countdown', state: 'running', endsAt: Date.now() + 195000, remainingMs: 195000, durationMs: 300000, visible: true },
+        { id: 'tm-speedrun', label: 'Chapter Split', kind: 'stopwatch', state: 'running', startedAt: Date.now() - 842000, accumulatedMs: 842000, visible: true }
+    ]
+};
+
 async function run() {
     const router = staticRouter.createStaticRouter({ rootDir: path.join(__dirname, '..') });
     const serverInstance = http.createServer((req, res) => {
@@ -848,6 +1069,49 @@ async function run() {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'ok', matchup: dummyMatchup }) });
         } else if (url.includes('/api/chatbot')) {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyChatbotSnapshot) });
+        } else if (page.url().includes('operator.html') && new URL(url).pathname === '/api/custom-overlays') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify([dummyOperatorOverlay]) });
+        } else if (new URL(url).pathname === '/api/custom-overlays/border-showcase') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(page.url().includes('operator.html') ? dummyOperatorOverlay : dummyCustomOverlay) });
+        } else if (new URL(url).pathname === '/api/game-plan' || new URL(url).pathname === '/api/game-plan/overlay') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyGamePlan) });
+        } else if (new URL(url).pathname === '/api/tier-list/presets') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ presets: dummyTierList.presets }) });
+        } else if (new URL(url).pathname === '/api/tier-list') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyTierList) });
+        } else if (new URL(url).pathname === '/api/operator' || new URL(url).pathname === '/api/operator/profiles') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ version: 1, activeProfileId: 'main-show', profiles: [dummyOperatorProfile], profile: dummyOperatorProfile }) });
+        } else if (new URL(url).pathname.startsWith('/api/operator/')) {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, profile: dummyOperatorProfile }) });
+        } else if (new URL(url).pathname === '/api/timers') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyTimersPayload) });
+        } else if (new URL(url).pathname === '/api/alerts/rules') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyAlertsState) });
+        } else if (new URL(url).pathname === '/api/alerts/queue') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({
+                queue: {
+                    pending: 2,
+                    paused: false,
+                    muted: false,
+                    current: { id: 'q-cur', title: 'Resub: CosmicVoyager · 12 months', type: 'resub' },
+                    waiting: [
+                        { id: 'w1', title: 'Bits: PixelKnight · 500 bits', type: 'cheer' },
+                        { id: 'w2', title: 'Raid: RetroSamurai · 45 viewers', type: 'raid' }
+                    ],
+                    history: [
+                        { id: 'h1', title: 'Follow: StarGazer', type: 'follow' },
+                        { id: 'h2', title: 'Gift Sub: NebulaFox -> ArcadeHero', type: 'sub' }
+                    ]
+                }
+            }) });
+        } else if (new URL(url).pathname === '/api/music/now-playing') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ state: 'playing', track: 'Starlight Circuit', artist: 'Fictional Ensemble', album: 'Moon Harbor OST', artworkUrl: '' }) });
+        } else if (new URL(url).pathname === '/api/music/overlay') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ visible: true }) });
+        } else if (new URL(url).pathname === '/api/music' || new URL(url).pathname === '/api/music/status') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ enabled: true, state: 'playing', playing: true, track: 'Starlight Circuit', artist: 'Fictional Ensemble', album: 'Moon Harbor OST', visible: true }) });
+        } else if (new URL(url).pathname === '/api/features') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ features: { alerts: true, timers: true, subathon: false, overlays: true, variables: true, music: true, variableSets: true } }) });
         } else if (new URL(url).pathname === '/api/variable-displays') {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ displays: [inventoryFixture.display, inventoryFixture.table, inventoryFixture.badge], revision: 1 }) });
         } else if ((page.url().includes('variable-displays.html') || page.url().includes('linked=1')) && new URL(url).pathname === '/api/variables') {
@@ -1232,25 +1496,73 @@ async function run() {
         {
             url: `${baseUrl}/overlays/game-plan.html?mode=ticker&theme=dark`,
             file: 'game-plan-overlay-ticker.png',
-            wait: 2000,
+            wait: 1200,
             action: async (p) => {
-                await p.setViewport({ width: 1280, height: 160, deviceScaleFactor: 2 });
+                await p.setViewport({ width: 1280, height: 180, deviceScaleFactor: 2 });
+                await p.waitForSelector('.ticker-bar');
+                await p.evaluate(() => { document.documentElement.style.background = '#0b1120'; });
             }
         },
         {
             url: `${baseUrl}/overlays/game-plan.html?mode=schedule&theme=dark&max=4`,
             file: 'game-plan-overlay-schedule.png',
-            wait: 2000,
+            wait: 1200,
             action: async (p) => {
-                await p.setViewport({ width: 1200, height: 260, deviceScaleFactor: 2 });
+                await p.setViewport({ width: 1200, height: 320, deviceScaleFactor: 2 });
+                await p.waitForSelector('.view-schedule .schedule-card');
+                await p.evaluate(() => { document.documentElement.style.background = '#0b1120'; });
             }
         },
         {
             url: `${baseUrl}/overlays/game-plan.html?mode=checklist&theme=dark&max=4`,
             file: 'game-plan-overlay-checklist.png',
-            wait: 2000,
+            wait: 1200,
             action: async (p) => {
-                await p.setViewport({ width: 440, height: 480, deviceScaleFactor: 2 });
+                await p.setViewport({ width: 460, height: 480, deviceScaleFactor: 2 });
+                await p.waitForSelector('.view-checklist .checklist-item');
+                await p.evaluate(() => { document.documentElement.style.background = '#0b1120'; });
+            }
+        },
+        {
+            url: `${baseUrl}/operator.html?profile=main-show`,
+            file: 'operator-studio.png',
+            wait: 1500,
+            action: async (p) => {
+                await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+                await p.waitForSelector('.op-board-card');
+            }
+        },
+        {
+            url: `${baseUrl}/operator.html?profile=main-show&dock=1`,
+            file: 'operator-dock.png',
+            wait: 1500,
+            action: async (p) => {
+                await p.setViewport({ width: 340, height: 780, deviceScaleFactor: 2 });
+                await p.waitForSelector('.op-board-card');
+                await p.evaluate(() => {
+                    const details = document.querySelector('[data-alert-queue-details]');
+                    if (details) details.open = true;
+                });
+                await new Promise(r => setTimeout(r, 200));
+            }
+        },
+        {
+            url: `${baseUrl}/tools/tier-list.html`,
+            file: 'tier-list-studio.png',
+            wait: 1500,
+            action: async (p) => {
+                await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+                await p.waitForSelector('#tier-board .tier-row');
+            }
+        },
+        {
+            url: `${baseUrl}/overlays/tier-list.html?theme=dark`,
+            file: 'tier-list-overlay.png',
+            wait: 1500,
+            action: async (p) => {
+                await p.setViewport({ width: 1280, height: 720, deviceScaleFactor: 2 });
+                await p.waitForSelector('#overlay-board > *');
+                await p.evaluate(() => { document.documentElement.style.background = '#0b1120'; });
             }
         },
         {
