@@ -35,28 +35,34 @@
     background: var(--bg-card, #161b22);
     border: 1px solid var(--border, #30363d);
     border-radius: 10px;
-    padding: 0.65rem 1rem;
-    margin-bottom: 1.25rem;
+    padding: 0.42rem 0.75rem;
+    margin-bottom: 0.6rem;
 }
 
 .tier-toolbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
+    gap: 0.5rem;
     flex-wrap: wrap;
 }
 
 .tier-toolbar .btn {
-    padding: 0.42rem 0.85rem;
-    font-size: 0.82rem;
+    padding: 0.28rem 0.62rem;
+    font-size: 0.75rem;
     font-weight: 600;
+    gap: 0.35rem;
+}
+
+.tier-toolbar .ico {
+    width: 12px;
+    height: 12px;
 }
 
 .toolbar-group {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.35rem;
     flex-wrap: wrap;
 }
 
@@ -234,10 +240,10 @@
 /* ── Main Workspace ──────────────────────────────────────────────────────── */
 main {
     flex: 1;
-    padding: 1.25rem 2rem;
+    padding: 0.5rem 2rem 1.25rem;
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 1rem;
     max-width: 1440px;
     margin: 0 auto;
     width: 100%;

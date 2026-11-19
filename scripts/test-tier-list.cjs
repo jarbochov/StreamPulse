@@ -1730,9 +1730,19 @@ test('Tier List Service & Routes: Sound sync, 0 volume, exact S+ chat match, and
         assert.equal(service.getState().activeVote.votes['p3'].tierId, 'tier-s');
         service.cancelVote();
 
-        // 3. focusItem / clearFocus & theme.focusEnlarge persistence + routes
-        service.updateConfig({ theme: { focusEnlarge: true } });
+        // 3. focusItem / clearFocus & theme.focusEnlarge / followZoom & tier.soundUrl persistence + routes
+        service.updateConfig({
+            theme: { focusEnlarge: true, followZoom: true },
+            tiers: service.getState().tiers.map((t, idx) => idx === 0
+                ? { ...t, soundUrl: '/custom-overlay-assets/s-tier-shout.mp3' }
+                : t)
+        });
         assert.equal(service.getState().theme.focusEnlarge, true);
+        assert.equal(service.getState().theme.followZoom, true);
+        assert.equal(service.getState().tiers[0].soundUrl, '/custom-overlay-assets/s-tier-shout.mp3');
+        assert.ok(service.tierListAssetUsers('s-tier-shout.mp3').some(u => u.id.startsWith('tier-list:tier-sound:')));
+        assert.equal(service.rewriteTierListReferences('s-tier-shout.mp3', 's-tier-v2.mp3'), true);
+        assert.equal(service.getState().tiers[0].soundUrl, '/custom-overlay-assets/s-tier-v2.mp3');
 
         function mockReq(method, pathname) {
             const stream = new (require('stream').Readable)();
@@ -1762,6 +1772,21 @@ test('Tier List Service & Routes: Sound sync, 0 volume, exact S+ chat match, and
         await handleRoutes(mockReq('GET', '/api/tier-list/focus/clear'), clearRes, '/api/tier-list/focus/clear', new URL('http://localhost/api/tier-list/focus/clear'));
         assert.equal(clearRes.getStatusCode(), 200);
         assert.equal(clearRes.getBody().focusedItemId, null);
+
+        // 4. resetTiers restores default S-F tiers even if all presets are deleted
+        for (const p of [...service.getState().presets]) {
+            service.deletePreset(p.id);
+        }
+        assert.equal(service.getState().presets.length, 0);
+        service.updateConfig({ tiers: [{ id: 'custom-1', label: 'Only One', color: '#111111' }] });
+        service.moveItem({ itemId: item.id, toTier: 'custom-1', toIndex: 0 });
+
+        const resetTiersRes = mockRes();
+        await handleRoutes(mockReq('POST', '/api/tier-list/tiers/reset'), resetTiersRes, '/api/tier-list/tiers/reset', new URL('http://localhost/api/tier-list/tiers/reset'));
+        assert.equal(resetTiersRes.getStatusCode(), 200);
+        assert.equal(resetTiersRes.getBody().tiers.length, DEFAULT_TIERS.length);
+        assert.equal(resetTiersRes.getBody().tiers[0].label, 'S');
+        assert.equal(resetTiersRes.getBody().items.find(i => i.id === item.id).tierId, null, 'Items from deleted custom tiers should return to unranked pool');
     } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
     }
@@ -1822,10 +1847,12 @@ test('Tier List Overlay UX: Single timer, single voting hint, dynamic !tier chip
 
         const focusOnlyCheck = await page.evaluate(() => {
             const imgRect = document.getElementById('focus-stage-img').getBoundingClientRect();
+            const stageRect = document.getElementById('overlay-focus-stage').getBoundingClientRect();
             return {
                 hudActive: document.getElementById('vote-hud-overlay').classList.contains('active'),
                 stageBadge: document.getElementById('focus-stage-badge').textContent.trim(),
                 stageTitle: document.getElementById('focus-stage-title').textContent.trim(),
+                stageTop: Math.round(stageRect.top),
                 imgWidth: imgRect.width,
                 imgHeight: imgRect.height
             };
@@ -1835,7 +1862,7 @@ test('Tier List Overlay UX: Single timer, single voting hint, dynamic !tier chip
         assert.equal(focusOnlyCheck.stageTitle, 'Chrono Trigger');
         assert.ok(focusOnlyCheck.imgWidth >= 150 && focusOnlyCheck.imgHeight >= 150, 'Focused artwork must be enlarged');
 
-        // 2. Active vote: single timer, single voting hint, dynamic !tier chips, contrast pill, wrapped descriptions, muted audio
+        // 2. Active vote: same centered focus position, single timer, single voting hint, dynamic !tier chips, contrast pill, wrapped descriptions, muted audio
         service.startVote({ itemId: item.id, duration: 45 });
         service.castVote({ user: 'Tester', userId: 'u1', tierId: 'tier-s' });
         await page.reload({ waitUntil: 'networkidle0' });
@@ -1848,6 +1875,7 @@ test('Tier List Overlay UX: Single timer, single voting hint, dynamic !tier chip
             const hudImgDisplay = getComputedStyle(document.getElementById('hud-img')).display;
             const consensusStyle = getComputedStyle(document.getElementById('hud-consensus'));
             const hudRect = document.getElementById('vote-hud-overlay').getBoundingClientRect();
+            const stageRect = document.getElementById('overlay-focus-stage').getBoundingClientRect();
             const subChecks = Array.from(document.querySelectorAll('.overlay-row-sub')).map(el => {
                 const cs = getComputedStyle(el);
                 return {
@@ -1867,10 +1895,13 @@ test('Tier List Overlay UX: Single timer, single voting hint, dynamic !tier chip
                 consensusColor: consensusStyle.color,
                 hudRightEdge: hudRect.right,
                 hudBottomEdge: hudRect.bottom,
+                stageTop: Math.round(stageRect.top),
                 subChecks,
                 audioCtxCreated: window.__audioCtxCreated
             };
         });
+
+        assert.ok(Math.abs(voteCheck.stageTop - focusOnlyCheck.stageTop) <= 8, `Voting focus stage top (${voteCheck.stageTop}) must match non-voting focus stage top (${focusOnlyCheck.stageTop})`);
 
         assert.equal(voteCheck.hintVisible, false, 'Top hint ribbon must NOT duplicate active vote card');
         assert.ok(!/\d+s/.test(voteCheck.badgeText), 'Top vote badge must NOT show a duplicate countdown timer');

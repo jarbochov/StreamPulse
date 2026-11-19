@@ -4,7 +4,7 @@
  * board interactions, live voting, and modal dialogs.
  */
 
-import { getState, $, showToast, fetchState, setupWebSocket, onStateChange, moveItem, startVote, lockVote, cancelVote, focusItem, clearFocus, resetPlacements, clearAllItems, deleteItem, updateTiers, batchAddItems } from './tier-list-state.js';
+import { getState, $, showToast, fetchState, setupWebSocket, onStateChange, moveItem, startVote, lockVote, cancelVote, focusItem, clearFocus, resetPlacements, clearAllItems, resetTiersToDefault, deleteItem, updateTiers, batchAddItems } from './tier-list-state.js';
 import { TierAudio } from './tier-list-audio.js';
 import { renderBoard, renderHUD, updateHudMeters } from './tier-list-board.js';
 import { openModal, closeModal, initModalListeners } from './tier-list-modals.js';
@@ -41,6 +41,7 @@ function initBoardDelegation() {
                 $('tier-edit-color').value = tier.color || '#ff7f7f';
                 $('tier-edit-color-hex').value = tier.color || '#ff7f7f';
                 $('tier-edit-desc').value = tier.description || '';
+                if ($('tier-edit-sound-url')) $('tier-edit-sound-url').value = tier.soundUrl || '';
                 openModal('modal-tier-edit');
             }
             return;
@@ -112,9 +113,23 @@ function initBoardDelegation() {
     $('btn-lock-vote')?.addEventListener('click', () => lockVote());
     $('btn-cancel-vote')?.addEventListener('click', () => cancelVote());
 
-    // Reset & Clear Placements
+    // Reset & Clear Placements + Tier Row Actions
     $('btn-reset-placements')?.addEventListener('click', () => resetPlacements());
     $('btn-clear-items')?.addEventListener('click', () => clearAllItems());
+    $('btn-reset-tiers')?.addEventListener('click', () => resetTiersToDefault());
+    $('btn-add-tier')?.addEventListener('click', async () => {
+        const state = getState();
+        const palette = ['#ff7f7f', '#ffbf7f', '#ffdf7f', '#ffff7f', '#bfff7f', '#7fff7f', '#7fd4ff', '#c49cff'];
+        const nextIdx = (state.tiers || []).length;
+        const newTier = {
+            id: `tier-${Date.now().toString(36)}`,
+            label: `Tier ${nextIdx + 1}`,
+            color: palette[nextIdx % palette.length],
+            description: ''
+        };
+        await updateTiers([...(state.tiers || []), newTier]);
+        showToast('Tier added — click its header to customize');
+    });
 }
 
 function initDragAndDropFiles() {

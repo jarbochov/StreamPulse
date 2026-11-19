@@ -56,6 +56,14 @@
             gap: clamp(8px, 1.2cqi, 18px);
             box-sizing: border-box;
             container-type: inline-size;
+            transform-origin: 0 0;
+            transition: transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+            will-change: transform;
+        }
+        .card.placement-follow {
+            border-color: var(--tl-accent, #fbbf24);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--tl-accent, #fbbf24) 75%, transparent), 0 8px 24px rgba(0, 0, 0, 0.6);
+            z-index: 60;
         }
 
         /* Overlay Header & Custom Banner */
@@ -460,11 +468,6 @@
         .overlay-focus-stage.active {
             display: flex;
         }
-        body.has-active-vote .overlay-focus-stage.active {
-            top: auto;
-            bottom: clamp(126px, 16vh, 175px);
-            transform: translateX(-50%);
-        }
         body.layout-sidebar .overlay-focus-stage.active {
             left: auto;
             right: 12px;
@@ -473,11 +476,6 @@
             width: min(416px, calc(100% - 24px));
             max-width: min(416px, calc(100% - 24px));
             padding: 10px;
-        }
-        body.layout-sidebar.has-active-vote .overlay-focus-stage.active {
-            top: auto;
-            bottom: 162px;
-            transform: none;
         }
         @keyframes focusPopIn {
             from { opacity: 0; scale: 0.94; }
@@ -496,7 +494,7 @@
         .focus-stage-img {
             display: block;
             max-width: min(390px, 42vw);
-            max-height: min(390px, 44vh);
+            max-height: min(370px, 42vh);
             min-width: 160px;
             min-height: 160px;
             width: auto;
@@ -1040,6 +1038,7 @@
                 fitCaptions: false,
                 autoFit: false,
                 focusEnlarge: false,
+                followZoom: false,
                 howToVote: 'auto',
                 hintScale: '1',
                 hintText: '',
@@ -1342,6 +1341,9 @@
             const focusEnlargeQ = parseBoolParam(urlParams.get('focusEnlarge'));
             if (focusEnlargeQ !== undefined) urlOverrides.focusEnlarge = focusEnlargeQ;
 
+            const followZoomQ = parseBoolParam(urlParams.get('followZoom'));
+            if (followZoomQ !== undefined) urlOverrides.followZoom = followZoomQ;
+
             const previewOverrides = {};
             let currentState = null;
             let activeCfg = Object.assign({}, DEFAULT_CFG);
@@ -1354,6 +1356,11 @@
             let lastVoteLocked = false;
             let lastVoteCancelled = false;
             let lastTickedSecond = null;
+            let pendingFollowItemId = null;
+            let followZoomTimer = null;
+            let tierSoundPlayer = null;
+            let lastPlayedTierSoundKey = '';
+            let lastPlayedTierSoundAt = 0;
 
             const TierAudio = {
                 ctx: null,
@@ -1479,6 +1486,7 @@
                 if (t.fitCaptions !== undefined) cfg.fitCaptions = Boolean(t.fitCaptions);
                 if (t.autoFit !== undefined) cfg.autoFit = Boolean(t.autoFit);
                 if (t.focusEnlarge !== undefined) cfg.focusEnlarge = Boolean(t.focusEnlarge);
+                if (t.followZoom !== undefined) cfg.followZoom = Boolean(t.followZoom);
                 if (t.howToVote !== undefined) cfg.howToVote = String(t.howToVote).toLowerCase();
                 if (t.hintScale !== undefined) cfg.hintScale = String(t.hintScale);
                 cfg.sfx = !(state && state.settings && state.settings.soundEnabled === false) && (t.sfx !== false);
@@ -2134,7 +2142,83 @@
                     fitAllCardCaptions(cfg);
                 }
 
+                const followItemId = pendingFollowItemId;
+                pendingFollowItemId = null;
+                if (followItemId && cfg.followZoom && !document.hidden) {
+                    triggerFollowPlacementZoom(followItemId, cfg);
+                }
+
                 playFLIPAnimations(firstRects);
+            }
+
+            function triggerFollowPlacementZoom(itemId, cfg = activeCfg) {
+                const container = $('overlay-container');
+                const cardEl = document.querySelector(`#overlay-board .card[data-item-id="${CSS.escape(itemId)}"]`);
+                if (!container || !cardEl) return;
+
+                if (followZoomTimer) {
+                    clearTimeout(followZoomTimer);
+                    followZoomTimer = null;
+                }
+                document.querySelectorAll('.card.placement-follow').forEach(el => el.classList.remove('placement-follow'));
+
+                // Reset transform before measuring target coordinates
+                const prevTransition = container.style.transition;
+                container.style.transition = 'none';
+                container.style.transform = '';
+                container.offsetHeight;
+
+                const cRect = container.getBoundingClientRect();
+                const cardRect = cardEl.getBoundingClientRect();
+                const vw = window.innerWidth || cRect.width;
+                const vh = window.innerHeight || cRect.height;
+
+                const zoom = cfg.layout === 'sidebar' ? 1.45 : 2.0;
+                const cx = (cardRect.left - cRect.left) + (cardRect.width / 2);
+                const cy = (cardRect.top - cRect.top) + (cardRect.height / 2);
+
+                const minTx = Math.min(0, vw - (cRect.width * zoom));
+                const minTy = Math.min(0, vh - (cRect.height * zoom));
+                const tx = Math.min(0, Math.max(minTx, (vw / 2) - (cx * zoom)));
+                const ty = Math.min(0, Math.max(minTy, (vh / 2) - (cy * zoom)));
+
+                container.style.transition = prevTransition || '';
+                cardEl.classList.add('placement-follow');
+                requestAnimationFrame(() => {
+                    container.style.transform = `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${zoom})`;
+                });
+
+                followZoomTimer = setTimeout(() => {
+                    followZoomTimer = null;
+                    container.style.transform = '';
+                    cardEl.classList.remove('placement-follow');
+                }, 1450);
+            }
+
+            function playTierPlacementSound(tierId, state = currentState, cfg = activeCfg) {
+                if (IS_PREVIEW || !cfg.sfx || TierAudio.volume <= 0 || !tierId || !state) return;
+                const tier = (state.tiers || []).find(t => t.id === tierId);
+                if (!tier || !tier.soundUrl) return;
+                const now = Date.now();
+                const dedupeKey = `${tierId}:${tier.soundUrl}`;
+                if (dedupeKey === lastPlayedTierSoundKey && (now - lastPlayedTierSoundAt) < 350) {
+                    return;
+                }
+                lastPlayedTierSoundKey = dedupeKey;
+                lastPlayedTierSoundAt = now;
+                try {
+                    if (tierSoundPlayer) {
+                        tierSoundPlayer.pause();
+                        tierSoundPlayer = null;
+                    }
+                    tierSoundPlayer = new Audio(tier.soundUrl);
+                    tierSoundPlayer.volume = Math.min(1, Math.max(0, TierAudio.volume));
+                    tierSoundPlayer.play().catch((err) => {
+                        if (err && err.name === 'NotAllowedError') {
+                            console.warn('[TierList Overlay] Audio playback blocked by browser autoplay policy until user interacts with page.');
+                        }
+                    });
+                } catch {}
             }
 
             function getContrastColor(hexColor) {
@@ -2582,6 +2666,9 @@
                 if (opts.focusEnlarge !== undefined) {
                     previewOverrides.focusEnlarge = parseBoolParam(opts.focusEnlarge) ?? Boolean(opts.focusEnlarge);
                 }
+                if (opts.followZoom !== undefined) {
+                    previewOverrides.followZoom = parseBoolParam(opts.followZoom) ?? Boolean(opts.followZoom);
+                }
                 if (opts.title !== undefined) {
                     previewOverrides.title = String(opts.title);
                 }
@@ -2648,6 +2735,14 @@
                     clearInterval(hudInterval);
                     hudInterval = null;
                 }
+                if (followZoomTimer) {
+                    clearTimeout(followZoomTimer);
+                    followZoomTimer = null;
+                }
+                if (tierSoundPlayer) {
+                    try { tierSoundPlayer.pause(); } catch {}
+                    tierSoundPlayer = null;
+                }
                 if (wsReconnectTimer) {
                     clearTimeout(wsReconnectTimer);
                     wsReconnectTimer = null;
@@ -2701,6 +2796,27 @@
                             lastVoteCancelled = true;
                         } else if (msg.type === 'tier-list:vote-start' || msg.type === 'tier-list:vote-end' || msg.type === 'tier-list:vote-locked') {
                             lastVoteCancelled = false;
+                        }
+                        if (msg.type === 'tier-list:move' && msg.data?.toTier && msg.data?.fromTier !== msg.data?.toTier) {
+                            if (msg.data.itemId) pendingFollowItemId = msg.data.itemId;
+                            if (msg.data.settings) {
+                                const rawVol = msg.data.settings.soundVolume;
+                                const volPct = (rawVol !== undefined && Number.isFinite(Number(rawVol)))
+                                    ? Math.min(100, Math.max(0, Number(rawVol)))
+                                    : 75;
+                                TierAudio.volume = volPct / 100;
+                            }
+                            playTierPlacementSound(msg.data.toTier, msg.data, resolveConfig(msg.data));
+                        } else if (msg.type === 'tier-list:vote-end' && msg.data?.consensusTier?.id) {
+                            if (msg.data.itemId) pendingFollowItemId = msg.data.itemId;
+                            if (msg.data.settings) {
+                                const rawVol = msg.data.settings.soundVolume;
+                                const volPct = (rawVol !== undefined && Number.isFinite(Number(rawVol)))
+                                    ? Math.min(100, Math.max(0, Number(rawVol)))
+                                    : 75;
+                                TierAudio.volume = volPct / 100;
+                            }
+                            playTierPlacementSound(msg.data.consensusTier.id, msg.data, resolveConfig(msg.data));
                         }
                         if (msg.type === 'tier-list:update' || msg.type === 'tier-list:move' ||
                             msg.type === 'tier-list:vote-start' || msg.type === 'tier-list:vote-end' ||

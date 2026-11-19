@@ -38,7 +38,8 @@ Open the maker at `http://localhost:3000/tools/tier-list.html` or navigate to **
 4. **Desktop Drag & Drop**: Drag one or more PNG/JPG/WebP/GIF files directly into the dashed Unranked Items pool to upload to the Asset Library and add them to the board.
 
 ### Customizing Tiers & Banners
-- Click any tier header (e.g. "S" or "A") to customize its label, color, and description.
+- Click any tier header (e.g. "S" or "A") to customize its label, color, description, and optional **Placement Sound Trigger** (upload an audio clip or pick one from the Asset Library so placing an item into S Tier plays your custom sound on stream).
+- Use **Add Tier** and **Reset Tiers** above the board to add new tier rows or restore the default S–F tiers at any time (even if presets have been deleted).
 - Use the &uarr; and &darr; arrows to reorder tiers.
 - Click **Presets** to load templates (*Standard S-F*, *Extended Gaming S+-Trash*, *Movie Reviews*, *Food & Snacks*), save your current setup (including your custom banner and overlay theming) as a new preset, or restore defaults at any time.
 
@@ -50,7 +51,7 @@ Open the **Overlay & Theming** tab to customize how your Tier List looks on stre
   - **Header & Custom Top Banner**: Upload an image, choose one from the **Asset Library**, or paste an image URL to display a banner across the top of your tier list. Choose **Replace Title Bar** for a clean graphic header or **Behind Title Text** to keep your list title overlaid with a contrast gradient. Adjust **Banner Fit** (`Cover` or `Contain`) and **Banner Height** (`48px`–`240px`) with the slider.
   - **Auto-Fit Board to Screen**: Automatically scales cards and row heights so every tier and item fits inside your broadcast frame with no scrollbars or clipping.
   - **Hide Unranked Pool**: Keeps the bottom unranked tray hidden on stream so viewers only see ranked tiers.
-  - **Cards & Item Text**: Pick card scale, aspect ratio (`1:1`, `3:4`, `16:9`), and artwork fit. Toggle **Show Item Text** off for pure art cards, turn on **Always Fit Item Text** to wrap and shrink long titles so every name stays readable without ellipses (`...`), or enable **Focus & Enlarge Selected / Voting Art** to spotlight and enlarge an item's artwork when you click **Focus** on a card or start a chat vote.
+  - **Cards & Item Text**: Pick card scale, aspect ratio (`1:1`, `3:4`, `16:9`), and artwork fit. Toggle **Show Item Text** off for pure art cards, turn on **Always Fit Item Text** to wrap and shrink long titles so every name stays readable without ellipses (`...`), enable **Focus & Enlarge Selected / Voting Art** to spotlight centered enlarged artwork when an item is focused or voted on, or enable **Zoom & Follow Item to Tier** to smoothly zoom the overlay camera into the target tier when an item is placed.
   - **Voting Hint & Audio**: Control whether the idle voting instruction bar stays visible when no vote is running (when a vote is active, the single Vote Spotlight Card displays the countdown timer and valid `!tier` choices cleanly without duplicating banners) and toggle synthesized sound chimes (automatically hidden when Chat Voting is disabled, and synced with Settings audio controls).
 - **Fonts & Framing Tab**:
   - **Heading & Content Custom Fonts**: Choose separate fonts for **Heading & Tier Labels** and **Content & Captions**. Type any Google Font name, pick from suggested system/Google fonts, or click **Fonts** to browse uploaded `.ttf`, `.otf`, `.woff`, or `.woff2` files from your Asset Library.

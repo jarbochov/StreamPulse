@@ -710,7 +710,8 @@ Saved `theme` fields drive `/overlays/tier-list.html` automatically (no OBS URL 
 - **Colors & Surface Framing**: `backgroundColor` (`?bg=`), `rowBackgroundColor` (`?rowbg=` / `?cardbg=`), `borderColor` (`?border=`), `textColor` (`?text=`), `mutedColor` (`?muted=`), `accentColor` (`?accent=`), `borderRadius` (`?radius=`), `backdropBlur` (`0px`..`24px`, `?blur=`)
 - **Banner & Header**: `bannerUrl` (`?banner=`), `bannerMode` (`replace` | `behind`, `?bannerMode=`), `bannerHeight` (`48..240` px, `?bannerHeight=`), `bannerFit` (`cover` | `contain`, `?bannerFit=`)
 - **Layout & Scaling**: `layout` (`board` | `sidebar`, `?layout=`), `autoFit` (boolean, `?autoFit=0|1`), `hideUnranked` (boolean, `?hideUnranked=0|1`)
-- **Cards & Captions**: `cardSize` (`compact` | `medium` | `large`, `?size=`), `cardAspect` (`1/1` | `3/4` | `16/9`, `?aspect=`), `cardFit` (`cover` | `contain` | `natural`, `?coverFit=`), `showCaptions` (boolean, `?captions=0|1`), `fitCaptions` (boolean, `?fitCaptions=0|1`), `focusEnlarge` (boolean, `?focusEnlarge=0|1`)
+- **Cards & Captions**: `cardSize` (`compact` | `medium` | `large`, `?size=`), `cardAspect` (`1/1` | `3/4` | `16/9`, `?aspect=`), `cardFit` (`cover` | `contain` | `natural`, `?coverFit=`), `showCaptions` (boolean, `?captions=0|1`), `fitCaptions` (boolean, `?fitCaptions=0|1`), `focusEnlarge` (boolean, `?focusEnlarge=0|1`), `followZoom` (boolean, `?followZoom=0|1`)
+- **Tier Sound Triggers**: Each entry in `tiers` supports an optional `soundUrl` (`/custom-overlay-assets/...` or `https://...`) played on `/overlays/tier-list.html` when an item is placed into that tier.
 - **Voting Hint & Audio**: `howToVote` (`auto` | `always` | `0`, `?howtovote=`), `hintScale` (`0.85`..`1.5`, `?hintScale=`), `sfx` (boolean, `?sfx=0|1`)
 
 ### `POST /api/tier-list/focus` (or `GET`)
@@ -774,6 +775,9 @@ Ends active vote and optionally moves the item into the winning consensus tier.
 
 ### `POST /api/tier-list/vote/cancel`
 Cancels the active vote without moving the item.
+
+### `POST /api/tier-list/tiers/reset` (or `GET`)
+Restores the default `S`–`F` tiers independently of saved presets, returning any items from deleted custom tiers to the unranked pool.
 
 ### `POST /api/tier-list/presets/save`
 Saves current tiers and optionally items as a custom preset.

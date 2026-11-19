@@ -129,6 +129,13 @@ function createTierListRoutes({ tierListService }) {
                 return true;
             }
 
+            // POST or GET /api/tier-list/tiers/reset (Restore default S-F tiers independently of presets)
+            if (pathname === '/api/tier-list/tiers/reset' && (req.method === 'POST' || req.method === 'GET')) {
+                const state = tierListService.resetTiers();
+                sendJson(res, state);
+                return true;
+            }
+
             // POST or GET /api/tier-list/focus/clear (Companion friendly)
             if (pathname === '/api/tier-list/focus/clear' && (req.method === 'POST' || req.method === 'GET')) {
                 const state = tierListService.clearFocus();

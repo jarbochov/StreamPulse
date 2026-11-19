@@ -13,6 +13,7 @@ let assetBrowser = null, shownAssets = [];
 let selectedAssetUrls = new Set();
 let assetModalMode = 'items';
 let bannerPickCallback = null;
+let tierSoundPreviewAudio = null;
 
 export function openModal(id) {
     const el = $(id);
@@ -25,28 +26,35 @@ export function closeModal(id) {
         assetModalMode = 'items';
         bannerPickCallback = null;
     }
+    if (tierSoundPreviewAudio) {
+        try { tierSoundPreviewAudio.pause(); } catch {}
+        tierSoundPreviewAudio = null;
+    }
     const el = $(id);
     if (el) el.classList.remove('open');
 }
 
-async function openAssetLibraryModal(mode = 'items', onBannerPick = null) {
-    assetModalMode = mode === 'banner' ? 'banner' : 'items';
-    bannerPickCallback = assetModalMode === 'banner' ? onBannerPick : null;
+async function openAssetLibraryModal(mode = 'items', onPick = null) {
+    assetModalMode = mode === 'banner' ? 'banner' : (mode === 'audio' ? 'audio' : 'items');
+    bannerPickCallback = (assetModalMode === 'banner' || assetModalMode === 'audio') ? onPick : null;
 
     const modalEl = $('modal-assets');
     const titleEl = modalEl?.querySelector('.modal-title');
     if (titleEl) {
         titleEl.textContent = assetModalMode === 'banner'
             ? 'Select Banner Image from Library'
-            : 'Select Assets from Library';
+            : (assetModalMode === 'audio' ? 'Select Tier Sound from Library' : 'Select Assets from Library');
     }
     const selectAllBtn = $('btn-select-all-assets');
     const deselectAllBtn = $('btn-deselect-all-assets');
     const confirmBtn = $('btn-add-selected-assets');
-    if (selectAllBtn) selectAllBtn.hidden = assetModalMode === 'banner';
-    if (deselectAllBtn) deselectAllBtn.hidden = assetModalMode === 'banner';
+    const isSinglePick = assetModalMode === 'banner' || assetModalMode === 'audio';
+    if (selectAllBtn) selectAllBtn.hidden = isSinglePick;
+    if (deselectAllBtn) deselectAllBtn.hidden = isSinglePick;
     if (confirmBtn) {
-        confirmBtn.textContent = assetModalMode === 'banner' ? 'Use Selected Banner' : 'Add Selected to Pool';
+        confirmBtn.textContent = assetModalMode === 'banner'
+            ? 'Use Selected Banner'
+            : (assetModalMode === 'audio' ? 'Use Selected Sound' : 'Add Selected to Pool');
     }
 
     if (!assetBrowser) {
@@ -57,7 +65,9 @@ async function openAssetLibraryModal(mode = 'items', onBannerPick = null) {
     libraryAssets = [];
     shownAssets = [];
     selectedAssetUrls.clear();
-    $('selected-asset-count').textContent = assetModalMode === 'banner' ? 'Select 1 banner image' : '0 selected';
+    $('selected-asset-count').textContent = assetModalMode === 'banner'
+        ? 'Select 1 banner image'
+        : (assetModalMode === 'audio' ? 'Select 1 audio file' : '0 selected');
     const grid = $('asset-grid');
     grid.innerHTML = '<div style="grid-column:1/-1;padding:1.5rem;text-align:center;color:var(--text-muted);">Loading assets…</div>';
 
@@ -67,8 +77,12 @@ async function openAssetLibraryModal(mode = 'items', onBannerPick = null) {
             const data = await res.json();
             const list = Array.isArray(data) ? data : (data.assets || []);
             libraryAssets = list.filter(a => {
-                if (a.kind === 'image') return true;
                 const name = (a.name || '').toLowerCase();
+                if (assetModalMode === 'audio') {
+                    if (a.kind === 'audio') return true;
+                    return ['.mp3', '.wav', '.m4a', '.aac', '.oga', '.ogg'].some(ext => name.endsWith(ext));
+                }
+                if (a.kind === 'image') return true;
                 return ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.avif'].some(ext => name.endsWith(ext));
             });
             renderAssetGrid();
@@ -156,6 +170,7 @@ export function initModalListeners() {
         const label = $('tier-edit-label').value.trim();
         const color = $('tier-edit-color-hex').value.trim() || $('tier-edit-color').value;
         const description = $('tier-edit-desc').value.trim();
+        const soundUrl = $('tier-edit-sound-url')?.value?.trim() || '';
 
         if (!label) {
             showToast('Tier label required');
@@ -164,7 +179,7 @@ export function initModalListeners() {
 
         const updatedTiers = state.tiers.map(t => {
             if (t.id === tierId) {
-                return { ...t, label, color, description };
+                return { ...t, label, color, description, soundUrl };
             }
             return t;
         });
@@ -172,6 +187,62 @@ export function initModalListeners() {
         await updateTiers(updatedTiers);
         closeModal('modal-tier-edit');
         showToast('Tier updated');
+    });
+
+    $('btn-tier-sound-upload')?.addEventListener('click', () => {
+        $('tier-sound-file-input')?.click();
+    });
+
+    $('tier-sound-file-input')?.addEventListener('change', async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        showToast('Uploading tier audio…');
+        try {
+            const res = await fetch('/api/custom-overlays/assets', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': file.type || 'audio/mpeg',
+                    'x-asset-name': file.name || `tier-sound-${Date.now()}.mp3`
+                },
+                body: file
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if ($('tier-edit-sound-url')) $('tier-edit-sound-url').value = data.url;
+                showToast('Tier sound uploaded!');
+            } else {
+                showToast('Failed to upload audio file');
+            }
+        } catch {
+            showToast('Failed to upload audio file');
+        } finally {
+            e.target.value = '';
+        }
+    });
+
+    $('btn-tier-sound-library')?.addEventListener('click', () => {
+        openAssetLibraryModal('audio', (pickedUrl) => {
+            if ($('tier-edit-sound-url')) $('tier-edit-sound-url').value = pickedUrl;
+            showToast('Selected tier sound from Asset Library');
+        });
+    });
+
+    $('btn-tier-sound-test')?.addEventListener('click', () => {
+        const url = $('tier-edit-sound-url')?.value?.trim();
+        if (!url) {
+            showToast('Enter or pick an audio URL first');
+            return;
+        }
+        if (tierSoundPreviewAudio) {
+            try { tierSoundPreviewAudio.pause(); } catch {}
+        }
+        tierSoundPreviewAudio = new Audio(url);
+        tierSoundPreviewAudio.volume = TierAudio.volume || 0.75;
+        tierSoundPreviewAudio.play().catch(() => showToast('Unable to play audio preview'));
+    });
+
+    $('btn-tier-sound-clear')?.addEventListener('click', () => {
+        if ($('tier-edit-sound-url')) $('tier-edit-sound-url').value = '';
     });
 
     $('btn-delete-tier')?.addEventListener('click', async () => {
@@ -193,10 +264,22 @@ export function initModalListeners() {
     $('btn-asset-library')?.addEventListener('click', () => openAssetLibraryModal('items'));
 
     $('asset-grid')?.addEventListener('click', (e) => {
+        const playBtn = e.target.closest('[data-preview-audio]');
+        if (playBtn) {
+            e.stopPropagation();
+            const audioUrl = playBtn.dataset.previewAudio;
+            if (tierSoundPreviewAudio) {
+                try { tierSoundPreviewAudio.pause(); } catch {}
+            }
+            tierSoundPreviewAudio = new Audio(audioUrl);
+            tierSoundPreviewAudio.volume = TierAudio.volume || 0.75;
+            tierSoundPreviewAudio.play().catch(() => showToast('Unable to preview audio'));
+            return;
+        }
         const card = e.target.closest('.asset-card');
         if (!card) return;
         const url = card.dataset.url;
-        if (assetModalMode === 'banner') {
+        if (assetModalMode === 'banner' || assetModalMode === 'audio') {
             selectedAssetUrls.clear();
             $('asset-grid')?.querySelectorAll('.asset-card.selected').forEach(other => {
                 other.classList.remove('selected');
@@ -207,7 +290,7 @@ export function initModalListeners() {
             card.classList.add('selected');
             const cb = card.querySelector('.asset-checkbox');
             if (cb) cb.checked = true;
-            $('selected-asset-count').textContent = '1 banner selected';
+            $('selected-asset-count').textContent = assetModalMode === 'audio' ? '1 sound selected' : '1 banner selected';
             return;
         }
         if (selectedAssetUrls.has(url)) {
@@ -236,10 +319,10 @@ export function initModalListeners() {
     });
 
     $('btn-add-selected-assets')?.addEventListener('click', async () => {
-        if (assetModalMode === 'banner') {
+        if (assetModalMode === 'banner' || assetModalMode === 'audio') {
             const [pickedUrl] = Array.from(selectedAssetUrls);
             if (!pickedUrl) {
-                showToast('Please select a banner image');
+                showToast(assetModalMode === 'audio' ? 'Please select an audio file' : 'Please select a banner image');
                 return;
             }
             const cb = bannerPickCallback;
@@ -411,13 +494,23 @@ function renderAssetGrid() {
     shownAssets = filtered;
 
     if (filtered.length === 0) {
-        grid.innerHTML = '<div style="grid-column:1/-1;padding:1.5rem;text-align:center;color:var(--text-muted);">No matching images found</div>';
+        grid.innerHTML = `<div style="grid-column:1/-1;padding:1.5rem;text-align:center;color:var(--text-muted);">${assetModalMode === 'audio' ? 'No matching audio files found' : 'No matching images found'}</div>`;
         return;
     }
 
     grid.innerHTML = filtered.map(a => {
         const isSel = selectedAssetUrls.has(a.url);
         const cleanName = a.caption || a.label || a.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+        if (assetModalMode === 'audio') {
+            return `
+                <div class="asset-card${isSel ? ' selected' : ''}" data-url="${esc(a.url)}" data-name="${esc(cleanName)}" style="justify-content:center;align-items:center;gap:6px;padding:10px;min-height:96px;">
+                    <input type="checkbox" class="asset-checkbox" ${isSel ? 'checked' : ''}>
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0;"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                    <div class="asset-card-label" style="position:static;background:none;padding:0;max-width:100%;">${esc(cleanName)}</div>
+                    <button type="button" class="btn btn-sm" data-preview-audio="${esc(a.url)}" style="font-size:10px;padding:2px 8px;">Play</button>
+                </div>
+            `;
+        }
         const isAlreadyOnList = assetModalMode === 'banner'
             ? Boolean(state.theme?.bannerUrl && (state.theme.bannerUrl === a.url || state.theme.bannerUrl.endsWith('/' + a.name)))
             : (state.items || []).some(i => i.imageUrl && (i.imageUrl === a.url || i.imageUrl.endsWith('/' + a.name)));

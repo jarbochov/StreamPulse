@@ -234,7 +234,8 @@ const DEFAULT_THEME = {
     howToVote: 'auto',
     hintScale: '1',
     sfx: true,
-    focusEnlarge: false
+    focusEnlarge: false,
+    followZoom: false
 };
 
 function sanitizeBannerUrl(raw) {
@@ -243,6 +244,15 @@ function sanitizeBannerUrl(raw) {
     if (val.startsWith('/') && !val.startsWith('//')) return val;
     if (/^https?:\/\//i.test(val)) return val;
     if (/^data:image\/[a-z0-9.+-]+;/i.test(val)) return val;
+    return '';
+}
+
+function sanitizeAudioUrl(raw) {
+    const val = String(raw ?? '').trim();
+    if (!val) return '';
+    if (val.startsWith('/') && !val.startsWith('//')) return val;
+    if (/^https?:\/\//i.test(val)) return val;
+    if (/^data:audio\/[a-z0-9.+-]+;/i.test(val)) return val;
     return '';
 }
 
@@ -387,6 +397,7 @@ function normalizeTheme(patch = {}, current = DEFAULT_THEME) {
 
     merged.sfx = normalizeBool(src.sfx !== undefined ? src.sfx : merged.sfx, true);
     merged.focusEnlarge = normalizeBool(src.focusEnlarge !== undefined ? src.focusEnlarge : merged.focusEnlarge, false);
+    merged.followZoom = normalizeBool(src.followZoom !== undefined ? src.followZoom : merged.followZoom, false);
     return merged;
 }
 
@@ -565,12 +576,17 @@ function createTierListService({
             }
         }
         if (Array.isArray(updates.tiers)) {
-            state.tiers = updates.tiers.map((t, idx) => ({
-                id: t.id || `tier-${idx}`,
-                label: String(t.label || `Tier ${idx + 1}`).trim(),
-                color: String(t.color || '#ff7f7f').trim(),
-                description: String(t.description || '')
-            }));
+            state.tiers = updates.tiers.map((t, idx) => {
+                const entry = {
+                    id: t.id || `tier-${idx}`,
+                    label: String(t.label || `Tier ${idx + 1}`).trim(),
+                    color: String(t.color || '#ff7f7f').trim(),
+                    description: String(t.description || '')
+                };
+                const cleanSound = sanitizeAudioUrl(t.soundUrl);
+                if (cleanSound) entry.soundUrl = cleanSound;
+                return entry;
+            });
             // Remove tier references from items placed in deleted tiers
             const tierIds = new Set(state.tiers.map(t => t.id));
             state.items.forEach(it => {
@@ -713,6 +729,20 @@ function createTierListService({
     function clearItems() {
         state.items = [];
         state.focusedItemId = null;
+        if (state.activeVote) cancelVote();
+        save();
+        broadcastState('tier-list:update');
+        return getPublicState();
+    }
+
+    function resetTiers() {
+        state.tiers = JSON.parse(JSON.stringify(DEFAULT_TIERS));
+        const tierIds = new Set(state.tiers.map(t => t.id));
+        state.items.forEach(it => {
+            if (it.tierId && !tierIds.has(it.tierId)) {
+                it.tierId = null;
+            }
+        });
         if (state.activeVote) cancelVote();
         save();
         broadcastState('tier-list:update');
@@ -1111,6 +1141,14 @@ function createTierListService({
                 name: 'Tier List: Custom Font'
             });
         }
+        for (const tier of state.tiers || []) {
+            if (tier.soundUrl && isRef(tier.soundUrl)) {
+                users.push({
+                    id: `tier-list:tier-sound:${tier.id}`,
+                    name: `Tier List (${tier.label || 'Tier'}): Sound`
+                });
+            }
+        }
         for (const item of state.items || []) {
             if (isRef(item.imageUrl)) {
                 users.push({
@@ -1131,6 +1169,14 @@ function createTierListService({
                     id: `tier-list:preset-font:${preset.id}`,
                     name: `Tier List (${preset.name || 'Preset'}): Custom Font`
                 });
+            }
+            for (const tier of preset.tiers || []) {
+                if (tier.soundUrl && isRef(tier.soundUrl)) {
+                    users.push({
+                        id: `tier-list:preset-sound:${preset.id}:${tier.id || tier.label}`,
+                        name: `Tier List (${preset.name || 'Preset'} ${tier.label || 'Tier'}): Sound`
+                    });
+                }
             }
             for (const item of preset.items || []) {
                 if (isRef(item.imageUrl)) {
@@ -1173,6 +1219,14 @@ function createTierListService({
                 changed = true;
             }
         }
+        for (const tier of state.tiers || []) {
+            if (!tier.soundUrl) continue;
+            const next = rewriteStr(tier.soundUrl);
+            if (next !== tier.soundUrl) {
+                tier.soundUrl = next;
+                changed = true;
+            }
+        }
         for (const item of state.items || []) {
             if (!item.imageUrl) continue;
             const next = rewriteStr(item.imageUrl);
@@ -1193,6 +1247,14 @@ function createTierListService({
                 const next = rewriteStr(preset.theme.bannerUrl);
                 if (next !== preset.theme.bannerUrl) {
                     preset.theme.bannerUrl = next;
+                    changed = true;
+                }
+            }
+            for (const tier of preset.tiers || []) {
+                if (!tier.soundUrl) continue;
+                const next = rewriteStr(tier.soundUrl);
+                if (next !== tier.soundUrl) {
+                    tier.soundUrl = next;
                     changed = true;
                 }
             }
@@ -1225,6 +1287,7 @@ function createTierListService({
         moveItem,
         resetPlacements,
         clearItems,
+        resetTiers,
         focusItem,
         clearFocus,
         startVote,

@@ -268,6 +268,18 @@ export async function clearAllItems() {
     return true;
 }
 
+export async function resetTiersToDefault() {
+    if (!confirm('Restore the default S–F tiers? Items in removed custom tiers will return to the unranked pool.')) return false;
+    const res = await fetch('/api/tier-list/tiers/reset', { method: 'POST' });
+    if (res.ok) {
+        showToast('Default tiers restored');
+        await fetchState();
+        return true;
+    }
+    showToast('Failed to restore default tiers');
+    return false;
+}
+
 // ── Presets ──────────────────────────────────────────────────────────────────
 
 export async function loadPreset(presetId) {

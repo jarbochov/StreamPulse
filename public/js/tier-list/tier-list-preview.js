@@ -59,6 +59,7 @@ const DEFAULT_OVERLAY_OPTIONS = {
     fitCaptions: '0',
     autoFit: '0',
     focusEnlarge: '0',
+    followZoom: '0',
     howtovote: 'auto',
     hintScale: '1',
     sfx: '1'
@@ -233,6 +234,8 @@ function writeControlsFromOptions() {
     if (fitCapEl) fitCapEl.checked = overlayOptions.fitCaptions === '1';
     const focusEnlargeEl = $('overlay-opt-focus-enlarge');
     if (focusEnlargeEl) focusEnlargeEl.checked = overlayOptions.focusEnlarge === '1';
+    const followZoomEl = $('overlay-opt-follow-zoom');
+    if (followZoomEl) followZoomEl.checked = overlayOptions.followZoom === '1';
 
     const themeEl = $('overlay-opt-theme');
     if (themeEl) {
@@ -334,6 +337,8 @@ function readOptionsFromControls() {
     if (fitCapEl) overlayOptions.fitCaptions = fitCapEl.checked ? '1' : '0';
     const focusEnlargeEl = $('overlay-opt-focus-enlarge');
     if (focusEnlargeEl) overlayOptions.focusEnlarge = focusEnlargeEl.checked ? '1' : '0';
+    const followZoomEl = $('overlay-opt-follow-zoom');
+    if (followZoomEl) overlayOptions.followZoom = followZoomEl.checked ? '1' : '0';
 
     const selectedThemeVal = $('overlay-opt-theme')?.value || 'dark';
     if (BUILT_IN_THEME_ID_SET.has(selectedThemeVal)) {
@@ -393,6 +398,7 @@ function buildOverrideUrl() {
     if (overlayOptions.showCaptions === '0') params.set('captions', '0');
     if (overlayOptions.fitCaptions === '1') params.set('fitCaptions', '1');
     if (overlayOptions.focusEnlarge === '1') params.set('focusEnlarge', '1');
+    if (overlayOptions.followZoom === '1') params.set('followZoom', '1');
 
     if (overlayOptions.theme === 'custom' && overlayOptions.customThemeId) {
         params.set('theme', overlayOptions.customThemeId);
@@ -497,6 +503,7 @@ function sendPreviewPostMessage() {
                 fitCaptions: overlayOptions.fitCaptions === '1',
                 autoFit: overlayOptions.autoFit === '1',
                 focusEnlarge: overlayOptions.focusEnlarge === '1',
+                followZoom: overlayOptions.followZoom === '1',
                 howToVote: overlayOptions.howtovote,
                 hintScale: overlayOptions.hintScale,
                 sfx: overlayOptions.sfx !== '0',
@@ -554,6 +561,7 @@ function buildServerThemePatch() {
         fitCaptions: overlayOptions.fitCaptions === '1',
         autoFit: overlayOptions.autoFit === '1',
         focusEnlarge: overlayOptions.focusEnlarge === '1',
+        followZoom: overlayOptions.followZoom === '1',
         howToVote: overlayOptions.howtovote || 'auto',
         hintScale: overlayOptions.hintScale || '1',
         sfx: overlayOptions.sfx !== '0'
@@ -722,6 +730,7 @@ export function syncOverlayOptionsFromServer(serverState) {
         if (t.fitCaptions !== undefined) overlayOptions.fitCaptions = t.fitCaptions ? '1' : '0';
         if (t.autoFit !== undefined) overlayOptions.autoFit = t.autoFit ? '1' : '0';
         if (t.focusEnlarge !== undefined) overlayOptions.focusEnlarge = t.focusEnlarge ? '1' : '0';
+        if (t.followZoom !== undefined) overlayOptions.followZoom = t.followZoom ? '1' : '0';
         if (t.howToVote !== undefined) overlayOptions.howtovote = String(t.howToVote);
         if (t.hintScale !== undefined) overlayOptions.hintScale = String(t.hintScale);
         if (t.sfx !== undefined) overlayOptions.sfx = t.sfx !== false ? '1' : '0';
@@ -945,6 +954,7 @@ export function initPreviewOptionsListeners() {
         'overlay-opt-show-captions',
         'overlay-opt-fit-captions',
         'overlay-opt-focus-enlarge',
+        'overlay-opt-follow-zoom',
         'overlay-opt-weight',
         'overlay-opt-fontscale',
         'overlay-opt-transform',

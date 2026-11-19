@@ -2244,6 +2244,8 @@
                         { name: 'theme.fitCaptions', desc: 'Wrap and auto-shrink long item captions to fit without ellipsis', values: 'boolean', default: 'false' },
                         { name: 'theme.autoFit', desc: 'Dynamically scale card size & row heights so all tiers fit viewport', values: 'boolean', default: 'false' },
                         { name: 'theme.focusEnlarge', desc: 'Enlarge artwork showcase when an item is focused or actively voting (?focusEnlarge=0|1)', values: 'boolean', default: 'false' },
+                        { name: 'theme.followZoom', desc: 'Smoothly zoom and follow placed items to their tier (?followZoom=0|1)', values: 'boolean', default: 'false' },
+                        { name: 'tiers[].soundUrl', desc: 'Optional audio asset URL played when an item is placed into this tier', values: 'string', default: '""' },
                         { name: 'theme.layout', desc: 'Board or vertical sidebar layout (?layout=)', values: 'board | sidebar', default: 'board' }
                     ],
                     body: '{ "title": "Community Tier List", "settings": { "chatVotingEnabled": true }, "theme": { "style": "cyber", "headingFont": "Oswald", "fontFamily": "Inter", "accentColor": "#ff0055", "borderRadius": "6px", "showCaptions": true, "fitCaptions": true, "autoFit": true, "layout": "board" } }'
@@ -2303,6 +2305,12 @@
                     desc: 'Companion trigger to reset all items to unranked pool',
                     companion: true,
                     details: 'Moves all ranked items back to the unranked tray ready for a fresh stream ranking.'
+                },
+                {
+                    method: 'POST', path: '/api/tier-list/tiers/reset',
+                    desc: 'Restore default S–F tier rows (also supports GET)',
+                    companion: true,
+                    details: 'Restores the default S, A, B, C, D, F tier rows independently of saved presets and returns any orphaned items to the unranked pool.'
                 },
                 {
                     method: 'GET', path: '/api/status/field/tier_voting',
