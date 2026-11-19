@@ -171,9 +171,12 @@
                     winner: theme.winner || '',
                     radius: theme.radius || '',
                     font: theme.font || '',
+                    headingFont: theme.headingFont || theme.headingfont || '',
                     weight: theme.weight || '',
                     scale: theme.scale || '',
                     textTransform: theme.textTransform || '',
+                    outline: theme.outline || '',
+                    backdrop: theme.backdrop || '',
                     updatedAt: new Date().toISOString()
                 };
                 localStorage.setItem(CUSTOM_THEMES_KEY, JSON.stringify(themes));

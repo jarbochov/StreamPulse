@@ -9,6 +9,7 @@ export { $, esc };
 
 let state = {
     title: 'Community Tier List',
+    theme: {},
     tiers: [],
     items: [],
     activeVote: null,
@@ -57,9 +58,22 @@ export async function fetchState() {
     return state;
 }
 
+let lastVoteCancelled = false;
+
+export function consumeLastVoteCancelled() {
+    const cancelled = lastVoteCancelled;
+    lastVoteCancelled = false;
+    return cancelled;
+}
+
 export function setupWebSocket(onVoteUpdate) {
     return connectLiveSocket({
         onMessage: msg => {
+            if (msg.type === 'tier-list:vote-cancel') {
+                lastVoteCancelled = true;
+            } else if (msg.type === 'tier-list:vote-start' || msg.type === 'tier-list:vote-end' || msg.type === 'tier-list:vote-locked') {
+                lastVoteCancelled = false;
+            }
             if (msg.type === 'tier-list:update' || msg.type === 'tier-list:move' ||
                 msg.type === 'tier-list:vote-start' || msg.type === 'tier-list:vote-locked' ||
                 msg.type === 'tier-list:vote-end' || msg.type === 'tier-list:vote-cancel') {
@@ -171,6 +185,8 @@ export async function startVote(itemId) {
             await fetchState();
             return true;
         }
+        const errData = await res.json().catch(() => null);
+        showToast(errData?.error || 'Failed to start vote');
     } catch (err) {
         showToast('Failed to start vote');
     }
@@ -195,14 +211,43 @@ export async function lockVote() {
 
 export async function cancelVote() {
     try {
+        lastVoteCancelled = true;
         await fetch('/api/tier-list/vote/cancel', { method: 'POST' });
         showToast('Vote cancelled');
         await fetchState();
         return true;
     } catch {
+        lastVoteCancelled = false;
         showToast('Failed to cancel vote');
         return false;
     }
+}
+
+export async function focusItem(itemId) {
+    try {
+        const res = await fetch('/api/tier-list/focus', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ itemId })
+        });
+        if (res.ok) {
+            await fetchState();
+            return true;
+        }
+    } catch {}
+    showToast('Failed to focus item');
+    return false;
+}
+
+export async function clearFocus() {
+    try {
+        const res = await fetch('/api/tier-list/focus/clear', { method: 'POST' });
+        if (res.ok) {
+            await fetchState();
+            return true;
+        }
+    } catch {}
+    return false;
 }
 
 // ── Board Reset & Item Clearing ──────────────────────────────────────────────
@@ -269,7 +314,30 @@ export async function savePreset(name, description, includeItems) {
     return false;
 }
 
-// ── Settings ─────────────────────────────────────────────────────────────────
+// ── Settings & Theme ─────────────────────────────────────────────────────────
+
+export async function saveTheme(themePatch, title = undefined, settingsPatch = undefined) {
+    try {
+        const body = { theme: themePatch };
+        if (title !== undefined) body.title = title;
+        if (settingsPatch && typeof settingsPatch === 'object') body.settings = settingsPatch;
+        const res = await fetch('/api/tier-list', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        if (!res.ok) return false;
+        const updated = await res.json();
+        if (updated && typeof updated === 'object') {
+            if (updated.theme) state.theme = updated.theme;
+            if (updated.title !== undefined) state.title = updated.title;
+            if (updated.settings) state.settings = updated.settings;
+        }
+        return updated || true;
+    } catch {
+        return false;
+    }
+}
 
 export async function saveSettings(title, settings) {
     await fetch('/api/tier-list', {

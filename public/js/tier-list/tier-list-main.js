@@ -4,11 +4,11 @@
  * board interactions, live voting, and modal dialogs.
  */
 
-import { getState, $, showToast, fetchState, setupWebSocket, onStateChange, moveItem, startVote, lockVote, cancelVote, resetPlacements, clearAllItems, deleteItem, updateTiers, batchAddItems } from './tier-list-state.js';
+import { getState, $, showToast, fetchState, setupWebSocket, onStateChange, moveItem, startVote, lockVote, cancelVote, focusItem, clearFocus, resetPlacements, clearAllItems, deleteItem, updateTiers, batchAddItems } from './tier-list-state.js';
 import { TierAudio } from './tier-list-audio.js';
 import { renderBoard, renderHUD, updateHudMeters } from './tier-list-board.js';
 import { openModal, closeModal, initModalListeners } from './tier-list-modals.js';
-import { loadOverlayOptions, initPreviewOptionsListeners } from './tier-list-preview.js';
+import { loadOverlayOptions, initPreviewOptionsListeners, syncOverlayOptionsFromServer } from './tier-list-preview.js';
 
 function handleItemDrop(evt) {
     const itemId = evt.item.dataset.itemId;
@@ -67,6 +67,19 @@ function initBoardDelegation() {
         if (target.dataset.action === 'start-vote') {
             const itemId = target.dataset.itemId;
             await startVote(itemId);
+            return;
+        }
+
+        // Toggle Item Focus on Overlay
+        if (target.dataset.action === 'focus-item') {
+            const itemId = target.dataset.itemId;
+            if (state.focusedItemId === itemId) {
+                await clearFocus();
+                showToast('Focus cleared');
+            } else {
+                const ok = await focusItem(itemId);
+                if (ok) showToast('Item focused on overlay');
+            }
             return;
         }
 
@@ -305,11 +318,17 @@ function initClipboardPaste() {
 document.addEventListener('DOMContentLoaded', () => {
     onStateChange((state) => {
         if (state.settings) {
-            TierAudio.enabled = state.settings.soundEnabled !== false;
-            TierAudio.volume = (state.settings.soundVolume !== undefined ? state.settings.soundVolume : 75) / 100;
+            const rawVol = state.settings.soundVolume;
+            const volPct = (rawVol !== undefined && Number.isFinite(Number(rawVol)))
+                ? Math.min(100, Math.max(0, Number(rawVol)))
+                : 75;
+            TierAudio.volume = volPct / 100;
+            TierAudio.enabled = state.settings.chatVotingEnabled !== false && state.settings.soundEnabled !== false && TierAudio.volume > 0;
+            if (!TierAudio.enabled) TierAudio.suspend();
         }
         renderBoard(state, handleItemDrop);
         renderHUD(state);
+        syncOverlayOptionsFromServer(state);
     });
 
     initBoardDelegation();

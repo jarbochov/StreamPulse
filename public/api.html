@@ -2205,8 +2205,61 @@
             items: [
                 {
                     method: 'GET', path: '/api/tier-list',
-                    desc: 'Fetch current tier list board, items, and voting state',
-                    details: 'Returns { id, title, tiers, items, activeVote, presets, settings } including real-time consensus calculations.'
+                    desc: 'Fetch current tier list board, theme, items, and voting state',
+                    details: 'Returns { id, title, theme, tiers, items, activeVote, presets, settings } including typography/color theme configuration, banner settings, caption/auto-fit options, chatVotingEnabled, and real-time consensus calculations.'
+                },
+                {
+                    method: 'GET', path: '/api/tier-list/status',
+                    desc: 'Lightweight Bitfocus Companion polling status summary',
+                    companion: true,
+                    details: 'Returns { title, chatVotingEnabled, tierCount, itemCount, placedCount, unrankedCount, voteStatus, activeVote }. Reports voteStatus: "disabled" when settings.chatVotingEnabled is false.'
+                },
+                {
+                    method: 'PUT', path: '/api/tier-list',
+                    desc: 'Update tier list title, overlay theme, settings, or tiers',
+                    details: 'Saves overlay appearance defaults (built-in/custom theme preset, custom heading & caption fonts, color palette, framing, banner, caption/auto-fit options, layout) plus voting settings (including settings.chatVotingEnabled) and broadcasts live updates to /overlays/tier-list.html.',
+                    params: [
+                        { name: 'settings.chatVotingEnabled', desc: 'Enable or completely disable chat voting and vote prompts', values: 'boolean', default: 'true' },
+                        { name: 'theme.style', desc: 'Built-in or custom StreamPulse overlay theme preset (?theme= / ?overlay=)', values: 'dark | transparent | light | glass | cyber | fgc-evo | championship | neon | retro | ember | aurora | ocean | sunset | violet | forest | border | pill | custom', default: 'dark' },
+                        { name: 'theme.customThemeId', desc: 'Custom saved theme slug when theme.style is custom', values: 'string', default: '""' },
+                        { name: 'theme.headingFont', desc: 'Custom Google or Asset Library font for title & tier headers (?headingfont=)', values: 'string', default: '""' },
+                        { name: 'theme.fontFamily', desc: 'Custom Google or Asset Library font for item captions & labels (?font=)', values: 'string', default: '""' },
+                        { name: 'theme.fontWeight', desc: 'Font weight override (?weight=)', values: '300..900 | ""', default: '""' },
+                        { name: 'theme.fontScale', desc: 'Typography scale multiplier (?fontscale=)', values: '0.5..2.5', default: '1' },
+                        { name: 'theme.textTransform', desc: 'Case transformation override (?transform=)', values: 'none | uppercase | capitalize | lowercase | ""', default: '""' },
+                        { name: 'theme.textOutline', desc: 'Text shadow or outline color override (?outline=)', values: 'none | subtle | strong | css color', default: '""' },
+                        { name: 'theme.backgroundColor', desc: 'Board & header surface fill override (?bg=)', values: 'hex / rgba / gradient', default: '""' },
+                        { name: 'theme.rowBackgroundColor', desc: 'Tier row items surface fill override (?rowbg= / ?cardbg=)', values: 'hex / rgba / gradient', default: '""' },
+                        { name: 'theme.borderColor', desc: 'Border color override (?border=)', values: 'hex / rgba', default: '""' },
+                        { name: 'theme.textColor', desc: 'Primary text color override (?text=)', values: 'hex / rgba', default: '""' },
+                        { name: 'theme.mutedColor', desc: 'Muted label color override (?muted=)', values: 'hex / rgba', default: '""' },
+                        { name: 'theme.accentColor', desc: 'Accent & spotlight color override (?accent=)', values: 'hex / rgba', default: '""' },
+                        { name: 'theme.borderRadius', desc: 'Corner roundness override (?radius=)', values: 'px | % | rem', default: '""' },
+                        { name: 'theme.backdropBlur', desc: 'Glass backdrop blur override (?blur=)', values: '0px..24px', default: '""' },
+                        { name: 'theme.bannerUrl', desc: 'Custom top banner image URL (/custom-overlay-assets/... or https://...)', values: 'string', default: '""' },
+                        { name: 'theme.bannerMode', desc: 'Hide title for banner or keep title overlaid above gradient scrim', values: 'replace | behind', default: 'replace' },
+                        { name: 'theme.bannerHeight', desc: 'Header banner height in pixels (clamped 48–240)', values: '48..240', default: '110' },
+                        { name: 'theme.bannerFit', desc: 'Banner image scaling inside header', values: 'cover | contain', default: 'cover' },
+                        { name: 'theme.showCaptions', desc: 'Show or hide item caption labels on cards', values: 'boolean', default: 'true' },
+                        { name: 'theme.fitCaptions', desc: 'Wrap and auto-shrink long item captions to fit without ellipsis', values: 'boolean', default: 'false' },
+                        { name: 'theme.autoFit', desc: 'Dynamically scale card size & row heights so all tiers fit viewport', values: 'boolean', default: 'false' },
+                        { name: 'theme.focusEnlarge', desc: 'Enlarge artwork showcase when an item is focused or actively voting (?focusEnlarge=0|1)', values: 'boolean', default: 'false' },
+                        { name: 'theme.layout', desc: 'Board or vertical sidebar layout (?layout=)', values: 'board | sidebar', default: 'board' }
+                    ],
+                    body: '{ "title": "Community Tier List", "settings": { "chatVotingEnabled": true }, "theme": { "style": "cyber", "headingFont": "Oswald", "fontFamily": "Inter", "accentColor": "#ff0055", "borderRadius": "6px", "showCaptions": true, "fitCaptions": true, "autoFit": true, "layout": "board" } }'
+                },
+                {
+                    method: 'POST', path: '/api/tier-list/focus',
+                    desc: 'Focus / spotlight an item on the overlay without voting (also supports GET)',
+                    companion: true,
+                    details: 'Sets focusedItemId to highlight or enlarge an item on /overlays/tier-list.html. Pass { "itemId": "..." } or ?itemId=...; omit itemId to focus the first unranked item, or pass ?clear=1 to clear.',
+                    body: '{ "itemId": "tier-item-1" }'
+                },
+                {
+                    method: 'GET', path: '/api/tier-list/focus/clear',
+                    desc: 'Clear the currently focused item on the overlay (also supports POST)',
+                    companion: true,
+                    details: 'Clears focusedItemId and removes the focus spotlight from /overlays/tier-list.html.'
                 },
                 {
                     method: 'POST', path: '/api/tier-list/vote/start',

@@ -20,8 +20,14 @@ export const TierAudio = {
         }
     },
 
+    suspend() {
+        if (this.ctx && this.ctx.state === 'running') {
+            this.ctx.suspend().catch(() => {});
+        }
+    },
+
     voteStart() {
-        if (!this.enabled) return;
+        if (!this.enabled || this.volume <= 0) return;
         try {
             this.init();
             if (!this.ctx) return;
@@ -45,7 +51,7 @@ export const TierAudio = {
     },
 
     countdownTick(isFinal = false) {
-        if (!this.enabled) return;
+        if (!this.enabled || this.volume <= 0) return;
         try {
             this.init();
             if (!this.ctx) return;
@@ -65,7 +71,7 @@ export const TierAudio = {
     },
 
     voteLock() {
-        if (!this.enabled) return;
+        if (!this.enabled || this.volume <= 0) return;
         try {
             this.init();
             if (!this.ctx) return;

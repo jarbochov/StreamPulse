@@ -694,13 +694,30 @@ Control also accepts direct REST triggers like `POST`/`GET /api/timers/:id/toggl
 ## 8. Standalone Tier List & Chat Voting API
 
 ### `GET /api/tier-list`
-Fetches the current active tier list state including tiers, items, active vote, and presets.
+Fetches the current active tier list state including `title`, `theme`, `tiers`, `items`, `activeVote`, `presets`, and `settings`.
 
 ### `GET /api/tier-list/status`
-Returns a lightweight Bitfocus Companion summary (`{ title, tierCount, itemCount, placedCount, unrankedCount, voteStatus, activeVote }`).
+Returns a lightweight Bitfocus Companion summary (`{ title, chatVotingEnabled, tierCount, itemCount, placedCount, unrankedCount, voteStatus, activeVote }`). When `settings.chatVotingEnabled` is `false`, `chatVotingEnabled` is `false` and `voteStatus` reports `'disabled'`.
 
 ### `PUT /api/tier-list`
-Updates tier list configuration (title, theme, settings, or tier order).
+Updates tier list configuration (`title`, `theme`, `settings`, or `tiers`).
+
+Saved `settings.chatVotingEnabled` (boolean, default `true`) globally enables or disables chat voting; turning it off cancels any running vote and rejects new `/api/tier-list/vote/start` triggers with HTTP `409`.
+
+Saved `theme` fields drive `/overlays/tier-list.html` automatically (no OBS URL edits required), while explicit URL query parameters override any field per OBS scene:
+- **Theme Preset**: `style` (`dark`, `transparent`, `light`, `card`, `glass`, `solid`, `minimal-dark`, `fgc-evo`, `championship`, `cyber`, `neon`, `retro`, `ember`, `aurora`, `ocean`, `sunset`, `violet`, `forest`, `border`, `pill`, `custom`, `?theme=` / `?overlay=`), `customThemeId`
+- **Typography**: `headingFont` (`?headingfont=`), `fontFamily` (`?font=`), `fontWeight` (`300`..`900`, `?weight=`), `fontScale` (`0.5`..`2.5`, `?fontscale=`), `textTransform` (`none` | `uppercase` | `capitalize` | `lowercase`, `?transform=`), `textOutline` (`none` | `subtle` | `strong` | hex/css color, `?outline=`)
+- **Colors & Surface Framing**: `backgroundColor` (`?bg=`), `rowBackgroundColor` (`?rowbg=` / `?cardbg=`), `borderColor` (`?border=`), `textColor` (`?text=`), `mutedColor` (`?muted=`), `accentColor` (`?accent=`), `borderRadius` (`?radius=`), `backdropBlur` (`0px`..`24px`, `?blur=`)
+- **Banner & Header**: `bannerUrl` (`?banner=`), `bannerMode` (`replace` | `behind`, `?bannerMode=`), `bannerHeight` (`48..240` px, `?bannerHeight=`), `bannerFit` (`cover` | `contain`, `?bannerFit=`)
+- **Layout & Scaling**: `layout` (`board` | `sidebar`, `?layout=`), `autoFit` (boolean, `?autoFit=0|1`), `hideUnranked` (boolean, `?hideUnranked=0|1`)
+- **Cards & Captions**: `cardSize` (`compact` | `medium` | `large`, `?size=`), `cardAspect` (`1/1` | `3/4` | `16/9`, `?aspect=`), `cardFit` (`cover` | `contain` | `natural`, `?coverFit=`), `showCaptions` (boolean, `?captions=0|1`), `fitCaptions` (boolean, `?fitCaptions=0|1`), `focusEnlarge` (boolean, `?focusEnlarge=0|1`)
+- **Voting Hint & Audio**: `howToVote` (`auto` | `always` | `0`, `?howtovote=`), `hintScale` (`0.85`..`1.5`, `?hintScale=`), `sfx` (boolean, `?sfx=0|1`)
+
+### `POST /api/tier-list/focus` (or `GET`)
+Focuses an item on the broadcast overlay without starting a vote (useful for manual tier lists or pre-vote discussion). Pass `{ "itemId": "..." }` or `?itemId=...` (omitting `itemId` focuses the next unranked item; `?clear=1` clears focus).
+
+### `POST /api/tier-list/focus/clear` (or `GET`)
+Clears the currently focused item on the broadcast overlay.
 
 ### `POST /api/tier-list/item`
 Adds a single item to the tier list or unranked pool tray.

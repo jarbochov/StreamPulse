@@ -5,21 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>StreamPulse — Live Tier List Broadcast Overlay</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <script src="/js/overlay-theme.js"></script>
     <style>
         :root {
             --tl-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            --tl-heading-font: var(--tl-font);
+            --tl-font-weight: 700;
+            --tl-heading-weight: 800;
+            --tl-font-scale: 1;
+            --tl-text-transform: none;
+            --tl-text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+            --tl-header-shadow: none;
             --tl-bg: rgba(13, 17, 23, 0.92);
+            --tl-header-bg: var(--tl-bg);
+            --tl-row-bg: rgba(13, 17, 23, 0.7);
             --tl-border: rgba(255, 255, 255, 0.12);
             --tl-text: #f0f6fc;
             --tl-muted: #8b949e;
             --tl-accent: #3b82f6;
+            --tl-radius: 10px;
+            --tl-backdrop: none;
             --tl-card-scale: 1;
             --tl-card-size: calc(clamp(54px, 6.2cqi, 180px) * var(--tl-card-scale, 1));
-            --tl-header-width: calc(clamp(76px, 8.5cqi, 200px) * var(--tl-card-scale, 1));
+            --tl-header-width: calc(clamp(88px, 9.2cqi, 210px) * var(--tl-card-scale, 1));
             --tl-card-aspect: 1/1;
             --tl-cover-fit: cover;
             --tl-gap: clamp(6px, 0.7cqi, 12px);
             --tl-hint-scale: 1;
+            --tl-banner-height: 110px;
+            --tl-banner-fit: cover;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -44,43 +58,123 @@
             container-type: inline-size;
         }
 
-        /* Overlay Header */
+        /* Overlay Header & Custom Banner */
         .overlay-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
             padding: 8px 16px;
-            background: var(--tl-bg);
+            background: var(--tl-header-bg, var(--tl-bg));
             border: 1px solid var(--tl-border);
-            border-radius: 8px;
+            border-radius: min(var(--tl-radius, 10px), 28px);
+            backdrop-filter: var(--tl-backdrop, none);
+            -webkit-backdrop-filter: var(--tl-backdrop, none);
             box-shadow: 0 4px 16px rgba(0,0,0,0.4);
             flex-shrink: 0;
+            position: relative;
+        }
+        body.theme-transparent .overlay-header.has-banner.banner-replace {
+            background: transparent;
+            box-shadow: none;
+        }
+        .overlay-header.has-banner {
+            overflow: hidden;
+            height: var(--tl-banner-height, 110px);
+            max-height: 35vh;
+        }
+        body.layout-sidebar .overlay-header.has-banner {
+            height: var(--tl-banner-height, 110px);
+            max-height: 24vh;
+        }
+        .overlay-header.has-banner.banner-replace {
+            padding: 0;
+            justify-content: flex-end;
+        }
+        .overlay-header.has-banner.banner-replace.banner-fit-contain {
+            padding: 4px;
+        }
+        .overlay-header.has-banner.banner-replace .overlay-title {
+            display: none;
+        }
+        .overlay-header.has-banner.banner-replace .vote-badge {
+            position: absolute;
+            top: 10px;
+            right: 12px;
+            z-index: 3;
+            background: rgba(13, 17, 23, 0.88);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+        .overlay-header.has-banner.banner-behind::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            pointer-events: none;
+            background: linear-gradient(90deg, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.38) 65%, rgba(0,0,0,0.52) 100%);
+        }
+        .overlay-header.has-banner.banner-behind .overlay-title {
+            position: relative;
+            z-index: 2;
+            color: #ffffff;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.75);
+        }
+        .overlay-header.has-banner.banner-behind .vote-badge {
+            position: relative;
+            z-index: 2;
+        }
+        .overlay-banner-img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: var(--tl-banner-fit, cover);
+            object-position: center;
+            display: block;
+            z-index: 0;
         }
         .overlay-title {
-            font-size: clamp(15px, 1.6cqi, 24px);
-            font-weight: 800;
+            font-family: var(--tl-heading-font, var(--tl-font));
+            font-size: calc(clamp(15px, 1.6cqi, 24px) * var(--tl-font-scale, 1));
+            font-weight: var(--tl-heading-weight, 800);
+            text-transform: var(--tl-text-transform, none);
             letter-spacing: -0.01em;
-            color: #fff;
+            color: var(--tl-text);
+            text-shadow: var(--tl-header-shadow, none);
         }
         .vote-badge {
             display: none;
             align-items: center;
-            gap: 8px;
-            font-size: clamp(11px, 1.1cqi, 14px);
+            gap: 7px;
+            font-family: var(--tl-heading-font, var(--tl-font));
+            font-size: clamp(11px, 1.05cqi, 13px);
             font-weight: 700;
-            background: rgba(245, 158, 11, 0.2);
-            color: #fbbf24;
-            border: 1px solid rgba(245, 158, 11, 0.4);
-            padding: 4px 12px;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            background: color-mix(in srgb, var(--tl-accent, #f59e0b) 16%, transparent);
+            color: var(--tl-accent, #fbbf24);
+            border: 1px solid color-mix(in srgb, var(--tl-accent, #f59e0b) 42%, transparent);
+            padding: 4px 11px;
             border-radius: 999px;
-            animation: pulse-glow 2s infinite;
+            flex-shrink: 0;
         }
         .vote-badge.active {
             display: inline-flex;
         }
-        @keyframes pulse-glow {
+        .vote-badge-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse-dot 1.6s ease-in-out infinite;
+        }
+        .vote-badge.is-locked .vote-badge-dot {
+            animation: none;
+            opacity: 0.65;
+        }
+        @keyframes pulse-dot {
             0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.85; transform: scale(0.98); }
+            50% { opacity: 0.4; transform: scale(0.78); }
         }
 
         /* Tier Board */
@@ -88,7 +182,9 @@
             flex: 1;
             background: var(--tl-bg);
             border: 1px solid var(--tl-border);
-            border-radius: 10px;
+            border-radius: min(var(--tl-radius, 10px), 24px);
+            backdrop-filter: var(--tl-backdrop, none);
+            -webkit-backdrop-filter: var(--tl-backdrop, none);
             overflow: hidden;
             box-shadow: 0 8px 32px rgba(0,0,0,0.45);
             display: flex;
@@ -114,23 +210,43 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
+            gap: 2px;
             padding: clamp(4px, 0.5cqi, 10px);
             color: #111;
-            font-weight: 800;
-            font-size: clamp(15px, 1.8cqi, 32px);
+            font-family: var(--tl-heading-font, var(--tl-font));
+            font-weight: var(--tl-heading-weight, 800);
+            font-size: calc(clamp(15px, 1.8cqi, 32px) * var(--tl-font-scale, 1));
+            line-height: 1.1;
+            text-transform: var(--tl-text-transform, none);
             text-align: center;
+            overflow-wrap: normal;
+            word-break: normal;
+            hyphens: none;
             text-shadow: 0 1px 2px rgba(255,255,255,0.4);
             user-select: none;
+            min-height: 0;
+            overflow: hidden;
+        }
+        .overlay-row-label {
+            max-width: 100%;
+            overflow-wrap: normal;
+            word-break: normal;
+            hyphens: none;
+            line-height: 1.08;
         }
         .overlay-row-sub {
-            font-size: clamp(9px, 0.85cqi, 13px);
+            font-family: var(--tl-font);
+            font-size: calc(clamp(9px, 0.85cqi, 13px) * var(--tl-font-scale, 1));
             font-weight: 600;
-            opacity: 0.85;
+            opacity: 0.88;
             margin-top: 2px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 95%;
+            white-space: normal;
+            overflow-wrap: normal;
+            word-break: normal;
+            hyphens: none;
+            line-height: 1.15;
+            max-width: 100%;
+            text-align: center;
         }
 
         .overlay-row-items {
@@ -140,7 +256,7 @@
             align-content: flex-start;
             gap: var(--tl-gap);
             padding: var(--tl-gap);
-            background: rgba(13, 17, 23, 0.7);
+            background: var(--tl-row-bg);
             position: relative;
             overflow-y: auto;
         }
@@ -150,14 +266,17 @@
             flex-shrink: 0;
             background: var(--tl-bg);
             border: 1px solid var(--tl-border);
-            border-radius: 8px;
+            border-radius: min(var(--tl-radius, 10px), 22px);
+            backdrop-filter: var(--tl-backdrop, none);
+            -webkit-backdrop-filter: var(--tl-backdrop, none);
             padding: clamp(8px, 1cqi, 14px);
             display: flex;
             flex-direction: column;
             gap: 8px;
-            max-height: clamp(110px, 20vh, 300px);
+            max-height: clamp(136px, 24vh, 320px);
         }
         .overlay-unranked-label {
+            font-family: var(--tl-heading-font, var(--tl-font));
             font-size: clamp(10px, 0.9cqi, 12px);
             font-weight: 700;
             text-transform: uppercase;
@@ -173,16 +292,18 @@
             gap: var(--tl-gap);
             overflow-y: auto;
             min-height: 40px;
+            padding-bottom: 4px;
         }
 
         /* Item Cards */
         .card {
-            width: var(--tl-card-size);
-            height: auto;
+            height: var(--tl-card-size);
+            width: auto;
             aspect-ratio: var(--tl-card-aspect, 1/1);
-            border-radius: clamp(4px, 0.5cqi, 10px);
+            max-width: 100%;
+            border-radius: clamp(0px, min(var(--tl-radius, 10px), 16px), 16px);
             background: #111827;
-            border: 1px solid rgba(255, 255, 255, 0.15);
+            border: 1px solid var(--tl-border);
             position: relative;
             overflow: hidden;
             display: flex;
@@ -194,9 +315,34 @@
             flex-shrink: 0;
         }
 
+        body.fit-natural .card {
+            display: block;
+            width: auto;
+            height: var(--tl-card-size);
+            aspect-ratio: auto;
+            min-width: calc(var(--tl-card-size) * 0.45);
+            max-width: min(100%, calc(var(--tl-card-size) * 2.6));
+        }
+        body.fit-natural .card img {
+            position: relative;
+            inset: auto;
+            width: auto;
+            height: 100%;
+            max-width: 100%;
+            object-fit: contain;
+            display: block;
+            margin: 0 auto;
+        }
+        body.fit-natural .card-caption {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+        }
+
         .card.spotlight {
-            border-color: #fbbf24;
-            box-shadow: 0 0 16px rgba(251, 191, 36, 0.6);
+            border-color: var(--tl-accent, #fbbf24);
+            box-shadow: 0 0 16px color-mix(in srgb, var(--tl-accent, #fbbf24) 60%, transparent);
             transform: scale(1.05);
             z-index: 50;
         }
@@ -216,33 +362,212 @@
             z-index: 2;
             background: linear-gradient(transparent, rgba(0,0,0,0.88) 60%);
             padding: clamp(4px, 0.5cqi, 8px) clamp(2px, 0.3cqi, 6px) clamp(2px, 0.25cqi, 4px);
-            font-size: clamp(9px, 0.82cqi, 13px);
-            font-weight: 700;
+            font-family: var(--tl-font);
+            font-size: calc(clamp(9px, 0.82cqi, 13px) * var(--tl-font-scale, 1));
+            font-weight: var(--tl-font-weight, 700);
+            text-transform: var(--tl-text-transform, none);
             color: #fff;
             text-align: center;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
             line-height: 1.2;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+            text-shadow: var(--tl-text-shadow, 0 1px 2px rgba(0,0,0,0.8));
+        }
+
+        /* Caption Display Options */
+        body.captions-hidden .card-caption {
+            display: none;
+        }
+        body.captions-fit .card-caption {
+            white-space: normal;
+            overflow: hidden;
+            text-overflow: clip;
+            overflow-wrap: normal;
+            word-break: normal;
+            hyphens: none;
+            line-height: 1.14;
+            max-height: 84%;
+            padding: clamp(6px, 0.55cqi, 10px) clamp(3px, 0.35cqi, 6px) clamp(2px, 0.25cqi, 4px);
+            background: linear-gradient(transparent, rgba(0, 0, 0, 0.72) 22%, rgba(0, 0, 0, 0.92) 100%);
+        }
+
+        /* Auto-Fit Board Scaling */
+        body.auto-fit .overlay-row {
+            min-height: 0;
+        }
+        body.auto-fit .overlay-row-header {
+            width: var(--tl-fit-header-width, var(--tl-header-width));
+            font-size: var(--tl-fit-header-font, clamp(12px, 1.8cqi, 32px));
+            padding: clamp(2px, 0.35cqi, 8px);
+        }
+        body.auto-fit .overlay-row-sub {
+            font-size: var(--tl-fit-sub-font, 10px);
+        }
+        body.auto-fit .overlay-row-items {
+            gap: var(--tl-fit-gap, var(--tl-gap));
+            padding: var(--tl-fit-gap, var(--tl-gap));
+            overflow: hidden;
+        }
+        body.auto-fit .overlay-row-items .card {
+            height: var(--tl-fit-card-size, var(--tl-card-size));
+            width: auto;
+        }
+        body.auto-fit.fit-natural .overlay-row-items .card {
+            min-width: calc(var(--tl-fit-card-size, var(--tl-card-size)) * 0.45);
+            max-width: min(100%, calc(var(--tl-fit-card-size, var(--tl-card-size)) * 2.6));
+        }
+        body.auto-fit .overlay-unranked-items .card {
+            height: min(var(--tl-fit-card-size, var(--tl-card-size)), 84px);
+            width: auto;
+        }
+
+        /* Focus & Enlarge Artwork Stage */
+        .overlay-focus-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(5, 8, 14, 0.56);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            z-index: 900;
+            pointer-events: none;
+        }
+        .overlay-focus-backdrop.active {
+            display: block;
+        }
+        .overlay-focus-stage {
+            display: none;
+            position: fixed;
+            left: 50%;
+            top: 46%;
+            transform: translate(-50%, -50%);
+            z-index: 950;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            padding: 14px;
+            background: var(--tl-header-bg, var(--tl-bg));
+            border: 2px solid var(--tl-accent, #3b82f6);
+            border-radius: min(var(--tl-radius, 12px), 20px);
+            backdrop-filter: var(--tl-backdrop, blur(12px));
+            -webkit-backdrop-filter: var(--tl-backdrop, blur(12px));
+            box-shadow: 0 18px 50px rgba(0, 0, 0, 0.65);
+            max-width: min(440px, calc(100% - 32px));
+            pointer-events: none;
+            animation: focusPopIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .overlay-focus-stage.active {
+            display: flex;
+        }
+        body.has-active-vote .overlay-focus-stage.active {
+            top: auto;
+            bottom: clamp(126px, 16vh, 175px);
+            transform: translateX(-50%);
+        }
+        body.layout-sidebar .overlay-focus-stage.active {
+            left: auto;
+            right: 12px;
+            top: 44%;
+            transform: translateY(-50%);
+            width: min(416px, calc(100% - 24px));
+            max-width: min(416px, calc(100% - 24px));
+            padding: 10px;
+        }
+        body.layout-sidebar.has-active-vote .overlay-focus-stage.active {
+            top: auto;
+            bottom: 162px;
+            transform: none;
+        }
+        @keyframes focusPopIn {
+            from { opacity: 0; scale: 0.94; }
+            to { opacity: 1; scale: 1; }
+        }
+        .focus-stage-frame {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.35);
+            border-radius: calc(min(var(--tl-radius, 10px), 14px));
+            overflow: hidden;
+            border: 1px solid var(--tl-border);
+            max-width: 100%;
+        }
+        .focus-stage-img {
+            display: block;
+            max-width: min(390px, 42vw);
+            max-height: min(390px, 44vh);
+            min-width: 160px;
+            min-height: 160px;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+        }
+        body.layout-sidebar .focus-stage-img {
+            max-width: min(360px, 76vw);
+            max-height: min(320px, 34vh);
+        }
+        .focus-stage-meta {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            text-align: center;
+            max-width: 100%;
+        }
+        .focus-stage-badge {
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: color-mix(in srgb, var(--tl-accent, #3b82f6) 22%, transparent);
+            color: var(--tl-accent, #93c5fd);
+            border: 1px solid color-mix(in srgb, var(--tl-accent, #3b82f6) 45%, transparent);
+        }
+        .focus-stage-title {
+            font-family: var(--tl-heading-font, var(--tl-font));
+            font-size: calc(clamp(16px, 1.5cqi, 22px) * var(--tl-font-scale, 1));
+            font-weight: var(--tl-heading-weight, 800);
+            text-transform: var(--tl-text-transform, none);
+            color: var(--tl-text);
+            text-shadow: var(--tl-header-shadow, none);
+            line-height: 1.2;
+        }
+        .focus-stage-note {
+            font-size: 12px;
+            color: var(--tl-muted);
+            line-height: 1.3;
+            max-width: 360px;
+        }
+        body.focus-enlarge-active #hud-img {
+            display: none !important;
         }
 
         /* Active Vote Banner Overlay */
         .vote-hud-overlay {
             display: none;
             position: fixed;
-            bottom: clamp(16px, 3vw, 32px);
+            bottom: clamp(14px, 2.2vh, 28px);
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(13, 17, 23, 0.95);
-            border: 2px solid #fbbf24;
-            border-radius: 12px;
-            padding: 10px 20px;
+            width: max-content;
+            max-width: min(780px, calc(100% - 28px));
+            background: var(--tl-header-bg, var(--tl-bg));
+            border: 2px solid var(--tl-accent, #fbbf24);
+            border-radius: min(var(--tl-radius, 12px), 18px);
+            backdrop-filter: var(--tl-backdrop, blur(12px));
+            -webkit-backdrop-filter: var(--tl-backdrop, blur(12px));
+            padding: 10px 16px 12px;
             align-items: center;
-            gap: 16px;
+            gap: 14px;
             box-shadow: 0 12px 40px rgba(0,0,0,0.6);
             z-index: 1000;
+            overflow: hidden;
             animation: hudSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            font-family: var(--tl-font);
+            color: var(--tl-text);
         }
         .vote-hud-overlay.active {
             display: flex;
@@ -252,36 +577,125 @@
             from { opacity: 0; transform: translate(-50%, 20px); }
             to { opacity: 1; transform: translate(-50%, 0); }
         }
+        @keyframes hudSlideUpSidebar {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
 
         .hud-voter-img {
-            width: clamp(48px, 4.5cqi, 76px);
-            height: clamp(48px, 4.5cqi, 76px);
-            border-radius: 6px;
+            width: clamp(46px, 4.2cqi, 68px);
+            height: clamp(46px, 4.2cqi, 68px);
+            border-radius: 7px;
             object-fit: var(--tl-cover-fit, cover);
-            border: 2px solid #fbbf24;
+            border: 2px solid var(--tl-accent, #fbbf24);
             background: #111827;
+            flex-shrink: 0;
         }
         .hud-voter-text {
             display: flex;
             flex-direction: column;
-            gap: 2px;
+            gap: 4px;
+            min-width: 0;
+            flex: 1;
+        }
+        .hud-title-row {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            flex-wrap: wrap;
         }
         .hud-voter-title {
-            font-size: 15px;
-            font-weight: 800;
-            color: #fff;
+            font-family: var(--tl-heading-font, var(--tl-font));
+            font-size: calc(clamp(14px, 1.25cqi, 17px) * var(--tl-font-scale, 1));
+            font-weight: var(--tl-heading-weight, 800);
+            text-transform: var(--tl-text-transform, none);
+            color: var(--tl-text);
+            line-height: 1.15;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 340px;
         }
-        .hud-voter-cmd {
-            font-size: 12px;
+        .hud-cmd {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 5px;
+            font-size: calc(12px * var(--tl-hint-scale, 1));
             color: var(--tl-muted);
+            line-height: 1.25;
         }
-        .hud-voter-cmd strong {
-            color: #fbbf24;
+        .hud-cmd code {
+            font-family: var(--tl-heading-font, var(--tl-font));
+            font-weight: 800;
+            color: var(--tl-accent, #fbbf24);
+            background: color-mix(in srgb, var(--tl-accent, #fbbf24) 16%, transparent);
+            border: 1px solid color-mix(in srgb, var(--tl-accent, #fbbf24) 45%, transparent);
+            padding: 1px 7px;
+            border-radius: 5px;
+            font-size: 0.98em;
+            white-space: nowrap;
+        }
+        .cmd-example {
+            opacity: 0.92;
+            white-space: nowrap;
+        }
+        .cmd-example strong {
+            color: var(--tl-text);
+            font-weight: 700;
+        }
+        .hud-right {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+        .hud-right-top {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .hud-timer-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 9px;
+            border-radius: 999px;
+            font-family: var(--tl-heading-font, var(--tl-font));
+            font-size: 13px;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--tl-border);
+            color: var(--tl-text);
+        }
+        .hud-timer-pill.is-urgent {
+            background: rgba(239, 68, 68, 0.22);
+            border-color: rgba(239, 68, 68, 0.6);
+            color: #fca5a5;
+        }
+        .hud-timer-pill.is-locked {
+            background: rgba(245, 158, 11, 0.2);
+            border-color: rgba(245, 158, 11, 0.55);
+            color: #fcd34d;
+        }
+        .hud-right-bottom {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .hud-vote-count-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--tl-muted);
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
         }
 
         .hud-breakdown-bar {
-            width: 180px;
-            height: 8px;
+            width: 140px;
+            height: 7px;
             border-radius: 4px;
             background: rgba(255,255,255,0.1);
             overflow: hidden;
@@ -293,12 +707,32 @@
         }
 
         .hud-consensus-pill {
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 800;
-            padding: 4px 10px;
+            padding: 3px 9px;
             border-radius: 6px;
-            color: #000;
+            color: #111827;
             background: #fbbf24;
+            white-space: nowrap;
+        }
+
+        .hud-timer-track {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.08);
+            overflow: hidden;
+        }
+        .hud-timer-fill {
+            height: 100%;
+            width: 100%;
+            background: var(--tl-accent, #fbbf24);
+            transition: width 0.95s linear;
+        }
+        .hud-timer-fill.is-urgent {
+            background: #ef4444;
         }
 
         .hud-stat-pill {
@@ -355,14 +789,15 @@
             align-items: center;
             gap: calc(10px * var(--tl-hint-scale, 1));
             padding: calc(7px * var(--tl-hint-scale, 1)) calc(16px * var(--tl-hint-scale, 1));
-            background: rgba(13, 17, 23, 0.96);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: calc(8px * var(--tl-hint-scale, 1));
+            background: var(--tl-header-bg, var(--tl-bg));
+            backdrop-filter: var(--tl-backdrop, blur(12px));
+            -webkit-backdrop-filter: var(--tl-backdrop, blur(12px));
+            border: 1px solid var(--tl-border);
+            border-radius: calc(min(var(--tl-radius, 8px), 18px) * var(--tl-hint-scale, 1));
+            font-family: var(--tl-font);
             font-size: calc(clamp(12px, 1.15cqi, 16px) * var(--tl-hint-scale, 1));
-            color: #ffffff;
-            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.65);
+            color: var(--tl-text);
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
             flex-shrink: 0;
             transition: opacity 0.25s ease, transform 0.25s ease;
             overflow: hidden;
@@ -371,7 +806,7 @@
             display: flex;
         }
         .how-to-vote-icon {
-            color: #fbbf24;
+            color: var(--tl-accent, #fbbf24);
             flex-shrink: 0;
             display: flex;
             align-items: center;
@@ -392,18 +827,18 @@
         .how-to-vote-label {
             font-weight: 700;
             letter-spacing: -0.01em;
-            color: #ffffff;
+            color: var(--tl-text);
             display: inline-flex;
             align-items: center;
             gap: 6px;
             white-space: nowrap;
         }
         .how-to-vote-cmd code {
-            font-family: inherit;
+            font-family: var(--tl-heading-font, var(--tl-font));
             font-weight: 800;
-            color: #fbbf24;
-            background: rgba(251, 191, 36, 0.2);
-            border: 1px solid rgba(251, 191, 36, 0.5);
+            color: var(--tl-accent, #fbbf24);
+            background: color-mix(in srgb, var(--tl-accent, #fbbf24) 18%, transparent);
+            border: 1px solid color-mix(in srgb, var(--tl-accent, #fbbf24) 48%, transparent);
             padding: calc(2px * var(--tl-hint-scale, 1)) calc(8px * var(--tl-hint-scale, 1));
             border-radius: calc(5px * var(--tl-hint-scale, 1));
             font-size: 1.05em;
@@ -414,7 +849,7 @@
             display: inline-flex;
             align-items: center;
             gap: calc(5px * var(--tl-hint-scale, 1));
-            color: #94a3b8;
+            color: var(--tl-muted);
             font-size: 0.95em;
             white-space: nowrap;
         }
@@ -428,39 +863,24 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.3);
         }
 
-        /* Light Theme Overrides */
-        body.theme-light {
-            color: #0f172a;
-        }
+        /* Theme Accent & Light Shadow Adjustments */
         body.theme-light .overlay-header,
         body.theme-light .overlay-board,
         body.theme-light .overlay-unranked {
-            background: #ffffff;
-            border-color: rgba(0, 0, 0, 0.12);
             box-shadow: 0 4px 16px rgba(0,0,0,0.08);
         }
-        body.theme-light .overlay-title {
-            color: #0f172a;
-        }
-        body.theme-light .overlay-row-items {
-            background: #f8fafc;
-        }
         body.theme-light .overlay-how-to-vote {
-            background: #ffffff;
-            border-color: rgba(0, 0, 0, 0.2);
-            color: #0f172a;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
         }
-        body.theme-light .how-to-vote-label {
-            color: #0f172a;
-        }
         body.theme-light .how-to-vote-cmd code {
-            color: #b45309;
-            background: #fef3c7;
-            border-color: #fcd34d;
+            background: color-mix(in srgb, var(--tl-accent, #0969da) 12%, transparent);
+            border-color: color-mix(in srgb, var(--tl-accent, #0969da) 36%, transparent);
         }
-        body.theme-light .how-to-vote-choices {
-            color: #475569;
+        body.theme-neon .overlay-board,
+        body.theme-cyber .overlay-board,
+        body.theme-neon .overlay-header,
+        body.theme-cyber .overlay-header {
+            box-shadow: 0 0 22px color-mix(in srgb, var(--tl-border) 35%, transparent), 0 8px 32px rgba(0,0,0,0.5);
         }
 
         /* Sidebar Layout Mode */
@@ -471,27 +891,56 @@
         body.layout-sidebar .overlay-row {
             min-height: 56px;
         }
+        body.layout-sidebar .vote-hud-overlay {
+            left: auto;
+            right: 12px;
+            transform: none;
+            width: min(416px, calc(100% - 24px));
+            max-width: min(416px, calc(100% - 24px));
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 10px 12px 12px;
+            animation: hudSlideUpSidebar 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        body.layout-sidebar .hud-voter-title {
+            max-width: 260px;
+        }
+        body.layout-sidebar .hud-right {
+            width: 100%;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            border-top: 1px solid var(--tl-border);
+            padding-top: 7px;
+        }
+        body.layout-sidebar .hud-breakdown-bar {
+            width: 90px;
+        }
+        body.layout-sidebar .hud-voters-ticker {
+            display: none !important;
+        }
     </style>
 </head>
 <body>
 
     <div id="overlay-container">
         <div class="overlay-header" id="overlay-header">
+            <img id="overlay-banner-img" class="overlay-banner-img" alt="" style="display:none;">
             <div class="overlay-title" id="overlay-title">Community Tier List</div>
             <div class="vote-badge" id="overlay-vote-badge">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                <span>Live Chat Vote Active &middot; <strong id="overlay-timer">30s</strong></span>
+                <span class="vote-badge-dot"></span>
+                <span id="overlay-vote-status">Live Vote</span>
             </div>
         </div>
 
-        <!-- Toggleable Voting Instructions Hint Ribbon -->
+        <!-- Toggleable Voting Instructions Hint Ribbon (Idle State Only) -->
         <div class="overlay-how-to-vote" id="overlay-how-to-vote">
             <div class="how-to-vote-icon">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
             </div>
             <div class="how-to-vote-content">
                 <span class="how-to-vote-label" id="how-to-vote-label">Vote in chat:</span>
-                <span class="how-to-vote-cmd"><code>!tier &lt;tier&gt;</code></span>
+                <span class="how-to-vote-cmd" id="how-to-vote-cmd"><code>!tier</code></span>
                 <span class="how-to-vote-choices" id="how-to-vote-choices"></span>
             </div>
         </div>
@@ -510,190 +959,405 @@
         </div>
     </div>
 
+    <!-- Focus & Enlarge Artwork Stage -->
+    <div id="overlay-focus-backdrop" class="overlay-focus-backdrop"></div>
+    <div id="overlay-focus-stage" class="overlay-focus-stage">
+        <div class="focus-stage-frame">
+            <img id="focus-stage-img" class="focus-stage-img" src="" alt="Focused Item">
+        </div>
+        <div class="focus-stage-meta">
+            <span id="focus-stage-badge" class="focus-stage-badge">Selected</span>
+            <div id="focus-stage-title" class="focus-stage-title">Item Name</div>
+            <div id="focus-stage-note" class="focus-stage-note" style="display:none;"></div>
+        </div>
+    </div>
+
     <!-- Active Vote Spotlight HUD -->
     <div id="vote-hud-overlay" class="vote-hud-overlay">
         <img id="hud-img" class="hud-voter-img" src="" alt="Voting Item">
         <div class="hud-voter-text">
-            <div style="display:flex;align-items:center;gap:8px;">
+            <div class="hud-title-row">
                 <div id="hud-name" class="hud-voter-title">Item Name</div>
                 <span id="hud-sub-badge" class="hud-stat-pill sub" style="display:none;"></span>
                 <span id="hud-agreement-pill" class="hud-stat-pill accent" style="display:none;"></span>
             </div>
-            <div class="hud-cmd" id="hud-cmd">Vote with <strong id="hud-cmd-syntax">!tier &lt;tier&gt;</strong> (<span id="hud-time-rem">30s</span>) &middot; <span id="hud-vote-count">0 votes</span></div>
+            <div class="hud-cmd" id="hud-cmd">Type <code id="hud-cmd-syntax">!tier</code></div>
             <div id="hud-voters-ticker" class="hud-voters-ticker" style="display:none;"></div>
         </div>
-        <div class="hud-breakdown-bar" id="hud-bar"></div>
-        <div class="hud-consensus-pill" id="hud-consensus">Consensus</div>
+        <div class="hud-right">
+            <div class="hud-right-top">
+                <div class="hud-timer-pill" id="hud-timer-pill">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <span id="hud-time-rem">30s</span>
+                </div>
+                <div class="hud-consensus-pill" id="hud-consensus" style="display:none;">Tier S</div>
+            </div>
+            <div class="hud-right-bottom">
+                <span class="hud-vote-count-label" id="hud-vote-count">Waiting for votes</span>
+                <div class="hud-breakdown-bar" id="hud-bar" style="display:none;"></div>
+            </div>
+        </div>
+        <div class="hud-timer-track" id="hud-timer-track">
+            <div class="hud-timer-fill" id="hud-timer-fill"></div>
+        </div>
     </div>
 
     <script>
         (function() {
             const urlParams = new URLSearchParams(window.location.search);
-            let layout = urlParams.get('layout') || 'board';
-            let hideUnranked = urlParams.get('hideUnranked') === '1' || urlParams.get('hideUnranked') === 'true';
-            const cardAspectParam = urlParams.get('aspect') || urlParams.get('coverRatio');
-            const themeParam = urlParams.get('theme');
+            const IS_PREVIEW = urlParams.get('preview') === '1' || urlParams.get('preview') === 'true';
 
-            if (layout === 'sidebar') {
-                document.body.classList.add('layout-sidebar');
-            }
-            if (hideUnranked) {
-                document.getElementById('overlay-unranked').style.display = 'none';
-            }
+            const $ = id => document.getElementById(id);
+            const esc = str => String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-            // Card Scale & Responsive Sizing (?size=, ?scale=, ?cardScale=, ?coverScale=)
-            const scaleParam = urlParams.get('coverScale') || urlParams.get('cardScale') || urlParams.get('scale') || urlParams.get('size');
-            let cardScale = 1.0;
-            if (scaleParam) {
-                if (scaleParam === 'compact') cardScale = 0.8;
-                else if (scaleParam === 'medium') cardScale = 1.0;
-                else if (scaleParam === 'large') cardScale = 1.35;
-                else if (scaleParam === 'xlarge') cardScale = 1.7;
-                else {
-                    const parsed = parseFloat(String(scaleParam).replace('%', ''));
-                    if (!isNaN(parsed) && parsed > 0) {
-                        cardScale = parsed > 10 ? parsed / 100 : parsed;
-                    }
-                }
-            }
-            document.documentElement.style.setProperty('--tl-card-scale', cardScale);
+            const DEFAULT_CFG = {
+                layout: 'board',
+                hideUnranked: false,
+                size: 'medium',
+                aspect: '1/1',
+                coverFit: 'cover',
+                style: 'dark',
+                customThemeId: '',
+                headingFont: '',
+                fontFamily: '',
+                fontWeight: '',
+                fontScale: 1,
+                textTransform: '',
+                textOutline: '',
+                backgroundColor: '',
+                rowBackgroundColor: '',
+                borderColor: '',
+                textColor: '',
+                mutedColor: '',
+                accentColor: '',
+                borderRadius: '',
+                backdropBlur: '',
+                bannerUrl: '',
+                bannerMode: 'replace',
+                bannerHeight: 110,
+                bannerFit: 'cover',
+                showCaptions: true,
+                fitCaptions: false,
+                autoFit: false,
+                focusEnlarge: false,
+                howToVote: 'auto',
+                hintScale: '1',
+                hintText: '',
+                sfx: true,
+                title: '',
+                useSampleData: false
+            };
 
-            // Artwork Fit (?coverFit=cover|contain|fill|natural)
-            const coverFitParam = (urlParams.get('coverFit') || urlParams.get('coverfit') || urlParams.get('fit') || 'cover').toLowerCase();
-            if (['cover', 'contain', 'fill', 'natural'].includes(coverFitParam)) {
-                document.documentElement.style.setProperty('--tl-cover-fit', coverFitParam);
-            }
+            const FALLBACK_FONT_STACK = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
-            if (cardAspectParam) {
-                document.documentElement.style.setProperty('--tl-card-aspect', cardAspectParam);
-            }
-
-            // Voting Hint Font Scaling (?hintScale=, ?hintSize=, ?voteScale=)
-            const hintScaleParam = urlParams.get('hintScale') || urlParams.get('hintscale') || urlParams.get('voteScale') || urlParams.get('hintSize');
-            let hintScale = 1.0;
-            if (hintScaleParam) {
-                if (hintScaleParam === 'compact' || hintScaleParam === 'small') hintScale = 0.85;
-                else if (hintScaleParam === 'medium' || hintScaleParam === 'normal') hintScale = 1.0;
-                else if (hintScaleParam === 'large') hintScale = 1.25;
-                else if (hintScaleParam === 'xlarge' || hintScaleParam === 'xl') hintScale = 1.5;
-                else {
-                    const parsed = parseFloat(String(hintScaleParam).replace('%', ''));
-                    if (!isNaN(parsed) && parsed > 0) {
-                        hintScale = parsed > 10 ? parsed / 100 : parsed;
-                    }
-                }
-            } else if (scaleParam === 'compact') {
-                hintScale = 0.9;
-            } else if (scaleParam === 'large' || scaleParam === 'xlarge') {
-                hintScale = 1.2;
-            }
-            document.documentElement.style.setProperty('--tl-hint-scale', hintScale);
-
-            // Theme Styling (?theme=transparent|light|dark)
-            if (themeParam === 'transparent') {
-                document.documentElement.style.setProperty('--tl-bg', 'transparent');
-                document.documentElement.style.setProperty('--tl-border', 'transparent');
-                const hdr = document.getElementById('overlay-header');
-                if (hdr) hdr.style.background = 'rgba(13, 17, 23, 0.88)';
-            } else if (themeParam === 'light') {
-                document.body.classList.add('theme-light');
-                document.documentElement.style.setProperty('--tl-bg', '#ffffff');
-                document.documentElement.style.setProperty('--tl-border', 'rgba(0, 0, 0, 0.12)');
-                document.documentElement.style.setProperty('--tl-text', '#0f172a');
-                document.documentElement.style.setProperty('--tl-muted', '#64748b');
+            function parseBoolParam(raw) {
+                if (raw === null || raw === undefined) return undefined;
+                const s = String(raw).trim().toLowerCase();
+                if (['1', 'true', 'yes', 'on'].includes(s)) return true;
+                if (['0', 'false', 'no', 'off'].includes(s)) return false;
+                return undefined;
             }
 
-            let sfxParam = urlParams.get('sfx');
-            let sfxEnabled = sfxParam !== '0' && sfxParam !== 'false';
+            function sanitizeBannerUrl(raw) {
+                const val = String(raw ?? '').trim();
+                if (!val) return '';
+                if (val.startsWith('/') && !val.startsWith('//')) return val;
+                if (/^https?:\/\//i.test(val)) return val;
+                if (/^data:image\/[a-z0-9.+-]+;/i.test(val)) return val;
+                return '';
+            }
 
-            window.addEventListener('message', (e) => {
-                if (!e.data || e.data.type !== 'tierlist:preview-config') return;
-                const opts = e.data.options || {};
-                if (opts.layout) {
-                    layout = opts.layout;
-                    document.body.classList.toggle('layout-sidebar', layout === 'sidebar');
+            function cleanCssColor(raw) {
+                const val = String(raw ?? '').trim();
+                if (!val || val.length > 160) return '';
+                if (/[;{}<>]|url\s*\(|expression/i.test(val)) return '';
+                if (/^[0-9a-f]{3}([0-9a-f]{3}([0-9a-f]{2})?)?$/i.test(val)) return `#${val}`;
+                if (/^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([0-9.,%\s/+-]+\)|transparent|[a-z]{3,20})$/i.test(val)) return val;
+                if (/^linear-gradient\(\s*[a-z0-9#(),.%\s+-]+\)$/i.test(val)) return val;
+                return '';
+            }
+
+            function cleanFontName(raw) {
+                return String(raw ?? '').replace(/["'<>;{}\\]/g, '').trim().slice(0, 80);
+            }
+
+            function cleanWeight(raw) {
+                const w = String(raw ?? '').trim().toLowerCase();
+                if (!w) return '';
+                if (w === 'normal') return '400';
+                if (w === 'bold') return '700';
+                return /^[1-9]00$/.test(w) ? w : '';
+            }
+
+            function cleanTransform(raw) {
+                const t = String(raw ?? '').trim().toLowerCase();
+                return ['none', 'uppercase', 'capitalize', 'lowercase'].includes(t) ? t : '';
+            }
+
+            function cleanOutline(raw) {
+                const o = String(raw ?? '').trim().toLowerCase();
+                if (!o) return '';
+                if (['none', 'subtle', 'strong'].includes(o)) return o;
+                return cleanCssColor(raw);
+            }
+
+            function cleanRadius(raw) {
+                const v = String(raw ?? '').trim().toLowerCase();
+                if (!v) return '';
+                if (/^\d+$/.test(v)) return `${Math.min(999, Math.max(0, Number(v)))}px`;
+                if (/^\d+(\.\d+)?(px|rem|em|%)$/.test(v)) return v;
+                if (v === 'pill' || v === 'full') return '999px';
+                if (v === 'sharp' || v === 'none' || v === 'square') return '0px';
+                return '';
+            }
+
+            function cleanBlur(raw) {
+                const v = String(raw ?? '').trim().toLowerCase();
+                if (!v) return '';
+                if (v === 'none') return '0px';
+                if (/^\d+(\.\d+)?$/.test(v)) return `${Math.min(24, Math.max(0, Math.round(Number(v))))}px`;
+                if (/^\d+(\.\d+)?px$/.test(v)) return `${Math.min(24, Math.max(0, Math.round(parseFloat(v))))}px`;
+                if (/^blur\(\d+(\.\d+)?px\)(\s+saturate\(\d+%\))?$/i.test(v)) return v;
+                return '';
+            }
+
+            function cleanFontScale(raw) {
+                const n = Number(raw);
+                if (Number.isFinite(n) && n > 0) {
+                    return Math.round(Math.min(2.5, Math.max(0.5, n)) * 100) / 100;
                 }
-                if (opts.hideUnranked !== undefined) {
-                    hideUnranked = Boolean(opts.hideUnranked);
-                    if (hideUnranked) $('overlay-unranked').style.display = 'none';
+                return 1;
+            }
+
+            function resolveBaseTheme(styleId, customThemeId = '') {
+                const id = String(styleId || 'dark').trim().toLowerCase();
+                if (id === 'dark') {
+                    return {
+                        id: 'dark',
+                        bg: 'rgba(13, 17, 23, 0.92)',
+                        headerBg: 'rgba(13, 17, 23, 0.92)',
+                        rowBg: 'rgba(13, 17, 23, 0.7)',
+                        border: 'rgba(255, 255, 255, 0.12)',
+                        text: '#f0f6fc',
+                        muted: '#8b949e',
+                        accent: '#3b82f6',
+                        radius: '10px',
+                        backdrop: 'none',
+                        isLight: false,
+                        isTransparent: false
+                    };
                 }
-                if (opts.size) {
-                    const sizeScales = { compact: 0.8, medium: 1, large: 1.35, xlarge: 1.7 };
-                    const parsed = parseFloat(String(opts.size).replace('%', ''));
-                    cardScale = sizeScales[opts.size] || (Number.isFinite(parsed) && parsed > 0 ? (parsed > 10 ? parsed / 100 : parsed) : cardScale);
-                    document.documentElement.style.setProperty('--tl-card-scale', cardScale);
+                if (id === 'light' || id === 'clean-light') {
+                    return {
+                        id: 'light',
+                        bg: '#ffffff',
+                        headerBg: '#ffffff',
+                        rowBg: '#f8fafc',
+                        border: 'rgba(0, 0, 0, 0.12)',
+                        text: '#0f172a',
+                        muted: '#64748b',
+                        accent: '#0969da',
+                        radius: '10px',
+                        backdrop: 'none',
+                        isLight: true,
+                        isTransparent: false
+                    };
                 }
-                if (opts.aspect) {
-                    document.documentElement.style.setProperty('--tl-card-aspect', opts.aspect);
+                if (id === 'transparent') {
+                    return {
+                        id: 'transparent',
+                        bg: 'transparent',
+                        headerBg: 'rgba(13, 17, 23, 0.88)',
+                        rowBg: 'rgba(13, 17, 23, 0.68)',
+                        border: 'transparent',
+                        text: '#f0f6fc',
+                        muted: '#cbd5e1',
+                        accent: '#38bdf8',
+                        radius: '10px',
+                        backdrop: 'none',
+                        isLight: false,
+                        isTransparent: true
+                    };
                 }
-                if (opts.coverFit && ['cover', 'contain', 'fill', 'natural'].includes(opts.coverFit)) {
-                    document.documentElement.style.setProperty('--tl-cover-fit', opts.coverFit);
+                const lookupKey = (id === 'custom' && customThemeId) ? customThemeId : id;
+                const matched = window.OverlayThemes && typeof window.OverlayThemes.getTheme === 'function'
+                    ? window.OverlayThemes.getTheme(lookupKey)
+                    : null;
+                if (matched) {
+                    const bg = matched.bg || matched.cardBg || 'rgba(13, 17, 23, 0.92)';
+                    const rowBg = matched.cardBg || 'rgba(13, 17, 23, 0.72)';
+                    return {
+                        id: matched.id || id,
+                        bg,
+                        headerBg: bg === 'transparent' ? 'rgba(13, 17, 23, 0.88)' : bg,
+                        rowBg,
+                        border: matched.border || 'rgba(255, 255, 255, 0.14)',
+                        text: matched.text || '#f0f6fc',
+                        muted: matched.muted || '#8b949e',
+                        accent: matched.accent || '#3b82f6',
+                        radius: matched.radius || '10px',
+                        backdrop: matched.backdrop || 'none',
+                        font: matched.font || '',
+                        headingFont: matched.headingFont || '',
+                        weight: matched.weight || '',
+                        textTransform: matched.textTransform || '',
+                        outline: matched.outline || '',
+                        isLight: matched.id === 'clean-light',
+                        isTransparent: matched.bg === 'transparent'
+                    };
                 }
-                if (opts.theme) {
-                    const t = String(opts.theme).toLowerCase();
-                    if (t === 'transparent') {
-                        document.body.classList.remove('theme-light');
-                        document.documentElement.style.setProperty('--tl-bg', 'transparent');
-                        document.documentElement.style.setProperty('--tl-border', 'transparent');
-                        document.documentElement.style.setProperty('--tl-text', '#f0f6fc');
-                        document.documentElement.style.setProperty('--tl-muted', '#8b949e');
-                        const header = document.getElementById('overlay-header');
-                        if (header) header.style.background = 'rgba(13, 17, 23, 0.88)';
-                    } else if (t === 'light') {
-                        document.body.classList.add('theme-light');
-                        document.documentElement.style.setProperty('--tl-bg', '#ffffff');
-                        document.documentElement.style.setProperty('--tl-border', 'rgba(0, 0, 0, 0.12)');
-                        document.documentElement.style.setProperty('--tl-text', '#0f172a');
-                        document.documentElement.style.setProperty('--tl-muted', '#64748b');
-                    } else {
-                        document.body.classList.remove('theme-light');
-                        document.documentElement.style.setProperty('--tl-bg', '#0d1117');
-                        document.documentElement.style.setProperty('--tl-border', 'rgba(255, 255, 255, 0.1)');
-                        document.documentElement.style.setProperty('--tl-text', '#f0f6fc');
-                        document.documentElement.style.setProperty('--tl-muted', '#8b949e');
-                        const header = document.getElementById('overlay-header');
-                        if (header) header.style.removeProperty('background');
-                    }
+                return resolveBaseTheme('dark');
+            }
+
+            function parseScaleNumber(raw) {
+                if (!raw) return 1.0;
+                const s = String(raw).trim().toLowerCase();
+                if (s === 'compact' || s === 'small') return 0.8;
+                if (s === 'medium' || s === 'normal') return 1.0;
+                if (s === 'large') return 1.35;
+                if (s === 'xlarge' || s === 'xl') return 1.7;
+                const parsed = parseFloat(s.replace('%', ''));
+                if (Number.isFinite(parsed) && parsed > 0) {
+                    return parsed > 10 ? parsed / 100 : parsed;
                 }
-                if (opts.howToVote !== undefined) {
-                    howToVoteParam = String(opts.howToVote);
-                    isHintExplicitOff = ['0', 'false', 'none', 'hide'].includes(howToVoteParam);
-                    isHintExplicitAlways = ['always', 'test'].includes(howToVoteParam);
-                    updateVotingHint(currentState);
-                }
-                if (opts.hintScale) {
-                    const parsed = parseFloat(String(opts.hintScale).replace('%', ''));
+                return 1.0;
+            }
+
+            function parseHintScaleNumber(raw, fallbackSize) {
+                if (raw !== undefined && raw !== null && String(raw).trim() !== '') {
+                    const s = String(raw).trim().toLowerCase();
+                    if (s === 'compact' || s === 'small') return 0.85;
+                    if (s === 'medium' || s === 'normal') return 1.0;
+                    if (s === 'large') return 1.25;
+                    if (s === 'xlarge' || s === 'xl') return 1.5;
+                    const parsed = parseFloat(s.replace('%', ''));
                     if (Number.isFinite(parsed) && parsed > 0) {
-                        hintScale = parsed > 10 ? parsed / 100 : parsed;
-                        document.documentElement.style.setProperty('--tl-hint-scale', hintScale);
+                        return parsed > 10 ? parsed / 100 : parsed;
                     }
                 }
-                if (opts.hintText !== undefined) {
-                    customHintText = opts.hintText;
-                    updateVotingHint(currentState);
-                }
-                if (opts.sfx !== undefined) {
-                    sfxParam = String(opts.sfx);
-                    sfxEnabled = sfxParam !== '0' && sfxParam !== 'false';
-                    TierAudio.enabled = sfxEnabled;
-                }
-                if (currentState) renderOverlay(currentState);
-            });
+                if (fallbackSize === 'compact') return 0.9;
+                if (fallbackSize === 'large' || fallbackSize === 'xlarge') return 1.2;
+                return 1.0;
+            }
 
-            let howToVoteParam = urlParams.get('howtovote') ?? urlParams.get('hint') ?? urlParams.get('instructions');
-            let customHintText = urlParams.get('hintText');
-            let isHintExplicitOff = howToVoteParam === '0' || howToVoteParam === 'false' || howToVoteParam === 'none' || howToVoteParam === 'hide';
-            let isHintExplicitAlways = howToVoteParam === 'always' || howToVoteParam === 'test';
+            function clampBannerHeight(raw) {
+                const n = Math.round(Number(raw));
+                return Number.isFinite(n) ? Math.min(240, Math.max(48, n)) : 110;
+            }
 
+            const urlOverrides = {};
+            const layoutQ = urlParams.get('layout');
+            if (layoutQ && ['board', 'sidebar'].includes(layoutQ.toLowerCase())) {
+                urlOverrides.layout = layoutQ.toLowerCase();
+            }
+            const hideUnrankedQ = parseBoolParam(urlParams.get('hideUnranked'));
+            if (hideUnrankedQ !== undefined) urlOverrides.hideUnranked = hideUnrankedQ;
+
+            const scaleQ = urlParams.get('coverScale') ?? urlParams.get('cardScale') ?? urlParams.get('scale') ?? urlParams.get('size');
+            if (scaleQ) urlOverrides.size = scaleQ;
+
+            const aspectQ = urlParams.get('aspect') ?? urlParams.get('coverRatio');
+            if (aspectQ) urlOverrides.aspect = aspectQ;
+
+            const coverFitQ = (urlParams.get('coverFit') ?? urlParams.get('coverfit') ?? urlParams.get('fit') ?? '').toLowerCase();
+            if (['cover', 'contain', 'fill', 'natural'].includes(coverFitQ)) urlOverrides.coverFit = coverFitQ;
+
+            const themeQ = (urlParams.get('overlay') ?? urlParams.get('theme') ?? '').trim().toLowerCase();
+            if (themeQ && /^[a-z0-9-_#]{1,40}$/i.test(themeQ)) urlOverrides.style = themeQ;
+
+            const urlHeadingFontQ = cleanFontName(urlParams.get('headingfont') ?? urlParams.get('titlefont') ?? '');
+            if (urlHeadingFontQ) urlOverrides.headingFont = urlHeadingFontQ;
+
+            const urlFontQ = cleanFontName(urlParams.get('font') ?? urlParams.get('contentfont') ?? '');
+            if (urlFontQ) urlOverrides.fontFamily = urlFontQ;
+
+            const urlWeightQ = cleanWeight(urlParams.get('weight') ?? '');
+            if (urlWeightQ) urlOverrides.fontWeight = urlWeightQ;
+
+            const urlFontScaleQ = urlParams.get('fontscale') ?? urlParams.get('fontScale');
+            if (urlFontScaleQ !== null && urlFontScaleQ !== '') urlOverrides.fontScale = cleanFontScale(urlFontScaleQ);
+
+            const urlTransformQ = cleanTransform(urlParams.get('transform') ?? urlParams.get('texttransform') ?? '');
+            if (urlTransformQ) urlOverrides.textTransform = urlTransformQ;
+
+            const urlOutlineQ = cleanOutline(urlParams.get('outline') ?? urlParams.get('shadow') ?? '');
+            if (urlOutlineQ) urlOverrides.textOutline = urlOutlineQ;
+
+            const urlBgQ = cleanCssColor(urlParams.get('bg') ?? '');
+            if (urlBgQ) urlOverrides.backgroundColor = urlBgQ;
+
+            const urlRowBgQ = cleanCssColor(urlParams.get('rowbg') ?? urlParams.get('cardbg') ?? urlParams.get('card_bg') ?? '');
+            if (urlRowBgQ) urlOverrides.rowBackgroundColor = urlRowBgQ;
+
+            const urlBorderQ = cleanCssColor(urlParams.get('border') ?? urlParams.get('bordercolor') ?? '');
+            if (urlBorderQ) urlOverrides.borderColor = urlBorderQ;
+
+            const urlTextQ = cleanCssColor(urlParams.get('text') ?? urlParams.get('textcolor') ?? '');
+            if (urlTextQ) urlOverrides.textColor = urlTextQ;
+
+            const urlMutedQ = cleanCssColor(urlParams.get('muted') ?? urlParams.get('mutedcolor') ?? '');
+            if (urlMutedQ) urlOverrides.mutedColor = urlMutedQ;
+
+            const urlAccentQ = cleanCssColor(urlParams.get('accent') ?? '');
+            if (urlAccentQ) urlOverrides.accentColor = urlAccentQ;
+
+            const urlRadiusQ = cleanRadius(urlParams.get('radius') ?? urlParams.get('roundness') ?? urlParams.get('borderradius') ?? '');
+            if (urlRadiusQ) urlOverrides.borderRadius = urlRadiusQ;
+
+            const urlBlurQ = cleanBlur(urlParams.get('blur') ?? '');
+            if (urlBlurQ) urlOverrides.backdropBlur = urlBlurQ;
+
+            const howToVoteQ = urlParams.get('howtovote') ?? urlParams.get('hint') ?? urlParams.get('instructions');
+            if (howToVoteQ !== null) urlOverrides.howToVote = String(howToVoteQ).toLowerCase();
+
+            const hintScaleQ = urlParams.get('hintScale') ?? urlParams.get('hintscale') ?? urlParams.get('voteScale') ?? urlParams.get('hintSize');
+            if (hintScaleQ) urlOverrides.hintScale = hintScaleQ;
+
+            if (urlParams.has('hintText')) urlOverrides.hintText = urlParams.get('hintText') || '';
+
+            const sfxQ = parseBoolParam(urlParams.get('sfx'));
+            if (sfxQ !== undefined) urlOverrides.sfx = sfxQ;
+
+            if (urlParams.has('banner') || urlParams.has('bannerUrl')) {
+                urlOverrides.bannerUrl = sanitizeBannerUrl(urlParams.get('banner') ?? urlParams.get('bannerUrl') ?? '');
+            }
+            const bannerModeQ = (urlParams.get('bannerMode') ?? '').toLowerCase();
+            if (['replace', 'behind'].includes(bannerModeQ)) urlOverrides.bannerMode = bannerModeQ;
+
+            if (urlParams.has('bannerHeight')) {
+                urlOverrides.bannerHeight = clampBannerHeight(urlParams.get('bannerHeight'));
+            }
+            const bannerFitQ = (urlParams.get('bannerFit') ?? '').toLowerCase();
+            if (['cover', 'contain'].includes(bannerFitQ)) urlOverrides.bannerFit = bannerFitQ;
+
+            const showCaptionsQ = parseBoolParam(urlParams.get('captions') ?? urlParams.get('showCaptions'));
+            if (showCaptionsQ !== undefined) urlOverrides.showCaptions = showCaptionsQ;
+
+            const fitCaptionsQ = parseBoolParam(urlParams.get('fitCaptions'));
+            if (fitCaptionsQ !== undefined) urlOverrides.fitCaptions = fitCaptionsQ;
+
+            const autoFitQ = parseBoolParam(urlParams.get('autoFit'));
+            if (autoFitQ !== undefined) urlOverrides.autoFit = autoFitQ;
+
+            const focusEnlargeQ = parseBoolParam(urlParams.get('focusEnlarge'));
+            if (focusEnlargeQ !== undefined) urlOverrides.focusEnlarge = focusEnlargeQ;
+
+            const previewOverrides = {};
             let currentState = null;
+            let activeCfg = Object.assign({}, DEFAULT_CFG);
+            let failedBannerUrl = '';
+            let layoutRaf = 0;
             let hudInterval = null;
+            let wsSocket = null;
+            let wsReconnectTimer = null;
             let lastVoteId = null;
             let lastVoteLocked = false;
+            let lastVoteCancelled = false;
             let lastTickedSecond = null;
 
             const TierAudio = {
                 ctx: null,
-                enabled: sfxEnabled,
+                enabled: true,
                 volume: 0.75,
 
                 init() {
@@ -707,13 +1371,19 @@
                     }
                 },
 
+                suspend() {
+                    if (this.ctx && this.ctx.state === 'running') {
+                        this.ctx.suspend().catch(() => {});
+                    }
+                },
+
                 voteStart() {
-                    if (!this.enabled) return;
+                    if (!this.enabled || this.volume <= 0) return;
                     try {
                         this.init();
                         if (!this.ctx) return;
                         const now = this.ctx.currentTime;
-                        const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
+                        const notes = [523.25, 659.25, 783.99];
                         notes.forEach((freq, idx) => {
                             const osc = this.ctx.createOscillator();
                             const gain = this.ctx.createGain();
@@ -732,7 +1402,7 @@
                 },
 
                 countdownTick(isFinal = false) {
-                    if (!this.enabled) return;
+                    if (!this.enabled || this.volume <= 0) return;
                     try {
                         this.init();
                         if (!this.ctx) return;
@@ -752,7 +1422,7 @@
                 },
 
                 voteLock() {
-                    if (!this.enabled) return;
+                    if (!this.enabled || this.volume <= 0) return;
                     try {
                         this.init();
                         if (!this.ctx) return;
@@ -776,8 +1446,579 @@
                 }
             };
 
-            const $ = id => document.getElementById(id);
-            const esc = str => String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            function resolveConfig(state) {
+                const t = (state && state.theme && typeof state.theme === 'object') ? state.theme : {};
+                const cfg = Object.assign({}, DEFAULT_CFG);
+
+                if (t.layout && ['board', 'sidebar'].includes(t.layout)) cfg.layout = t.layout;
+                if (t.hideUnranked !== undefined) cfg.hideUnranked = Boolean(t.hideUnranked);
+                if (t.cardSize) cfg.size = t.cardSize;
+                if (t.cardAspect) cfg.aspect = t.cardAspect;
+                if (t.cardFit && ['cover', 'contain', 'fill', 'natural'].includes(t.cardFit)) cfg.coverFit = t.cardFit;
+                if (t.style) cfg.style = String(t.style).toLowerCase();
+                if (t.customThemeId !== undefined) cfg.customThemeId = String(t.customThemeId || '').toLowerCase();
+                if (t.headingFont !== undefined) cfg.headingFont = cleanFontName(t.headingFont);
+                if (t.fontFamily !== undefined) cfg.fontFamily = cleanFontName(t.fontFamily);
+                if (t.fontWeight !== undefined) cfg.fontWeight = cleanWeight(t.fontWeight);
+                if (t.fontScale !== undefined) cfg.fontScale = cleanFontScale(t.fontScale);
+                if (t.textTransform !== undefined) cfg.textTransform = cleanTransform(t.textTransform);
+                if (t.textOutline !== undefined) cfg.textOutline = cleanOutline(t.textOutline);
+                if (t.backgroundColor !== undefined) cfg.backgroundColor = cleanCssColor(t.backgroundColor);
+                if (t.rowBackgroundColor !== undefined) cfg.rowBackgroundColor = cleanCssColor(t.rowBackgroundColor);
+                if (t.borderColor !== undefined) cfg.borderColor = cleanCssColor(t.borderColor);
+                if (t.textColor !== undefined) cfg.textColor = cleanCssColor(t.textColor);
+                if (t.mutedColor !== undefined) cfg.mutedColor = cleanCssColor(t.mutedColor);
+                if (t.accentColor !== undefined) cfg.accentColor = cleanCssColor(t.accentColor);
+                if (t.borderRadius !== undefined) cfg.borderRadius = cleanRadius(t.borderRadius);
+                if (t.backdropBlur !== undefined) cfg.backdropBlur = cleanBlur(t.backdropBlur);
+                if (t.bannerUrl !== undefined) cfg.bannerUrl = sanitizeBannerUrl(t.bannerUrl);
+                if (t.bannerMode && ['replace', 'behind'].includes(t.bannerMode)) cfg.bannerMode = t.bannerMode;
+                if (t.bannerHeight !== undefined) cfg.bannerHeight = clampBannerHeight(t.bannerHeight);
+                if (t.bannerFit && ['cover', 'contain'].includes(t.bannerFit)) cfg.bannerFit = t.bannerFit;
+                if (t.showCaptions !== undefined) cfg.showCaptions = t.showCaptions !== false;
+                if (t.fitCaptions !== undefined) cfg.fitCaptions = Boolean(t.fitCaptions);
+                if (t.autoFit !== undefined) cfg.autoFit = Boolean(t.autoFit);
+                if (t.focusEnlarge !== undefined) cfg.focusEnlarge = Boolean(t.focusEnlarge);
+                if (t.howToVote !== undefined) cfg.howToVote = String(t.howToVote).toLowerCase();
+                if (t.hintScale !== undefined) cfg.hintScale = String(t.hintScale);
+                cfg.sfx = !(state && state.settings && state.settings.soundEnabled === false) && (t.sfx !== false);
+
+                Object.assign(cfg, urlOverrides);
+                Object.assign(cfg, previewOverrides);
+
+                if (previewOverrides.soundEnabled === false) {
+                    cfg.sfx = false;
+                }
+                if (!IS_PREVIEW) cfg.useSampleData = false;
+                return cfg;
+            }
+
+            function applyAppearance(cfg) {
+                activeCfg = cfg;
+                const docStyle = document.documentElement.style;
+
+                document.body.classList.toggle('layout-sidebar', cfg.layout === 'sidebar');
+                document.body.classList.toggle('fit-natural', cfg.coverFit === 'natural');
+                document.body.classList.toggle('captions-hidden', !cfg.showCaptions);
+                document.body.classList.toggle('captions-fit', Boolean(cfg.showCaptions && cfg.fitCaptions));
+                document.body.classList.toggle('auto-fit', Boolean(cfg.autoFit));
+                document.body.classList.toggle('focus-enlarge-enabled', Boolean(cfg.focusEnlarge));
+
+                const cardScale = parseScaleNumber(cfg.size);
+                docStyle.setProperty('--tl-card-scale', cardScale);
+                docStyle.setProperty('--tl-card-aspect', cfg.aspect || '1/1');
+                docStyle.setProperty('--tl-cover-fit', cfg.coverFit === 'natural' ? 'contain' : (cfg.coverFit || 'cover'));
+                docStyle.setProperty('--tl-hint-scale', parseHintScaleNumber(cfg.hintScale, cfg.size));
+                docStyle.setProperty('--tl-banner-height', `${clampBannerHeight(cfg.bannerHeight)}px`);
+                docStyle.setProperty('--tl-banner-fit', cfg.bannerFit === 'contain' ? 'contain' : 'cover');
+
+                Array.from(document.body.classList).forEach(cls => {
+                    if (cls.startsWith('theme-')) document.body.classList.remove(cls);
+                });
+
+                const base = resolveBaseTheme(cfg.style, cfg.customThemeId);
+                document.body.classList.add(`theme-${base.id}`);
+                if (base.isLight) document.body.classList.add('theme-light');
+                if (base.isTransparent) document.body.classList.add('theme-transparent');
+
+                const effBg = cfg.backgroundColor || base.bg;
+                const effHeaderBg = cfg.backgroundColor || base.headerBg || effBg;
+                const effRowBg = cfg.rowBackgroundColor || base.rowBg;
+                const effBorder = cfg.borderColor || base.border;
+                const effText = cfg.textColor || base.text;
+                const effMuted = cfg.mutedColor || base.muted;
+                const effAccent = cfg.accentColor || base.accent;
+                const effRadius = cfg.borderRadius || base.radius || '10px';
+
+                let effBackdrop = base.backdrop || 'none';
+                if (cfg.backdropBlur) {
+                    if (cfg.backdropBlur === '0px' || cfg.backdropBlur === 'none') {
+                        effBackdrop = 'none';
+                    } else if (/^\d+(\.\d+)?px$/.test(cfg.backdropBlur)) {
+                        effBackdrop = `blur(${cfg.backdropBlur})`;
+                    } else {
+                        effBackdrop = cfg.backdropBlur;
+                    }
+                }
+
+                docStyle.setProperty('--tl-bg', effBg);
+                docStyle.setProperty('--tl-header-bg', effHeaderBg);
+                docStyle.setProperty('--tl-row-bg', effRowBg);
+                docStyle.setProperty('--tl-border', effBorder);
+                docStyle.setProperty('--tl-text', effText);
+                docStyle.setProperty('--tl-muted', effMuted);
+                docStyle.setProperty('--tl-accent', effAccent);
+                docStyle.setProperty('--tl-radius', effRadius);
+                docStyle.setProperty('--tl-backdrop', effBackdrop);
+
+                const effFont = cfg.fontFamily || base.font || '';
+                const effHeadingFont = cfg.headingFont || base.headingFont || effFont;
+                if (effFont) {
+                    window.OverlayFonts?.loadFont?.(effFont);
+                    docStyle.setProperty('--tl-font', `"${effFont}", ${FALLBACK_FONT_STACK}`);
+                } else {
+                    docStyle.setProperty('--tl-font', FALLBACK_FONT_STACK);
+                }
+                if (effHeadingFont) {
+                    window.OverlayFonts?.loadFont?.(effHeadingFont);
+                    docStyle.setProperty('--tl-heading-font', `"${effHeadingFont}", ${FALLBACK_FONT_STACK}`);
+                } else {
+                    docStyle.setProperty('--tl-heading-font', FALLBACK_FONT_STACK);
+                }
+
+                const effWeight = cfg.fontWeight || base.weight || '';
+                docStyle.setProperty('--tl-font-weight', effWeight || '700');
+                docStyle.setProperty('--tl-heading-weight', effWeight || '800');
+                docStyle.setProperty('--tl-font-scale', cleanFontScale(cfg.fontScale));
+                docStyle.setProperty('--tl-text-transform', cfg.textTransform || base.textTransform || 'none');
+
+                const effOutline = cfg.textOutline || base.outline || '';
+                if (effOutline === 'none') {
+                    docStyle.setProperty('--tl-text-shadow', 'none');
+                    docStyle.setProperty('--tl-header-shadow', 'none');
+                } else if (effOutline === 'subtle') {
+                    docStyle.setProperty('--tl-text-shadow', '0 1px 3px rgba(0,0,0,0.75)');
+                    docStyle.setProperty('--tl-header-shadow', '0 1px 3px rgba(0,0,0,0.6)');
+                } else if (effOutline === 'strong') {
+                    docStyle.setProperty('--tl-text-shadow', '0 2px 8px rgba(0,0,0,0.95), 0 0 2px #000');
+                    docStyle.setProperty('--tl-header-shadow', '0 2px 8px rgba(0,0,0,0.95), 0 0 2px #000');
+                } else if (effOutline) {
+                    docStyle.setProperty('--tl-text-shadow', `0 0 4px ${effOutline}`);
+                    docStyle.setProperty('--tl-header-shadow', `0 0 4px ${effOutline}`);
+                } else {
+                    docStyle.setProperty('--tl-text-shadow', '0 1px 2px rgba(0,0,0,0.8)');
+                    docStyle.setProperty('--tl-header-shadow', 'none');
+                }
+
+                const headerEl = $('overlay-header');
+                const bannerImg = $('overlay-banner-img');
+                if (headerEl && bannerImg) {
+                    const cleanBanner = sanitizeBannerUrl(cfg.bannerUrl);
+                    const hasValidBanner = Boolean(cleanBanner && cleanBanner !== failedBannerUrl);
+                    if (hasValidBanner) {
+                        if (bannerImg.dataset.loadedSrc !== cleanBanner) {
+                            bannerImg.dataset.loadedSrc = cleanBanner;
+                            bannerImg.src = cleanBanner;
+                        }
+                        bannerImg.style.display = 'block';
+                        headerEl.classList.add('has-banner');
+                        headerEl.classList.toggle('banner-replace', cfg.bannerMode !== 'behind');
+                        headerEl.classList.toggle('banner-behind', cfg.bannerMode === 'behind');
+                        headerEl.classList.toggle('banner-fit-contain', cfg.bannerFit === 'contain');
+                    } else {
+                        bannerImg.style.display = 'none';
+                        if (bannerImg.dataset.loadedSrc) {
+                            delete bannerImg.dataset.loadedSrc;
+                            bannerImg.removeAttribute('src');
+                        }
+                        headerEl.classList.remove('has-banner', 'banner-replace', 'banner-behind', 'banner-fit-contain');
+                    }
+                }
+
+                const votingEnabled = previewOverrides.chatVotingEnabled !== undefined
+                    ? Boolean(previewOverrides.chatVotingEnabled)
+                    : (currentState?.settings?.chatVotingEnabled !== false);
+                TierAudio.enabled = !IS_PREVIEW && votingEnabled && Boolean(cfg.sfx) && TierAudio.volume > 0;
+                if (!TierAudio.enabled) {
+                    TierAudio.suspend();
+                }
+            }
+
+            // Initialize banner error / load fallback once
+            (function bindBannerImg() {
+                const img = $('overlay-banner-img');
+                if (!img) return;
+                img.addEventListener('load', () => {
+                    if (img.dataset.loadedSrc === failedBannerUrl) failedBannerUrl = '';
+                    scheduleLayoutPass();
+                });
+                img.addEventListener('error', () => {
+                    const brokenSrc = img.dataset.loadedSrc || '';
+                    if (brokenSrc) failedBannerUrl = brokenSrc;
+                    img.style.display = 'none';
+                    const headerEl = $('overlay-header');
+                    headerEl?.classList.remove('has-banner', 'banner-replace', 'banner-behind', 'banner-fit-contain');
+                    scheduleLayoutPass();
+                });
+            })();
+
+            // ----------------------------------------------------------------
+            // Auto-Fit Board Scaling & Always-Fit Card Captions
+            // ----------------------------------------------------------------
+
+            function parseAspectRatio(str) {
+                const parts = String(str || '1/1').split('/');
+                if (parts.length === 2) {
+                    const w = parseFloat(parts[0]);
+                    const h = parseFloat(parts[1]);
+                    if (w > 0 && h > 0) return w / h;
+                }
+                return 1;
+            }
+
+            function clearAutoFitStyles() {
+                const containerEl = $('overlay-container');
+                if (containerEl) {
+                    containerEl.style.removeProperty('--tl-fit-card-size');
+                    containerEl.style.removeProperty('--tl-fit-gap');
+                    containerEl.style.removeProperty('--tl-fit-header-width');
+                    containerEl.style.removeProperty('--tl-fit-header-font');
+                    containerEl.style.removeProperty('--tl-fit-sub-font');
+                }
+                document.querySelectorAll('#overlay-board .overlay-row').forEach(row => {
+                    row.style.removeProperty('flex');
+                });
+            }
+
+            function applyAutoFit(cfg) {
+                if (!cfg.autoFit) {
+                    clearAutoFitStyles();
+                    return;
+                }
+                const containerEl = $('overlay-container');
+                const boardEl = $('overlay-board');
+                if (!containerEl || !boardEl) return;
+
+                const rows = Array.from(boardEl.querySelectorAll('.overlay-row'));
+                if (!rows.length) return;
+
+                const containerW = containerEl.clientWidth;
+                const containerH = containerEl.clientHeight;
+                const availBoardW = boardEl.clientWidth;
+                if (containerW <= 0 || containerH <= 0 || availBoardW <= 0) return;
+
+                const cs = getComputedStyle(containerEl);
+                const padY = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+                const rowGap = parseFloat(cs.rowGap || cs.gap) || 0;
+
+                let siblingsH = 0;
+                let visibleSiblings = 0;
+                for (const id of ['overlay-header', 'overlay-how-to-vote', 'overlay-unranked']) {
+                    const sib = $(id);
+                    if (sib && getComputedStyle(sib).display !== 'none') {
+                        siblingsH += sib.offsetHeight;
+                        visibleSiblings++;
+                    }
+                }
+                const gapsH = visibleSiblings * rowGap;
+                const availBoardH = Math.max(80, containerH - padY - siblingsH - gapsH - 2);
+
+                const scaleNum = parseScaleNumber(cfg.size);
+                const baseHeaderW = Math.min(200, Math.max(76, 0.085 * containerW)) * scaleNum;
+                const isSidebar = cfg.layout === 'sidebar';
+                const fixedAspectRatio = parseAspectRatio(cfg.aspect);
+                const isNatural = cfg.coverFit === 'natural';
+                const rowBorders = Math.max(0, rows.length - 1);
+                const maxH = Math.min(260, Math.max(32, Math.floor((availBoardH - rowBorders) / rows.length)));
+
+                const rowRatios = rows.map(r => {
+                    const imgs = r.querySelectorAll('.card img');
+                    const arr = [];
+                    for (let i = 0; i < imgs.length; i++) {
+                        if (isNatural) {
+                            const nw = imgs[i].naturalWidth;
+                            const nh = imgs[i].naturalHeight;
+                            const ratio = (nw > 0 && nh > 0) ? (nw / nh) : 1;
+                            arr.push(Math.min(2.6, Math.max(0.45, ratio)));
+                        } else {
+                            arr.push(fixedAspectRatio);
+                        }
+                    }
+                    return arr;
+                });
+
+                function evaluate(H) {
+                    const gap = Math.max(2, Math.min(10, Math.round(H * 0.08)));
+                    const headerW = isSidebar
+                        ? Math.max(44, Math.min(92, Math.round(H * 1.15)))
+                        : Math.max(54, Math.min(Math.round(baseHeaderW), Math.round(H * 1.3)));
+                    const itemsW = Math.max(20, availBoardW - headerW - 4 - gap * 2);
+
+                    const linesPerRow = [];
+                    const rowHeights = [];
+                    let totalH = rowBorders;
+                    for (let i = 0; i < rowRatios.length; i++) {
+                        const ratios = rowRatios[i];
+                        let lines = 1;
+                        let lineW = 0;
+                        for (let j = 0; j < ratios.length; j++) {
+                            const cardW = Math.min(itemsW, H * ratios[j]);
+                            const needed = lineW === 0 ? cardW : (lineW + gap + cardW);
+                            if (needed > itemsW && lineW > 0) {
+                                lines++;
+                                lineW = cardW;
+                            } else {
+                                lineW = needed;
+                            }
+                        }
+                        const rowH = (lines * H) + (Math.max(0, lines - 1) * gap) + (gap * 2);
+                        linesPerRow.push(lines);
+                        rowHeights.push(rowH);
+                        totalH += rowH;
+                    }
+                    const headerFont = Math.max(11, Math.min(28, Math.round(Math.min(headerW * 0.28, H * 0.28))));
+                    const subFont = Math.max(8, Math.min(13, Math.round(headerFont * 0.55)));
+                    return {
+                        feasible: totalH <= availBoardH - 2,
+                        linesPerRow,
+                        rowHeights,
+                        cardH: H,
+                        gap,
+                        headerW,
+                        headerFont,
+                        subFont
+                    };
+                }
+
+                let lo = 16;
+                let hi = Math.max(16, maxH);
+                let bestResult = evaluate(lo);
+                for (let iter = 0; iter < 14 && lo <= hi; iter++) {
+                    const mid = (lo + hi) >> 1;
+                    const res = evaluate(mid);
+                    if (res.feasible) {
+                        bestResult = res;
+                        lo = mid + 1;
+                    } else {
+                        hi = mid - 1;
+                    }
+                }
+
+                function applyFitVars(res) {
+                    containerEl.style.setProperty('--tl-fit-card-size', `${res.cardH}px`);
+                    containerEl.style.setProperty('--tl-fit-gap', `${res.gap}px`);
+                    containerEl.style.setProperty('--tl-fit-header-width', `${res.headerW}px`);
+                    containerEl.style.setProperty('--tl-fit-header-font', `${res.headerFont}px`);
+                    containerEl.style.setProperty('--tl-fit-sub-font', `${res.subFont}px`);
+                    for (let i = 0; i < rows.length; i++) {
+                        rows[i].style.flex = `${res.linesPerRow[i]} 1 ${Math.floor(res.rowHeights[i])}px`;
+                    }
+                }
+
+                applyFitVars(bestResult);
+
+                // Verify subpixel rounding against real DOM heights (at most 2 nudges)
+                let currentH = bestResult.cardH;
+                for (let attempt = 0; attempt < 2 && currentH > 16; attempt++) {
+                    const boardOverflow = boardEl.scrollHeight > boardEl.clientHeight + 2;
+                    let rowOverflow = false;
+                    if (!boardOverflow) {
+                        for (let i = 0; i < rows.length; i++) {
+                            const itemsEl = rows[i].querySelector('.overlay-row-items');
+                            if (itemsEl && itemsEl.scrollHeight > itemsEl.clientHeight + 2) {
+                                rowOverflow = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!boardOverflow && !rowOverflow) break;
+                    currentH = Math.max(16, currentH - 2);
+                    applyFitVars(evaluate(currentH));
+                }
+            }
+
+            function fitCaptionsInContainer(selector, cfg = activeCfg) {
+                const container = $(selector);
+                if (!container) return;
+                const cards = Array.from(container.querySelectorAll('.card'));
+                if (!cards.length) return;
+                const fontScale = cleanFontScale(cfg?.fontScale);
+
+                // Read batch 1: measure each card individually (supports mixed-width natural images)
+                const items = [];
+                for (let i = 0; i < cards.length; i++) {
+                    const card = cards[i];
+                    const cardW = card.clientWidth;
+                    const cardH = card.clientHeight;
+                    const cap = card.querySelector('.card-caption');
+                    if (cardW > 0 && cardH > 0 && cap) {
+                        const baseFont = Math.min(18, Math.max(8, Math.round(cardW * 0.135 * fontScale)));
+                        const maxH = Math.max(22, Math.floor(cardH * 0.74));
+                        items.push({ cap, cardH, baseFont, maxH });
+                    }
+                }
+                if (!items.length) return;
+
+                // Write batch 1: reset captions to per-card baseFont
+                for (let i = 0; i < items.length; i++) {
+                    const { cap, baseFont } = items[i];
+                    cap.style.fontSize = `${baseFont}px`;
+                    cap.style.lineHeight = '';
+                    cap.style.maxHeight = '';
+                }
+
+                // Read batch 2: collect only captions that overflow baseFont bounds
+                const overflowing = [];
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i];
+                    if (item.cap.scrollHeight > item.maxH || item.cap.scrollHeight > item.cap.clientHeight + 1 || item.cap.scrollWidth > item.cap.clientWidth + 1) {
+                        overflowing.push(item);
+                    }
+                }
+
+                // Shrink overflowing captions with fast binary search
+                for (let i = 0; i < overflowing.length; i++) {
+                    const { cap, cardH, baseFont, maxH } = overflowing[i];
+                    const hardMaxH = Math.max(maxH, Math.floor(cardH * 0.92));
+                    let lo = 6;
+                    let hi = baseFont - 1;
+                    let best = 6;
+                    for (let iter = 0; iter < 4 && lo <= hi; iter++) {
+                        const mid = (lo + hi) >> 1;
+                        cap.style.fontSize = `${mid}px`;
+                        if (cap.scrollHeight <= maxH && cap.scrollHeight <= cap.clientHeight + 1 && cap.scrollWidth <= cap.clientWidth + 1) {
+                            best = mid;
+                            lo = mid + 1;
+                        } else {
+                            hi = mid - 1;
+                        }
+                    }
+                    cap.style.fontSize = `${best}px`;
+                    if (cap.scrollHeight > maxH || cap.scrollHeight > cap.clientHeight + 1 || cap.scrollWidth > cap.clientWidth + 1) {
+                        cap.style.lineHeight = '1.05';
+                        cap.style.maxHeight = '92%';
+                        cap.style.fontSize = '6px';
+                        if (cap.scrollHeight > hardMaxH || cap.scrollHeight > cap.clientHeight + 1 || cap.scrollWidth > cap.clientWidth + 1) {
+                            cap.style.fontSize = '5px';
+                        }
+                    }
+                }
+            }
+
+            function fitAllCardCaptions(cfg = activeCfg) {
+                if (!cfg.showCaptions || !cfg.fitCaptions) {
+                    document.querySelectorAll('.card-caption').forEach(el => {
+                        el.style.removeProperty('font-size');
+                        el.style.removeProperty('line-height');
+                        el.style.removeProperty('max-height');
+                    });
+                    return;
+                }
+                fitCaptionsInContainer('overlay-board', cfg);
+                fitCaptionsInContainer('overlay-unranked-items', cfg);
+            }
+
+            function fitRowHeaders() {
+                const headers = Array.from(document.querySelectorAll('#overlay-board .overlay-row-header'));
+                if (!headers.length) return;
+
+                // Batch 1: clear previous inline shrink overrides
+                const entries = headers.map(header => {
+                    const labelEl = header.querySelector('.overlay-row-label');
+                    const subEl = header.querySelector('.overlay-row-sub');
+                    if (labelEl) labelEl.style.removeProperty('font-size');
+                    if (subEl) {
+                        subEl.style.removeProperty('font-size');
+                        subEl.style.removeProperty('display');
+                    }
+                    return { header, labelEl, subEl };
+                });
+
+                // Batch 2: measure overflowing headers
+                const overflowing = entries.filter(({ header }) => (
+                    header.clientWidth > 0 && header.clientHeight > 0 &&
+                    (header.scrollHeight > header.clientHeight + 1 || header.scrollWidth > header.clientWidth + 1)
+                ));
+                if (!overflowing.length) return;
+
+                // Batch 3: shrink sub-label then main label proportionally until it fits
+                for (const { header, labelEl, subEl } of overflowing) {
+                    const headerCs = getComputedStyle(header);
+                    const baseLabelPx = parseFloat(headerCs.fontSize) || 18;
+                    const baseSubPx = subEl ? (parseFloat(getComputedStyle(subEl).fontSize) || 11) : 11;
+
+                    let fitted = false;
+                    for (let step = 1; step <= 6; step++) {
+                        const factor = Math.max(0.55, 1 - step * 0.09);
+                        if (subEl) subEl.style.fontSize = `${Math.max(8, Math.round(baseSubPx * factor))}px`;
+                        if (labelEl) labelEl.style.fontSize = `${Math.max(10, Math.round(baseLabelPx * factor))}px`;
+                        if (header.scrollHeight <= header.clientHeight + 1 && header.scrollWidth <= header.clientWidth + 1) {
+                            fitted = true;
+                            break;
+                        }
+                    }
+                    // Only hide sub-description if extreme vertical compression prevents any fit
+                    if (!fitted && subEl && header.scrollHeight > header.clientHeight + 2) {
+                        subEl.style.display = 'none';
+                        if (labelEl && header.scrollHeight > header.clientHeight + 1) {
+                            labelEl.style.fontSize = `${Math.max(9, Math.round(baseLabelPx * 0.65))}px`;
+                        }
+                    }
+                }
+            }
+
+            function runLayoutPass() {
+                layoutRaf = 0;
+                if (document.hidden || !currentState) return;
+                applyAutoFit(activeCfg);
+                fitRowHeaders();
+                fitAllCardCaptions(activeCfg);
+            }
+
+            function scheduleLayoutPass() {
+                if (document.hidden || layoutRaf) return;
+                layoutRaf = requestAnimationFrame(runLayoutPass);
+            }
+
+            // ----------------------------------------------------------------
+            // Preview-Only Fictional Sample Data
+            // ----------------------------------------------------------------
+
+            function makeSampleThumb(label, bg1, bg2) {
+                const initials = String(label || '?').split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase();
+                const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'>` +
+                    `<defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='${bg1}'/><stop offset='100%' stop-color='${bg2}'/></linearGradient></defs>` +
+                    `<rect width='240' height='240' fill='url(#g)'/>` +
+                    `<circle cx='190' cy='50' r='55' fill='rgba(255,255,255,0.08)'/>` +
+                    `<text x='50%' y='46%' dominant-baseline='middle' text-anchor='middle' fill='#ffffff' font-family='system-ui,sans-serif' font-size='64' font-weight='800' opacity='0.9'>${esc(initials)}</text>` +
+                    `</svg>`;
+                return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+            }
+
+            function buildPreviewSampleState(realState) {
+                const tiers = (realState?.tiers && realState.tiers.length)
+                    ? realState.tiers
+                    : [
+                        { id: 'tier-s', label: 'S', color: '#ff7f7f', description: 'Top Tier' },
+                        { id: 'tier-a', label: 'A', color: '#ffbf7f', description: 'Great' },
+                        { id: 'tier-b', label: 'B', color: '#ffdf7f', description: 'Good' },
+                        { id: 'tier-c', label: 'C', color: '#ffff7f', description: 'Average' },
+                        { id: 'tier-d', label: 'D', color: '#bfff7f', description: 'Below Average' },
+                        { id: 'tier-f', label: 'F', color: '#7fff7f', description: 'Bottom Tier' }
+                    ];
+                const sampleCatalog = [
+                    { name: 'Chrono Trigger: Definitive Edition', colors: ['#1d4ed8', '#7c3aed'] },
+                    { name: 'Hades', colors: ['#dc2626', '#9a3412'] },
+                    { name: 'Hollow Knight: Silksong', colors: ['#334155', '#0f172a'] },
+                    { name: 'Portal 2', colors: ['#0284c7', '#1e293b'] },
+                    { name: 'The Legend of Zelda: Tears of the Kingdom', colors: ['#047857', '#065f46'] },
+                    { name: 'Celeste', colors: ['#be185d', '#4c1d95'] },
+                    { name: 'Stardew Valley', colors: ['#15803d', '#854d0e'] },
+                    { name: 'Balatro', colors: ['#b91c1c', '#1e1b4b'] },
+                    { name: 'Super Metroid', colors: ['#9333ea', '#1e3a8a'] },
+                    { name: 'Elden Ring: Shadow of the Erdtree', colors: ['#92400e', '#1c1917'] },
+                    { name: 'Outer Wilds', colors: ['#c2410c', '#0f172a'] },
+                    { name: 'Cyberpunk 2077: Phantom Liberty', colors: ['#ca8a04', '#701a75'] },
+                    { name: 'Subnautica', colors: ['#0369a1', '#042f2e'] },
+                    { name: 'Minecraft', colors: ['#16a34a', '#78350f'] },
+                    { name: 'Inscryption', colors: ['#3f6212', '#18181b'] },
+                    { name: 'Cuphead: The Delicious Last Course', colors: ['#b45309', '#991b1b'] },
+                    { name: 'Return of the Obra Dinn', colors: ['#334155', '#111827'] },
+                    { name: 'Untitled Indie Adventure Sequel Deluxe', colors: ['#0f766e', '#1e293b'] }
+                ];
+                const items = sampleCatalog.map((entry, idx) => {
+                    const placedCount = sampleCatalog.length - 3;
+                    const tierId = idx < placedCount ? tiers[idx % Math.min(tiers.length, 4)]?.id || tiers[0].id : null;
+                    return {
+                        id: `sample-item-${idx}`,
+                        name: entry.name,
+                        imageUrl: makeSampleThumb(entry.name, entry.colors[0], entry.colors[1]),
+                        tierId,
+                        order: idx
+                    };
+                });
+                return Object.assign({}, realState || {}, { tiers, items });
+            }
 
             // ----------------------------------------------------------------
             // FLIP Animation Engine
@@ -796,7 +2037,6 @@
                     const itemId = el.dataset.itemId;
                     const firstRect = firstRects.get(itemId);
                     if (!firstRect) {
-                        // Brand new entering item: gentle fade & scale in
                         el.style.opacity = '0';
                         el.style.transform = 'scale(0.8)';
                         requestAnimationFrame(() => {
@@ -812,12 +2052,10 @@
                     const deltaY = firstRect.top - lastRect.top;
 
                     if (Math.abs(deltaX) > 0.5 || Math.abs(deltaY) > 0.5) {
-                        // Invert
                         el.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
                         el.style.transition = 'none';
-                        el.offsetHeight; // force reflow
+                        el.offsetHeight;
 
-                        // Play
                         requestAnimationFrame(() => {
                             el.style.transition = 'transform 0.65s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.65s ease';
                             el.style.transform = 'translate(0, 0)';
@@ -834,53 +2072,68 @@
                 const firstRects = recordCardPositions();
                 currentState = newState;
 
-                $('overlay-title').textContent = newState.title || 'Community Tier List';
+                const cfg = resolveConfig(newState);
+                applyAppearance(cfg);
+
+                const effectiveState = (IS_PREVIEW && cfg.useSampleData)
+                    ? buildPreviewSampleState(newState)
+                    : newState;
+
+                const effectiveTitle = (previewOverrides.title !== undefined && previewOverrides.title !== '')
+                    ? previewOverrides.title
+                    : (newState.title || 'Community Tier List');
+                $('overlay-title').textContent = effectiveTitle;
 
                 const boardEl = $('overlay-board');
                 boardEl.innerHTML = '';
 
-                // Render tier rows
-                (newState.tiers || []).forEach(tier => {
+                (effectiveState.tiers || []).forEach(tier => {
                     const row = document.createElement('div');
                     row.className = 'overlay-row';
                     row.dataset.tierId = tier.id;
 
-                    const tierItems = (newState.items || [])
+                    const tierItems = (effectiveState.items || [])
                         .filter(i => i.tierId === tier.id)
                         .sort((a, b) => (a.order || 0) - (b.order || 0));
 
+                    const textColor = getContrastColor(tier.color);
+                    const textShadow = textColor === '#111827'
+                        ? '0 1px 2px rgba(255,255,255,0.4)'
+                        : '0 1px 2px rgba(0,0,0,0.45)';
                     row.innerHTML = `
-                        <div class="overlay-row-header" style="background-color: ${esc(tier.color)};">
-                            <div>${esc(tier.label)}</div>
+                        <div class="overlay-row-header" style="background-color: ${esc(tier.color)}; color: ${textColor}; text-shadow: ${textShadow};">
+                            <div class="overlay-row-label">${esc(tier.label)}</div>
                             ${tier.description ? `<div class="overlay-row-sub">${esc(tier.description)}</div>` : ''}
                         </div>
                         <div class="overlay-row-items" data-tier-id="${esc(tier.id)}">
-                            ${tierItems.map(item => renderOverlayCard(item)).join('')}
+                            ${tierItems.map(item => renderOverlayCard(item, effectiveState)).join('')}
                         </div>
                     `;
                     boardEl.appendChild(row);
                 });
 
-                // Render unranked tray
                 const unrankedEl = $('overlay-unranked-items');
-                if (!hideUnranked) {
-                    const unrankedItems = (newState.items || [])
+                if (!cfg.hideUnranked) {
+                    const unrankedItems = (effectiveState.items || [])
                         .filter(i => !i.tierId)
                         .sort((a, b) => (a.order || 0) - (b.order || 0));
 
-                    unrankedEl.innerHTML = unrankedItems.map(item => renderOverlayCard(item)).join('');
+                    unrankedEl.innerHTML = unrankedItems.map(item => renderOverlayCard(item, effectiveState)).join('');
                     $('overlay-unranked').style.display = unrankedItems.length === 0 ? 'none' : 'flex';
                 } else {
                     $('overlay-unranked').style.display = 'none';
                 }
 
-                // Render live vote spotlight
-                renderVoteSpotlight(newState.activeVote);
+                renderVoteSpotlight(newState.activeVote, cfg);
+                updateVotingHint(newState, cfg);
+                renderFocusStage(effectiveState, cfg);
 
-                // Update toggleable voting hint
-                updateVotingHint(newState);
+                if (!document.hidden) {
+                    applyAutoFit(cfg);
+                    fitRowHeaders();
+                    fitAllCardCaptions(cfg);
+                }
 
-                // Play FLIP animations across all cards that moved
                 playFLIPAnimations(firstRects);
             }
 
@@ -896,22 +2149,47 @@
                 return yiq >= 140 ? '#111827' : '#ffffff';
             }
 
-            function updateVotingHint(state) {
+            function formatCountdown(seconds) {
+                const s = Math.max(0, Math.round(Number(seconds) || 0));
+                if (s >= 60) {
+                    const mins = Math.floor(s / 60);
+                    const secs = s % 60;
+                    return `${mins}:${String(secs).padStart(2, '0')}`;
+                }
+                return `${s}s`;
+            }
+
+            function buildCommandPromptHtml(tiers, { compact = false, includeCodeId = false } = {}) {
+                const tierList = Array.isArray(tiers) ? tiers : [];
+                const exampleLabel = tierList[0]?.label || 'S';
+                const maxChips = compact ? 4 : 6;
+                const shownTiers = tierList.slice(0, maxChips);
+                const extraCount = Math.max(0, tierList.length - shownTiers.length);
+                const chipsHtml = shownTiers.map(t => {
+                    const textColor = getContrastColor(t.color);
+                    return `<span class="tier-choice-chip" style="background-color:${esc(t.color)};color:${textColor};">${esc(t.label)}</span>`;
+                }).join('');
+                const extraHtml = extraCount > 0
+                    ? `<span class="tier-choice-chip" style="background-color:rgba(255,255,255,0.14);color:var(--tl-text);">+${extraCount}</span>`
+                    : '';
+                const codeAttr = includeCodeId ? ' id="hud-cmd-syntax"' : '';
+                return `<span>Type</span> <code${codeAttr}>!tier</code> ${chipsHtml}${extraHtml} <span class="cmd-example">e.g. <strong>!tier ${esc(exampleLabel)}</strong></span>`;
+            }
+
+            function updateVotingHint(state, cfg = activeCfg) {
                 const hintEl = $('overlay-how-to-vote');
                 if (!hintEl || !state) return;
 
+                const votingEnabled = previewOverrides.chatVotingEnabled !== undefined
+                    ? Boolean(previewOverrides.chatVotingEnabled)
+                    : (state.settings?.chatVotingEnabled !== false);
+                const mode = String(cfg.howToVote ?? 'auto').toLowerCase();
+                const isExplicitOff = ['0', 'false', 'none', 'hide'].includes(mode);
+                const isExplicitAlways = ['always', 'test'].includes(mode);
                 const isVoteActive = Boolean(state.activeVote && (state.activeVote.status === 'ACTIVE' || state.activeVote.status === 'LOCKED'));
 
-                let shouldShow = false;
-                if (isHintExplicitOff) {
-                    shouldShow = false;
-                } else if (isHintExplicitAlways) {
-                    shouldShow = true;
-                } else {
-                    // Only display when a vote is actively in progress
-                    shouldShow = isVoteActive && state.settings?.showVoteHint !== false;
-                }
-
+                // Never show the top hint ribbon when voting is off, hidden, OR when the active vote card is already on screen
+                const shouldShow = votingEnabled && !isExplicitOff && !isVoteActive && isExplicitAlways;
                 if (!shouldShow) {
                     hintEl.classList.remove('visible');
                     return;
@@ -919,67 +2197,151 @@
 
                 hintEl.classList.add('visible');
 
-                if (customHintText) {
-                    $('how-to-vote-label').textContent = customHintText;
-                    $('how-to-vote-choices').innerHTML = '';
+                const labelEl = $('how-to-vote-label');
+                const cmdWrap = $('how-to-vote-cmd');
+                const choicesEl = $('how-to-vote-choices');
+
+                if (cfg.hintText) {
+                    if (labelEl) labelEl.textContent = cfg.hintText;
+                    if (cmdWrap) cmdWrap.style.display = 'none';
+                    if (choicesEl) choicesEl.innerHTML = '';
                     return;
                 }
 
-                const activeVote = state.activeVote;
-                if (activeVote && activeVote.status === 'LOCKED') {
-                    $('how-to-vote-label').innerHTML = `Chat Vote Locked: <strong style="color:#fbbf24;">${esc(activeVote.itemName)}</strong> &middot; Finalizing Consensus`;
-                } else if (activeVote && activeVote.status === 'ACTIVE') {
-                    $('how-to-vote-label').innerHTML = `Live Chat Vote: <strong style="color:#fbbf24;">${esc(activeVote.itemName)}</strong> &middot; Type:`;
-                } else {
-                    $('how-to-vote-label').textContent = 'Vote in chat:';
+                if (labelEl) labelEl.textContent = 'Vote in chat:';
+                if (cmdWrap) {
+                    cmdWrap.style.display = 'inline-block';
+                    const exampleLabel = state.tiers?.[0]?.label || 'S';
+                    cmdWrap.innerHTML = `<code>!tier ${esc(exampleLabel)}</code>`;
                 }
-
-                const choicesEl = $('how-to-vote-choices');
-                if (state.tiers && state.tiers.length > 0) {
-                    choicesEl.innerHTML = '(e.g. ' + state.tiers.slice(0, 6).map(t => {
-                        const textColor = getContrastColor(t.color);
-                        return `<span class="tier-choice-chip" style="background-color:${esc(t.color)};color:${textColor};">${esc(t.label)}</span>`;
-                    }).join(' ') + ')';
-                } else {
-                    choicesEl.innerHTML = '';
+                if (choicesEl) {
+                    if (state.tiers && state.tiers.length > 0) {
+                        const shown = state.tiers.slice(0, 6);
+                        const extra = Math.max(0, state.tiers.length - shown.length);
+                        choicesEl.innerHTML = shown.map(t => {
+                            const textColor = getContrastColor(t.color);
+                            return `<span class="tier-choice-chip" style="background-color:${esc(t.color)};color:${textColor};">${esc(t.label)}</span>`;
+                        }).join('') + (extra > 0 ? `<span class="tier-choice-chip" style="background-color:rgba(255,255,255,0.14);color:var(--tl-text);">+${extra}</span>` : '');
+                    } else {
+                        choicesEl.innerHTML = '';
+                    }
                 }
             }
 
-            function renderOverlayCard(item) {
-                const isVoting = currentState && currentState.activeVote && currentState.activeVote.itemId === item.id;
+            function renderOverlayCard(item, effectiveState) {
+                const st = effectiveState || currentState;
+                const votingEnabled = previewOverrides.chatVotingEnabled !== undefined
+                    ? Boolean(previewOverrides.chatVotingEnabled)
+                    : (st?.settings?.chatVotingEnabled !== false);
+                const isVoting = votingEnabled && st && st.activeVote && st.activeVote.itemId === item.id;
+                const isFocused = st && st.focusedItemId && st.focusedItemId === item.id;
                 const defaultThumb = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%2321262d'><rect width='100' height='100'/></svg>";
                 const imgSrc = item.imageUrl || defaultThumb;
 
                 return `
-                    <div class="card${isVoting ? ' spotlight' : ''}" data-item-id="${esc(item.id)}">
+                    <div class="card${(isVoting || isFocused) ? ' spotlight' : ''}" data-item-id="${esc(item.id)}">
                         <img src="${esc(imgSrc)}" alt="${esc(item.name)}" onerror="this.src='${defaultThumb}'">
                         <div class="card-caption">${esc(item.name)}</div>
                     </div>
                 `;
             }
 
-            function renderVoteSpotlight(vote) {
+            function renderFocusStage(state, cfg = activeCfg) {
+                const stageEl = $('overlay-focus-stage');
+                const backdropEl = $('overlay-focus-backdrop');
+                if (!stageEl || !backdropEl) return;
+
+                if (!cfg.focusEnlarge || !state) {
+                    stageEl.classList.remove('active');
+                    backdropEl.classList.remove('active');
+                    document.body.classList.remove('focus-enlarge-active');
+                    return;
+                }
+
+                const votingEnabled = previewOverrides.chatVotingEnabled !== undefined
+                    ? Boolean(previewOverrides.chatVotingEnabled)
+                    : (state.settings?.chatVotingEnabled !== false);
+                const activeVote = (votingEnabled && state.activeVote && (state.activeVote.status === 'ACTIVE' || state.activeVote.status === 'LOCKED'))
+                    ? state.activeVote
+                    : null;
+
+                let targetItem = null;
+                let badgeText = 'Selected';
+                if (activeVote) {
+                    targetItem = (state.items || []).find(i => i.id === activeVote.itemId) || {
+                        id: activeVote.itemId,
+                        name: activeVote.itemName,
+                        imageUrl: activeVote.itemImage,
+                        note: ''
+                    };
+                    badgeText = activeVote.status === 'LOCKED' ? 'Vote Locked' : 'Now Voting';
+                } else if (state.focusedItemId) {
+                    targetItem = (state.items || []).find(i => i.id === state.focusedItemId) || null;
+                    badgeText = 'Selected';
+                }
+
+                if (!targetItem) {
+                    stageEl.classList.remove('active');
+                    backdropEl.classList.remove('active');
+                    document.body.classList.remove('focus-enlarge-active');
+                    return;
+                }
+
+                const defaultThumb = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240' fill='%23161b22'><rect width='240' height='240'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%238b949e' font-size='20' font-family='sans-serif'>No Image</text></svg>";
+                const imgEl = $('focus-stage-img');
+                if (imgEl) {
+                    imgEl.src = targetItem.imageUrl || defaultThumb;
+                    imgEl.alt = targetItem.name || 'Focused Item';
+                }
+                const badgeEl = $('focus-stage-badge');
+                if (badgeEl) badgeEl.textContent = badgeText;
+                const titleEl = $('focus-stage-title');
+                if (titleEl) titleEl.textContent = targetItem.name || 'Selected Item';
+                const noteEl = $('focus-stage-note');
+                if (noteEl) {
+                    if (targetItem.note) {
+                        noteEl.textContent = targetItem.note;
+                        noteEl.style.display = 'block';
+                    } else {
+                        noteEl.style.display = 'none';
+                    }
+                }
+
+                stageEl.classList.add('active');
+                backdropEl.classList.add('active');
+                document.body.classList.add('focus-enlarge-active');
+            }
+
+            function renderVoteSpotlight(vote, cfg = activeCfg) {
                 const hudEl = $('vote-hud-overlay');
                 const badgeEl = $('overlay-vote-badge');
+                const statusEl = $('overlay-vote-status');
+                const votingEnabled = previewOverrides.chatVotingEnabled !== undefined
+                    ? Boolean(previewOverrides.chatVotingEnabled)
+                    : (currentState?.settings?.chatVotingEnabled !== false);
+                if (!votingEnabled) vote = null;
 
                 if (!vote || (vote.status !== 'ACTIVE' && vote.status !== 'LOCKED')) {
-                    if (lastVoteId && !lastVoteLocked) {
+                    if (lastVoteId && !lastVoteLocked && !lastVoteCancelled) {
                         TierAudio.voteLock();
                     }
                     lastVoteId = null;
                     lastVoteLocked = false;
+                    lastVoteCancelled = false;
                     lastTickedSecond = null;
                     hudEl.classList.remove('active');
-                    badgeEl.classList.remove('active');
+                    badgeEl.classList.remove('active', 'is-locked');
+                    document.body.classList.remove('has-active-vote');
                     if (hudInterval) {
                         clearInterval(hudInterval);
                         hudInterval = null;
                     }
-                    updateVotingHint(currentState);
+                    updateVotingHint(currentState, cfg);
                     return;
                 }
 
                 if (vote.id !== lastVoteId) {
+                    lastVoteCancelled = false;
                     lastVoteId = vote.id;
                     lastVoteLocked = false;
                     lastTickedSecond = null;
@@ -993,29 +2355,81 @@
 
                 hudEl.classList.add('active');
                 badgeEl.classList.add('active');
+                badgeEl.classList.toggle('is-locked', vote.status === 'LOCKED');
+                if (statusEl) statusEl.textContent = vote.status === 'LOCKED' ? 'Vote Locked' : 'Live Vote';
+                document.body.classList.add('has-active-vote');
 
                 $('hud-name').textContent = vote.itemName;
-                $('hud-img').src = vote.itemImage || '';
+                const hudImg = $('hud-img');
+                if (hudImg) {
+                    if (vote.itemImage) {
+                        hudImg.src = vote.itemImage;
+                        hudImg.style.display = 'block';
+                    } else {
+                        hudImg.removeAttribute('src');
+                        hudImg.style.display = 'none';
+                    }
+                }
+
+                // Clear, non-overwhelming chat command prompt in the spotlight card
+                const cmdEl = $('hud-cmd');
+                const mode = String(cfg.howToVote ?? 'auto').toLowerCase();
+                const hintDisabled = ['0', 'false', 'none', 'hide'].includes(mode)
+                    || (currentState?.settings?.showVoteHint === false && !['always', 'test'].includes(mode));
+                if (cmdEl) {
+                    if (vote.status === 'LOCKED') {
+                        cmdEl.style.display = 'flex';
+                        cmdEl.innerHTML = '<span>Voting closed &middot; Ready to place</span>';
+                    } else if (hintDisabled) {
+                        cmdEl.style.display = 'none';
+                    } else if (cfg.hintText) {
+                        cmdEl.style.display = 'flex';
+                        cmdEl.textContent = cfg.hintText;
+                    } else {
+                        cmdEl.style.display = 'flex';
+                        cmdEl.innerHTML = buildCommandPromptHtml(currentState?.tiers, {
+                            compact: cfg.layout === 'sidebar',
+                            includeCodeId: true
+                        });
+                    }
+                }
 
                 updateVoteHUDMeters(vote.consensus);
-                updateVotingHint(currentState);
+                updateVotingHint(currentState, cfg);
 
-                // Timer countdown
                 if (hudInterval) clearInterval(hudInterval);
+                const timerPill = $('hud-timer-pill');
+                const timerTrack = $('hud-timer-track');
+                const timerFill = $('hud-timer-fill');
+                const totalDuration = Number(vote.duration) || 0;
+
                 const updateCountdown = () => {
+                    const timeRemEl = $('hud-time-rem');
                     if (vote.status === 'LOCKED') {
-                        $('overlay-timer').textContent = 'Locked';
-                        $('hud-time-rem').textContent = 'Locked';
+                        if (timeRemEl) timeRemEl.textContent = 'Locked';
+                        timerPill?.classList.remove('is-urgent');
+                        timerPill?.classList.add('is-locked');
+                        if (timerTrack) timerTrack.style.display = 'none';
                         return;
                     }
+                    timerPill?.classList.remove('is-locked');
                     if (!vote.endsAt) {
-                        $('overlay-timer').textContent = 'Open';
-                        $('hud-time-rem').textContent = 'Open';
+                        if (timeRemEl) timeRemEl.textContent = 'Open';
+                        timerPill?.classList.remove('is-urgent');
+                        if (timerTrack) timerTrack.style.display = 'none';
                         return;
                     }
-                    const remaining = Math.max(0, Math.round((vote.endsAt - Date.now()) / 1000));
-                    $('overlay-timer').textContent = `${remaining}s`;
-                    $('hud-time-rem').textContent = `${remaining}s`;
+                    const remainingMs = Math.max(0, vote.endsAt - Date.now());
+                    const remaining = Math.round(remainingMs / 1000);
+                    if (timeRemEl) timeRemEl.textContent = formatCountdown(remaining);
+                    const isUrgent = remaining > 0 && remaining <= 5;
+                    timerPill?.classList.toggle('is-urgent', isUrgent);
+                    if (timerTrack && timerFill && totalDuration > 0) {
+                        timerTrack.style.display = 'block';
+                        const pct = Math.max(0, Math.min(100, (remainingMs / (totalDuration * 1000)) * 100));
+                        timerFill.style.width = `${pct.toFixed(1)}%`;
+                        timerFill.classList.toggle('is-urgent', isUrgent);
+                    }
                     if (remaining <= 5 && remaining > 0 && remaining !== lastTickedSecond) {
                         lastTickedSecond = remaining;
                         TierAudio.countdownTick(remaining <= 3);
@@ -1031,7 +2445,10 @@
 
             function updateVoteHUDMeters(consensus) {
                 if (!consensus) return;
-                $('hud-vote-count').textContent = `${consensus.totalVotes || 0} vote${consensus.totalVotes === 1 ? '' : 's'}`;
+                const total = consensus.totalVotes || 0;
+                $('hud-vote-count').textContent = total > 0
+                    ? `${total} vote${total === 1 ? '' : 's'}`
+                    : 'Waiting for votes';
 
                 const subBadge = $('hud-sub-badge');
                 if (currentState && currentState.activeVote && currentState.activeVote.subMultiplier > 1) {
@@ -1045,7 +2462,7 @@
                 }
 
                 const agreePill = $('hud-agreement-pill');
-                if (consensus.totalVotes > 0 && consensus.agreementPercent > 0) {
+                if (total > 0 && consensus.agreementPercent > 0) {
                     agreePill.textContent = `${consensus.agreementPercent}% agree`;
                     agreePill.style.display = 'inline-block';
                 } else {
@@ -1054,6 +2471,7 @@
 
                 const barEl = $('hud-bar');
                 barEl.innerHTML = '';
+                barEl.style.display = total > 0 ? 'flex' : 'none';
 
                 (consensus.distribution || []).forEach(d => {
                     if (d.percentage > 0) {
@@ -1067,11 +2485,11 @@
 
                 const tickerEl = $('hud-voters-ticker');
                 if (consensus.recentVoters && consensus.recentVoters.length > 0) {
-                    tickerEl.innerHTML = '<span style="opacity:0.65;">Recent:</span>' + consensus.recentVoters.map(v => `
+                    tickerEl.innerHTML = '<span style="opacity:0.65;">Recent:</span>' + consensus.recentVoters.slice(0, 3).map(v => `
                         <span class="voter-chip">
                             ${v.isSub ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="color:#a371f7;display:inline-block;vertical-align:-1px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>' : ''}
                             ${esc(v.user)}:
-                            <span class="voter-tier" style="background-color:${esc(v.tierColor)};">${esc(v.tierLabel)}</span>
+                            <span class="voter-tier" style="background-color:${esc(v.tierColor)};color:${getContrastColor(v.tierColor)};">${esc(v.tierLabel)}</span>
                         </span>
                     `).join('');
                     tickerEl.style.display = 'flex';
@@ -1083,11 +2501,171 @@
                 if (consensus.consensusTier) {
                     consensusEl.textContent = `Tier ${consensus.consensusTier.label}`;
                     consensusEl.style.backgroundColor = consensus.consensusTier.color;
+                    consensusEl.style.color = getContrastColor(consensus.consensusTier.color);
                     consensusEl.style.display = 'inline-flex';
                 } else {
                     consensusEl.style.display = 'none';
                 }
             }
+
+            // ----------------------------------------------------------------
+            // Studio Live Preview Synchronization (postMessage)
+            // ----------------------------------------------------------------
+
+            window.addEventListener('message', (e) => {
+                if (!e.data || e.data.type !== 'tierlist:preview-config') return;
+                const opts = e.data.options || {};
+                const prevSample = activeCfg.useSampleData;
+                const prevHideUnranked = activeCfg.hideUnranked;
+
+                if (opts.layout && ['board', 'sidebar'].includes(opts.layout)) previewOverrides.layout = opts.layout;
+                if (opts.hideUnranked !== undefined) previewOverrides.hideUnranked = Boolean(opts.hideUnranked);
+                if (opts.size || opts.cardSize) previewOverrides.size = opts.size || opts.cardSize;
+                if (opts.aspect || opts.cardAspect) previewOverrides.aspect = opts.aspect || opts.cardAspect;
+                if (opts.coverFit || opts.cardFit) {
+                    const cf = String(opts.coverFit || opts.cardFit).toLowerCase();
+                    if (['cover', 'contain', 'fill', 'natural'].includes(cf)) previewOverrides.coverFit = cf;
+                }
+                const styleIn = opts.style ?? opts.theme;
+                if (styleIn) {
+                    const t = String(styleIn).trim().toLowerCase();
+                    if (/^[a-z0-9-_#]{1,40}$/i.test(t)) previewOverrides.style = t;
+                }
+                if (opts.customThemeId !== undefined) previewOverrides.customThemeId = String(opts.customThemeId || '').toLowerCase();
+                if (opts.headingFont !== undefined) previewOverrides.headingFont = cleanFontName(opts.headingFont);
+                if (opts.fontFamily !== undefined || opts.font !== undefined) {
+                    previewOverrides.fontFamily = cleanFontName(opts.fontFamily ?? opts.font ?? '');
+                }
+                if (opts.fontWeight !== undefined || opts.weight !== undefined) {
+                    previewOverrides.fontWeight = cleanWeight(opts.fontWeight ?? opts.weight ?? '');
+                }
+                if (opts.fontScale !== undefined) {
+                    previewOverrides.fontScale = cleanFontScale(opts.fontScale);
+                }
+                if (opts.textTransform !== undefined) previewOverrides.textTransform = cleanTransform(opts.textTransform);
+                if (opts.textOutline !== undefined) previewOverrides.textOutline = cleanOutline(opts.textOutline);
+                if (opts.backgroundColor !== undefined) previewOverrides.backgroundColor = cleanCssColor(opts.backgroundColor);
+                if (opts.rowBackgroundColor !== undefined) previewOverrides.rowBackgroundColor = cleanCssColor(opts.rowBackgroundColor);
+                if (opts.borderColor !== undefined) previewOverrides.borderColor = cleanCssColor(opts.borderColor);
+                if (opts.textColor !== undefined) previewOverrides.textColor = cleanCssColor(opts.textColor);
+                if (opts.mutedColor !== undefined) previewOverrides.mutedColor = cleanCssColor(opts.mutedColor);
+                if (opts.accentColor !== undefined) previewOverrides.accentColor = cleanCssColor(opts.accentColor);
+                if (opts.borderRadius !== undefined) previewOverrides.borderRadius = cleanRadius(opts.borderRadius);
+                if (opts.backdropBlur !== undefined) previewOverrides.backdropBlur = cleanBlur(opts.backdropBlur);
+                if (opts.chatVotingEnabled !== undefined) previewOverrides.chatVotingEnabled = Boolean(opts.chatVotingEnabled);
+                if (opts.soundEnabled !== undefined) previewOverrides.soundEnabled = Boolean(opts.soundEnabled);
+
+                if (opts.howToVote !== undefined) previewOverrides.howToVote = String(opts.howToVote).toLowerCase();
+                if (opts.hintScale !== undefined) previewOverrides.hintScale = String(opts.hintScale);
+                if (opts.hintText !== undefined) previewOverrides.hintText = String(opts.hintText);
+                if (opts.sfx !== undefined) previewOverrides.sfx = parseBoolParam(opts.sfx) ?? Boolean(opts.sfx);
+
+                if (opts.bannerUrl !== undefined || opts.banner !== undefined) {
+                    const nextBanner = sanitizeBannerUrl(opts.bannerUrl ?? opts.banner ?? '');
+                    if (nextBanner !== previewOverrides.bannerUrl) failedBannerUrl = '';
+                    previewOverrides.bannerUrl = nextBanner;
+                }
+                if (opts.bannerMode && ['replace', 'behind'].includes(opts.bannerMode)) previewOverrides.bannerMode = opts.bannerMode;
+                if (opts.bannerHeight !== undefined) previewOverrides.bannerHeight = clampBannerHeight(opts.bannerHeight);
+                if (opts.bannerFit && ['cover', 'contain'].includes(opts.bannerFit)) previewOverrides.bannerFit = opts.bannerFit;
+
+                if (opts.showCaptions !== undefined || opts.captions !== undefined) {
+                    const sc = opts.showCaptions ?? opts.captions;
+                    previewOverrides.showCaptions = parseBoolParam(sc) ?? Boolean(sc);
+                }
+                if (opts.fitCaptions !== undefined) {
+                    previewOverrides.fitCaptions = parseBoolParam(opts.fitCaptions) ?? Boolean(opts.fitCaptions);
+                }
+                if (opts.autoFit !== undefined) {
+                    previewOverrides.autoFit = parseBoolParam(opts.autoFit) ?? Boolean(opts.autoFit);
+                }
+                if (opts.focusEnlarge !== undefined) {
+                    previewOverrides.focusEnlarge = parseBoolParam(opts.focusEnlarge) ?? Boolean(opts.focusEnlarge);
+                }
+                if (opts.title !== undefined) {
+                    previewOverrides.title = String(opts.title);
+                }
+                if (opts.useSampleData !== undefined && IS_PREVIEW) {
+                    previewOverrides.useSampleData = Boolean(opts.useSampleData);
+                }
+
+                if (!currentState) {
+                    applyAppearance(resolveConfig(null));
+                    return;
+                }
+
+                const nextCfg = resolveConfig(currentState);
+                if (Boolean(nextCfg.useSampleData) !== Boolean(prevSample) ||
+                    (prevHideUnranked === true && nextCfg.hideUnranked === false)) {
+                    renderOverlay(currentState);
+                    return;
+                }
+
+                applyAppearance(nextCfg);
+                const effectiveTitle = (previewOverrides.title !== undefined && previewOverrides.title !== '')
+                    ? previewOverrides.title
+                    : (currentState.title || 'Community Tier List');
+                $('overlay-title').textContent = effectiveTitle;
+                if (nextCfg.hideUnranked) {
+                    const unrankedBox = $('overlay-unranked');
+                    if (unrankedBox) unrankedBox.style.display = 'none';
+                }
+                updateVotingHint(currentState, nextCfg);
+                renderFocusStage(currentState, nextCfg);
+                scheduleLayoutPass();
+            });
+
+            // ----------------------------------------------------------------
+            // Observers, Idle Lifecycle & Cleanup
+            // ----------------------------------------------------------------
+
+            let containerObserver = null;
+            const containerEl = $('overlay-container');
+            if (containerEl && typeof ResizeObserver !== 'undefined') {
+                containerObserver = new ResizeObserver(() => scheduleLayoutPass());
+                containerObserver.observe(containerEl);
+            }
+
+            // Re-run layout/caption fit as individual card images or webfonts finish loading
+            const onCardImgLoad = () => scheduleLayoutPass();
+            $('overlay-board')?.addEventListener('load', onCardImgLoad, true);
+            $('overlay-unranked-items')?.addEventListener('load', onCardImgLoad, true);
+
+            const onFontsLoaded = () => scheduleLayoutPass();
+            document.fonts?.addEventListener?.('loadingdone', onFontsLoaded);
+
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden && currentState) scheduleLayoutPass();
+            });
+
+            function cleanupOverlay() {
+                document.fonts?.removeEventListener?.('loadingdone', onFontsLoaded);
+                if (layoutRaf) {
+                    cancelAnimationFrame(layoutRaf);
+                    layoutRaf = 0;
+                }
+                if (hudInterval) {
+                    clearInterval(hudInterval);
+                    hudInterval = null;
+                }
+                if (wsReconnectTimer) {
+                    clearTimeout(wsReconnectTimer);
+                    wsReconnectTimer = null;
+                }
+                if (containerObserver) {
+                    containerObserver.disconnect();
+                    containerObserver = null;
+                }
+                if (wsSocket) {
+                    try {
+                        wsSocket.onclose = null;
+                        wsSocket.close();
+                    } catch {}
+                    wsSocket = null;
+                }
+            }
+            window.addEventListener('pagehide', cleanupOverlay);
+            window.addEventListener('beforeunload', cleanupOverlay);
 
             // ----------------------------------------------------------------
             // Data Fetch & WebSocket
@@ -1099,10 +2677,11 @@
                     if (res.ok) {
                         const data = await res.json();
                         if (data.settings) {
-                            if (sfxParam === null) {
-                                TierAudio.enabled = data.settings.soundEnabled !== false;
-                            }
-                            TierAudio.volume = (data.settings.soundVolume !== undefined ? data.settings.soundVolume : 75) / 100;
+                            const rawVol = data.settings.soundVolume;
+                            const volPct = (rawVol !== undefined && Number.isFinite(Number(rawVol)))
+                                ? Math.min(100, Math.max(0, Number(rawVol)))
+                                : 75;
+                            TierAudio.volume = volPct / 100;
                         }
                         renderOverlay(data);
                     }
@@ -1113,11 +2692,16 @@
 
             function setupOverlayWs() {
                 const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-                const ws = new WebSocket(`${protocol}//${location.host}/ws`);
+                wsSocket = new WebSocket(`${protocol}//${location.host}/ws`);
 
-                ws.onmessage = (event) => {
+                wsSocket.onmessage = (event) => {
                     try {
                         const msg = JSON.parse(event.data);
+                        if (msg.type === 'tier-list:vote-cancel') {
+                            lastVoteCancelled = true;
+                        } else if (msg.type === 'tier-list:vote-start' || msg.type === 'tier-list:vote-end' || msg.type === 'tier-list:vote-locked') {
+                            lastVoteCancelled = false;
+                        }
                         if (msg.type === 'tier-list:update' || msg.type === 'tier-list:move' ||
                             msg.type === 'tier-list:vote-start' || msg.type === 'tier-list:vote-end' ||
                             msg.type === 'tier-list:vote-cancel' || msg.type === 'tier-list:vote-locked') {
@@ -1128,9 +2712,12 @@
                     } catch {}
                 };
 
-                ws.onclose = () => setTimeout(setupOverlayWs, 2500);
+                wsSocket.onclose = () => {
+                    wsReconnectTimer = setTimeout(setupOverlayWs, 2500);
+                };
             }
 
+            applyAppearance(resolveConfig(null));
             fetchOverlayState();
             setupOverlayWs();
         })();

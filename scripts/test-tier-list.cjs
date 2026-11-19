@@ -1034,3 +1034,874 @@ test('Tier List Browser UI: Unranked Pool Sortable draggable config and moving i
         fs.rmSync(tmpDir, { recursive: true, force: true });
     }
 });
+
+test('Tier List Service: Expanded theme persistence, normalization, presets, and banner asset tracking', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tl-test-theme-persist-'));
+    try {
+        const svc1 = createTierListService({ dataDir: tmpDir, log: () => {} });
+        svc1.updateConfig({
+            theme: {
+                bannerUrl: '/custom-overlay-assets/header-banner.png',
+                bannerMode: 'behind',
+                bannerHeight: 999,
+                bannerFit: 'contain',
+                showCaptions: false,
+                fitCaptions: true,
+                autoFit: true,
+                layout: 'sidebar',
+                style: 'light',
+                cardSize: 'compact',
+                cardAspect: '3/4',
+                cardFit: 'contain',
+                howToVote: 'always',
+                hintScale: '1.25',
+                sfx: false
+            }
+        });
+
+        let theme = svc1.getState().theme;
+        assert.equal(theme.bannerUrl, '/custom-overlay-assets/header-banner.png');
+        assert.equal(theme.bannerMode, 'behind');
+        assert.equal(theme.bannerHeight, 240, 'bannerHeight must clamp to max 240');
+        assert.equal(theme.bannerFit, 'contain');
+        assert.equal(theme.showCaptions, false);
+        assert.equal(theme.fitCaptions, true);
+        assert.equal(theme.autoFit, true);
+        assert.equal(theme.layout, 'sidebar');
+        assert.equal(theme.style, 'light');
+        assert.equal(theme.sfx, false);
+
+        // Save preset with current theme, then test unsafe URL & height lower clamp
+        const preset = svc1.savePreset({ name: 'Sidebar Dark Banner', includeItems: false });
+        assert.equal(preset.theme.bannerUrl, '/custom-overlay-assets/header-banner.png');
+
+        svc1.updateConfig({
+            theme: {
+                bannerUrl: 'javascript:alert(1)',
+                bannerHeight: 12,
+                bannerMode: 'invalid-mode',
+                style: 'invalid-style'
+            }
+        });
+        theme = svc1.getState().theme;
+        assert.equal(theme.bannerUrl, '', 'Unsafe javascript: URL must be rejected');
+        assert.equal(theme.bannerHeight, 48, 'bannerHeight must clamp to min 48');
+        assert.equal(theme.bannerMode, 'behind', 'Invalid enum must keep previous valid value');
+        assert.equal(theme.style, 'light', 'Invalid style must keep previous valid value');
+
+        // Load preset restores saved theme + banner
+        svc1.loadPreset(preset.id);
+        assert.equal(svc1.getState().theme.bannerUrl, '/custom-overlay-assets/header-banner.png');
+
+        // Asset usage tracking and reference rewriting include bannerUrl and preset banner
+        const users = svc1.tierListAssetUsers('header-banner.png');
+        assert.ok(users.some(u => u.id === 'tier-list:banner'));
+        assert.ok(users.some(u => u.id === `tier-list:preset-banner:${preset.id}`));
+
+        const renamed = svc1.rewriteTierListReferences('header-banner.png', 'season2-banner.png');
+        assert.equal(renamed, true);
+        assert.equal(svc1.getState().theme.bannerUrl, '/custom-overlay-assets/season2-banner.png');
+
+        // Reload from disk in a fresh service instance
+        const svc2 = createTierListService({ dataDir: tmpDir, log: () => {} });
+        const reloadedTheme = svc2.getState().theme;
+        assert.equal(reloadedTheme.bannerUrl, '/custom-overlay-assets/season2-banner.png');
+        assert.equal(reloadedTheme.fitCaptions, true);
+        assert.equal(reloadedTheme.autoFit, true);
+        assert.equal(reloadedTheme.showCaptions, false);
+    } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+});
+
+test('Tier List Overlay & Studio Theming: Server-synced banner, caption toggles, always-fit captions, auto-fit viewport, and query overrides', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tl-test-overlay-theming-'));
+    const staticRouter = require('../server/static-router');
+    const bannerSvg = "data:image/svg+xml;utf8," + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='1600' height='200'><rect width='1600' height='200' fill='#1e3a8a'/></svg>");
+    const thumbSvg = "data:image/svg+xml;utf8," + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><rect width='100' height='100' fill='#334155'/></svg>");
+
+    const service = createTierListService({ dataDir: tmpDir, log: () => {} });
+    // Create 8 tiers x 5 items = 40 items including a long-title item
+    const eightTiers = [
+        { id: 'tier-sp', label: 'S+', color: '#ff4b4b', description: 'GOAT' },
+        { id: 'tier-s', label: 'S', color: '#ff7f7f', description: 'Top' },
+        { id: 'tier-a', label: 'A', color: '#ffbf7f', description: 'Great' },
+        { id: 'tier-b', label: 'B', color: '#ffdf7f', description: 'Good' },
+        { id: 'tier-c', label: 'C', color: '#ffff7f', description: 'OK' },
+        { id: 'tier-d', label: 'D', color: '#bfff7f', description: 'Meh' },
+        { id: 'tier-e', label: 'E', color: '#7fff7f', description: 'Low' },
+        { id: 'tier-f', label: 'F', color: '#8b949e', description: 'Skip' }
+    ];
+    const wideSvg = "data:image/svg+xml;utf8," + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='640' height='360'><rect width='640' height='360' fill='#2563eb'/></svg>");
+    const tallSvg = "data:image/svg+xml;utf8," + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='300' height='450'><rect width='300' height='450' fill='#16a34a'/></svg>");
+    service.updateConfig({
+        tiers: eightTiers,
+        theme: {
+            bannerUrl: bannerSvg,
+            bannerMode: 'replace',
+            bannerHeight: 200,
+            bannerFit: 'cover',
+            showCaptions: true,
+            fitCaptions: true,
+            autoFit: true,
+            hideUnranked: true
+        }
+    });
+
+    const longItem = service.addItem({
+        name: 'Super Long RPG Adventure Subtitle: Definitive Extended Director Cut Edition',
+        imageUrl: thumbSvg,
+        tierId: 'tier-sp'
+    });
+    const wideItem = service.addItem({ name: 'Wide Card', imageUrl: wideSvg, tierId: 'tier-s' });
+    const tallItem = service.addItem({ name: 'Tall Card', imageUrl: tallSvg, tierId: 'tier-s' });
+    for (let i = 0; i < 37; i++) {
+        service.addItem({
+            name: `Ranked Title ${i + 1}`,
+            imageUrl: thumbSvg,
+            tierId: eightTiers[i % eightTiers.length].id
+        });
+    }
+
+    const handleRoutes = createTierListRoutes({ tierListService: service });
+    const router = staticRouter.createStaticRouter({ rootDir: path.join(__dirname, '..') });
+
+    const server = http.createServer(async (req, res) => {
+        const url = new URL(req.url, 'http://127.0.0.1');
+        if (await handleRoutes(req, res, url.pathname, url)) return;
+        if (url.pathname.startsWith('/api/')) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            return res.end('{}');
+        }
+        router.handleRequest(req, res);
+    });
+
+    await new Promise(r => server.listen(0, '127.0.0.1', r));
+    const port = server.address().port;
+    const origin = `http://127.0.0.1:${port}`;
+    const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+
+    try {
+        // 1. Clean overlay URL (no query params) loads server theme + banner + fitCaptions + autoFit at 1080p and 720p
+        const overlayPage = await browser.newPage();
+        await overlayPage.evaluateOnNewDocument(() => {
+            window.WebSocket = class { close() {} send() {} };
+        });
+        await overlayPage.setViewport({ width: 1920, height: 1080 });
+        await overlayPage.goto(`${origin}/overlays/tier-list.html`, { waitUntil: 'networkidle0' });
+        await overlayPage.waitForSelector('#overlay-header.has-banner.banner-replace', { timeout: 10000 });
+        await overlayPage.waitForFunction(() => document.body.classList.contains('auto-fit') && document.body.classList.contains('captions-fit'), { timeout: 5000 });
+
+        const check1080 = await overlayPage.evaluate((longId) => {
+            const titleStyle = getComputedStyle(document.getElementById('overlay-title'));
+            const board = document.getElementById('overlay-board');
+            const rows = Array.from(document.querySelectorAll('#overlay-board .overlay-row-items'));
+            const rowOverflows = rows.filter(r => r.scrollHeight > r.clientHeight + 2).length;
+            const longCap = document.querySelector(`.card[data-item-id="${longId}"] .card-caption`);
+            const capCs = getComputedStyle(longCap);
+            const hdrH = Math.round(document.getElementById('overlay-header').getBoundingClientRect().height);
+            return {
+                hdrH,
+                titleDisplay: titleStyle.display,
+                boardScrollH: board.scrollHeight,
+                boardClientH: board.clientHeight,
+                rowOverflows,
+                capWhiteSpace: capCs.whiteSpace,
+                capTextOverflow: capCs.textOverflow,
+                capScrollW: longCap.scrollWidth,
+                capClientW: longCap.clientWidth,
+                capScrollH: longCap.scrollHeight,
+                capClientH: longCap.clientHeight
+            };
+        }, longItem.id);
+
+        assert.ok(check1080.hdrH >= 195 && check1080.hdrH <= 205, `Expected ~200px banner height on 1080p, got ${check1080.hdrH}`);
+        assert.equal(check1080.titleDisplay, 'none', 'replace bannerMode should hide title text');
+        assert.ok(check1080.boardScrollH <= check1080.boardClientH + 2, `1080p board overflowed: ${check1080.boardScrollH} > ${check1080.boardClientH}`);
+        assert.equal(check1080.rowOverflows, 0, 'Every tier row must fit without clipping in auto-fit');
+        assert.notEqual(check1080.capWhiteSpace, 'nowrap', 'fitCaptions must wrap multi-line text');
+        assert.notEqual(check1080.capTextOverflow, 'ellipsis', 'fitCaptions must not truncate with ellipsis');
+        assert.ok(check1080.capScrollW <= check1080.capClientW + 1, 'Wrapped caption width must fit card');
+        assert.ok(check1080.capScrollH <= check1080.capClientH + 1, 'Shrunk caption height must fit card');
+        const hyphenSetting = await overlayPage.$eval('.card-caption', el => getComputedStyle(el).hyphens);
+        assert.notEqual(hyphenSetting, 'auto', 'Captions must not auto-hyphenate words');
+
+        // Verify unranked pool captions never split single words mid-word or clip
+        service.addItem({ name: 'Jarbochov', imageUrl: thumbSvg });
+        service.addItem({ name: 'Mustard Carl', imageUrl: thumbSvg });
+        service.updateConfig({ theme: { hideUnranked: false, fitCaptions: true, showCaptions: true } });
+        await overlayPage.reload({ waitUntil: 'networkidle0' });
+        await overlayPage.waitForSelector('#overlay-unranked-items .card', { timeout: 10000 });
+        const poolTextCheck = await overlayPage.evaluate(() => {
+            const caps = Array.from(document.querySelectorAll('#overlay-unranked-items .card-caption'));
+            return caps.map(cap => {
+                const cs = getComputedStyle(cap);
+                const range = document.createRange();
+                range.selectNodeContents(cap);
+                return {
+                    text: cap.textContent.trim(),
+                    overflowWrap: cs.overflowWrap,
+                    wordBreak: cs.wordBreak,
+                    hyphens: cs.hyphens,
+                    scrollW: cap.scrollWidth,
+                    clientW: cap.clientWidth,
+                    scrollH: cap.scrollHeight,
+                    clientH: cap.clientHeight,
+                    lineCount: range.getClientRects().length
+                };
+            });
+        });
+        for (const p of poolTextCheck) {
+            assert.equal(p.overflowWrap, 'normal');
+            assert.equal(p.wordBreak, 'normal');
+            assert.equal(p.hyphens, 'none');
+            assert.ok(p.scrollW <= p.clientW + 1, `Pool caption "${p.text}" width clipped: ${p.scrollW} > ${p.clientW}`);
+            assert.ok(p.scrollH <= p.clientH + 1, `Pool caption "${p.text}" height clipped: ${p.scrollH} > ${p.clientH}`);
+            if (p.text === 'Jarbochov') {
+                assert.equal(p.lineCount, 1, 'Single word "Jarbochov" must stay on 1 unbroken line');
+            }
+        }
+        service.updateConfig({ theme: { hideUnranked: true } });
+
+        // Verify coverFit=natural preserves wide and tall aspect ratios without squishing
+        await overlayPage.goto(`${origin}/overlays/tier-list.html?coverFit=natural&aspect=1/1`, { waitUntil: 'networkidle0' });
+        await overlayPage.waitForFunction(() => document.body.classList.contains('fit-natural'), { timeout: 5000 });
+        await new Promise(r => setTimeout(r, 120));
+        const naturalMetrics = await overlayPage.evaluate((wId, tId) => {
+            const wCard = document.querySelector(`.card[data-item-id="${wId}"]`);
+            const tCard = document.querySelector(`.card[data-item-id="${tId}"]`);
+            const wRect = wCard.getBoundingClientRect();
+            const tRect = tCard.getBoundingClientRect();
+            const wImgCs = getComputedStyle(wCard.querySelector('img'));
+            return {
+                wRatio: wRect.width / wRect.height,
+                tRatio: tRect.width / tRect.height,
+                imgFit: wImgCs.objectFit
+            };
+        }, wideItem.id, tallItem.id);
+        assert.notEqual(naturalMetrics.imgFit, 'fill', 'Natural fit must not use object-fit: fill');
+        assert.ok(naturalMetrics.wRatio > 1.5, `Wide 16:9 image should stay wide in natural mode, got ratio ${naturalMetrics.wRatio}`);
+        assert.ok(naturalMetrics.tRatio < 0.85, `Tall 2:3 image should stay tall in natural mode, got ratio ${naturalMetrics.tRatio}`);
+        await overlayPage.goto(`${origin}/overlays/tier-list.html`, { waitUntil: 'networkidle0' });
+        await overlayPage.waitForSelector('#overlay-header.has-banner.banner-replace', { timeout: 10000 });
+
+        // Also test 720p dense board auto-fit
+        await overlayPage.setViewport({ width: 1280, height: 720 });
+        await new Promise(r => setTimeout(r, 120));
+        const check720 = await overlayPage.evaluate(() => {
+            const board = document.getElementById('overlay-board');
+            const rows = Array.from(document.querySelectorAll('#overlay-board .overlay-row-items'));
+            return {
+                boardFits: board.scrollHeight <= board.clientHeight + 2,
+                rowOverflows: rows.filter(r => r.scrollHeight > r.clientHeight + 2).length
+            };
+        });
+        assert.equal(check720.boardFits, true, '720p board must fit inside viewport');
+        assert.equal(check720.rowOverflows, 0, '720p tier rows must not clip');
+
+        // 2. Server updates (bannerMode: behind, showCaptions: false) take effect cleanly without query params
+        service.updateConfig({ theme: { bannerMode: 'behind', showCaptions: false } });
+        await overlayPage.reload({ waitUntil: 'networkidle0' });
+        await overlayPage.waitForSelector('#overlay-header.has-banner.banner-behind', { timeout: 10000 });
+        const behindState = await overlayPage.evaluate(() => ({
+            titleDisplay: getComputedStyle(document.getElementById('overlay-title')).display,
+            captionsHidden: document.body.classList.contains('captions-hidden'),
+            firstCaptionDisplay: getComputedStyle(document.querySelector('.card-caption')).display
+        }));
+        assert.notEqual(behindState.titleDisplay, 'none', 'behind bannerMode must keep title visible');
+        assert.equal(behindState.captionsHidden, true);
+        assert.equal(behindState.firstCaptionDisplay, 'none', 'showCaptions: false must hide captions');
+
+        // 3. Explicit URL query params override saved server config
+        await overlayPage.goto(`${origin}/overlays/tier-list.html?captions=1&theme=light&bannerMode=replace`, { waitUntil: 'networkidle0' });
+        await overlayPage.waitForSelector('#overlay-header.has-banner.banner-replace', { timeout: 10000 });
+        const overrideState = await overlayPage.evaluate(() => ({
+            lightTheme: document.body.classList.contains('theme-light'),
+            captionsHidden: document.body.classList.contains('captions-hidden'),
+            firstCaptionDisplay: getComputedStyle(document.querySelector('.card-caption')).display
+        }));
+        assert.equal(overrideState.lightTheme, true);
+        assert.equal(overrideState.captionsHidden, false);
+        assert.notEqual(overrideState.firstCaptionDisplay, 'none');
+        await overlayPage.close();
+
+        // 4. Studio Overlay & Theming tab saves changes to server + updates preview without reload
+        const studioPage = await browser.newPage();
+        await studioPage.evaluateOnNewDocument(() => {
+            window.WebSocket = class { close() {} send() {} };
+        });
+        let previewReloads = 0;
+        studioPage.on('framenavigated', frame => {
+            if (frame.url().includes('/overlays/tier-list.html')) previewReloads += 1;
+        });
+
+        await studioPage.setViewport({ width: 1440, height: 900 });
+        await studioPage.goto(`${origin}/tools/tier-list.html`, { waitUntil: 'networkidle0' });
+        await studioPage.click('#tab-btn-theming');
+        await studioPage.waitForSelector('#theming-preview-url', { timeout: 10000 });
+        await studioPage.waitForFunction(() => {
+            const frame = document.getElementById('tier-preview-iframe');
+            return frame?.dataset.initialLoaded === 'true' && frame.contentDocument?.getElementById('overlay-board');
+        });
+        const initialLoads = previewReloads;
+
+        // Permanent OBS URL stays clean without query parameters
+        const cleanObsUrl = await studioPage.$eval('#theming-preview-url', el => el.value);
+        assert.ok(cleanObsUrl.endsWith('/overlays/tier-list.html'));
+
+        // Toggle switches render cleanly as 36px pills (overriding admin.css checkbox width)
+        const switchWidth = await studioPage.$eval('#overlay-opt-show-captions', el => getComputedStyle(el).width);
+        assert.equal(switchWidth, '36px', 'Toggle switch must override admin checkbox width to 36px');
+
+        // Enable Show Captions via Studio toggle -> saves to server & updates preview without reload
+        await studioPage.click('#overlay-opt-show-captions');
+        await studioPage.waitForFunction(() => {
+            const frame = document.getElementById('tier-preview-iframe');
+            return frame?.contentDocument && !frame.contentDocument.body.classList.contains('captions-hidden');
+        }, { timeout: 5000 });
+        await studioPage.waitForFunction(() => document.getElementById('theming-sync-status')?.textContent.includes('Synced'), { timeout: 5000 });
+
+        assert.equal(service.getState().theme.showCaptions, true);
+        assert.equal(previewReloads, initialLoads, 'Studio theming changes must sync via postMessage without reloading iframe');
+
+        // Verify banner preview thumbnail shows server-configured banner
+        const bannerPreviewVisible = await studioPage.$eval('#banner-preview-img', el => !el.hidden);
+        assert.equal(bannerPreviewVisible, true);
+        await studioPage.close();
+    } finally {
+        await browser.close();
+        await new Promise(r => server.close(r));
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+});
+
+test('Tier List Service: Custom themes, typography/color sanitizers, legacy migration & font asset tracking', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tl-test-themes-fonts-'));
+    try {
+        // 1. Verify legacy dead-default triple migrates cleanly on load()
+        const legacyFile = path.join(tmpDir, 'tier-list.json');
+        fs.writeFileSync(legacyFile, JSON.stringify({
+            title: 'Legacy List',
+            theme: {
+                style: 'light',
+                backgroundColor: 'rgba(13, 17, 23, 0.92)',
+                textColor: '#f0f6fc',
+                accentColor: '#3b82f6'
+            }
+        }));
+        const migratedSvc = createTierListService({ dataDir: tmpDir, log: () => {} });
+        const migratedTheme = migratedSvc.getState().theme;
+        assert.equal(migratedTheme.style, 'light');
+        assert.equal(migratedTheme.backgroundColor, '', 'Legacy dead-default bg should migrate to empty');
+        assert.equal(migratedTheme.textColor, '', 'Legacy dead-default text should migrate to empty');
+        assert.equal(migratedTheme.accentColor, '', 'Legacy dead-default accent should migrate to empty');
+
+        // 2. Save full StreamPulse theme + typography + color overrides + custom Asset Library font
+        migratedSvc.updateConfig({
+            theme: {
+                style: 'cyber',
+                headingFont: 'Cool Arcade',
+                fontFamily: 'Inter',
+                fontWeight: 'bold',
+                fontScale: 1.25,
+                textTransform: 'uppercase',
+                textOutline: 'strong',
+                backgroundColor: 'rgba(12, 20, 36, 0.9)',
+                rowBackgroundColor: '#111827',
+                borderColor: '#00f0ff',
+                textColor: '#ffffff',
+                mutedColor: '#67e8f9',
+                accentColor: '#ff0055',
+                borderRadius: '12px',
+                backdropBlur: '16px'
+            }
+        });
+        const t = migratedSvc.getState().theme;
+        assert.equal(t.style, 'cyber');
+        assert.equal(t.headingFont, 'Cool Arcade');
+        assert.equal(t.fontFamily, 'Inter');
+        assert.equal(t.fontWeight, '700');
+        assert.equal(t.fontScale, 1.25);
+        assert.equal(t.textTransform, 'uppercase');
+        assert.equal(t.textOutline, 'strong');
+        assert.equal(t.backgroundColor, 'rgba(12, 20, 36, 0.9)');
+        assert.equal(t.rowBackgroundColor, '#111827');
+        assert.equal(t.borderRadius, '12px');
+        assert.equal(t.backdropBlur, '16px');
+
+        // 3. Reject unsafe CSS / font / injection inputs
+        migratedSvc.updateConfig({
+            theme: {
+                backgroundColor: 'red; background: url(http://evil.example/x.png)',
+                rowBackgroundColor: 'expression(alert(1))',
+                headingFont: 'Oswald";}</style>',
+                fontWeight: 'heavy',
+                fontScale: 99,
+                textTransform: 'blink',
+                borderRadius: 'calc(100% + 10px)',
+                backdropBlur: '999px'
+            }
+        });
+        const sanitized = migratedSvc.getState().theme;
+        assert.equal(sanitized.backgroundColor, '');
+        assert.equal(sanitized.rowBackgroundColor, '');
+        assert.equal(sanitized.headingFont, 'Oswald/style');
+        assert.equal(sanitized.fontWeight, '');
+        assert.equal(sanitized.fontScale, 2.5);
+        assert.equal(sanitized.textTransform, '');
+        assert.equal(sanitized.borderRadius, '');
+        assert.equal(sanitized.backdropBlur, '24px');
+
+        // 4. Font usage tracking matches only uploaded font extensions, not images
+        migratedSvc.updateConfig({ theme: { headingFont: 'Cool Arcade' } });
+        const fontUsers = migratedSvc.tierListAssetUsers('Cool-Arcade.woff2');
+        assert.ok(fontUsers.some(u => u.id === 'tier-list:font'));
+        const nonFontUsers = migratedSvc.tierListAssetUsers('Cool-Arcade.png');
+        assert.equal(nonFontUsers.some(u => u.id === 'tier-list:font'), false);
+    } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+});
+
+test('Tier List Service & Routes: Disabling chat voting cancels active vote and blocks chat/route triggers', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tl-test-disable-voting-'));
+    try {
+        const service = createTierListService({ dataDir: tmpDir, log: () => {} });
+        const handleRoutes = createTierListRoutes({ tierListService: service });
+        const item = service.addItem({ name: 'Hollow Knight', imageUrl: '/assets/hk.png' });
+
+        // Start a vote first
+        service.startVote({ itemId: item.id, duration: 60 });
+        assert.ok(service.getState().activeVote);
+
+        // Turn off chat voting -> activeVote must cancel cleanly
+        service.updateConfig({ settings: { chatVotingEnabled: false } });
+        assert.equal(service.getState().settings.chatVotingEnabled, false);
+        assert.equal(service.getState().activeVote, null);
+
+        // Chat commands and manual castVote are rejected
+        assert.equal(service.handleChatMessage({ chatname: 'Viewer1', userId: 'v1', message: '!tier S' }), false);
+        assert.equal(service.castVote({ user: 'Viewer1', userId: 'v1', tierId: 'tier-s' }), false);
+
+        // Starting a vote via service throws 409 error
+        assert.throws(() => service.startVote({ itemId: item.id }), err => err.statusCode === 409);
+
+        function mockReq(method, pathname) {
+            const stream = new (require('stream').Readable)();
+            stream.push(null);
+            stream.method = method;
+            stream.url = pathname;
+            stream.headers = {};
+            return stream;
+        }
+        function mockRes() {
+            let statusCode = 200;
+            let body = '';
+            return {
+                writeHead(code) { statusCode = code; },
+                end(data) { if (data) body += data; },
+                getStatusCode: () => statusCode,
+                getBody: () => body ? JSON.parse(body) : null
+            };
+        }
+
+        // GET /api/tier-list/status reports chatVotingEnabled: false & voteStatus: 'disabled'
+        const statusRes = mockRes();
+        await handleRoutes(mockReq('GET', '/api/tier-list/status'), statusRes, '/api/tier-list/status');
+        assert.equal(statusRes.getStatusCode(), 200);
+        assert.equal(statusRes.getBody().chatVotingEnabled, false);
+        assert.equal(statusRes.getBody().voteStatus, 'disabled');
+
+        // POST /api/tier-list/vote/start returns 409 when chat voting is disabled
+        const startRes = mockRes();
+        await handleRoutes(mockReq('POST', '/api/tier-list/vote/start'), startRes, '/api/tier-list/vote/start');
+        assert.equal(startRes.getStatusCode(), 409);
+
+        // Re-enable chat voting -> starting a vote works again
+        service.updateConfig({ settings: { chatVotingEnabled: true } });
+        const startOkRes = mockRes();
+        await handleRoutes(mockReq('GET', '/api/tier-list/vote/start'), startOkRes, '/api/tier-list/vote/start');
+        assert.equal(startOkRes.getStatusCode(), 200);
+        assert.ok(startOkRes.getBody().activeVote);
+    } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+});
+
+test('Tier List Browser UI: StreamPulse theme presets, custom fonts/colors, saved custom theme & Disable Chat Voting UX', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tl-test-e2e-themes-voting-'));
+    const staticRouter = require('../server/static-router');
+    const thumbSvg = 'data:image/svg+xml;utf8,' + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><rect width='100' height='100' fill='#334155'/></svg>");
+    const service = createTierListService({ dataDir: tmpDir, log: () => {} });
+    service.addItem({ name: 'Chrono Trigger', imageUrl: thumbSvg, tierId: 'tier-s' });
+    service.updateConfig({ theme: { howToVote: 'always' } });
+
+    const handleRoutes = createTierListRoutes({ tierListService: service });
+    const router = staticRouter.createStaticRouter({ rootDir: path.join(__dirname, '..') });
+
+    const server = http.createServer(async (req, res) => {
+        const url = new URL(req.url, 'http://127.0.0.1');
+        if (await handleRoutes(req, res, url.pathname, url)) return;
+        if (url.pathname.startsWith('/api/custom-overlays/assets')) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            return res.end('[]');
+        }
+        if (url.pathname.startsWith('/api/')) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            return res.end('{}');
+        }
+        router.handleRequest(req, res);
+    });
+
+    await new Promise(r => server.listen(0, '127.0.0.1', r));
+    const port = server.address().port;
+    const origin = `http://127.0.0.1:${port}`;
+    const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+
+    try {
+        const studioPage = await browser.newPage();
+        await studioPage.evaluateOnNewDocument(() => {
+            window.WebSocket = class { close() {} send() {} };
+        });
+        let previewReloads = 0;
+        studioPage.on('framenavigated', frame => {
+            if (frame.url().includes('/overlays/tier-list.html')) previewReloads += 1;
+        });
+
+        await studioPage.setViewport({ width: 1440, height: 900 });
+        await studioPage.goto(`${origin}/tools/tier-list.html`, { waitUntil: 'networkidle0' });
+        await studioPage.waitForSelector('.item-card', { timeout: 10000 });
+
+        // 1. Open Settings modal & disable Chat Voting
+        await studioPage.click('#btn-settings');
+        await studioPage.waitForSelector('#setting-chat-voting', { visible: true, timeout: 5000 });
+        const beforeDisabled = await studioPage.$eval('#group-chat-vote-settings', el => el.hidden);
+        assert.equal(beforeDisabled, false);
+
+        await studioPage.click('#setting-chat-voting');
+        const afterToggleHidden = await studioPage.$eval('#group-chat-vote-settings', el => el.hidden);
+        assert.equal(afterToggleHidden, true, 'Dependent chat voting options must hide when Chat Voting is off');
+
+        await studioPage.click('#btn-save-settings');
+        await studioPage.waitForFunction(() => document.querySelectorAll('[data-action="start-vote"]').length === 0, { timeout: 5000 });
+        const tabText = await studioPage.$eval('#tab-btn-board span', el => el.textContent.trim());
+        assert.equal(tabText, 'Board');
+        assert.equal(service.getState().settings.chatVotingEnabled, false);
+
+        // Verify live overlay hides voting hint ribbon even when ?howtovote=always is set while voting disabled
+        const disabledOverlayPage = await browser.newPage();
+        await disabledOverlayPage.evaluateOnNewDocument(() => { window.WebSocket = class { close() {} send() {} }; });
+        await disabledOverlayPage.goto(`${origin}/overlays/tier-list.html?howtovote=always`, { waitUntil: 'networkidle0' });
+        await disabledOverlayPage.waitForSelector('#overlay-board', { timeout: 10000 });
+        const hintVisibleWhenDisabled = await disabledOverlayPage.$eval('#overlay-how-to-vote', el => el.classList.contains('visible'));
+        assert.equal(hintVisibleWhenDisabled, false, 'Hint ribbon must stay hidden when chat voting is disabled');
+        await disabledOverlayPage.close();
+
+        // 2. Verify Overlay & Theming sub-section hides voting controls, then test Themes, Fonts, Colors, Custom Theme
+        await studioPage.click('#tab-btn-theming');
+        await studioPage.waitForFunction(() => {
+            const frame = document.getElementById('tier-preview-iframe');
+            return frame?.dataset.initialLoaded === 'true' && frame.contentDocument?.getElementById('overlay-board');
+        }, { timeout: 10000 });
+        const initialLoads = previewReloads;
+
+        const overlayVotingHidden = await studioPage.$eval('#tl-section-voting-overlay', el => el.hidden);
+        assert.equal(overlayVotingHidden, true, 'Voting Hint & Audio controls must hide when chat voting is disabled');
+
+        // Select built-in StreamPulse theme 'cyber'
+        await studioPage.select('#overlay-opt-theme', 'cyber');
+        const previewFrame = studioPage.frames().find(f => f.url().includes('/overlays/tier-list.html'));
+        await previewFrame.waitForFunction(() => document.body.classList.contains('theme-cyber'), { timeout: 5000 });
+        await studioPage.waitForFunction(() => document.getElementById('theming-sync-status')?.textContent.includes('Synced'), { timeout: 5000 });
+        assert.equal(service.getState().theme.style, 'cyber');
+
+        // Switch to Fonts & Framing sub-tab & set custom fonts + framing
+        await studioPage.$eval('#tl-subtab-btn-typography', el => el.click());
+        await studioPage.waitForSelector('#tl-subpanel-typography', { visible: true });
+        await studioPage.type('#overlay-opt-heading-font', 'Oswald');
+        await studioPage.type('#overlay-opt-font', 'Inter');
+        await studioPage.select('#overlay-opt-weight', '700');
+        await studioPage.select('#overlay-opt-fontscale', '1.25');
+        await studioPage.select('#overlay-opt-transform', 'uppercase');
+        await studioPage.select('#overlay-opt-outline', 'strong');
+        await studioPage.select('#overlay-opt-radius', '16px');
+
+        // Switch to Colors sub-tab & apply swatch + custom background
+        await studioPage.$eval('#tl-subtab-btn-colors', el => el.click());
+        await studioPage.waitForSelector('#tl-subpanel-colors', { visible: true });
+        await studioPage.click('#tl-accent-chips .tl-p-chip[data-color="#10b981"]');
+        await studioPage.type('#overlay-opt-bg', '#121826');
+        await studioPage.$eval('#overlay-opt-bg', el => el.dispatchEvent(new Event('change', { bubbles: true })));
+
+        await previewFrame.waitForFunction(() => {
+            const cs = getComputedStyle(document.documentElement);
+            return cs.getPropertyValue('--tl-heading-font').includes('Oswald')
+                && cs.getPropertyValue('--tl-font').includes('Inter')
+                && cs.getPropertyValue('--tl-accent').trim() === '#10b981'
+                && cs.getPropertyValue('--tl-bg').trim() === '#121826'
+                && cs.getPropertyValue('--tl-radius').trim() === '16px';
+        }, { timeout: 5000 });
+        await studioPage.waitForFunction(() => document.getElementById('theming-sync-status')?.textContent.includes('Synced'), { timeout: 5000 });
+        assert.equal(previewReloads, initialLoads, 'All theme/font/color edits must sync via postMessage without reloading iframe');
+
+        // Save custom theme via modal
+        await studioPage.$eval('#btn-save-custom-theme', el => el.click());
+        await studioPage.waitForSelector('#modal-save-theme.open #save-theme-name', { visible: true });
+        await studioPage.type('#save-theme-name', 'Synthwave Tier');
+        await studioPage.click('#modal-save-theme button[type="submit"]');
+        await studioPage.waitForFunction(() => document.getElementById('overlay-opt-theme')?.value === 'synthwave-tier', { timeout: 5000 });
+        await studioPage.waitForFunction(() => document.getElementById('theming-sync-status')?.textContent.includes('Synced'), { timeout: 5000 });
+        assert.equal(service.getState().theme.style, 'custom');
+        assert.equal(service.getState().theme.customThemeId, 'synthwave-tier');
+        assert.equal(previewReloads, initialLoads);
+
+        await studioPage.close();
+
+        // 3. Test clean overlay URL reads server-persisted custom theme/fonts/colors AND URL overrides win
+        const cleanPage = await browser.newPage();
+        await cleanPage.evaluateOnNewDocument(() => { window.WebSocket = class { close() {} send() {} }; });
+        await cleanPage.goto(`${origin}/overlays/tier-list.html`, { waitUntil: 'networkidle0' });
+        await cleanPage.waitForSelector('#overlay-board', { timeout: 10000 });
+        const cleanVars = await cleanPage.evaluate(() => {
+            const cs = getComputedStyle(document.documentElement);
+            return {
+                headingFont: cs.getPropertyValue('--tl-heading-font'),
+                font: cs.getPropertyValue('--tl-font'),
+                accent: cs.getPropertyValue('--tl-accent').trim(),
+                bg: cs.getPropertyValue('--tl-bg').trim(),
+                radius: cs.getPropertyValue('--tl-radius').trim(),
+                transform: cs.getPropertyValue('--tl-text-transform').trim()
+            };
+        });
+        assert.ok(cleanVars.headingFont.includes('Oswald'));
+        assert.ok(cleanVars.font.includes('Inter'));
+        assert.equal(cleanVars.accent, '#10b981');
+        assert.equal(cleanVars.bg, '#121826');
+        assert.equal(cleanVars.radius, '16px');
+        assert.equal(cleanVars.transform, 'uppercase');
+
+        await cleanPage.goto(`${origin}/overlays/tier-list.html?theme=fgc-evo&headingfont=Cinzel&font=Roboto&accent=%23ffd700&radius=4px&transform=capitalize`, { waitUntil: 'networkidle0' });
+        await cleanPage.waitForFunction(() => document.body.classList.contains('theme-fgc-evo'), { timeout: 5000 });
+        const overrideVars = await cleanPage.evaluate(() => {
+            const cs = getComputedStyle(document.documentElement);
+            return {
+                headingFont: cs.getPropertyValue('--tl-heading-font'),
+                font: cs.getPropertyValue('--tl-font'),
+                accent: cs.getPropertyValue('--tl-accent').trim(),
+                radius: cs.getPropertyValue('--tl-radius').trim(),
+                transform: cs.getPropertyValue('--tl-text-transform').trim()
+            };
+        });
+        assert.ok(overrideVars.headingFont.includes('Cinzel'));
+        assert.ok(overrideVars.font.includes('Roboto'));
+        assert.equal(overrideVars.accent, '#ffd700');
+        assert.equal(overrideVars.radius, '4px');
+        assert.equal(overrideVars.transform, 'capitalize');
+        await cleanPage.close();
+    } finally {
+        await browser.close();
+        await new Promise(r => server.close(r));
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+});
+
+test('Tier List Service & Routes: Sound sync, 0 volume, exact S+ chat match, and focus/enlarge state', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tl-test-sound-focus-'));
+    try {
+        const service = createTierListService({ dataDir: tmpDir, log: () => {} });
+        const handleRoutes = createTierListRoutes({ tierListService: service });
+
+        // 1. settings.soundEnabled: false syncs theme.sfx: false, and soundVolume: 0 persists as 0
+        service.updateConfig({ settings: { soundEnabled: false, soundVolume: 0 } });
+        assert.equal(service.getState().settings.soundEnabled, false);
+        assert.equal(service.getState().settings.soundVolume, 0);
+        assert.equal(service.getState().theme.sfx, false);
+
+        // 2. Exact match on S+ and S+! before stripped S
+        const extended = service.getState().presets.find(p => p.id === 'preset-extended');
+        service.loadPreset(extended.id);
+        const item = service.addItem({ name: 'Elden Ring', imageUrl: '/assets/er.png' });
+        service.startVote({ itemId: item.id, duration: 60 });
+        assert.equal(service.handleChatMessage({ chatname: 'P1', userId: 'p1', message: '!tier S+' }), true);
+        assert.equal(service.getState().activeVote.votes['p1'].tierId, 'tier-sp');
+        assert.equal(service.handleChatMessage({ chatname: 'P2', userId: 'p2', message: '!tier S+!' }), true);
+        assert.equal(service.getState().activeVote.votes['p2'].tierId, 'tier-sp');
+        assert.equal(service.handleChatMessage({ chatname: 'P3', userId: 'p3', message: '!tier S' }), true);
+        assert.equal(service.getState().activeVote.votes['p3'].tierId, 'tier-s');
+        service.cancelVote();
+
+        // 3. focusItem / clearFocus & theme.focusEnlarge persistence + routes
+        service.updateConfig({ theme: { focusEnlarge: true } });
+        assert.equal(service.getState().theme.focusEnlarge, true);
+
+        function mockReq(method, pathname) {
+            const stream = new (require('stream').Readable)();
+            stream.push(null);
+            stream.method = method;
+            stream.url = pathname;
+            stream.headers = {};
+            return stream;
+        }
+        function mockRes() {
+            let statusCode = 200;
+            let body = '';
+            return {
+                writeHead(code) { statusCode = code; },
+                end(data) { if (data) body += data; },
+                getStatusCode: () => statusCode,
+                getBody: () => body ? JSON.parse(body) : null
+            };
+        }
+
+        const focusRes = mockRes();
+        await handleRoutes(mockReq('GET', `/api/tier-list/focus?itemId=${item.id}`), focusRes, '/api/tier-list/focus', new URL(`http://localhost/api/tier-list/focus?itemId=${item.id}`));
+        assert.equal(focusRes.getStatusCode(), 200);
+        assert.equal(focusRes.getBody().focusedItemId, item.id);
+
+        const clearRes = mockRes();
+        await handleRoutes(mockReq('GET', '/api/tier-list/focus/clear'), clearRes, '/api/tier-list/focus/clear', new URL('http://localhost/api/tier-list/focus/clear'));
+        assert.equal(clearRes.getStatusCode(), 200);
+        assert.equal(clearRes.getBody().focusedItemId, null);
+    } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+});
+
+test('Tier List Overlay UX: Single timer, single voting hint, dynamic !tier chips, wrapped descriptions, muted audio & focus/enlarge art', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tl-test-overlay-ux-'));
+    const staticRouter = require('../server/static-router');
+    const thumbSvg = 'data:image/svg+xml;utf8,' + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><rect width='300' height='300' fill='#2563eb'/></svg>");
+
+    const service = createTierListService({ dataDir: tmpDir, log: () => {} });
+    service.updateConfig({
+        tiers: [
+            { id: 'tier-s', label: 'S', color: '#1e1b4b', description: 'Top Tier' },
+            { id: 'tier-a', label: 'A', color: '#ffbf7f', description: 'Great' },
+            { id: 'tier-d', label: 'D', color: '#bfff7f', description: 'Below Average' },
+            { id: 'tier-f', label: 'F', color: '#7fff7f', description: 'Bottom Tier' }
+        ],
+        settings: { soundEnabled: false },
+        theme: { howToVote: 'always', sfx: true, focusEnlarge: true }
+    });
+    const item = service.addItem({ name: 'Chrono Trigger', imageUrl: thumbSvg, note: 'Time-travel classic' });
+
+    const handleRoutes = createTierListRoutes({ tierListService: service });
+    const router = staticRouter.createStaticRouter({ rootDir: path.join(__dirname, '..') });
+    const server = http.createServer(async (req, res) => {
+        const url = new URL(req.url, 'http://127.0.0.1');
+        if (await handleRoutes(req, res, url.pathname, url)) return;
+        if (url.pathname.startsWith('/api/')) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            return res.end('{}');
+        }
+        router.handleRequest(req, res);
+    });
+
+    await new Promise(r => server.listen(0, '127.0.0.1', r));
+    const port = server.address().port;
+    const origin = `http://127.0.0.1:${port}`;
+    const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+
+    try {
+        // 1. Focused item without voting shows enlarged artwork stage
+        service.focusItem(item.id);
+        const page = await browser.newPage();
+        await page.evaluateOnNewDocument(() => {
+            window.__audioCtxCreated = 0;
+            const Orig = window.AudioContext || window.webkitAudioContext;
+            if (Orig) {
+                window.AudioContext = class extends Orig {
+                    constructor(...a) { window.__audioCtxCreated++; super(...a); }
+                };
+            }
+            window.WebSocket = class { close() {} send() {} };
+        });
+        await page.setViewport({ width: 1920, height: 1080 });
+        await page.goto(`${origin}/overlays/tier-list.html`, { waitUntil: 'networkidle0' });
+        await page.waitForSelector('#overlay-focus-stage.active', { timeout: 10000 });
+
+        const focusOnlyCheck = await page.evaluate(() => {
+            const imgRect = document.getElementById('focus-stage-img').getBoundingClientRect();
+            return {
+                hudActive: document.getElementById('vote-hud-overlay').classList.contains('active'),
+                stageBadge: document.getElementById('focus-stage-badge').textContent.trim(),
+                stageTitle: document.getElementById('focus-stage-title').textContent.trim(),
+                imgWidth: imgRect.width,
+                imgHeight: imgRect.height
+            };
+        });
+        assert.equal(focusOnlyCheck.hudActive, false);
+        assert.equal(focusOnlyCheck.stageBadge, 'Selected');
+        assert.equal(focusOnlyCheck.stageTitle, 'Chrono Trigger');
+        assert.ok(focusOnlyCheck.imgWidth >= 150 && focusOnlyCheck.imgHeight >= 150, 'Focused artwork must be enlarged');
+
+        // 2. Active vote: single timer, single voting hint, dynamic !tier chips, contrast pill, wrapped descriptions, muted audio
+        service.startVote({ itemId: item.id, duration: 45 });
+        service.castVote({ user: 'Tester', userId: 'u1', tierId: 'tier-s' });
+        await page.reload({ waitUntil: 'networkidle0' });
+        await page.waitForSelector('#vote-hud-overlay.active', { timeout: 10000 });
+
+        const voteCheck = await page.evaluate(() => {
+            const hintVisible = document.getElementById('overlay-how-to-vote').classList.contains('visible');
+            const badgeText = document.getElementById('overlay-vote-badge').textContent;
+            const hudCmdText = document.getElementById('hud-cmd').textContent;
+            const hudImgDisplay = getComputedStyle(document.getElementById('hud-img')).display;
+            const consensusStyle = getComputedStyle(document.getElementById('hud-consensus'));
+            const hudRect = document.getElementById('vote-hud-overlay').getBoundingClientRect();
+            const subChecks = Array.from(document.querySelectorAll('.overlay-row-sub')).map(el => {
+                const cs = getComputedStyle(el);
+                return {
+                    text: el.textContent,
+                    whiteSpace: cs.whiteSpace,
+                    scrollW: el.scrollWidth,
+                    clientW: el.clientWidth,
+                    scrollH: el.scrollHeight,
+                    clientH: el.clientHeight
+                };
+            });
+            return {
+                hintVisible,
+                badgeText,
+                hudCmdText,
+                hudImgDisplay,
+                consensusColor: consensusStyle.color,
+                hudRightEdge: hudRect.right,
+                hudBottomEdge: hudRect.bottom,
+                subChecks,
+                audioCtxCreated: window.__audioCtxCreated
+            };
+        });
+
+        assert.equal(voteCheck.hintVisible, false, 'Top hint ribbon must NOT duplicate active vote card');
+        assert.ok(!/\d+s/.test(voteCheck.badgeText), 'Top vote badge must NOT show a duplicate countdown timer');
+        assert.ok(voteCheck.hudCmdText.includes('!tier'), 'HUD must show !tier command');
+        assert.ok(!voteCheck.hudCmdText.includes('<tier>'), 'HUD must NOT show cryptic <tier> angle brackets');
+        assert.equal(voteCheck.hudImgDisplay, 'none', 'Small #hud-img must hide when focusEnlarge stage is active');
+        assert.equal(voteCheck.consensusColor, 'rgb(255, 255, 255)', 'Dark tier color #1e1b4b must use white contrast text');
+        assert.equal(voteCheck.audioCtxCreated, 0, 'AudioContext must not be created when settings.soundEnabled is false');
+        assert.ok(voteCheck.hudRightEdge <= 1920 && voteCheck.hudBottomEdge <= 1080);
+        for (const sub of voteCheck.subChecks) {
+            assert.notEqual(sub.whiteSpace, 'nowrap', `Tier description "${sub.text}" must wrap`);
+            assert.ok(sub.scrollW <= sub.clientW + 1, `Tier description "${sub.text}" width clipped`);
+            assert.ok(sub.scrollH <= sub.clientH + 1, `Tier description "${sub.text}" height clipped`);
+        }
+
+        // 3. Sidebar 440x1080 viewport keeps HUD + focus stage inside bounds
+        await page.setViewport({ width: 440, height: 1080 });
+        await page.goto(`${origin}/overlays/tier-list.html?layout=sidebar&focusEnlarge=1`, { waitUntil: 'networkidle0' });
+        await page.waitForSelector('#vote-hud-overlay.active', { timeout: 10000 });
+        const sidebarRect = await page.evaluate(() => {
+            const hud = document.getElementById('vote-hud-overlay').getBoundingClientRect();
+            const stage = document.getElementById('overlay-focus-stage').getBoundingClientRect();
+            return { hudLeft: hud.left, hudRight: hud.right, stageLeft: stage.left, stageRight: stage.right };
+        });
+        assert.ok(sidebarRect.hudLeft >= 0 && sidebarRect.hudRight <= 440, `Sidebar HUD overflowed: ${JSON.stringify(sidebarRect)}`);
+        assert.ok(sidebarRect.stageLeft >= 0 && sidebarRect.stageRight <= 440, `Sidebar focus stage overflowed: ${JSON.stringify(sidebarRect)}`);
+
+        await page.close();
+    } finally {
+        await browser.close();
+        await new Promise(r => server.close(r));
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+});

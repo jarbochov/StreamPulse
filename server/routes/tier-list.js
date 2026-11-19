@@ -27,15 +27,18 @@ function createTierListRoutes({ tierListService }) {
                 const state = tierListService.getState();
                 const vote = state.activeVote;
                 const consensus = vote?.consensus || null;
+                const chatVotingEnabled = state.settings?.chatVotingEnabled !== false;
                 const placedCount = (state.items || []).filter(it => Boolean(it.tierId)).length;
                 const unrankedCount = (state.items || []).filter(it => !it.tierId).length;
                 sendJson(res, {
                     title: state.title || 'Tier List',
+                    chatVotingEnabled,
                     tierCount: (state.tiers || []).length,
                     itemCount: (state.items || []).length,
                     placedCount,
                     unrankedCount,
-                    voteStatus: vote ? String(vote.status || 'IDLE').toLowerCase() : 'idle',
+                    focusedItemId: state.focusedItemId || null,
+                    voteStatus: !chatVotingEnabled ? 'disabled' : (vote ? String(vote.status || 'IDLE').toLowerCase() : 'idle'),
                     activeVote: vote ? {
                         itemId: vote.itemId,
                         itemName: vote.itemName,
@@ -123,6 +126,50 @@ function createTierListRoutes({ tierListService }) {
             if (pathname === '/api/tier-list/clear' && req.method === 'POST') {
                 const state = tierListService.clearItems();
                 sendJson(res, state);
+                return true;
+            }
+
+            // POST or GET /api/tier-list/focus/clear (Companion friendly)
+            if (pathname === '/api/tier-list/focus/clear' && (req.method === 'POST' || req.method === 'GET')) {
+                const state = tierListService.clearFocus();
+                sendJson(res, state);
+                return true;
+            }
+
+            // POST or GET /api/tier-list/focus (Companion friendly)
+            if (pathname === '/api/tier-list/focus' && (req.method === 'POST' || req.method === 'GET')) {
+                let itemId = null;
+                let clear = false;
+                if (req.method === 'POST') {
+                    const raw = await readRequestBody(req);
+                    const body = raw ? JSON.parse(raw) : {};
+                    if (body.itemId !== undefined) itemId = body.itemId;
+                    if (body.clear !== undefined) clear = Boolean(body.clear);
+                }
+                if (url && url.searchParams) {
+                    if (url.searchParams.has('itemId')) itemId = url.searchParams.get('itemId');
+                    if (url.searchParams.has('clear')) clear = !['0', 'false', 'no'].includes(url.searchParams.get('clear'));
+                }
+                if (clear || itemId === '' || itemId === null) {
+                    const current = tierListService.getState();
+                    if (clear || itemId === '') {
+                        sendJson(res, tierListService.clearFocus());
+                        return true;
+                    }
+                    // When called with no itemId, focus the first unranked item (or clear if already focused)
+                    const nextUnranked = (current.items || []).find(i => !i.tierId);
+                    if (!nextUnranked) {
+                        sendError(res, 'No unranked items available to focus', 404);
+                        return true;
+                    }
+                    itemId = nextUnranked.id;
+                }
+                const updated = tierListService.focusItem(itemId);
+                if (!updated) {
+                    sendError(res, 'Item not found', 404);
+                    return true;
+                }
+                sendJson(res, updated);
                 return true;
             }
 
@@ -224,7 +271,7 @@ function createTierListRoutes({ tierListService }) {
             sendError(res, 'Not found', 404);
             return true;
         } catch (err) {
-            sendError(res, err, 500);
+            sendError(res, err, err?.statusCode || 500);
             return true;
         }
     };

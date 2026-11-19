@@ -5,10 +5,14 @@
 
 import { getState, $, esc, showToast, fetchState, saveItem, updateTiers, batchAddItems, loadPreset, deletePreset, restoreDefaultPresets, savePreset, saveSettings } from './tier-list-state.js';
 import { TierAudio } from './tier-list-audio.js';
+import { resolveTierThemePalette } from './tier-list-themes.js';
+import { getContrastColor } from './tier-list-board.js';
 
 let libraryAssets = [];
 let assetBrowser = null, shownAssets = [];
 let selectedAssetUrls = new Set();
+let assetModalMode = 'items';
+let bannerPickCallback = null;
 
 export function openModal(id) {
     const el = $(id);
@@ -16,9 +20,66 @@ export function openModal(id) {
 }
 
 export function closeModal(id) {
-    if (id === 'modal-assets') assetBrowser?.cancel();
+    if (id === 'modal-assets') {
+        assetBrowser?.cancel();
+        assetModalMode = 'items';
+        bannerPickCallback = null;
+    }
     const el = $(id);
     if (el) el.classList.remove('open');
+}
+
+async function openAssetLibraryModal(mode = 'items', onBannerPick = null) {
+    assetModalMode = mode === 'banner' ? 'banner' : 'items';
+    bannerPickCallback = assetModalMode === 'banner' ? onBannerPick : null;
+
+    const modalEl = $('modal-assets');
+    const titleEl = modalEl?.querySelector('.modal-title');
+    if (titleEl) {
+        titleEl.textContent = assetModalMode === 'banner'
+            ? 'Select Banner Image from Library'
+            : 'Select Assets from Library';
+    }
+    const selectAllBtn = $('btn-select-all-assets');
+    const deselectAllBtn = $('btn-deselect-all-assets');
+    const confirmBtn = $('btn-add-selected-assets');
+    if (selectAllBtn) selectAllBtn.hidden = assetModalMode === 'banner';
+    if (deselectAllBtn) deselectAllBtn.hidden = assetModalMode === 'banner';
+    if (confirmBtn) {
+        confirmBtn.textContent = assetModalMode === 'banner' ? 'Use Selected Banner' : 'Add Selected to Pool';
+    }
+
+    if (!assetBrowser) {
+        const { mountAssetBrowser } = await import('../asset-browser.js');
+        assetBrowser = mountAssetBrowser({ search: $('asset-search'), key: 'tier-list-images', onChange: renderAssetGrid });
+    }
+    openModal('modal-assets');
+    libraryAssets = [];
+    shownAssets = [];
+    selectedAssetUrls.clear();
+    $('selected-asset-count').textContent = assetModalMode === 'banner' ? 'Select 1 banner image' : '0 selected';
+    const grid = $('asset-grid');
+    grid.innerHTML = '<div style="grid-column:1/-1;padding:1.5rem;text-align:center;color:var(--text-muted);">Loading assets…</div>';
+
+    try {
+        const res = await fetch('/api/custom-overlays/assets');
+        if (res.ok) {
+            const data = await res.json();
+            const list = Array.isArray(data) ? data : (data.assets || []);
+            libraryAssets = list.filter(a => {
+                if (a.kind === 'image') return true;
+                const name = (a.name || '').toLowerCase();
+                return ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.avif'].some(ext => name.endsWith(ext));
+            });
+            renderAssetGrid();
+        }
+    } catch {
+        grid.innerHTML = '<div style="grid-column:1/-1;padding:1.5rem;text-align:center;color:#f85149;">Failed to load assets</div>';
+    }
+}
+
+export function openAssetLibraryForBanner(onSelect) {
+    return openAssetLibraryModal('banner', onSelect);
 }
 
 export function initModalListeners() {
@@ -129,40 +190,26 @@ export function initModalListeners() {
     });
 
     // ── Asset Library Modal ──────────────────────────────────────────────────
-    $('btn-asset-library')?.addEventListener('click', async () => {
-        if (!assetBrowser) {
-            const { mountAssetBrowser } = await import('../asset-browser.js');
-            assetBrowser = mountAssetBrowser({ search: $('asset-search'), key: 'tier-list-images', onChange: renderAssetGrid });
-        }
-        openModal('modal-assets');
-        libraryAssets = [];
-        shownAssets = [];
-        selectedAssetUrls.clear();
-        $('selected-asset-count').textContent = '0 selected';
-        const grid = $('asset-grid');
-        grid.innerHTML = '<div style="grid-column:1/-1;padding:1.5rem;text-align:center;color:var(--text-muted);">Loading assets…</div>';
-
-        try {
-            const res = await fetch('/api/custom-overlays/assets');
-            if (res.ok) {
-                const data = await res.json();
-                const list = Array.isArray(data) ? data : (data.assets || []);
-                libraryAssets = list.filter(a => {
-                    if (a.kind === 'image') return true;
-                    const name = (a.name || '').toLowerCase();
-                    return ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.avif'].some(ext => name.endsWith(ext));
-                });
-                renderAssetGrid();
-            }
-        } catch {
-            grid.innerHTML = '<div style="grid-column:1/-1;padding:1.5rem;text-align:center;color:#f85149;">Failed to load assets</div>';
-        }
-    });
+    $('btn-asset-library')?.addEventListener('click', () => openAssetLibraryModal('items'));
 
     $('asset-grid')?.addEventListener('click', (e) => {
         const card = e.target.closest('.asset-card');
         if (!card) return;
         const url = card.dataset.url;
+        if (assetModalMode === 'banner') {
+            selectedAssetUrls.clear();
+            $('asset-grid')?.querySelectorAll('.asset-card.selected').forEach(other => {
+                other.classList.remove('selected');
+                const cb = other.querySelector('.asset-checkbox');
+                if (cb) cb.checked = false;
+            });
+            selectedAssetUrls.add(url);
+            card.classList.add('selected');
+            const cb = card.querySelector('.asset-checkbox');
+            if (cb) cb.checked = true;
+            $('selected-asset-count').textContent = '1 banner selected';
+            return;
+        }
         if (selectedAssetUrls.has(url)) {
             selectedAssetUrls.delete(url);
             card.classList.remove('selected');
@@ -176,6 +223,7 @@ export function initModalListeners() {
     });
 
     $('btn-select-all-assets')?.addEventListener('click', () => {
+        if (assetModalMode === 'banner') return;
         shownAssets.forEach(a => selectedAssetUrls.add(a.url));
         renderAssetGrid();
         $('selected-asset-count').textContent = `${selectedAssetUrls.size} selected`;
@@ -184,10 +232,22 @@ export function initModalListeners() {
     $('btn-deselect-all-assets')?.addEventListener('click', () => {
         selectedAssetUrls.clear();
         renderAssetGrid();
-        $('selected-asset-count').textContent = '0 selected';
+        $('selected-asset-count').textContent = assetModalMode === 'banner' ? 'Select 1 banner image' : '0 selected';
     });
 
     $('btn-add-selected-assets')?.addEventListener('click', async () => {
+        if (assetModalMode === 'banner') {
+            const [pickedUrl] = Array.from(selectedAssetUrls);
+            if (!pickedUrl) {
+                showToast('Please select a banner image');
+                return;
+            }
+            const cb = bannerPickCallback;
+            closeModal('modal-assets');
+            if (cb) await cb(pickedUrl);
+            return;
+        }
+
         if (selectedAssetUrls.size === 0) {
             showToast('No assets selected');
             return;
@@ -271,9 +331,19 @@ export function initModalListeners() {
     });
 
     // ── Settings Modal ───────────────────────────────────────────────────────
+    function syncChatVotingSettingsUI() {
+        const enabled = $('setting-chat-voting')?.checked !== false;
+        const group = $('group-chat-vote-settings');
+        if (group) group.hidden = !enabled;
+    }
+
+    $('setting-chat-voting')?.addEventListener('change', syncChatVotingSettingsUI);
+
     $('btn-settings')?.addEventListener('click', () => {
         const state = getState();
         $('setting-title').value = state.title || '';
+        const chatVotingCb = $('setting-chat-voting');
+        if (chatVotingCb) chatVotingCb.checked = state.settings.chatVotingEnabled !== false;
         $('setting-consensus').value = state.settings.consensusMode || 'weighted_mean';
         $('setting-sub-mult').value = state.settings.subMultiplier || 1;
         $('setting-duration').value = state.settings.defaultDuration || 60;
@@ -284,6 +354,7 @@ export function initModalListeners() {
         $('setting-show-hint').checked = state.settings.showVoteHint !== false;
         $('setting-volume').value = state.settings.soundVolume !== undefined ? state.settings.soundVolume : 75;
         $('setting-volume-label').textContent = `${$('setting-volume').value}%`;
+        syncChatVotingSettingsUI();
         openModal('modal-settings');
     });
 
@@ -294,6 +365,7 @@ export function initModalListeners() {
 
     $('btn-save-settings')?.addEventListener('click', async () => {
         const title = $('setting-title').value.trim();
+        const chatVotingEnabled = $('setting-chat-voting')?.checked !== false;
         const consensusMode = $('setting-consensus').value;
         const subMultiplier = Number($('setting-sub-mult').value) || 1;
         const defaultDuration = Math.max(10, Number($('setting-duration').value) || 60);
@@ -302,12 +374,15 @@ export function initModalListeners() {
         const announceChat = $('setting-announce-chat').checked;
         const soundEnabled = $('setting-sound').checked;
         const showVoteHint = $('setting-show-hint').checked;
-        const soundVolume = Number($('setting-volume').value) || 75;
+        const rawVol = Number($('setting-volume').value);
+        const soundVolume = Number.isFinite(rawVol) ? Math.min(100, Math.max(0, Math.round(rawVol))) : 75;
 
-        TierAudio.enabled = soundEnabled;
+        TierAudio.enabled = chatVotingEnabled && soundEnabled && soundVolume > 0;
         TierAudio.volume = soundVolume / 100;
+        if (!TierAudio.enabled) TierAudio.suspend();
 
         await saveSettings(title, {
+            chatVotingEnabled,
             consensusMode,
             subMultiplier,
             defaultDuration,
@@ -343,11 +418,14 @@ function renderAssetGrid() {
     grid.innerHTML = filtered.map(a => {
         const isSel = selectedAssetUrls.has(a.url);
         const cleanName = a.caption || a.label || a.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
-        const isAlreadyOnList = (state.items || []).some(i => i.imageUrl && (i.imageUrl === a.url || i.imageUrl.endsWith('/' + a.name)));
+        const isAlreadyOnList = assetModalMode === 'banner'
+            ? Boolean(state.theme?.bannerUrl && (state.theme.bannerUrl === a.url || state.theme.bannerUrl.endsWith('/' + a.name)))
+            : (state.items || []).some(i => i.imageUrl && (i.imageUrl === a.url || i.imageUrl.endsWith('/' + a.name)));
+        const statusLabel = assetModalMode === 'banner' ? 'Active Banner' : 'In List';
         return `
             <div class="asset-card${isSel ? ' selected' : ''}" data-url="${esc(a.url)}" data-name="${esc(cleanName)}">
                 <input type="checkbox" class="asset-checkbox" ${isSel ? 'checked' : ''}>
-                ${isAlreadyOnList ? '<span class="badge" style="position:absolute;top:6px;right:6px;background:rgba(56,189,248,0.2);color:#38bdf8;border:1px solid rgba(56,189,248,0.4);font-size:10px;padding:1px 6px;border-radius:10px;pointer-events:none;z-index:2;">In List</span>' : ''}
+                ${isAlreadyOnList ? `<span class="badge" style="position:absolute;top:6px;right:6px;background:rgba(56,189,248,0.2);color:#38bdf8;border:1px solid rgba(56,189,248,0.4);font-size:10px;padding:1px 6px;border-radius:10px;pointer-events:none;z-index:2;">${statusLabel}</span>` : ''}
                 <img src="${esc(a.url)}" alt="${esc(cleanName)}" loading="lazy">
                 <div class="asset-card-label">${esc(cleanName)}</div>
             </div>
@@ -382,31 +460,190 @@ function renderPresetsList() {
 
 // ── High-Resolution PNG Image Export ─────────────────────────────────────────
 
+function drawFittedCanvasImage(ctx, img, dx, dy, dW, dH, fitMode = 'cover') {
+    const imgAspect = img.width / Math.max(1, img.height);
+    const boxAspect = dW / Math.max(1, dH);
+    if (fitMode === 'contain') {
+        let rw = dW;
+        let rh = dH;
+        if (imgAspect > boxAspect) rh = dW / imgAspect;
+        else rw = dH * imgAspect;
+        ctx.drawImage(img, dx + (dW - rw) / 2, dy + (dH - rh) / 2, rw, rh);
+        return;
+    }
+    let sx = 0, sy = 0, sWidth = img.width, sHeight = img.height;
+    if (imgAspect > boxAspect) {
+        sWidth = img.height * boxAspect;
+        sx = (img.width - sWidth) / 2;
+    } else {
+        sHeight = img.width / boxAspect;
+        sy = (img.height - sHeight) / 2;
+    }
+    ctx.drawImage(img, sx, sy, sWidth, sHeight, dx, dy, dW, dH);
+}
+
+function wrapCanvasCaptionLines(ctx, text, maxWidth) {
+    const words = String(text || '').split(/\s+/).filter(Boolean);
+    if (!words.length) return [];
+    const lines = [];
+    let current = '';
+    const pushBrokenWord = (word) => {
+        let chunk = '';
+        for (const ch of word) {
+            const next = chunk + ch;
+            if (ctx.measureText(next).width > maxWidth && chunk) {
+                lines.push(chunk);
+                chunk = ch;
+            } else {
+                chunk = next;
+            }
+        }
+        return chunk;
+    };
+    for (const word of words) {
+        const candidate = current ? `${current} ${word}` : word;
+        if (ctx.measureText(candidate).width <= maxWidth) {
+            current = candidate;
+        } else {
+            if (current) lines.push(current);
+            if (ctx.measureText(word).width <= maxWidth) {
+                current = word;
+            } else {
+                current = pushBrokenWord(word);
+            }
+        }
+    }
+    if (current) lines.push(current);
+    return lines;
+}
+
+function resolveCanvasFill(ctx, cssVal, x, y, w, h, fallback) {
+    const raw = String(cssVal || '').trim();
+    if (!raw || raw === 'transparent') return fallback;
+    if (raw.toLowerCase().startsWith('linear-gradient(')) {
+        const stops = raw.match(/(#[0-9a-f]{3,8}|rgba?\([^)]+\))/gi) || [];
+        if (stops.length >= 2) {
+            const grad = ctx.createLinearGradient(x, y, x + w, y + h);
+            grad.addColorStop(0, stops[0]);
+            grad.addColorStop(1, stops[stops.length - 1]);
+            return grad;
+        }
+        return stops[0] || fallback;
+    }
+    return raw;
+}
+
+function applyCanvasTextTransform(str, transform) {
+    const text = String(str || '');
+    if (transform === 'uppercase') return text.toUpperCase();
+    if (transform === 'lowercase') return text.toLowerCase();
+    if (transform === 'capitalize') return text.replace(/\b\w/g, c => c.toUpperCase());
+    return text;
+}
+
+function buildCanvasFont(weight, px, family) {
+    const cleanFam = String(family || '').replace(/["']/g, '').trim();
+    const stack = cleanFam
+        ? `"${cleanFam}", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`
+        : '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    return `${weight} ${px}px ${stack}`;
+}
+
 export async function exportTierListImage() {
     const state = getState();
+    const theme = state.theme || {};
     showToast('Generating high-resolution tier list image…');
 
+    const palette = resolveTierThemePalette(theme.style || 'dark', theme.customThemeId);
+    const effBg = theme.backgroundColor || palette.bg;
+    const effRowBg = theme.rowBackgroundColor || palette.rowBg;
+    const effBorder = (theme.borderColor || palette.border) === 'transparent' ? 'rgba(255,255,255,0.12)' : (theme.borderColor || palette.border || '#30363d');
+    const effText = theme.textColor || palette.text || '#f0f6fc';
+    const effMuted = theme.mutedColor || palette.muted || '#cbd5e1';
+    const effAccent = theme.accentColor || palette.accent || '#58a6ff';
+    const effFont = theme.fontFamily || palette.font || '';
+    const effHeadingFont = theme.headingFont || palette.headingFont || effFont;
+    const effWeight = theme.fontWeight || palette.weight || '700';
+    const effHeadingWeight = theme.fontWeight || palette.weight || '800';
+    const effTransform = theme.textTransform || palette.textTransform || 'none';
+    const effFontScale = Math.max(0.5, Math.min(2.0, Number(theme.fontScale) || 1));
+
+    if (effFont) window.OverlayFonts?.loadFont?.(effFont);
+    if (effHeadingFont) window.OverlayFonts?.loadFont?.(effHeadingFont);
+    if (document.fonts?.ready) {
+        await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))]);
+    }
+
+    const loadImage = (url) => new Promise((resolve) => {
+        if (!url) return resolve(null);
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = () => resolve(null);
+        img.src = url;
+    });
+
+    const bannerImg = theme.bannerUrl ? await loadImage(theme.bannerUrl) : null;
+
     const width = 1920;
-    const headerHeight = 110;
+    const headerHeight = bannerImg ? Math.min(240, Math.max(80, Number(theme.bannerHeight) || 110)) : 110;
     const tierHeaderWidth = 220;
-    const cardSize = 110;
+    const baseCardW = 110;
+    const aspect = theme.cardAspect || '1/1';
+    const cardFit = ['cover', 'contain', 'natural'].includes(theme.cardFit) ? theme.cardFit : 'cover';
+    const isNatural = cardFit === 'natural';
+    const cardH = isNatural ? 110 : (aspect === '3/4' ? 147 : aspect === '16/9' ? 62 : 110);
+    const drawFit = cardFit === 'natural' ? 'contain' : cardFit;
+    const showCaptions = theme.showCaptions !== false;
+    const fitCaptions = Boolean(theme.fitCaptions);
     const cardGap = 10;
     const rowPadding = 12;
     const contentWidth = width - tierHeaderWidth;
+    const availableWidth = contentWidth - (rowPadding * 2);
 
     const rankedTiers = state.tiers.slice();
+    const imageCache = new Map();
+    for (const item of state.items || []) {
+        if (item.tierId && item.imageUrl && !imageCache.has(item.imageUrl)) {
+            imageCache.set(item.imageUrl, await loadImage(item.imageUrl));
+        }
+    }
 
     const tierRowData = rankedTiers.map(tier => {
         const items = state.items
             .filter(i => i.tierId === tier.id)
             .sort((a, b) => (a.order || 0) - (b.order || 0));
 
-        const availableWidth = contentWidth - (rowPadding * 2);
-        const itemsPerRow = Math.max(1, Math.floor((availableWidth + cardGap) / (cardSize + cardGap)));
-        const rowCount = Math.max(1, Math.ceil(items.length / itemsPerRow));
-        const rowHeight = Math.max(120, (rowCount * (cardSize + cardGap)) - cardGap + (rowPadding * 2));
+        const placements = [];
+        let lineIdx = 0;
+        let curX = 0;
+        for (const item of items) {
+            const img = imageCache.get(item.imageUrl);
+            let w = baseCardW;
+            if (isNatural) {
+                const ratio = (img && img.width > 0 && img.height > 0)
+                    ? Math.min(2.6, Math.max(0.45, img.width / img.height))
+                    : 1;
+                w = Math.round(Math.min(availableWidth, Math.max(50, cardH * ratio)));
+            }
+            if (curX > 0 && curX + cardGap + w > availableWidth) {
+                lineIdx++;
+                curX = 0;
+            }
+            placements.push({
+                item,
+                xOffset: curX,
+                yOffset: lineIdx * (cardH + cardGap),
+                w,
+                h: cardH
+            });
+            curX += (curX === 0 ? w : cardGap + w);
+        }
 
-        return { tier, items, itemsPerRow, rowHeight };
+        const rowCount = Math.max(1, lineIdx + (placements.length ? 1 : 0));
+        const rowHeight = Math.max(cardH + rowPadding * 2, (rowCount * (cardH + cardGap)) - cardGap + (rowPadding * 2));
+
+        return { tier, placements, rowHeight };
     });
 
     const totalRowsHeight = tierRowData.reduce((sum, r) => sum + r.rowHeight, 0);
@@ -419,143 +656,193 @@ export async function exportTierListImage() {
     const ctx = canvas.getContext('2d');
 
     // Background
-    ctx.fillStyle = '#0d1117';
+    ctx.fillStyle = resolveCanvasFill(ctx, effBg, 0, 0, width, totalHeight, '#0d1117');
     ctx.fillRect(0, 0, width, totalHeight);
 
-    // Header
-    ctx.fillStyle = '#161b22';
+    // Header / Custom Banner
+    ctx.fillStyle = resolveCanvasFill(ctx, effBg, 0, 0, width, headerHeight, '#161b22');
     ctx.fillRect(0, 0, width, headerHeight);
-    ctx.fillStyle = '#30363d';
+    if (bannerImg) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(0, 0, width, headerHeight);
+        ctx.clip();
+        drawFittedCanvasImage(ctx, bannerImg, 0, 0, width, headerHeight, theme.bannerFit === 'contain' ? 'contain' : 'cover');
+        if (theme.bannerMode === 'behind') {
+            const scrim = ctx.createLinearGradient(0, 0, width, 0);
+            scrim.addColorStop(0, 'rgba(0,0,0,0.72)');
+            scrim.addColorStop(0.65, 'rgba(0,0,0,0.38)');
+            scrim.addColorStop(1, 'rgba(0,0,0,0.52)');
+            ctx.fillStyle = scrim;
+            ctx.fillRect(0, 0, width, headerHeight);
+        }
+        ctx.restore();
+    }
+    ctx.fillStyle = effBorder;
     ctx.fillRect(0, headerHeight - 1, width, 1);
 
-    ctx.font = 'bold 34px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = '#f0f6fc';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(state.title || 'Community Tier List', 32, headerHeight / 2 - 12);
+    if (!bannerImg || theme.bannerMode === 'behind') {
+        const titleSize = Math.round(34 * effFontScale);
+        ctx.font = buildCanvasFont(effHeadingWeight, titleSize, effHeadingFont);
+        ctx.fillStyle = (bannerImg && theme.bannerMode === 'behind') ? '#f0f6fc' : effText;
+        ctx.textBaseline = 'middle';
+        ctx.fillText(applyCanvasTextTransform(state.title || 'Community Tier List', effTransform), 32, headerHeight / 2 - 12);
 
-    ctx.font = '15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = '#8b949e';
-    const totalRanked = state.items.filter(i => i.tierId).length;
-    const subtitle = `${totalRanked} items ranked across ${state.tiers.length} tiers · ${new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`;
-    ctx.fillText(subtitle, 32, headerHeight / 2 + 20);
+        ctx.font = buildCanvasFont('400', 15, effFont);
+        ctx.fillStyle = (bannerImg && theme.bannerMode === 'behind') ? '#cbd5e1' : effMuted;
+        const totalRanked = state.items.filter(i => i.tierId).length;
+        const subtitle = `${totalRanked} items ranked across ${state.tiers.length} tiers · ${new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`;
+        ctx.fillText(subtitle, 32, headerHeight / 2 + 20);
 
-    ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = '#58a6ff';
-    ctx.textAlign = 'right';
-    ctx.fillText('StreamPulse', width - 32, headerHeight / 2);
-    ctx.textAlign = 'left';
-
-    const loadImage = (url) => new Promise((resolve) => {
-        if (!url) return resolve(null);
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => resolve(img);
-        img.onerror = () => resolve(null);
-        img.src = url;
-    });
-
-    const imageCache = new Map();
-    for (const row of tierRowData) {
-        for (const item of row.items) {
-            if (item.imageUrl && !imageCache.has(item.imageUrl)) {
-                imageCache.set(item.imageUrl, await loadImage(item.imageUrl));
-            }
-        }
+        ctx.font = buildCanvasFont(effHeadingWeight, 22, effHeadingFont);
+        ctx.fillStyle = effAccent;
+        ctx.textAlign = 'right';
+        ctx.fillText('StreamPulse', width - 32, headerHeight / 2);
+        ctx.textAlign = 'left';
     }
 
     let currentY = headerHeight;
 
     for (const row of tierRowData) {
-        const { tier, items, itemsPerRow, rowHeight } = row;
+        const { tier, placements, rowHeight } = row;
 
         ctx.fillStyle = tier.color || '#ff7f7f';
         ctx.fillRect(0, currentY, tierHeaderWidth, rowHeight);
 
+        const headerTextColor = getContrastColor(tier.color);
+        const isDarkHeaderText = headerTextColor === '#111111';
+
         ctx.save();
-        ctx.fillStyle = '#111111';
-        ctx.shadowColor = 'rgba(255, 255, 255, 0.4)';
+        ctx.fillStyle = headerTextColor;
+        ctx.shadowColor = isDarkHeaderText ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.45)';
         ctx.shadowBlur = 2;
-        ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        const labelFontSize = Math.round(32 * Math.min(1.3, effFontScale));
+        const descFontSize = Math.max(10, Math.min(14, Math.round(12 * effFontScale)));
+        const descLineHeight = Math.round(descFontSize * 1.2);
+        let descLines = [];
+        if (tier.description) {
+            ctx.font = buildCanvasFont('600', descFontSize, effFont);
+            descLines = wrapCanvasCaptionLines(ctx, tier.description, tierHeaderWidth - 18).slice(0, 3);
+        }
+
+        const labelHeight = labelFontSize;
+        const descBlockH = descLines.length > 0 ? (descLines.length * descLineHeight) + 6 : 0;
+        const totalBlockH = labelHeight + descBlockH;
+        const blockTopY = currentY + (rowHeight - totalBlockH) / 2;
+
+        ctx.font = buildCanvasFont(effHeadingWeight, labelFontSize, effHeadingFont);
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(tier.label, tierHeaderWidth / 2, currentY + (rowHeight / 2) - (tier.description ? 10 : 0));
-        if (tier.description) {
-            ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+        ctx.fillText(
+            applyCanvasTextTransform(tier.label, effTransform),
+            tierHeaderWidth / 2,
+            blockTopY + (labelHeight / 2),
+            tierHeaderWidth - 16
+        );
+
+        if (descLines.length > 0) {
+            ctx.font = buildCanvasFont('600', descFontSize, effFont);
+            ctx.fillStyle = isDarkHeaderText ? 'rgba(17, 17, 17, 0.82)' : 'rgba(255, 255, 255, 0.88)';
             ctx.shadowBlur = 0;
-            ctx.fillText(tier.description, tierHeaderWidth / 2, currentY + (rowHeight / 2) + 16);
+            const descStartY = blockTopY + labelHeight + 6 + (descLineHeight / 2);
+            descLines.forEach((ln, idx) => {
+                ctx.fillText(ln, tierHeaderWidth / 2, descStartY + (idx * descLineHeight));
+            });
         }
         ctx.restore();
 
-        ctx.fillStyle = '#161b22';
+        ctx.fillStyle = resolveCanvasFill(ctx, effRowBg, tierHeaderWidth, currentY, contentWidth, rowHeight, '#161b22');
         ctx.fillRect(tierHeaderWidth, currentY, contentWidth, rowHeight);
 
-        items.forEach((item, index) => {
-            const col = index % itemsPerRow;
-            const r = Math.floor(index / itemsPerRow);
-            const cardX = tierHeaderWidth + rowPadding + (col * (cardSize + cardGap));
-            const cardY = currentY + rowPadding + (r * (cardSize + cardGap));
+        placements.forEach(({ item, xOffset, yOffset, w, h }) => {
+            const cardX = tierHeaderWidth + rowPadding + xOffset;
+            const cardY = currentY + rowPadding + yOffset;
 
             ctx.save();
             ctx.beginPath();
-            ctx.roundRect(cardX, cardY, cardSize, cardSize, 6);
+            ctx.roundRect(cardX, cardY, w, h, 6);
             ctx.clip();
+
+            ctx.fillStyle = '#111827';
+            ctx.fillRect(cardX, cardY, w, h);
 
             const img = imageCache.get(item.imageUrl);
             if (img) {
-                const imgAspect = img.width / img.height;
-                let sx = 0, sy = 0, sWidth = img.width, sHeight = img.height;
-                if (imgAspect > 1) {
-                    sWidth = img.height;
-                    sx = (img.width - sWidth) / 2;
-                } else {
-                    sHeight = img.width;
-                    sy = (img.height - sHeight) / 2;
-                }
-                ctx.drawImage(img, sx, sy, sWidth, sHeight, cardX, cardY, cardSize, cardSize);
+                drawFittedCanvasImage(ctx, img, cardX, cardY, w, h, drawFit);
             } else {
                 ctx.fillStyle = '#21262d';
-                ctx.fillRect(cardX, cardY, cardSize, cardSize);
+                ctx.fillRect(cardX, cardY, w, h);
                 ctx.fillStyle = '#8b949e';
-                ctx.font = '11px sans-serif';
+                ctx.font = buildCanvasFont('400', 11, effFont);
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText('No Image', cardX + cardSize / 2, cardY + cardSize / 2);
+                ctx.fillText('No Image', cardX + w / 2, cardY + h / 2);
             }
 
-            const capHeight = 22;
-            const grad = ctx.createLinearGradient(cardX, cardY + cardSize - capHeight - 8, cardX, cardY + cardSize);
-            grad.addColorStop(0, 'rgba(0,0,0,0)');
-            grad.addColorStop(0.3, 'rgba(0,0,0,0.7)');
-            grad.addColorStop(1, 'rgba(0,0,0,0.92)');
-            ctx.fillStyle = grad;
-            ctx.fillRect(cardX, cardY + cardSize - capHeight - 8, cardSize, capHeight + 8);
+            if (showCaptions) {
+                const capText = applyCanvasTextTransform(item.name, effTransform);
+                if (fitCaptions) {
+                    const maxCapH = Math.floor(h * 0.76);
+                    let fontSize = Math.min(16, Math.max(9, Math.round(11 * effFontScale)));
+                    let lines = [];
+                    let lineHeight = 13;
+                    for (; fontSize >= 6; fontSize--) {
+                        ctx.font = buildCanvasFont(effWeight, fontSize, effFont);
+                        lineHeight = Math.max(fontSize + 2, Math.round(fontSize * 1.15));
+                        lines = wrapCanvasCaptionLines(ctx, capText, w - 8);
+                        if (lines.length * lineHeight + 6 <= maxCapH) break;
+                    }
+                    const capHeight = Math.min(h, Math.max(20, lines.length * lineHeight + 6));
+                    const grad = ctx.createLinearGradient(cardX, cardY + h - capHeight - 10, cardX, cardY + h);
+                    grad.addColorStop(0, 'rgba(0,0,0,0)');
+                    grad.addColorStop(0.25, 'rgba(0,0,0,0.74)');
+                    grad.addColorStop(1, 'rgba(0,0,0,0.92)');
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(cardX, cardY + h - capHeight - 10, w, capHeight + 10);
 
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(item.name, cardX + cardSize / 2, cardY + cardSize - (capHeight / 2));
+                    ctx.fillStyle = '#ffffff';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    const startY = cardY + h - capHeight + (lineHeight / 2) + 2;
+                    lines.forEach((ln, li) => {
+                        ctx.fillText(ln, cardX + w / 2, startY + (li * lineHeight));
+                    });
+                } else {
+                    const capHeight = 22;
+                    const grad = ctx.createLinearGradient(cardX, cardY + h - capHeight - 8, cardX, cardY + h);
+                    grad.addColorStop(0, 'rgba(0,0,0,0)');
+                    grad.addColorStop(0.3, 'rgba(0,0,0,0.7)');
+                    grad.addColorStop(1, 'rgba(0,0,0,0.92)');
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(cardX, cardY + h - capHeight - 8, w, capHeight + 8);
+
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = buildCanvasFont(effWeight, Math.min(14, Math.max(9, Math.round(11 * effFontScale))), effFont);
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(capText, cardX + w / 2, cardY + h - (capHeight / 2), w - 6);
+                }
+            }
             ctx.restore();
 
             ctx.save();
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.strokeStyle = effBorder;
             ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.roundRect(cardX, cardY, cardSize, cardSize, 6);
+            ctx.roundRect(cardX, cardY, w, h, 6);
             ctx.stroke();
             ctx.restore();
         });
 
-        ctx.fillStyle = '#30363d';
+        ctx.fillStyle = effBorder;
         ctx.fillRect(0, currentY + rowHeight - 1, width, 1);
         currentY += rowHeight;
     }
 
-    ctx.fillStyle = '#0d1117';
+    ctx.fillStyle = resolveCanvasFill(ctx, effBg, 0, currentY, width, footerHeight, '#0d1117');
     ctx.fillRect(0, currentY, width, footerHeight);
-    ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = '#6e7681';
+    ctx.font = buildCanvasFont('400', 12, effFont);
+    ctx.fillStyle = effMuted;
     ctx.textBaseline = 'middle';
     ctx.fillText('Created with StreamPulse Tier List Maker', 32, currentY + (footerHeight / 2));
     ctx.textAlign = 'right';

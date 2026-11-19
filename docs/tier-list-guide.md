@@ -37,28 +37,48 @@ Open the maker at `http://localhost:3000/tools/tier-list.html` or navigate to **
 3. **Clipboard Copy & Paste (Ctrl+V / ⌘V)**: Copy any image file, screenshot, browser image, or direct image URL to your clipboard and paste it directly onto the maker. The image is instantly uploaded to the Asset Library, tracked as in-use, and placed into the unranked pool.
 4. **Desktop Drag & Drop**: Drag one or more PNG/JPG/WebP/GIF files directly into the dashed Unranked Items pool to upload to the Asset Library and add them to the board.
 
-### Customizing Tiers
-- Click on any tier header (e.g. "S" or "A") to customize its label, hex color code, and description.
+### Customizing Tiers & Banners
+- Click any tier header (e.g. "S" or "A") to customize its label, color, and description.
 - Use the &uarr; and &darr; arrows to reorder tiers.
-- Click **Presets** to load templates (*Standard S-F*, *Extended Gaming S+-Trash*, *Movie Reviews*, *Food & Snacks*), save your current setup as a new preset, or delete unwanted presets. Click **Restore Defaults** to bring back built-in templates at any time.
+- Click **Presets** to load templates (*Standard S-F*, *Extended Gaming S+-Trash*, *Movie Reviews*, *Food & Snacks*), save your current setup (including your custom banner and overlay theming) as a new preset, or restore defaults at any time.
 
-### Configuring the Broadcast Overlay
-Click **Overlay URL & Options** in the maker toolbar to customize your display before launching:
-- **Layout**: Switch between full-screen `board` and compact vertical `sidebar`.
-- **Unranked Tray**: Toggle showing or hiding the unranked item pool (`hideUnranked=1`).
-- **Card Scale**: Set thumbnail scale to `compact`, `medium`, or `large`.
-- **Card Aspect**: Choose between `1/1` (square), `3/4` (poster/box art), or `16/9` (widescreen).
-- **Theme**: Select `dark` or `transparent` (for game capture compositing).
+### Styling the Broadcast Overlay (Live Sync to OBS)
+Open the **Overlay & Theming** tab to customize how your Tier List looks on stream while previewing changes live at 1080p, 720p, Sidebar (440&times;1080), or Vertical (9:16):
 
-Your preferences are saved automatically in `localStorage`, and clicking **Launch Overlay** or **Copy URL** always uses your configured parameters.
+- **Shared Theme Presets & Saved Custom Themes**: Pick any of StreamPulse's built-in themes from the pinned **Theme Preset** selector (`Dark Card`, `Transparent / Clean`, `Clean Light Contrast`, `Frosted Glass`, `Opaque Solid`, `OLED Deep Black`, `EVO Championship`, `Championship Gold`, `Cyberpunk Neon`, `Neon Glow`, `Retro Arcade`, `Ember Flame`, `Aurora Borealis`, `Deep Ocean`, `Neon Sunset`, `Ultra Violet`, `Emerald Forest`, `Border Framing`, `Pill Capsule`). Click **Save Theme** to save your current fonts, framing, and colors into your shared custom themes library (usable across Polls, Versus, and Brackets as well), or **Manage** to apply and delete saved themes.
+- **Layout & Banner Tab**:
+  - **Header & Custom Top Banner**: Upload an image, choose one from the **Asset Library**, or paste an image URL to display a banner across the top of your tier list. Choose **Replace Title Bar** for a clean graphic header or **Behind Title Text** to keep your list title overlaid with a contrast gradient. Adjust **Banner Fit** (`Cover` or `Contain`) and **Banner Height** (`48px`–`240px`) with the slider.
+  - **Auto-Fit Board to Screen**: Automatically scales cards and row heights so every tier and item fits inside your broadcast frame with no scrollbars or clipping.
+  - **Hide Unranked Pool**: Keeps the bottom unranked tray hidden on stream so viewers only see ranked tiers.
+  - **Cards & Item Text**: Pick card scale, aspect ratio (`1:1`, `3:4`, `16:9`), and artwork fit. Toggle **Show Item Text** off for pure art cards, turn on **Always Fit Item Text** to wrap and shrink long titles so every name stays readable without ellipses (`...`), or enable **Focus & Enlarge Selected / Voting Art** to spotlight and enlarge an item's artwork when you click **Focus** on a card or start a chat vote.
+  - **Voting Hint & Audio**: Control whether the idle voting instruction bar stays visible when no vote is running (when a vote is active, the single Vote Spotlight Card displays the countdown timer and valid `!tier` choices cleanly without duplicating banners) and toggle synthesized sound chimes (automatically hidden when Chat Voting is disabled, and synced with Settings audio controls).
+- **Fonts & Framing Tab**:
+  - **Heading & Content Custom Fonts**: Choose separate fonts for **Heading & Tier Labels** and **Content & Captions**. Type any Google Font name, pick from suggested system/Google fonts, or click **Fonts** to browse uploaded `.ttf`, `.otf`, `.woff`, or `.woff2` files from your Asset Library.
+  - **Typography & Surface Framing**: Adjust font weight (300–900), font scale (`0.75x`–`1.5x`), text transform (`uppercase`, `capitalize`, `lowercase`, `none`), text shadow/outline, corner roundness (`0px`–`24px`), and backdrop blur (`0`–`24px`).
+- **Colors Tab**:
+  - Override any color in the active theme using synchronized color pickers, quick accent swatches, or text inputs (`#hex`, `#RRGGBBAA`, `rgba()`, `linear-gradient()`, or `transparent`): **Accent & Spotlight**, **Board & Header Background** (with opacity slider), **Tier Row Items Surface** (with opacity slider), **Border Color**, **Primary Text**, and **Muted Label Text**. Click **Clear Colors** anytime to return to the active theme preset's palette, or **Reset** in the header to restore default theming.
+- **Sample Data Toggle**: Enable **Sample Data: On** in the preview bar to test dense boards, banners, themes, and long captions without modifying your real items.
 
-The embedded live preview applies appearance and viewport changes without reloading its iframe.
+Every setting saves automatically to StreamPulse and updates your live overlay immediately:
+1. Copy the permanent **OBS Browser Source URL** (`http://localhost:3000/overlays/tier-list.html`) once and paste it into OBS.
+2. Adjust banners, text options, themes, or layout anytime — your OBS scene updates live without re-pasting the URL.
+3. Need a second OBS scene with different settings (such as a compact **Sidebar** alongside your main full-screen scene)? Expand **Scene-Specific URL Overrides (Optional)** to copy a parameterized URL that overrides your saved defaults for that scene alone.
+
+The embedded live preview applies every appearance, banner, sample-data, and viewport change in real time without reloading.
 
 ---
 
 ## 3. Audience Chat Voting
 
-StreamPulse allows chatters to collaboratively decide where items belong on your tier list.
+StreamPulse allows chatters to collaboratively decide where items belong on your tier list — or you can turn off chat voting completely for manual streamer-only rankings.
+
+### Enabling or Disabling Chat Voting
+Open **Settings &rarr; Enable Chat Voting**:
+- When **enabled** *(default)*, **Vote** buttons appear on item cards, `!tier` and `!rank` commands are accepted during active votes, and the Live Voting HUD / OBS hint bar display during votes.
+- When **disabled**, any running vote is cancelled cleanly, all dependent chat voting options (consensus math, subscriber weight, duration, auto lock-in, chatbot announcements, SFX, and voting hint bar) are hidden in Settings and the Overlay & Theming inspector, **Vote** buttons are removed from board cards, and both the board and OBS overlay ignore chat voting commands and hide voting prompts.
+
+### Focusing Items Without Voting
+Click **Focus** on any item card in the Tier List Maker (available even when Chat Voting is turned off) to spotlight that item on the broadcast overlay—and when **Focus & Enlarge Selected / Voting Art** is enabled under **Overlay & Theming**, the overlay showcases a large, centered artwork preview with the item name and note while you discuss it.
 
 ### Starting a Vote
 1. Click **Vote** on any unranked or ranked item card.
@@ -111,11 +131,7 @@ The live voting HUD on both the Maker tool and the broadcast overlay provides re
 
 When your tier list ranking is complete, export a crisp, publication-ready snapshot:
 1. Click **Export Image** in the Maker toolbar.
-2. StreamPulse renders a dedicated 1920px Canvas layout containing:
-   - Tier list title and date stamp.
-   - Distinct colored tier headers with tier labels and descriptions.
-   - Artwork thumbnails cropped to fit with clear legible captions.
-   - StreamPulse watermark badge.
+2. StreamPulse renders a dedicated 1920px Canvas layout matching your active theme preset, custom heading and content fonts, background/row/border/text/accent colors, top banner, card aspect ratio & artwork fit, caption visibility / wrapped auto-fit text, distinct colored tier headers, and StreamPulse watermark badge.
 3. Automatically triggers a client-side download named `<title>-tier-list.png`.
 
 ---
@@ -135,6 +151,9 @@ Both the Tier List Maker and OBS broadcast overlay include an internal Web Audio
 
 ## 6. OBS Broadcast Overlay
 
-Open **Overlay & Theming** inside Tier List Maker to customize your layout (`board` or vertical `sidebar`), artwork aspect ratio (`1/1`, `3/4`, `16/9`), card scale, theme (`dark`, `transparent`, or `light`), sound chimes, and voting instructions ribbon, then click **Copy URL** to paste straight into your OBS Browser Source.
+Open the **Overlay & Theming** tab inside Tier List Maker to configure your custom top banner, **Auto-Fit** scaling, item caption toggles, layout (`board` or `sidebar`), card aspect ratio, background style, sound chimes, and voting hint bar.
+
+- **Single Permanent OBS URL**: Point your OBS Browser Source at `/overlays/tier-list.html` (1920&times;1080 for Board, or 440&times;1080 for Sidebar). Saved settings sync automatically over WebSocket without requiring URL changes in OBS.
+- **Per-Scene URL Overrides**: Expand **Scene-Specific URL Overrides (Optional)** in the studio (or append query params such as `?layout=sidebar&theme=transparent&autoFit=1&captions=0&fitCaptions=1`) whenever a secondary scene needs its own fixed presentation.
 
 Need Stream Deck buttons or HTTP endpoints to automate Tier List votes? See the **[API Reference](api-reference.md)** and **[Bitfocus Companion Guide](companion.md)** under **The Project → Technical**.

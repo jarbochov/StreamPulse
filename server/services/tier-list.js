@@ -193,6 +193,203 @@ function calculateConsensus(vote, tiers) {
     };
 }
 
+const VALID_THEME_STYLES = new Set([
+    'dark', 'transparent', 'light',
+    'card', 'glass', 'solid', 'neon', 'retro', 'cyber',
+    'fgc-evo', 'championship', 'clean-light', 'minimal-dark',
+    'ember', 'aurora', 'ocean', 'sunset', 'violet', 'forest',
+    'border', 'pill', 'custom'
+]);
+
+const DEFAULT_THEME = {
+    backgroundColor: '',
+    rowBackgroundColor: '',
+    borderColor: '',
+    textColor: '',
+    mutedColor: '',
+    accentColor: '',
+    borderRadius: '',
+    backdropBlur: '',
+    headingFont: '',
+    fontFamily: '',
+    fontWeight: '',
+    fontScale: 1,
+    textTransform: '',
+    textOutline: '',
+    layout: 'board',
+    style: 'dark',
+    customThemeId: '',
+    hideUnranked: false,
+    cardSize: 'medium',
+    cardAspect: '1/1',
+    cardFit: 'cover',
+    fontSize: 'medium',
+    bannerUrl: '',
+    bannerMode: 'replace',
+    bannerHeight: 110,
+    bannerFit: 'cover',
+    showCaptions: true,
+    fitCaptions: false,
+    autoFit: false,
+    howToVote: 'auto',
+    hintScale: '1',
+    sfx: true,
+    focusEnlarge: false
+};
+
+function sanitizeBannerUrl(raw) {
+    const val = String(raw ?? '').trim();
+    if (!val) return '';
+    if (val.startsWith('/') && !val.startsWith('//')) return val;
+    if (/^https?:\/\//i.test(val)) return val;
+    if (/^data:image\/[a-z0-9.+-]+;/i.test(val)) return val;
+    return '';
+}
+
+function sanitizeCssColor(raw) {
+    const val = String(raw ?? '').trim();
+    if (!val || val.length > 160) return '';
+    if (/[;{}<>]|url\s*\(|expression/i.test(val)) return '';
+    if (/^[0-9a-f]{3}([0-9a-f]{3}([0-9a-f]{2})?)?$/i.test(val)) return `#${val}`;
+    if (/^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([0-9.,%\s/+-]+\)|transparent|[a-z]{3,20})$/i.test(val)) return val;
+    if (/^linear-gradient\(\s*[a-z0-9#(),.%\s+-]+\)$/i.test(val)) return val;
+    return '';
+}
+
+function sanitizeFontName(raw) {
+    return String(raw ?? '').replace(/["'<>;{}\\]/g, '').trim().slice(0, 80);
+}
+
+function sanitizeFontWeight(raw) {
+    const w = String(raw ?? '').trim().toLowerCase();
+    if (!w) return '';
+    if (w === 'normal') return '400';
+    if (w === 'bold') return '700';
+    return /^[1-9]00$/.test(w) ? w : '';
+}
+
+function sanitizeTextTransform(raw) {
+    const t = String(raw ?? '').trim().toLowerCase();
+    return ['none', 'uppercase', 'capitalize', 'lowercase'].includes(t) ? t : '';
+}
+
+function sanitizeTextOutline(raw) {
+    const o = String(raw ?? '').trim().toLowerCase();
+    if (!o) return '';
+    if (['none', 'subtle', 'strong'].includes(o)) return o;
+    return sanitizeCssColor(raw);
+}
+
+function sanitizeBorderRadius(raw) {
+    const v = String(raw ?? '').trim().toLowerCase();
+    if (!v) return '';
+    if (/^\d+$/.test(v)) return `${Math.min(999, Math.max(0, Number(v)))}px`;
+    if (/^\d+(\.\d+)?(px|rem|em|%)$/.test(v)) return v;
+    if (v === 'pill' || v === 'full') return '999px';
+    if (v === 'sharp' || v === 'none' || v === 'square') return '0px';
+    return '';
+}
+
+function sanitizeBackdropBlur(raw) {
+    const v = String(raw ?? '').trim().toLowerCase();
+    if (!v) return '';
+    if (v === 'none') return '0px';
+    if (/^\d+(\.\d+)?$/.test(v)) {
+        const clamped = Math.min(24, Math.max(0, Math.round(Number(v))));
+        return `${clamped}px`;
+    }
+    if (/^\d+(\.\d+)?px$/.test(v)) {
+        const clamped = Math.min(24, Math.max(0, Math.round(parseFloat(v))));
+        return `${clamped}px`;
+    }
+    if (/^blur\(\d+(\.\d+)?px\)(\s+saturate\(\d+%\))?$/i.test(v)) return v;
+    return '';
+}
+
+function sanitizeCustomThemeId(raw) {
+    const v = String(raw ?? '').trim().toLowerCase();
+    return /^[a-z0-9-_]{1,40}$/.test(v) ? v : '';
+}
+
+function normalizeBool(raw, fallback) {
+    if (typeof raw === 'boolean') return raw;
+    if (raw === 1 || raw === '1' || raw === 'true') return true;
+    if (raw === 0 || raw === '0' || raw === 'false') return false;
+    return fallback;
+}
+
+function normalizeTheme(patch = {}, current = DEFAULT_THEME) {
+    const base = Object.assign({}, DEFAULT_THEME, current && typeof current === 'object' ? current : {});
+    const src = patch && typeof patch === 'object' ? patch : {};
+    const merged = Object.assign({}, base, src);
+
+    merged.layout = ['board', 'sidebar'].includes(merged.layout) ? merged.layout : base.layout;
+    const rawStyle = src.style !== undefined ? String(src.style || '').trim().toLowerCase() : String(merged.style || '').trim().toLowerCase();
+    merged.style = VALID_THEME_STYLES.has(rawStyle) ? rawStyle : base.style;
+    merged.customThemeId = sanitizeCustomThemeId(src.customThemeId !== undefined ? src.customThemeId : merged.customThemeId);
+
+    merged.headingFont = sanitizeFontName(src.headingFont !== undefined ? src.headingFont : merged.headingFont);
+    merged.fontFamily = sanitizeFontName(src.fontFamily !== undefined ? src.fontFamily : merged.fontFamily);
+    merged.fontWeight = sanitizeFontWeight(src.fontWeight !== undefined ? src.fontWeight : merged.fontWeight);
+    const parsedFontScale = Number(src.fontScale !== undefined ? src.fontScale : merged.fontScale);
+    merged.fontScale = (Number.isFinite(parsedFontScale) && parsedFontScale > 0)
+        ? Math.round(Math.min(2.5, Math.max(0.5, parsedFontScale)) * 100) / 100
+        : 1;
+    merged.textTransform = sanitizeTextTransform(src.textTransform !== undefined ? src.textTransform : merged.textTransform);
+    merged.textOutline = sanitizeTextOutline(src.textOutline !== undefined ? src.textOutline : merged.textOutline);
+
+    merged.backgroundColor = sanitizeCssColor(src.backgroundColor !== undefined ? src.backgroundColor : merged.backgroundColor);
+    merged.rowBackgroundColor = sanitizeCssColor(src.rowBackgroundColor !== undefined ? src.rowBackgroundColor : merged.rowBackgroundColor);
+    merged.borderColor = sanitizeCssColor(src.borderColor !== undefined ? src.borderColor : merged.borderColor);
+    merged.textColor = sanitizeCssColor(src.textColor !== undefined ? src.textColor : merged.textColor);
+    merged.mutedColor = sanitizeCssColor(src.mutedColor !== undefined ? src.mutedColor : merged.mutedColor);
+    merged.accentColor = sanitizeCssColor(src.accentColor !== undefined ? src.accentColor : merged.accentColor);
+    merged.borderRadius = sanitizeBorderRadius(src.borderRadius !== undefined ? src.borderRadius : merged.borderRadius);
+    merged.backdropBlur = sanitizeBackdropBlur(src.backdropBlur !== undefined ? src.backdropBlur : merged.backdropBlur);
+
+    merged.hideUnranked = normalizeBool(src.hideUnranked !== undefined ? src.hideUnranked : merged.hideUnranked, Boolean(base.hideUnranked));
+    merged.cardSize = ['compact', 'medium', 'large'].includes(merged.cardSize) ? merged.cardSize : base.cardSize;
+    merged.cardAspect = ['1/1', '3/4', '16/9'].includes(merged.cardAspect) ? merged.cardAspect : base.cardAspect;
+    merged.cardFit = ['cover', 'contain', 'fill', 'natural'].includes(merged.cardFit) ? merged.cardFit : base.cardFit;
+
+    if (src.bannerUrl !== undefined) {
+        merged.bannerUrl = sanitizeBannerUrl(src.bannerUrl);
+    } else {
+        merged.bannerUrl = sanitizeBannerUrl(merged.bannerUrl);
+    }
+    merged.bannerMode = ['replace', 'behind'].includes(merged.bannerMode) ? merged.bannerMode : base.bannerMode;
+    merged.bannerFit = ['cover', 'contain'].includes(merged.bannerFit) ? merged.bannerFit : base.bannerFit;
+    const parsedHeight = Math.round(Number(merged.bannerHeight));
+    merged.bannerHeight = Number.isFinite(parsedHeight) ? Math.min(240, Math.max(48, parsedHeight)) : 110;
+
+    merged.showCaptions = normalizeBool(src.showCaptions !== undefined ? src.showCaptions : merged.showCaptions, true);
+    merged.fitCaptions = normalizeBool(src.fitCaptions !== undefined ? src.fitCaptions : merged.fitCaptions, false);
+    merged.autoFit = normalizeBool(src.autoFit !== undefined ? src.autoFit : merged.autoFit, false);
+
+    const rawHowToVote = String(merged.howToVote ?? 'auto').toLowerCase();
+    if (rawHowToVote === 'always' || rawHowToVote === 'auto') {
+        merged.howToVote = rawHowToVote;
+    } else if (['0', 'false', 'none', 'hide'].includes(rawHowToVote)) {
+        merged.howToVote = '0';
+    } else {
+        merged.howToVote = 'auto';
+    }
+
+    const rawHintScale = String(merged.hintScale ?? '1').trim();
+    const parsedHintScale = parseFloat(rawHintScale);
+    if (['0.85', '1', '1.25', '1.5'].includes(rawHintScale)) {
+        merged.hintScale = rawHintScale;
+    } else if (Number.isFinite(parsedHintScale) && parsedHintScale > 0 && parsedHintScale <= 5) {
+        merged.hintScale = String(parsedHintScale);
+    } else {
+        merged.hintScale = '1';
+    }
+
+    merged.sfx = normalizeBool(src.sfx !== undefined ? src.sfx : merged.sfx, true);
+    merged.focusEnlarge = normalizeBool(src.focusEnlarge !== undefined ? src.focusEnlarge : merged.focusEnlarge, false);
+    return merged;
+}
+
 function createTierListService({
     dataDir,
     tierListPath = path.join(dataDir, 'tier-list.json'),
@@ -204,19 +401,14 @@ function createTierListService({
         id: 'default',
         title: 'Community Tier List',
         description: '',
-        theme: {
-            backgroundColor: 'rgba(13, 17, 23, 0.92)',
-            textColor: '#f0f6fc',
-            accentColor: '#3b82f6',
-            cardAspect: '1/1',
-            cardFit: 'cover',
-            fontSize: 'medium'
-        },
+        theme: Object.assign({}, DEFAULT_THEME),
         tiers: JSON.parse(JSON.stringify(DEFAULT_TIERS)),
         items: [],
+        focusedItemId: null,
         activeVote: null,
         presets: JSON.parse(JSON.stringify(BUILTIN_PRESETS)),
         settings: {
+            chatVotingEnabled: true,
             consensusMode: 'weighted_mean',
             subMultiplier: 1,
             allowVoteChange: true,
@@ -246,10 +438,28 @@ function createTierListService({
                     if (parsed.title) state.title = parsed.title;
                     if (parsed.description !== undefined) state.description = parsed.description;
                     if (parsed.theme && typeof parsed.theme === 'object') {
-                        state.theme = Object.assign({}, state.theme, parsed.theme);
+                        let loadedTheme = parsed.theme;
+                        if (
+                            loadedTheme.backgroundColor === 'rgba(13, 17, 23, 0.92)' &&
+                            loadedTheme.textColor === '#f0f6fc' &&
+                            loadedTheme.accentColor === '#3b82f6' &&
+                            !loadedTheme.rowBackgroundColor &&
+                            !loadedTheme.borderColor &&
+                            !loadedTheme.mutedColor &&
+                            !loadedTheme.headingFont &&
+                            !loadedTheme.fontFamily &&
+                            loadedTheme.borderRadius === undefined
+                        ) {
+                            loadedTheme = Object.assign({}, loadedTheme);
+                            delete loadedTheme.backgroundColor;
+                            delete loadedTheme.textColor;
+                            delete loadedTheme.accentColor;
+                        }
+                        state.theme = normalizeTheme(loadedTheme, state.theme);
                     }
                     if (parsed.settings && typeof parsed.settings === 'object') {
                         state.settings = Object.assign({}, state.settings, parsed.settings);
+                        state.settings.chatVotingEnabled = normalizeBool(parsed.settings.chatVotingEnabled, true);
                     }
                     if (Array.isArray(parsed.presets)) {
                         state.presets = parsed.presets;
@@ -302,6 +512,7 @@ function createTierListService({
             theme: state.theme,
             tiers: state.tiers,
             items: state.items,
+            focusedItemId: state.focusedItemId || null,
             activeVote: vote,
             presets: state.presets,
             settings: state.settings
@@ -316,10 +527,42 @@ function createTierListService({
         if (updates.title !== undefined) state.title = String(updates.title).trim();
         if (updates.description !== undefined) state.description = String(updates.description);
         if (updates.theme && typeof updates.theme === 'object') {
-            state.theme = Object.assign({}, state.theme, updates.theme);
+            state.theme = normalizeTheme(updates.theme, state.theme);
         }
         if (updates.settings && typeof updates.settings === 'object') {
             state.settings = Object.assign({}, state.settings, updates.settings);
+            if (updates.settings.chatVotingEnabled !== undefined) {
+                state.settings.chatVotingEnabled = normalizeBool(updates.settings.chatVotingEnabled, state.settings.chatVotingEnabled !== false);
+            }
+            if (updates.settings.soundEnabled !== undefined) {
+                state.settings.soundEnabled = normalizeBool(updates.settings.soundEnabled, state.settings.soundEnabled !== false);
+                if (updates.theme?.sfx === undefined) {
+                    state.theme.sfx = Boolean(state.settings.soundEnabled);
+                }
+            }
+            if (updates.settings.soundVolume !== undefined) {
+                const v = Number(updates.settings.soundVolume);
+                state.settings.soundVolume = Number.isFinite(v)
+                    ? Math.min(100, Math.max(0, Math.round(v)))
+                    : 75;
+            }
+            if (updates.settings.showVoteHint !== undefined) {
+                state.settings.showVoteHint = normalizeBool(updates.settings.showVoteHint, state.settings.showVoteHint !== false);
+                if (updates.theme?.howToVote === undefined) {
+                    if (state.settings.showVoteHint === false) {
+                        state.theme.howToVote = '0';
+                    } else if (state.theme.howToVote === '0') {
+                        state.theme.howToVote = 'auto';
+                    }
+                }
+            }
+            if (state.settings.chatVotingEnabled === false && state.activeVote) {
+                if (voteTimer) {
+                    clearTimeout(voteTimer);
+                    voteTimer = null;
+                }
+                state.activeVote = null;
+            }
         }
         if (Array.isArray(updates.tiers)) {
             state.tiers = updates.tiers.map((t, idx) => ({
@@ -407,6 +650,9 @@ function createTierListService({
         if (index === -1) return false;
 
         const [removed] = state.items.splice(index, 1);
+        if (state.focusedItemId === itemId) {
+            state.focusedItemId = null;
+        }
         if (state.activeVote && state.activeVote.itemId === itemId) {
             cancelVote();
         }
@@ -438,6 +684,10 @@ function createTierListService({
             it.order = idx;
         });
 
+        if (state.focusedItemId === itemId) {
+            state.focusedItemId = null;
+        }
+
         save();
         broadcastState('tier-list:move', {
             itemId,
@@ -453,6 +703,7 @@ function createTierListService({
             item.tierId = null;
             item.order = idx;
         });
+        state.focusedItemId = null;
         if (state.activeVote) cancelVote();
         save();
         broadcastState('tier-list:update');
@@ -461,8 +712,28 @@ function createTierListService({
 
     function clearItems() {
         state.items = [];
+        state.focusedItemId = null;
         if (state.activeVote) cancelVote();
         save();
+        broadcastState('tier-list:update');
+        return getPublicState();
+    }
+
+    function focusItem(itemId = null) {
+        if (!itemId) {
+            state.focusedItemId = null;
+            broadcastState('tier-list:update');
+            return getPublicState();
+        }
+        const item = state.items.find(i => i.id === itemId);
+        if (!item) return null;
+        state.focusedItemId = item.id;
+        broadcastState('tier-list:update');
+        return getPublicState();
+    }
+
+    function clearFocus() {
+        state.focusedItemId = null;
         broadcastState('tier-list:update');
         return getPublicState();
     }
@@ -477,6 +748,11 @@ function createTierListService({
         consensusMode = null,
         subMultiplier = null
     } = {}) {
+        if (state.settings.chatVotingEnabled === false) {
+            const err = new Error('Chat voting is disabled in Tier List settings');
+            err.statusCode = 409;
+            throw err;
+        }
         let item = null;
         if (itemId) {
             item = state.items.find(i => i.id === itemId);
@@ -490,6 +766,7 @@ function createTierListService({
             clearTimeout(voteTimer);
             voteTimer = null;
         }
+        state.focusedItemId = null;
 
         const effectiveDuration = Math.max(0, duration !== undefined ? Number(duration) : (state.settings.defaultDuration || 60));
         const effectiveMode = consensusMode || state.settings.consensusMode || 'weighted_mean';
@@ -549,6 +826,7 @@ function createTierListService({
         tierId = '',
         isSub = false
     } = {}) {
+        if (state.settings.chatVotingEnabled === false) return false;
         if (!state.activeVote || state.activeVote.status !== 'ACTIVE') return false;
         const normalizedUserId = String(userId || user).trim().toLowerCase();
         if (!normalizedUserId) return false;
@@ -587,6 +865,7 @@ function createTierListService({
     }
 
     function handleChatMessage(msg = {}) {
+        if (state.settings.chatVotingEnabled === false) return false;
         if (!state.activeVote || state.activeVote.status !== 'ACTIVE') return false;
 
         const user = msg.chatname || msg.username || msg.user || '';
@@ -609,8 +888,9 @@ function createTierListService({
         const rawArg = match[1].trim().toLowerCase();
         if (!rawArg) return false;
 
-        // Clean first token to be resilient against punctuation and extra words (e.g. "S!", "S tier", "S - great game")
-        const firstToken = rawArg.split(/\s+/)[0].replace(/[^a-z0-9_-]/gi, '').toLowerCase();
+        // Clean first token to be resilient against punctuation and extra words (e.g. "S!", "S+!", "S tier", "S - great game")
+        const rawFirstWord = rawArg.split(/\s+/)[0].replace(/^[!?,.;:]+|[!?,.;:]+$/g, '');
+        const firstToken = rawFirstWord.replace(/[^a-z0-9_-]/gi, '').toLowerCase();
 
         // Match against tier labels (exact, alias, or index)
         let matchedTier = null;
@@ -624,12 +904,15 @@ function createTierListService({
             }
         }
 
-        // 2. Check exact or lowercased label match (check firstToken, then full rawArg)
-        if (!matchedTier && firstToken) {
-            matchedTier = state.tiers.find(t => t.label.trim().toLowerCase() === firstToken);
-        }
+        // 2. Check exact lowercased label match (full rawArg first, then punctuation-trimmed first word so "S+" / "God Tier" win over stripped "S")
         if (!matchedTier) {
             matchedTier = state.tiers.find(t => t.label.trim().toLowerCase() === rawArg);
+        }
+        if (!matchedTier && rawFirstWord) {
+            matchedTier = state.tiers.find(t => t.label.trim().toLowerCase() === rawFirstWord);
+        }
+        if (!matchedTier && firstToken) {
+            matchedTier = state.tiers.find(t => t.label.trim().toLowerCase() === firstToken);
         }
 
         // 3. Check partial label prefix if unambiguous (e.g. "mast" => "Masterpiece")
@@ -659,6 +942,7 @@ function createTierListService({
             clearTimeout(voteTimer);
             voteTimer = null;
         }
+        state.focusedItemId = null;
 
         state.activeVote.status = 'LOCKED';
         state.activeVote.endsAt = Date.now();
@@ -679,6 +963,7 @@ function createTierListService({
             clearTimeout(voteTimer);
             voteTimer = null;
         }
+        state.focusedItemId = null;
 
         const vote = state.activeVote;
         vote.status = 'COMPLETED';
@@ -722,6 +1007,7 @@ function createTierListService({
             clearTimeout(voteTimer);
             voteTimer = null;
         }
+        state.focusedItemId = null;
 
         state.activeVote = null;
         broadcastState('tier-list:vote-cancel');
@@ -755,7 +1041,7 @@ function createTierListService({
 
         state.tiers = JSON.parse(JSON.stringify(preset.tiers || DEFAULT_TIERS));
         if (preset.theme) {
-            state.theme = Object.assign({}, state.theme, preset.theme);
+            state.theme = normalizeTheme(preset.theme, state.theme);
         }
         if (Array.isArray(preset.items) && preset.items.length > 0) {
             state.items = JSON.parse(JSON.stringify(preset.items));
@@ -803,6 +1089,28 @@ function createTierListService({
             if (clean === name || clean === decodedName || clean.endsWith(`/${name}`) || clean.endsWith(`/${decodedName}`)) return true;
             return false;
         };
+        if (state.theme?.bannerUrl && isRef(state.theme.bannerUrl)) {
+            users.push({
+                id: 'tier-list:banner',
+                name: 'Tier List: Custom Banner'
+            });
+        }
+        const isFontFile = /\.(ttf|otf|woff2?)$/i.test(String(name || ''));
+        const matchesFont = (fontVal) => {
+            if (!isFontFile || !fontVal || typeof fontVal !== 'string') return false;
+            const norm = fontVal.trim().toLowerCase();
+            if (!norm) return false;
+            const baseNoExt = decodeURIComponent(String(name || '')).replace(/\.[a-z0-9]+$/i, '').trim();
+            const familySpace = baseNoExt.replace(/[^a-zA-Z0-9 _-]+/g, '').replace(/[-_]+/g, ' ').trim().toLowerCase();
+            const rawLower = baseNoExt.toLowerCase();
+            return norm === rawLower || (familySpace && norm === familySpace);
+        };
+        if (matchesFont(state.theme?.headingFont) || matchesFont(state.theme?.fontFamily)) {
+            users.push({
+                id: 'tier-list:font',
+                name: 'Tier List: Custom Font'
+            });
+        }
         for (const item of state.items || []) {
             if (isRef(item.imageUrl)) {
                 users.push({
@@ -812,6 +1120,18 @@ function createTierListService({
             }
         }
         for (const preset of state.presets || []) {
+            if (preset.theme?.bannerUrl && isRef(preset.theme.bannerUrl)) {
+                users.push({
+                    id: `tier-list:preset-banner:${preset.id}`,
+                    name: `Tier List (${preset.name || 'Preset'}): Banner`
+                });
+            }
+            if (matchesFont(preset.theme?.headingFont) || matchesFont(preset.theme?.fontFamily)) {
+                users.push({
+                    id: `tier-list:preset-font:${preset.id}`,
+                    name: `Tier List (${preset.name || 'Preset'}): Custom Font`
+                });
+            }
             for (const item of preset.items || []) {
                 if (isRef(item.imageUrl)) {
                     users.push({
@@ -846,6 +1166,13 @@ function createTierListService({
             return next;
         };
 
+        if (state.theme?.bannerUrl) {
+            const next = rewriteStr(state.theme.bannerUrl);
+            if (next !== state.theme.bannerUrl) {
+                state.theme.bannerUrl = next;
+                changed = true;
+            }
+        }
         for (const item of state.items || []) {
             if (!item.imageUrl) continue;
             const next = rewriteStr(item.imageUrl);
@@ -862,6 +1189,13 @@ function createTierListService({
             }
         }
         for (const preset of state.presets || []) {
+            if (preset.theme?.bannerUrl) {
+                const next = rewriteStr(preset.theme.bannerUrl);
+                if (next !== preset.theme.bannerUrl) {
+                    preset.theme.bannerUrl = next;
+                    changed = true;
+                }
+            }
             for (const item of preset.items || []) {
                 if (!item.imageUrl) continue;
                 const next = rewriteStr(item.imageUrl);
@@ -891,6 +1225,8 @@ function createTierListService({
         moveItem,
         resetPlacements,
         clearItems,
+        focusItem,
+        clearFocus,
         startVote,
         castVote,
         handleChatMessage,
