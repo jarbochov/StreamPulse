@@ -13,7 +13,15 @@ import { loadOverlayOptions, initPreviewOptionsListeners } from './tier-list-pre
 function handleItemDrop(evt) {
     const itemId = evt.item.dataset.itemId;
     const toTier = evt.to.dataset.tierId || null;
-    const toIndex = evt.newIndex;
+    const toIndex = evt.newDraggableIndex ?? evt.newIndex;
+    const unrankedEl = $('unranked-pool');
+    if (unrankedEl) {
+        const unrankedCards = unrankedEl.querySelectorAll('.item-card').length;
+        const hintEl = $('pool-empty-hint');
+        if (hintEl) hintEl.style.display = unrankedCards === 0 ? 'flex' : 'none';
+        const countEl = $('unranked-count');
+        if (countEl) countEl.textContent = unrankedCards;
+    }
     moveItem(itemId, toTier, toIndex);
 }
 

@@ -37,6 +37,8 @@ function parseInitialTabFromHash() {
     const raw = (location.hash || '').replace(/^#/, '').trim();
     if (!raw) return '';
     if (raw.startsWith('tab=')) return decodeURIComponent(raw.slice(4)).toLowerCase();
+    const lower = raw.toLowerCase();
+    if (getOperatorModule(lower)) return lower;
     if (raw.startsWith('var=') || raw.startsWith('group=') || raw.startsWith('set=') || raw.endsWith('/matrix')) {
         return 'variables';
     }
@@ -289,8 +291,7 @@ async function init() {
                 return;
             }
             if (msg.type === 'operator-update') {
-                applyRemoteOperatorState(msg.data);
-                if (currentMountedId === 'board' || currentMountedId === 'overlays') {
+                if (applyRemoteOperatorState(msg.data) && (currentMountedId === 'board' || currentMountedId === 'overlays')) {
                     await remountActive();
                 }
                 return;

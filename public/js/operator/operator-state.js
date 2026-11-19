@@ -244,14 +244,23 @@ export async function importProfilesOnServer(payload, mode = 'merge') {
 }
 
 export function applyRemoteOperatorState(snapshot) {
-    if (!snapshot || typeof snapshot !== 'object') return;
+    if (!snapshot || typeof snapshot !== 'object') return false;
+    const prevJson = JSON.stringify({
+        activeProfileId: operatorState.activeProfileId,
+        profiles: operatorState.profiles
+    });
     if (Array.isArray(snapshot.profiles)) {
         operatorState.profiles = snapshot.profiles;
     }
     if (!LOCKED_PROFILE_ID && snapshot.activeProfileId) {
         operatorState.activeProfileId = snapshot.activeProfileId;
     }
+    const nextJson = JSON.stringify({
+        activeProfileId: operatorState.activeProfileId,
+        profiles: operatorState.profiles
+    });
     notify('remote-profiles');
+    return prevJson !== nextJson;
 }
 
 export function applyRemoteActiveProfile(payload) {

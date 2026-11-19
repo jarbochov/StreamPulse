@@ -13,6 +13,7 @@ const { createTimerService } = require('../server/services/timers');
 const { createTimersRoutes } = require('../server/routes/timers');
 const { createOperatorService, slugifyProfileId } = require('../server/services/operator');
 const { createOperatorRoutes } = require('../server/routes/operator');
+const createVariablesStore = require('../server/services/variables');
 
 function createMockRes() {
     return {
@@ -251,6 +252,95 @@ test('Operator Mode loads real timers keyed-object /api/timers snapshot in brows
             () => (document.querySelector('.op-domain-panel:not([hidden]) [data-timer-readout="show-break"]')?.textContent || '').includes('00:06:00'),
             { timeout: 5000 }
         );
+    } finally {
+        await browser.close();
+        await new Promise(r => server.close(r));
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+});
+
+test('Operator Mode Variables tab & Live Board card: single event binding and bounded step/reset', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-operator-vars-'));
+    const varSvc = createVariablesStore({ dataDir: tmpDir });
+    varSvc.set('deaths', { type: 'number', value: 5, resetValue: 3, min: 0, max: 10, step: 1 });
+    varSvc.upsertSet('hosts', {
+        id: 'hosts',
+        name: 'Show Hosts',
+        slotsCount: 1,
+        fields: [{ key: 'name', label: 'Name', type: 'text' }],
+        roster: [{ id: 'host_1', label: 'Host 1', enabled: true, values: { name: 'Host 1' } }]
+    });
+
+    const opSvc = createOperatorService({ dataDir: tmpDir });
+    opSvc.upsertProfile({
+        id: 'default',
+        name: 'Main Show',
+        board: {
+            columns: 2,
+            cards: [
+                { id: 'c-var', type: 'variable-single', title: 'Deaths Counter', span: 1, config: { variable: 'deaths' } }
+            ]
+        },
+        overlays: [],
+        tabs: { hidden: [] }
+    });
+
+    const handleOp = createOperatorRoutes({ operatorService: opSvc });
+    const router = staticRouter.createStaticRouter({ rootDir: path.join(__dirname, '..') });
+
+    const readBody = req => new Promise(resolve => {
+        let data = '';
+        req.on('data', chunk => { data += chunk; });
+        req.on('end', () => resolve(data));
+    });
+
+    const server = http.createServer(async (req, res) => {
+        const url = new URL(req.url, 'http://127.0.0.1');
+        if (url.pathname === '/api/status') {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            return res.end(JSON.stringify({
+                modules: { alerts: true, music: false, subathon: false, overlays: true, variableSets: true, variableSettings: true },
+                alerts: { enabled: true }
+            }));
+        }
+        if (url.pathname.startsWith('/api/variables') && await varSvc.handleApi(req, res, url.pathname, readBody)) return;
+        if (await handleOp(req, res, url, url.pathname)) return;
+        if (url.pathname.startsWith('/api/')) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            return res.end('{}');
+        }
+        router.handleRequest(req, res);
+    });
+
+    await new Promise(r => server.listen(0, '127.0.0.1', r));
+    const port = server.address().port;
+    const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+
+    try {
+        const page = await browser.newPage();
+        await page.setViewport({ width: 1280, height: 800 });
+
+        await page.goto(`http://127.0.0.1:${port}/operator.html`, { waitUntil: 'networkidle0' });
+        await page.waitForSelector('[data-card-var-step="deaths"]', { timeout: 10000 });
+
+        // Live Board card +5 respects max=10, then +1 clamps at 10, and Reset restores resetValue=3
+        await page.click('[data-card-var-step="deaths"][data-delta="5"]');
+        await page.waitForFunction(() => document.querySelector('[data-card-var-direct="deaths"]')?.value === '10', { timeout: 5000 });
+        await page.click('[data-card-var-step="deaths"][data-delta="1"]');
+        await new Promise(r => setTimeout(r, 150));
+        assert.equal(await page.$eval('[data-card-var-direct="deaths"]', el => el.value), '10', 'Should clamp at max=10');
+
+        await page.click('[data-card-var-reset="deaths"]');
+        await page.waitForFunction(() => document.querySelector('[data-card-var-direct="deaths"]')?.value === '3', { timeout: 5000 });
+
+        // Switch to Variables tab and verify Add Entry only adds 1 item (no duplicate event binding)
+        await page.click('[data-domain-tab="variables"]');
+        await page.waitForSelector('#op-add-entry', { timeout: 10000 });
+        await page.click('#op-add-entry');
+        await page.waitForFunction(() => document.querySelectorAll('#op-table-host tbody tr').length === 2, { timeout: 5000 });
+        await new Promise(r => setTimeout(r, 200));
+        const rowCount = await page.$$eval('#op-table-host tbody tr', rows => rows.length);
+        assert.equal(rowCount, 2, 'Clicking Add Entry once must add exactly 1 row');
     } finally {
         await browser.close();
         await new Promise(r => server.close(r));

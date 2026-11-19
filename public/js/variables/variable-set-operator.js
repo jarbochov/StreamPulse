@@ -907,8 +907,14 @@ function bindEvents() {
     const host = document.getElementById('op-table-host');
     if (!host) return;
     bindLinkControls(host);
-    host.addEventListener('focusout', () => {
-        queueMicrotask(() => loadData(true).catch(err => toast(err.message, 'error')));
+    host.addEventListener('focusout', e => {
+        if (trackerBusy) return;
+        const related = e.relatedTarget;
+        if (related && host.contains(related) && related.closest('button')) return;
+        queueMicrotask(() => {
+            if (trackerBusy) return;
+            loadData(true).catch(err => toast(err.message, 'error'));
+        });
     });
 
     host.addEventListener('input', e => {

@@ -38,12 +38,12 @@ function updateSubTabVisibility(status) {
 
 function applyDomainReadOnlyState() {
     const readOnly = isEditLocked();
-    const setsView = document.getElementById('op-sets-view');
-    const varsView = document.getElementById('op-vars-view');
+    const tableHost = document.getElementById('op-table-host');
+    const voHost = document.getElementById('vo-host');
     const addBtn = document.getElementById('op-add-entry');
-    if (setsView) setsView.inert = readOnly;
-    if (varsView) varsView.inert = readOnly;
-    if (addBtn && readOnly) addBtn.hidden = true;
+    if (tableHost) tableHost.inert = readOnly;
+    if (voHost) voHost.inert = readOnly;
+    if (addBtn) addBtn.hidden = readOnly;
 }
 
 registerOperatorModule({
@@ -148,13 +148,16 @@ function renderBoardVarControlHtml(v, showHeader = true) {
     }
 
     if (v.type === 'counter' || v.type === 'number') {
+        const minAttr = v.min !== undefined && v.min !== '' ? ` min="${esc(v.min)}"` : '';
+        const maxAttr = v.max !== undefined && v.max !== '' ? ` max="${esc(v.max)}"` : '';
+        const stepAttr = v.step !== undefined && v.step !== '' ? ` step="${esc(v.step)}"` : ' step="any"';
         return `${head}<div class="op-panel-row">
-            <input type="number" step="any" class="op-cell-input" style="width:78px;min-width:64px;text-align:center;font-weight:700;font-variant-numeric:tabular-nums;" data-card-var-direct="${name}" value="${esc(val || '0')}" aria-label="${name} value">
+            <input type="number"${minAttr}${maxAttr}${stepAttr} class="op-cell-input" style="width:78px;min-width:64px;text-align:center;font-weight:700;font-variant-numeric:tabular-nums;" data-card-var-direct="${name}" value="${esc(val || '0')}" aria-label="${name} value">
             <div class="op-btn-row">
                 <button type="button" class="op-btn sm" data-card-var-step="${name}" data-delta="-1">-1</button>
                 <button type="button" class="op-btn sm" data-card-var-step="${name}" data-delta="1">+1</button>
                 <button type="button" class="op-btn sm" data-card-var-step="${name}" data-delta="5">+5</button>
-                <button type="button" class="op-btn sm" data-card-var-set="${name}" data-val="0">Reset</button>
+                <button type="button" class="op-btn sm" data-card-var-reset="${name}">Reset</button>
             </div>
         </div>`;
     }
@@ -356,9 +359,15 @@ function bindBoardVarEvents(el, onRefresh) {
         if (step) {
             const name = step.dataset.cardVarStep;
             const delta = Number(step.dataset.delta) || 0;
-            const data = await fetchVariablesData(true);
-            const cur = Number((data.variables || []).find(item => item.name === name)?.value) || 0;
-            await api(`/api/variables/${encodeURIComponent(name)}`, 'PUT', { value: String(cur + delta) });
+            const action = delta < 0 ? 'decrement' : 'increment';
+            await api(`/api/variables/${encodeURIComponent(name)}/${action}`, 'POST', { amount: Math.abs(delta) });
+            await fetchVariablesData(true);
+            onRefresh();
+            return;
+        }
+        const resetBtn = e.target.closest('[data-card-var-reset]');
+        if (resetBtn) {
+            await api(`/api/variables/${encodeURIComponent(resetBtn.dataset.cardVarReset)}/reset`, 'POST', {});
             await fetchVariablesData(true);
             onRefresh();
             return;
@@ -568,7 +577,12 @@ async function renderSetQuickCard(el, card) {
         return;
     }
     const roster = (setObj.roster || []).filter(r => r.enabled !== false);
-    const activeEntry = setObj.activeEntry || setObj.slots?.[0] || '';
+    const slotsCount = Number(setObj.slotsCount) || 0;
+    const activeSlot = Math.min(Math.max(1, Number(el._opSelectedSlot) || 1), Math.max(1, slotsCount));
+    el._opSelectedSlot = activeSlot;
+    const activeEntry = slotsCount >= 1
+        ? (setObj.slots?.[activeSlot - 1] || '')
+        : (setObj.activeEntry || setObj.slots?.[0] || '');
     const readOnly = isEditLocked();
     if (readOnly) {
         const activeLabel = roster.find(r => r.id === activeEntry)?.label || activeEntry || 'None';
@@ -579,7 +593,17 @@ async function renderSetQuickCard(el, card) {
             </div>`;
         return;
     }
+    const slotPickerHtml = slotsCount > 1
+        ? `<div class="op-btn-row" style="margin-bottom:.25rem;">
+            ${Array.from({ length: slotsCount }, (_, idx) => {
+                const slotNum = idx + 1;
+                const slotName = setObj.slotNames?.[idx] || `Slot ${slotNum}`;
+                return `<button type="button" class="op-btn sm ${activeSlot === slotNum ? 'active' : ''}" data-set-pick-slot="${slotNum}">${esc(slotName)}</button>`;
+            }).join('')}
+        </div>`
+        : '';
     el.innerHTML = `
+        ${slotPickerHtml}
         <div class="op-panel-row">
             <span class="op-pill">${roster.length} enabled</span>
             <div class="op-btn-row">
@@ -615,16 +639,32 @@ registerCardType({
         const refresh = () => renderSetQuickCard(el, card).catch(err => { el.textContent = err.message; });
         const onClick = async e => {
             if (isEditLocked()) return;
+            const slotBtn = e.target.closest('[data-set-pick-slot]');
+            if (slotBtn) {
+                el._opSelectedSlot = Number(slotBtn.dataset.setPickSlot) || 1;
+                refresh();
+                return;
+            }
             const rot = e.target.closest('[data-set-rot]');
             if (rot && setId) {
-                await api(`/api/variables/sets/${encodeURIComponent(setId)}/rotation/${rot.dataset.setRot}`, 'POST', {});
+                const data = await fetchVariablesData();
+                const setObj = (data.sets || []).find(s => s.id === setId);
+                const slotsCount = Number(setObj?.slotsCount) || 0;
+                const dir = rot.dataset.setRot === 'prev' ? 'prev' : 'next';
+                if (slotsCount > 1) {
+                    const slotNum = Math.min(Math.max(1, Number(el._opSelectedSlot) || 1), slotsCount);
+                    await api(`/api/variables/sets/${encodeURIComponent(setId)}/${dir}`, 'POST', { slot: slotNum });
+                } else {
+                    await api(`/api/variables/sets/${encodeURIComponent(setId)}/rotation/${dir}`, 'POST', {});
+                }
                 await fetchVariablesData(true);
                 refresh();
                 return;
             }
             const entryBtn = e.target.closest('[data-set-entry]');
             if (entryBtn && setId) {
-                await api(`/api/variables/sets/${encodeURIComponent(setId)}/assign`, 'POST', { slot: 0, entry: entryBtn.dataset.setEntry });
+                const slotNum = Math.max(1, Number(el._opSelectedSlot) || 1);
+                await api(`/api/variables/sets/${encodeURIComponent(setId)}/assign`, 'POST', { slot: slotNum, entry: entryBtn.dataset.setEntry });
                 await fetchVariablesData(true);
                 refresh();
             }

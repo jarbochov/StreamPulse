@@ -21,12 +21,16 @@ async function fetchMusicState() {
 
 function renderMusicBodyHtml() {
     const stateLabel = nowPlaying.state === 'playing' ? 'Playing' : nowPlaying.state === 'paused' ? 'Paused' : 'Stopped';
-    const artHtml = nowPlaying.artworkUrl
-        ? `<img src="${esc(nowPlaying.artworkUrl)}" alt="Album artwork">`
+    const hasActiveTrack = (nowPlaying.state === 'playing' || nowPlaying.state === 'paused') && Boolean(nowPlaying.track);
+    const artSrc = nowPlaying.artworkUrl || (hasActiveTrack
+        ? `/api/music/artwork?t=${encodeURIComponent(`${nowPlaying.track || ''}_${nowPlaying.artist || ''}`)}`
+        : '');
+    const artHtml = artSrc
+        ? `<img src="${esc(artSrc)}" alt="Album artwork" onerror="this.remove()">`
         : OP_ICONS.music;
     return `
         <div class="op-music-box">
-            <div class="op-music-art">${artHtml}</div>
+            <div class="op-music-art">${artHtml}${artSrc ? OP_ICONS.music : ''}</div>
             <div class="op-music-meta">
                 <div class="op-music-track">${esc(nowPlaying.track || 'Nothing playing')}</div>
                 <div class="op-music-artist">${esc([nowPlaying.artist, nowPlaying.album].filter(Boolean).join(' · ') || 'Waiting for active media source')}</div>

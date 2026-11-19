@@ -83,6 +83,7 @@ export async function moveItem(itemId, toTier, toIndex) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ itemId, toTier, toIndex })
         });
+        await fetchState();
     } catch (err) {
         console.error('Failed to sync item move:', err);
     }

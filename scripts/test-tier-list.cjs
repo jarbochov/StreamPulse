@@ -960,3 +960,77 @@ test('Tier List Service & Overlay Asset Routes: Usage, Deletion Protection, and 
         fs.rmSync(tmpDir, { recursive: true, force: true });
     }
 });
+
+test('Tier List Browser UI: Unranked Pool Sortable draggable config and moving item back to unranked', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tl-test-unranked-ui-'));
+    const staticRouter = require('../server/static-router');
+    const service = createTierListService({ dataDir: tmpDir, log: () => {} });
+    const item = service.addItem({ name: 'Chrono Trigger' });
+    service.moveItem({ itemId: item.id, toTier: 'tier-s', toIndex: 0 });
+
+    const handleRoutes = createTierListRoutes({ tierListService: service });
+    const router = staticRouter.createStaticRouter({ rootDir: path.join(__dirname, '..') });
+
+    const server = http.createServer(async (req, res) => {
+        const url = new URL(req.url, 'http://127.0.0.1');
+        if (await handleRoutes(req, res, url.pathname)) return;
+        if (url.pathname.startsWith('/api/')) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            return res.end('{}');
+        }
+        router.handleRequest(req, res);
+    });
+
+    await new Promise(r => server.listen(0, '127.0.0.1', r));
+    const port = server.address().port;
+    const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+
+    try {
+        const page = await browser.newPage();
+        await page.setViewport({ width: 1280, height: 800 });
+        await page.goto(`http://127.0.0.1:${port}/tools/tier-list.html`, { waitUntil: 'networkidle0' });
+        await page.waitForSelector('.tier-content[data-tier-id="tier-s"] .item-card', { timeout: 10000 });
+
+        // Verify Sortable on #unranked-pool ignores #pool-empty-hint via draggable: '.item-card'
+        // so SortableJS recognizes the empty pool and allows dropping items back into it
+        const unrankedSortConfig = await page.evaluate(() => {
+            const pool = document.getElementById('unranked-pool');
+            const inst = window.Sortable && window.Sortable.get(pool);
+            return {
+                hasInstance: Boolean(inst),
+                draggable: inst?.options?.draggable,
+                toArrayLen: inst?.toArray()?.length
+            };
+        });
+        assert.equal(unrankedSortConfig.hasInstance, true);
+        assert.equal(unrankedSortConfig.draggable, '.item-card');
+        assert.equal(unrankedSortConfig.toArrayLen, 0, 'Empty unranked pool must have 0 draggable items despite #pool-empty-hint');
+
+        // Simulate SortableJS drop from Tier S back to #unranked-pool
+        await page.evaluate(async (itemId) => {
+            const pool = document.getElementById('unranked-pool');
+            const card = document.querySelector(`.item-card[data-item-id="${itemId}"]`);
+            const fromEl = card.parentElement;
+            pool.insertBefore(card, document.getElementById('pool-empty-hint'));
+            const inst = window.Sortable.get(pool);
+            inst.options.onEnd({
+                item: card,
+                from: fromEl,
+                to: pool,
+                newIndex: 0,
+                newDraggableIndex: 0
+            });
+        }, item.id);
+
+        await page.waitForFunction(
+            () => document.getElementById('unranked-count')?.textContent === '1' &&
+                document.getElementById('pool-empty-hint')?.style.display === 'none',
+            { timeout: 5000 }
+        );
+        assert.equal(service.getState().items.find(i => i.id === item.id).tierId, null);
+    } finally {
+        await browser.close();
+        await new Promise(r => server.close(r));
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+});

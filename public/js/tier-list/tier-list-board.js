@@ -79,6 +79,7 @@ export function renderBoard(state, onDrop) {
             const contentEl = row.querySelector('.tier-content');
             const sortable = new window.Sortable(contentEl, {
                 group: 'tier-items',
+                draggable: '.item-card',
                 animation: 180,
                 ghostClass: 'sortable-ghost',
                 onEnd: onDrop
@@ -106,6 +107,7 @@ export function renderBoard(state, onDrop) {
     if (window.Sortable) {
         unrankedSortable = new window.Sortable(unrankedEl, {
             group: 'tier-items',
+            draggable: '.item-card',
             animation: 180,
             ghostClass: 'sortable-ghost',
             onEnd: onDrop
