@@ -1085,6 +1085,7 @@
     </main>
 
     <script src="/overlay-theme.js"></script>
+    <script src="/js/wizard-variable-binder.js"></script>
     <script src="/nav.js"></script>
     <script>
     const $ = id => document.getElementById(id);
@@ -1106,31 +1107,41 @@
         'ap-font', 'ap-heading-font', 'ap-weight', 'ap-fontscale', 'ap-transform', 'ap-radius', 'ap-align', 'ap-text', 'ap-accent', 'ap-bg', 'ap-cardbg', 'ap-border', 'ap-winner', 'ap-outline'
     ];
 
+    function readCtrlVal(id) {
+        if (window.WizardVariableBinder && typeof window.WizardVariableBinder.readValue === 'function') {
+            return window.WizardVariableBinder.readValue(id);
+        }
+        return $(id) ? $(id).value : '';
+    }
+
     function numberValue(id, minimum = 0) {
-        const raw = $(id).value.trim();
+        const raw = readCtrlVal(id).trim();
         if (!raw) return '';
+        if (window.WizardVariableBinder && window.WizardVariableBinder.hasToken(raw)) return raw;
         const value = Number(raw);
         return Number.isFinite(value) && value >= minimum ? String(value) : '';
     }
 
     // Shared appearance overrides are added to every overlay URL.
     function appearanceParams() {
+        const rawScale = readCtrlVal('ap-fontscale').trim();
+        const isScaleVar = window.WizardVariableBinder && window.WizardVariableBinder.hasToken(rawScale);
         const scaleVal = parseFloat($('ap-fontscale').value);
         return {
-            font: $('ap-font').value.trim(),
-            headingfont: $('ap-heading-font') ? $('ap-heading-font').value.trim() : '',
-            weight: $('ap-weight').value,
-            fontscale: scaleVal && scaleVal !== 1 ? String(scaleVal) : '',
-            transform: $('ap-transform') ? $('ap-transform').value : '',
-            radius: $('ap-radius') ? $('ap-radius').value : '',
-            align: $('ap-align').value,
-            text: $('ap-text').value.trim(),
-            accent: $('ap-accent').value.trim(),
-            bg: $('ap-bg').value.trim(),
-            cardbg: $('ap-cardbg') ? $('ap-cardbg').value.trim() : '',
-            border: $('ap-border') ? $('ap-border').value.trim() : '',
-            winner: $('ap-winner') ? $('ap-winner').value.trim() : '',
-            outline: $('ap-outline').value.trim()
+            font: readCtrlVal('ap-font').trim(),
+            headingfont: $('ap-heading-font') ? readCtrlVal('ap-heading-font').trim() : '',
+            weight: readCtrlVal('ap-weight'),
+            fontscale: isScaleVar ? rawScale : (scaleVal && scaleVal !== 1 ? String(scaleVal) : ''),
+            transform: $('ap-transform') ? readCtrlVal('ap-transform') : '',
+            radius: $('ap-radius') ? readCtrlVal('ap-radius') : '',
+            align: readCtrlVal('ap-align'),
+            text: readCtrlVal('ap-text').trim(),
+            accent: readCtrlVal('ap-accent').trim(),
+            bg: readCtrlVal('ap-bg').trim(),
+            cardbg: $('ap-cardbg') ? readCtrlVal('ap-cardbg').trim() : '',
+            border: $('ap-border') ? readCtrlVal('ap-border').trim() : '',
+            winner: $('ap-winner') ? readCtrlVal('ap-winner').trim() : '',
+            outline: readCtrlVal('ap-outline').trim()
         };
     }
 
@@ -1424,14 +1435,14 @@
 
         const tourneyLayout = $('tourney-layout') ? $('tourney-layout').value : 'tree';
         const tourneyTheme = $('tourney-theme') ? $('tourney-theme').value : 'card';
-        const tourneyRadius = $('tourney-radius') ? $('tourney-radius').value : '';
+        const tourneyRadius = $('tourney-radius') ? readCtrlVal('tourney-radius') : '';
         const tourneyScores = $('tourney-showscores') ? $('tourney-showscores').value : '1';
         const tourneyConfetti = $('tourney-confetti') ? $('tourney-confetti').value : '1';
         const tourneyCamera = $('tourney-camera') ? $('tourney-camera').value : '';
         const tourneyGlide = $('tourney-glide') ? $('tourney-glide').value : '1';
         const tourneyBadge = $('tourney-badge') ? $('tourney-badge').value : '1';
-        const tourneyP1Color = $('tourney-p1color') ? $('tourney-p1color').value.trim() : '';
-        const tourneyP2Color = $('tourney-p2color') ? $('tourney-p2color').value.trim() : '';
+        const tourneyP1Color = $('tourney-p1color') ? readCtrlVal('tourney-p1color').trim() : '';
+        const tourneyP2Color = $('tourney-p2color') ? readCtrlVal('tourney-p2color').trim() : '';
         setUrl('tourney-url', buildUrl('/tournament.html', {
             layout: tourneyLayout !== 'tree' ? tourneyLayout : '',
             overlay: tourneyTheme !== 'card' ? tourneyTheme : '',
@@ -1447,14 +1458,14 @@
 
         const pollTourneyLayout = $('poll-tourney-layout') ? $('poll-tourney-layout').value : 'tree';
         const pollTourneyTheme = $('poll-tourney-theme') ? $('poll-tourney-theme').value : 'card';
-        const pollTourneyRadius = $('poll-tourney-radius') ? $('poll-tourney-radius').value : '';
+        const pollTourneyRadius = $('poll-tourney-radius') ? readCtrlVal('poll-tourney-radius') : '';
         const pollTourneyScores = $('poll-tourney-showscores') ? $('poll-tourney-showscores').value : '1';
         const pollTourneyConfetti = $('poll-tourney-confetti') ? $('poll-tourney-confetti').value : '1';
         const pollTourneyCamera = $('poll-tourney-camera') ? $('poll-tourney-camera').value : '';
         const pollTourneyGlide = $('poll-tourney-glide') ? $('poll-tourney-glide').value : '1';
         const pollTourneyBadge = $('poll-tourney-badge') ? $('poll-tourney-badge').value : '1';
-        const pollTourneyP1Color = $('poll-tourney-p1color') ? $('poll-tourney-p1color').value.trim() : '';
-        const pollTourneyP2Color = $('poll-tourney-p2color') ? $('poll-tourney-p2color').value.trim() : '';
+        const pollTourneyP1Color = $('poll-tourney-p1color') ? readCtrlVal('poll-tourney-p1color').trim() : '';
+        const pollTourneyP2Color = $('poll-tourney-p2color') ? readCtrlVal('poll-tourney-p2color').trim() : '';
         setUrl('poll-tourney-url', buildUrl('/poll-tournament.html', {
             layout: pollTourneyLayout !== 'tree' ? pollTourneyLayout : '',
             overlay: pollTourneyTheme !== 'card' ? pollTourneyTheme : '',
@@ -1827,6 +1838,7 @@
         isResettingOverlayWizard = true;
         try {
             try { localStorage.removeItem(SP_WIZARD_OVERLAY_KEY); } catch {}
+            window.WizardVariableBinder?.resetAll?.();
             pendingGoalSingle = '';
             pendingCycleIds = [];
             applyOverlayWizardSnapshot(overlayDefaults);
@@ -1838,6 +1850,52 @@
             isResettingOverlayWizard = false;
         }
     };
+
+    if (window.WizardVariableBinder) {
+        window.WizardVariableBinder.mount({
+            storageKey: 'streampulse_wizard_overlay_vars_v1',
+            onChange: () => {
+                updateFontScaleDisplay();
+                refreshUrls();
+            },
+            bindings: [
+                { id: 'ap-font', param: 'font', kind: 'font', label: 'Content Font' },
+                { id: 'ap-heading-font', param: 'headingfont', kind: 'font', label: 'Heading Font' },
+                { id: 'ap-weight', param: 'weight', kind: 'number', label: 'Font Weight' },
+                { id: 'ap-fontscale', param: 'fontscale', kind: 'number', label: 'Font Scale' },
+                { id: 'ap-radius', param: 'radius', kind: 'number', label: 'Corner Radius' },
+                { id: 'ap-text', param: 'text', kind: 'color', label: 'Text Color' },
+                { id: 'ap-accent', param: 'accent', kind: 'color', label: 'Accent Color' },
+                { id: 'ap-bg', param: 'bg', kind: 'color', label: 'Background Color' },
+                { id: 'ap-cardbg', param: 'cardbg', kind: 'color', label: 'Card Background' },
+                { id: 'ap-border', param: 'border', kind: 'color', label: 'Border Color' },
+                { id: 'ap-winner', param: 'winner', kind: 'color', label: 'Winner Highlight' },
+                { id: 'ap-outline', param: 'outline', kind: 'color', label: 'Text Outline' },
+                { id: 'tourney-radius', param: 'radius', kind: 'number', label: 'Bracket Corner Radius', overlays: ['tournament'] },
+                { id: 'tourney-p1color', param: 'p1color', kind: 'color', label: 'Player 1 Color', overlays: ['tournament'] },
+                { id: 'tourney-p2color', param: 'p2color', kind: 'color', label: 'Player 2 Color', overlays: ['tournament'] },
+                { id: 'poll-tourney-radius', param: 'radius', kind: 'number', label: 'Bracket Corner Radius', overlays: ['poll-tournament'] },
+                { id: 'poll-tourney-p1color', param: 'p1color', kind: 'color', label: 'Entrant 1 Color', overlays: ['poll-tournament'] },
+                { id: 'poll-tourney-p2color', param: 'p2color', kind: 'color', label: 'Entrant 2 Color', overlays: ['poll-tournament'] },
+                { id: 'poll-results', param: 'results', kind: 'number', label: 'Results Duration (sec)', overlays: ['polls'] },
+                { id: 'goal-interval', param: 'interval', kind: 'number', label: 'Cycle Interval (sec)', overlays: ['goals'] },
+                { id: 'goal-pausecomplete', param: 'pausecomplete', kind: 'number', label: 'Complete Pause (sec)', overlays: ['goals'] },
+                { id: 'credits-days', param: 'days', kind: 'number', label: 'Credits Days', overlays: ['credits'] },
+                { id: 'credits-duration', param: 'duration', kind: 'number', label: 'Credits Duration (sec)', overlays: ['credits'] },
+                { id: 'credits-speed', param: 'speed', kind: 'number', label: 'Credits Scroll Speed', overlays: ['credits'] },
+                { id: 'ht-limit', param: 'limit', kind: 'number', label: 'Hashtag Limit', overlays: ['hashtags'] },
+                { id: 'ht-min', param: 'min', kind: 'number', label: 'Min Hashtag Count', overlays: ['hashtags'] },
+                { id: 'ht-days', param: 'days', kind: 'number', label: 'Hashtag Days', overlays: ['hashtags'] },
+                { id: 'ht-duration', param: 'duration', kind: 'number', label: 'Scroll Duration (sec)', overlays: ['hashtags'] },
+                { id: 'ht-refresh', param: 'refresh', kind: 'number', label: 'Refresh Interval (sec)', overlays: ['hashtags'] },
+                { id: 'ht-title', param: 'title', kind: 'text', label: 'Hashtag Title', overlays: ['hashtags'] },
+                { id: 'stats-days', param: 'days', kind: 'number', label: 'Stats Days', overlays: ['stats'] },
+                { id: 'stats-limit', param: 'limit', kind: 'number', label: 'Stats Limit', overlays: ['stats'] },
+                { id: 'stats-refresh', param: 'refresh', kind: 'number', label: 'Stats Refresh (sec)', overlays: ['stats'] },
+                { id: 'viewer-label', param: 'label', kind: 'text', label: 'Viewer Label', overlays: ['viewers'] }
+            ]
+        });
+    }
 
     overlayDefaults = captureOverlayDefaults();
     const restoredOverlayState = restoreOverlayWizardState();

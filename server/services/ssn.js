@@ -752,10 +752,12 @@ function createSsnService({
                         chatimg: msg.chatimg, firstSeen: nowISO, lastSeen: nowISO, days: {}, amounts: {}
                     };
                 }
+                if (!statsData.donations[chatname].amounts) statsData.donations[chatname].amounts = {};
                 const amount = parseNumericAmount(msg.hasDonation);
                 statsData.donations[chatname].days[today] = (statsData.donations[chatname].days[today] || 0) + 1;
                 statsData.donations[chatname].amounts[today] = Number(((statsData.donations[chatname].amounts[today] || 0) + amount).toFixed(2));
                 statsData.donations[chatname].lastSeen = nowISO;
+                if (msg.chatimg) statsData.donations[chatname].chatimg = msg.chatimg;
             }
         }
 

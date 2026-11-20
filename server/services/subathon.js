@@ -188,13 +188,19 @@ function normalizeSubathonConfig(raw = {}, base = DEFAULT_SUBATHON_CONFIG) {
         const t = raw.theme;
         if (t.preset !== undefined) cfg.theme.preset = String(t.preset).toLowerCase();
         if (t.layout !== undefined) cfg.theme.layout = String(t.layout).toLowerCase();
-        if (t.columns !== undefined) cfg.theme.columns = Math.max(0, parseInt(t.columns, 10) || 0);
-        if (t.scale !== undefined) cfg.theme.scale = Math.max(0.5, Math.min(3.0, parseFloat(t.scale) || 1.0));
+        if (t.columns !== undefined) {
+            const colStr = String(t.columns).trim();
+            cfg.theme.columns = /^var:|\{\{\s*var\./i.test(colStr) ? colStr : Math.max(0, parseInt(t.columns, 10) || 0);
+        }
+        if (t.scale !== undefined) {
+            const scaleStr = String(t.scale).trim();
+            cfg.theme.scale = /^var:|\{\{\s*var\./i.test(scaleStr) ? scaleStr : Math.max(0.5, Math.min(3.0, parseFloat(t.scale) || 1.0));
+        }
         if (t.showHeader !== undefined) cfg.theme.showHeader = t.showHeader !== false;
         if (t.titleText !== undefined) cfg.theme.titleText = String(t.titleText || '').slice(0, 100);
-        if (t.headerSize !== undefined) cfg.theme.headerSize = String(t.headerSize || '').slice(0, 30);
-        if (t.valueSize !== undefined) cfg.theme.valueSize = String(t.valueSize || '').slice(0, 30);
-        if (t.valueWeight !== undefined) cfg.theme.valueWeight = String(t.valueWeight || '').slice(0, 20);
+        if (t.headerSize !== undefined) cfg.theme.headerSize = String(t.headerSize || '').slice(0, 80);
+        if (t.valueSize !== undefined) cfg.theme.valueSize = String(t.valueSize || '').slice(0, 80);
+        if (t.valueWeight !== undefined) cfg.theme.valueWeight = String(t.valueWeight || '').slice(0, 80);
         if (t.fontFamily !== undefined) cfg.theme.fontFamily = String(t.fontFamily || '').slice(0, 100);
         if (t.headerFontFamily !== undefined) cfg.theme.headerFontFamily = String(t.headerFontFamily || '').slice(0, 100);
         if (t.showTotalBadge !== undefined) cfg.theme.showTotalBadge = t.showTotalBadge !== false;
@@ -206,13 +212,16 @@ function normalizeSubathonConfig(raw = {}, base = DEFAULT_SUBATHON_CONFIG) {
         if (t.showBits !== undefined) cfg.theme.showBits = t.showBits !== false;
         if (t.showFollows !== undefined) cfg.theme.showFollows = t.showFollows !== false;
         if (t.showRaids !== undefined) cfg.theme.showRaids = t.showRaids !== false;
-        if (t.cardBackground !== undefined) cfg.theme.cardBackground = String(t.cardBackground || '').slice(0, 80);
-        if (t.cardBorder !== undefined) cfg.theme.cardBorder = String(t.cardBorder || '').slice(0, 80);
-        if (t.cardRadius !== undefined) cfg.theme.cardRadius = Math.max(0, Math.min(50, parseInt(t.cardRadius, 10) || 0));
-        if (t.textColor !== undefined) cfg.theme.textColor = String(t.textColor || '').slice(0, 80);
-        if (t.textMuted !== undefined) cfg.theme.textMuted = String(t.textMuted || '').slice(0, 80);
-        if (t.accentColor !== undefined) cfg.theme.accentColor = String(t.accentColor || '').slice(0, 80);
-        if (t.boostBannerColor !== undefined) cfg.theme.boostBannerColor = String(t.boostBannerColor || '').slice(0, 80);
+        if (t.cardBackground !== undefined) cfg.theme.cardBackground = String(t.cardBackground || '').slice(0, 100);
+        if (t.cardBorder !== undefined) cfg.theme.cardBorder = String(t.cardBorder || '').slice(0, 100);
+        if (t.cardRadius !== undefined) {
+            const radStr = String(t.cardRadius).trim();
+            cfg.theme.cardRadius = /^var:|\{\{\s*var\./i.test(radStr) ? radStr : Math.max(0, Math.min(50, parseInt(t.cardRadius, 10) || 0));
+        }
+        if (t.textColor !== undefined) cfg.theme.textColor = String(t.textColor || '').slice(0, 100);
+        if (t.textMuted !== undefined) cfg.theme.textMuted = String(t.textMuted || '').slice(0, 100);
+        if (t.accentColor !== undefined) cfg.theme.accentColor = String(t.accentColor || '').slice(0, 100);
+        if (t.boostBannerColor !== undefined) cfg.theme.boostBannerColor = String(t.boostBannerColor || '').slice(0, 100);
     }
 
     return cfg;

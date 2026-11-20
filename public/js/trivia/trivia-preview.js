@@ -130,6 +130,7 @@ export function setActiveTab(tab) {
 export function normalizeColor(val) {
     if (!val || typeof val !== 'string') return null;
     let s = val.trim();
+    if (window.WizardVariableBinder?.hasToken(s)) return s;
     if (s.toLowerCase() === 'transparent') return '#00000000';
     if (!s.startsWith('#') && /^[0-9a-fA-F]{3,8}$/.test(s)) {
         s = '#' + s;
@@ -155,6 +156,9 @@ export function normalizeColor(val) {
 export function toRgbHex(colorVal) {
     if (!colorVal || typeof colorVal !== 'string') return '#000000';
     let s = colorVal.trim();
+    if (window.WizardVariableBinder?.hasToken(s)) {
+        s = String(window.WizardVariableBinder.resolveToken(s) || '#000000').trim();
+    }
     if (s.toLowerCase() === 'transparent') return '#000000';
     if (!s.startsWith('#') && /^[0-9a-fA-F]{3,8}$/.test(s)) s = '#' + s;
     if (/^#[0-9a-fA-F]{8}$/.test(s)) {
@@ -188,6 +192,13 @@ export function setFieldColor(id, val, fallback) {
 }
 
 export function getColorFieldValue(id, fallback = '') {
+    const vb = window.WizardVariableBinder;
+    if (vb) {
+        const hexBound = vb.getBoundToken(id + '-hex');
+        if (hexBound) return hexBound;
+        const colorBound = vb.getBoundToken(id);
+        if (colorBound) return colorBound;
+    }
     const hexEl = document.getElementById(id + '-hex');
     const colorEl = document.getElementById(id);
     if (hexEl && hexEl.value.trim()) {
@@ -201,6 +212,13 @@ export function getColorFieldValue(id, fallback = '') {
 }
 
 export function getHeaderFontSizeValue() {
+    const vb = window.WizardVariableBinder;
+    if (vb) {
+        const boundCustom = vb.getBoundToken('cfg-theme-header-size-custom');
+        if (boundCustom) return boundCustom;
+        const boundSelect = vb.getBoundToken('cfg-theme-header-size');
+        if (boundSelect) return boundSelect;
+    }
     const select = document.getElementById('cfg-theme-header-size');
     const custom = document.getElementById('cfg-theme-header-size-custom');
     if (!select) return '';
@@ -363,11 +381,13 @@ export function restorePreviewViewport() {
 }
 
 export function updateObsUrl() {
+    const vb = window.WizardVariableBinder;
+    const readVal = (id, fallback = '') => vb ? vb.readValue(id, document.getElementById(id)?.value ?? fallback) : (document.getElementById(id)?.value ?? fallback);
     const mode = document.getElementById('obs-mode')?.value || 'full';
     const view = document.getElementById('obs-view')?.value || 'auto';
     const theme = document.getElementById('cfg-theme-preset')?.value || document.getElementById('obs-theme')?.value || 'modern';
     const cardStyle = document.getElementById('cfg-theme-card-style')?.value || 'cards';
-    const scale = document.getElementById('cfg-theme-scale')?.value || '1';
+    const scale = String(readVal('cfg-theme-scale', '1') || '1');
     const accent = getColorFieldValue('cfg-theme-accent-color');
     const correct = getColorFieldValue('cfg-theme-correct-color');
     const defs = PRESET_DEFAULTS[theme] || {};
@@ -378,11 +398,11 @@ export function updateObsUrl() {
     if (view && view !== 'auto') {
         url += `&view=${view}`;
     }
-    if (scale && scale !== '1') {
-        url += `&scale=${scale}`;
+    if (scale && (vb?.hasToken(scale) || scale !== '1')) {
+        url += `&scale=${encodeURIComponent(scale)}`;
     }
-    const cardWidth = document.getElementById('cfg-theme-card-width')?.value.trim();
-    if (cardStyle === 'cards' && cardWidth && CSS.supports('max-width', cardWidth)) {
+    const cardWidth = String(readVal('cfg-theme-card-width', '')).trim();
+    if (cardStyle === 'cards' && cardWidth && (vb?.hasToken(cardWidth) || CSS.supports('max-width', cardWidth))) {
         url += `&cardwidth=${encodeURIComponent(cardWidth)}`;
     }
     for (const [id, param] of [
@@ -395,82 +415,87 @@ export function updateObsUrl() {
     }
 
     // Custom accent & correct colors
-    if (accent && accent.toLowerCase() !== (defs.accent || '#3b82f6').toLowerCase()) {
+    if (accent && (vb?.hasToken(accent) || accent.toLowerCase() !== (defs.accent || '#3b82f6').toLowerCase())) {
         url += `&accent=${encodeURIComponent(accent)}`;
     }
-    if (correct && correct.toLowerCase() !== (defs.correct || '#22c55e').toLowerCase()) {
+    if (correct && (vb?.hasToken(correct) || correct.toLowerCase() !== (defs.correct || '#22c55e').toLowerCase())) {
         url += `&correct=${encodeURIComponent(correct)}`;
     }
 
     // Glass panels & borders
     const cardBg = getColorFieldValue('cfg-theme-card-bg');
-    if (cardBg && cardBg.toLowerCase() !== (defs.cardBg || '#0d1117').toLowerCase()) {
+    if (cardBg && (vb?.hasToken(cardBg) || cardBg.toLowerCase() !== (defs.cardBg || '#0d1117').toLowerCase())) {
         url += `&cardbg=${encodeURIComponent(cardBg)}`;
     }
     const cardBorder = getColorFieldValue('cfg-theme-card-border');
-    if (cardBorder && cardBorder.toLowerCase() !== (defs.cardBorder || '#38bdf8').toLowerCase()) {
+    if (cardBorder && (vb?.hasToken(cardBorder) || cardBorder.toLowerCase() !== (defs.cardBorder || '#38bdf8').toLowerCase())) {
         url += `&cardborder=${encodeURIComponent(cardBorder)}`;
     }
     const choiceBg = getColorFieldValue('cfg-theme-choice-bg');
-    if (choiceBg && choiceBg.toLowerCase() !== (defs.choiceBg || '#161b22').toLowerCase()) {
+    if (choiceBg && (vb?.hasToken(choiceBg) || choiceBg.toLowerCase() !== (defs.choiceBg || '#161b22').toLowerCase())) {
         url += `&choicebg=${encodeURIComponent(choiceBg)}`;
     }
     const choiceBorder = getColorFieldValue('cfg-theme-choice-border');
-    if (choiceBorder && choiceBorder.toLowerCase() !== (defs.choiceBorder || '#30363d').toLowerCase()) {
+    if (choiceBorder && (vb?.hasToken(choiceBorder) || choiceBorder.toLowerCase() !== (defs.choiceBorder || '#30363d').toLowerCase())) {
         url += `&choiceborder=${encodeURIComponent(choiceBorder)}`;
     }
-    const blur = parseInt(document.getElementById('cfg-theme-blur')?.value, 10);
-    if (!isNaN(blur) && blur !== (defs.blur ?? 12)) {
-        url += `&blur=${blur}`;
+    const blurRaw = readVal('cfg-theme-blur', '');
+    if (vb?.hasToken(blurRaw)) {
+        url += `&blur=${encodeURIComponent(blurRaw)}`;
+    } else {
+        const blur = parseInt(blurRaw, 10);
+        if (!isNaN(blur) && blur !== (defs.blur ?? 12)) {
+            url += `&blur=${blur}`;
+        }
     }
 
     // Hint color, category color, fun fact color
     const hintColor = getColorFieldValue('cfg-theme-hint-color');
-    if (hintColor && hintColor.toLowerCase() !== (defs.hintColor || '#94a3b8').toLowerCase()) {
+    if (hintColor && (vb?.hasToken(hintColor) || hintColor.toLowerCase() !== (defs.hintColor || '#94a3b8').toLowerCase())) {
         url += `&hintcolor=${encodeURIComponent(hintColor)}`;
     }
     const catColor = getColorFieldValue('cfg-theme-category-color');
-    if (catColor && catColor.toLowerCase() !== (defs.catColor || '#a855f7').toLowerCase()) {
+    if (catColor && (vb?.hasToken(catColor) || catColor.toLowerCase() !== (defs.catColor || '#a855f7').toLowerCase())) {
         url += `&catcolor=${encodeURIComponent(catColor)}`;
     }
     const ffColor = getColorFieldValue('cfg-theme-funfact-color');
-    if (ffColor && ffColor.toLowerCase() !== (defs.funfactColor || '#eab308').toLowerCase()) {
+    if (ffColor && (vb?.hasToken(ffColor) || ffColor.toLowerCase() !== (defs.funfactColor || '#eab308').toLowerCase())) {
         url += `&fcolor=${encodeURIComponent(ffColor)}`;
     }
 
     // Fonts & Weights
-    const qFont = document.getElementById('cfg-theme-question-font')?.value.trim();
+    const qFont = String(readVal('cfg-theme-question-font', '')).trim();
     if (qFont) url += `&qfont=${encodeURIComponent(qFont)}`;
-    const qWeight = document.getElementById('cfg-theme-question-weight')?.value;
-    if (qWeight) url += `&qweight=${qWeight}`;
+    const qWeight = readVal('cfg-theme-question-weight', '');
+    if (qWeight) url += `&qweight=${encodeURIComponent(qWeight)}`;
 
-    const hFont = document.getElementById('cfg-theme-header-font')?.value.trim();
+    const hFont = String(readVal('cfg-theme-header-font', '')).trim();
     if (hFont) url += `&hfont=${encodeURIComponent(hFont)}`;
-    const hWeight = document.getElementById('cfg-theme-header-weight')?.value;
-    if (hWeight) url += `&hweight=${hWeight}`;
+    const hWeight = readVal('cfg-theme-header-weight', '');
+    if (hWeight) url += `&hweight=${encodeURIComponent(hWeight)}`;
 
-    const cFont = document.getElementById('cfg-theme-choice-font')?.value.trim();
+    const cFont = String(readVal('cfg-theme-choice-font', '')).trim();
     if (cFont) url += `&cfont=${encodeURIComponent(cFont)}`;
-    const cWeight = document.getElementById('cfg-theme-choice-weight')?.value;
-    if (cWeight) url += `&cweight=${cWeight}`;
+    const cWeight = readVal('cfg-theme-choice-weight', '');
+    if (cWeight) url += `&cweight=${encodeURIComponent(cWeight)}`;
 
-    const ffFont = document.getElementById('cfg-theme-funfact-font')?.value.trim();
+    const ffFont = String(readVal('cfg-theme-funfact-font', '')).trim();
     if (ffFont) url += `&ffont=${encodeURIComponent(ffFont)}`;
-    const ffWeight = document.getElementById('cfg-theme-funfact-weight')?.value;
-    if (ffWeight) url += `&fweight=${ffWeight}`;
+    const ffWeight = readVal('cfg-theme-funfact-weight', '');
+    if (ffWeight) url += `&fweight=${encodeURIComponent(ffWeight)}`;
 
     // Header Labels, Casing, Sizing & Phase Font
-    const qLabel = document.getElementById('cfg-theme-question-label')?.value.trim();
-    if (qLabel && qLabel !== 'Question') url += `&qlabel=${encodeURIComponent(qLabel)}`;
-    const aLabel = document.getElementById('cfg-theme-answer-label')?.value.trim();
-    if (aLabel && aLabel !== 'Answer') url += `&alabel=${encodeURIComponent(aLabel)}`;
+    const qLabel = String(readVal('cfg-theme-question-label', '')).trim();
+    if (qLabel && (vb?.hasToken(qLabel) || qLabel !== 'Question')) url += `&qlabel=${encodeURIComponent(qLabel)}`;
+    const aLabel = String(readVal('cfg-theme-answer-label', '')).trim();
+    if (aLabel && (vb?.hasToken(aLabel) || aLabel !== 'Answer')) url += `&alabel=${encodeURIComponent(aLabel)}`;
     const cFormat = document.getElementById('cfg-theme-counter-format')?.value;
     if (cFormat && cFormat !== 'full') url += `&cformat=${cFormat}`;
     const pTransform = document.getElementById('cfg-theme-phase-transform')?.value;
     if (pTransform && pTransform !== 'uppercase') url += `&ptransform=${pTransform}`;
     const hSize = getHeaderFontSizeValue();
     if (hSize) url += `&hsize=${encodeURIComponent(hSize)}`;
-    const pFont = document.getElementById('cfg-theme-phase-font')?.value.trim();
+    const pFont = String(readVal('cfg-theme-phase-font', '')).trim();
     if (pFont) url += `&pfont=${encodeURIComponent(pFont)}`;
 
     // Phase Title Colors
@@ -745,5 +770,42 @@ export function initPreviewListeners() {
     }
 
     restorePreviewViewport();
+    if (window.WizardVariableBinder) {
+        window.WizardVariableBinder.mount({
+            storageKey: 'streampulse_trivia_overlay_vars_v1',
+            onChange: () => updateObsUrl(),
+            bindings: [
+                { id: 'cfg-theme-scale', param: 'scale', kind: 'number', label: 'Font Scale', overlays: ['trivia'] },
+                { id: 'cfg-theme-card-width', param: 'cardwidth', kind: 'number', label: 'Card Max Width', overlays: ['trivia'] },
+                { id: 'cfg-theme-blur', param: 'blur', kind: 'number', label: 'Backdrop Blur (px)', overlays: ['trivia'] },
+                { id: 'cfg-theme-question-font', param: 'qfont', kind: 'font', label: 'Question Font', overlays: ['trivia'] },
+                { id: 'cfg-theme-question-weight', param: 'qweight', kind: 'number', label: 'Question Weight', overlays: ['trivia'] },
+                { id: 'cfg-theme-header-font', param: 'hfont', kind: 'font', label: 'Header Font', overlays: ['trivia'] },
+                { id: 'cfg-theme-header-weight', param: 'hweight', kind: 'number', label: 'Header Weight', overlays: ['trivia'] },
+                { id: 'cfg-theme-choice-font', param: 'cfont', kind: 'font', label: 'Choices Font', overlays: ['trivia'] },
+                { id: 'cfg-theme-choice-weight', param: 'cweight', kind: 'number', label: 'Choices Weight', overlays: ['trivia'] },
+                { id: 'cfg-theme-funfact-font', param: 'ffont', kind: 'font', label: 'Fun Fact Font', overlays: ['trivia'] },
+                { id: 'cfg-theme-funfact-weight', param: 'fweight', kind: 'number', label: 'Fun Fact Weight', overlays: ['trivia'] },
+                { id: 'cfg-theme-phase-font', param: 'pfont', kind: 'font', label: 'Phase Font', overlays: ['trivia'] },
+                { id: 'cfg-theme-question-label', param: 'qlabel', kind: 'text', label: 'Question Phase Label', overlays: ['trivia'] },
+                { id: 'cfg-theme-answer-label', param: 'alabel', kind: 'text', label: 'Answer Phase Label', overlays: ['trivia'] },
+                { id: 'cfg-theme-header-size-custom', param: 'hsize', kind: 'number', label: 'Header Font Size', overlays: ['trivia'] },
+                { id: 'cfg-theme-card-bg-hex', param: 'cardbg', kind: 'color', label: 'Card Background Color', overlays: ['trivia'] },
+                { id: 'cfg-theme-card-border-hex', param: 'cardborder', kind: 'color', label: 'Card Border Color', overlays: ['trivia'] },
+                { id: 'cfg-theme-choice-bg-hex', param: 'choicebg', kind: 'color', label: 'Choice Background Color', overlays: ['trivia'] },
+                { id: 'cfg-theme-choice-border-hex', param: 'choiceborder', kind: 'color', label: 'Choice Border Color', overlays: ['trivia'] },
+                { id: 'cfg-theme-accent-color-hex', param: 'accent', kind: 'color', label: 'Accent Color', overlays: ['trivia'] },
+                { id: 'cfg-theme-correct-color-hex', param: 'correct', kind: 'color', label: 'Correct Answer Color', overlays: ['trivia'] },
+                { id: 'cfg-theme-timer-color-hex', param: 'timercolor', kind: 'color', label: 'Timer Color', overlays: ['trivia'] },
+                { id: 'cfg-theme-timer-warning-color-hex', param: 'timerwarningcolor', kind: 'color', label: 'Timer Warning Color', overlays: ['trivia'] },
+                { id: 'cfg-theme-timer-critical-color-hex', param: 'timercriticalcolor', kind: 'color', label: 'Timer Critical Color', overlays: ['trivia'] },
+                { id: 'cfg-theme-phase-question-color-hex', param: 'qcolor', kind: 'color', label: 'Question Title Color', overlays: ['trivia'] },
+                { id: 'cfg-theme-phase-answer-color-hex', param: 'acolor', kind: 'color', label: 'Answer Title Color', overlays: ['trivia'] },
+                { id: 'cfg-theme-category-color-hex', param: 'catcolor', kind: 'color', label: 'Category Badge Color', overlays: ['trivia'] },
+                { id: 'cfg-theme-hint-color-hex', param: 'hintcolor', kind: 'color', label: 'Chat Hint Color', overlays: ['trivia'] },
+                { id: 'cfg-theme-funfact-color-hex', param: 'fcolor', kind: 'color', label: 'Fun Fact Color', overlays: ['trivia'] }
+            ]
+        });
+    }
     applyViewportScale();
 }

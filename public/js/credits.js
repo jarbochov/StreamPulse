@@ -411,8 +411,10 @@ function renderCredits() {
                 html += sectionHeader(title, subtitle);
                 html += '<div class="people-list two-col">';
                 donationsList.forEach(d => {
-                    const detail = useStats ? `×${d.count}` : d.amount;
-                    html += `<div class="person">${escapeHtml(d.chatname)} (${escapeHtml(detail)})</div>`;
+                    const detail = d.amount || (d.count ? `×${d.count}` : '');
+                    html += detail
+                        ? `<div class="person">${escapeHtml(d.chatname)} (${escapeHtml(detail)})</div>`
+                        : `<div class="person">${escapeHtml(d.chatname)}</div>`;
                 });
                 html += '</div></div>';
                 return html;
@@ -946,19 +948,37 @@ function mergeBits() {
         .sort((a, b) => b.score - a.score);
 }
 
+function formatDonationCurrency(totalAmount) {
+    const num = Number(totalAmount) || 0;
+    if (num <= 0) return '';
+    return `$${num.toFixed(2)}`;
+}
+
 // Pull donations from stats.json filtered by DAYS_FILTER
 function mergeStatsDonations() {
     if (!statsData || !statsData.donations) return [];
     const cutoff = new Date(Date.now() - DAYS_FILTER * 86400000).toISOString().slice(0, 10);
     return Object.entries(statsData.donations)
         .map(([name, d]) => {
-            const total = Object.entries(d.days || {})
+            const totalCount = Object.entries(d.days || {})
                 .filter(([day]) => day >= cutoff)
-                .reduce((sum, [, c]) => sum + c, 0);
-            return { chatname: name, count: total, chatimg: d.chatimg };
+                .reduce((sum, [, c]) => sum + (Number(c) || 0), 0);
+            const totalAmount = Number(
+                Object.entries(d.amounts || {})
+                    .filter(([day]) => day >= cutoff)
+                    .reduce((sum, [, amt]) => sum + (Number(amt) || 0), 0)
+                    .toFixed(2)
+            );
+            return {
+                chatname: name,
+                count: totalCount,
+                totalAmount,
+                amount: totalAmount > 0 ? formatDonationCurrency(totalAmount) : '',
+                chatimg: d.chatimg
+            };
         })
-        .filter(d => d.count > 0)
-        .sort((a, b) => b.count - a.count);
+        .filter(d => d.totalAmount > 0 || d.count > 0)
+        .sort((a, b) => (b.totalAmount - a.totalAmount) || (b.count - a.count));
 }
 
 // Pull bits/cheerers from stats.json filtered by DAYS_FILTER

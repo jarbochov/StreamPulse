@@ -410,29 +410,33 @@ export function initEditorListeners() {
 
     // Save Theme
     document.getElementById('btn-save-theme')?.addEventListener('click', async () => {
-        const cardMaxWidth = document.getElementById('cfg-theme-card-width')?.value.trim() || '1100px';
-        if (!CSS.supports('max-width', cardMaxWidth)) {
+        const vb = window.WizardVariableBinder;
+        const readVal = (id, fallback = '') => vb ? vb.readValue(id, document.getElementById(id)?.value ?? fallback) : (document.getElementById(id)?.value ?? fallback);
+        const cardMaxWidth = String(readVal('cfg-theme-card-width', '1100px')).trim() || '1100px';
+        if (!vb?.hasToken(cardMaxWidth) && !CSS.supports('max-width', cardMaxWidth)) {
             alert('Enter a valid card width, such as 1400px, 85vw, or 100%.');
             return;
         }
+        const scaleRaw = readVal('cfg-theme-scale', '1');
+        const blurRaw = readVal('cfg-theme-blur', '12');
         const payload = {
             preset: document.getElementById('cfg-theme-preset')?.value,
             cardStyle: document.getElementById('cfg-theme-card-style')?.value,
             cardMaxWidth,
-            questionFont: document.getElementById('cfg-theme-question-font')?.value.trim(),
-            questionWeight: document.getElementById('cfg-theme-question-weight')?.value,
-            headerFont: document.getElementById('cfg-theme-header-font')?.value.trim(),
-            headerWeight: document.getElementById('cfg-theme-header-weight')?.value,
-            choiceFont: document.getElementById('cfg-theme-choice-font')?.value.trim(),
-            choiceWeight: document.getElementById('cfg-theme-choice-weight')?.value,
-            funfactFont: document.getElementById('cfg-theme-funfact-font')?.value.trim(),
-            funfactWeight: document.getElementById('cfg-theme-funfact-weight')?.value,
-            fontScale: parseFloat(document.getElementById('cfg-theme-scale')?.value) || 1.0,
+            questionFont: String(readVal('cfg-theme-question-font', '')).trim(),
+            questionWeight: readVal('cfg-theme-question-weight', ''),
+            headerFont: String(readVal('cfg-theme-header-font', '')).trim(),
+            headerWeight: readVal('cfg-theme-header-weight', ''),
+            choiceFont: String(readVal('cfg-theme-choice-font', '')).trim(),
+            choiceWeight: readVal('cfg-theme-choice-weight', ''),
+            funfactFont: String(readVal('cfg-theme-funfact-font', '')).trim(),
+            funfactWeight: readVal('cfg-theme-funfact-weight', ''),
+            fontScale: vb?.hasToken(scaleRaw) ? scaleRaw : (parseFloat(scaleRaw) || 1.0),
             cardBg: getColorFieldValue('cfg-theme-card-bg'),
             cardBorderColor: getColorFieldValue('cfg-theme-card-border'),
             choiceBg: getColorFieldValue('cfg-theme-choice-bg'),
             choiceBorderColor: getColorFieldValue('cfg-theme-choice-border'),
-            cardBlur: Number(document.getElementById('cfg-theme-blur')?.value ?? 12),
+            cardBlur: vb?.hasToken(blurRaw) ? blurRaw : Number(blurRaw ?? 12),
             accentColor: getColorFieldValue('cfg-theme-accent-color'),
             correctColor: getColorFieldValue('cfg-theme-correct-color'),
             categoryColor: getColorFieldValue('cfg-theme-category-color'),
@@ -442,12 +446,12 @@ export function initEditorListeners() {
             timerWarningColor: getColorFieldValue('cfg-theme-timer-warning-color'),
             timerCriticalColor: getColorFieldValue('cfg-theme-timer-critical-color'),
             collapseIncorrect: document.getElementById('cfg-theme-collapse-incorrect')?.checked,
-            questionLabel: document.getElementById('cfg-theme-question-label')?.value.trim() || 'Question',
-            answerLabel: document.getElementById('cfg-theme-answer-label')?.value.trim() || 'Answer',
+            questionLabel: String(readVal('cfg-theme-question-label', 'Question')).trim() || 'Question',
+            answerLabel: String(readVal('cfg-theme-answer-label', 'Answer')).trim() || 'Answer',
             counterFormat: document.getElementById('cfg-theme-counter-format')?.value || 'full',
             phaseTransform: document.getElementById('cfg-theme-phase-transform')?.value || 'uppercase',
             headerFontSize: getHeaderFontSizeValue(),
-            phaseFont: document.getElementById('cfg-theme-phase-font')?.value.trim(),
+            phaseFont: String(readVal('cfg-theme-phase-font', '')).trim(),
             phaseQuestionColor: getColorFieldValue('cfg-theme-phase-question-color'),
             phaseAnswerColor: getColorFieldValue('cfg-theme-phase-answer-color'),
             showPhaseIndicator: document.getElementById('cfg-elem-phase-indicator')?.checked,

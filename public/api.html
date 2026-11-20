@@ -665,7 +665,12 @@
                     method: 'GET', path: '/api/variables',
                     desc: 'List all custom variables and counters',
                     companion: true,
-                    details: 'Returns {variables,groups,sets,variableSetsEnabled}. Records include name (stable API/storage identity), key (derived placeholder path), group?, type, value, updatedAt and type options. Example: {name:"accent",key:"theme.accent",group:"Theme",type:"color",value:"#38bdf8"}. Grouped tokens use {{var.theme.accent}}; no flat aliases or automatic rewrites. Ungrouped and set-generated tokens are unchanged. Types: number, counter, text, list, image, icon, toggle, color, template, font, date, time, datetime, duration. Temporal values stay local strings; Number values stay numeric. Pickers and bindings use key, but API actions use name. No query parameters. Example: create accent with PUT /api/variables/accent and {type:"color",group:"Theme",value:"#38bdf8"}, then insert {{var.theme.accent}} in an overlay color field. Companion labels show key; IDs remain var_accent.'
+                    details: 'Returns {variables,groups,sets,values,variableSetsEnabled,variableSettingsEnabled}. Records include name (stable API/storage identity), key (derived placeholder path), group?, type, value, updatedAt and type options. values is a pre-resolved key-to-value lookup map (including expanded template variables and active-slot Variable Set fields) used by URL Wizards and parameterized overlays to resolve var:<key>|<fallback> settings on load/refresh. Example: {name:"accent",key:"theme.accent",group:"Theme",type:"color",value:"#38bdf8"}. Grouped tokens use {{var.theme.accent}} (or var:theme.accent in URL parameters). Types: number, counter, text, list, image, icon, toggle, color, template, font, date, time, datetime, duration. Temporal values stay local strings; Number values stay numeric. Pickers and bindings use key, but API actions use name. No query parameters. Companion labels show key; IDs remain var_accent.'
+                },
+                {
+                    method: 'GET', path: '/api/variables/values',
+                    desc: 'Read pre-resolved variable key-to-value map for overlay load/refresh resolution',
+                    details: 'Returns a flat JSON object mapping every variable key (including group-qualified keys, ungrouped names, expanded template variables, and active-slot Variable Set tokens) to its current resolved value.'
                 },
                 {
                     method: 'GET', path: '/api/variables/:name',

@@ -4,6 +4,7 @@
     <link rel="stylesheet" href="/admin.css">
     <script src="/appearance.js"></script>
     <script src="/overlay-theme.js"></script>
+    <script src="/js/wizard-variable-binder.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -390,12 +391,14 @@
     function refreshWizard() {
         const mode = document.getElementById('mode').value;
         const theme = document.getElementById('theme').value;
-        const accent = document.getElementById('accent-color').value;
-        const font = (document.getElementById('wiz-font').value || '').trim();
-        const weight = document.getElementById('wiz-weight').value;
-        const scale = parseFloat(document.getElementById('scale').value || '1');
+        const vb = window.WizardVariableBinder;
+        const accentRaw = vb ? vb.readValue('accent-color', document.getElementById('accent-color').value) : document.getElementById('accent-color').value;
+        const font = (vb ? vb.readValue('wiz-font', document.getElementById('wiz-font').value) : (document.getElementById('wiz-font').value || '')).trim();
+        const weight = vb ? vb.readValue('wiz-weight', document.getElementById('wiz-weight').value) : document.getElementById('wiz-weight').value;
+        const scaleRaw = vb ? vb.readValue('scale', document.getElementById('scale').value || '1') : (document.getElementById('scale').value || '1');
+        const scaleResolved = parseFloat(vb ? vb.readResolvedValue('scale', document.getElementById('scale').value || '1') : (document.getElementById('scale').value || '1')) || 1;
         const align = document.getElementById('align').value;
-        const customTitle = document.getElementById('custom-title').value.trim();
+        const customTitle = (vb ? vb.readValue('custom-title', document.getElementById('custom-title').value) : document.getElementById('custom-title').value).trim();
         const goalType = document.getElementById('goal-type').value;
 
         const showStreak = document.getElementById('show-streak').checked;
@@ -403,7 +406,7 @@
         const showStats = document.getElementById('show-stats').checked;
         const showGoal = document.getElementById('show-goal').checked;
 
-        document.getElementById('scale-val').textContent = `${scale.toFixed(2)}x`;
+        document.getElementById('scale-val').textContent = `${scaleResolved.toFixed(2)}x`;
 
         // Adjust visibility of config rows depending on mode
         const isCard = mode === 'card';
@@ -417,8 +420,12 @@
         if (theme !== 'glass') params.set('theme', theme);
         if (font) params.set('font', font);
         if (weight) params.set('weight', weight);
-        if (accent && accent !== '#8b5cf6') params.set('accent', accent);
-        if (scale !== 1) params.set('fontScale', scale.toFixed(2));
+        if (accentRaw && (vb?.hasToken(accentRaw) || accentRaw !== '#8b5cf6')) params.set('accent', accentRaw);
+        if (vb?.hasToken(scaleRaw)) {
+            params.set('fontScale', scaleRaw);
+        } else if (scaleResolved !== 1) {
+            params.set('fontScale', scaleResolved.toFixed(2));
+        }
         if (align !== 'center') params.set('align', align);
         if (isCard && customTitle) params.set('title', customTitle);
         if ((isCard || mode === 'goal') && goalType !== 'streams') params.set('goal', goalType);
@@ -428,6 +435,10 @@
             if (!showHours) params.set('hideHours', '1');
             if (!showStats) params.set('hideStats', '1');
             if (!showGoal) params.set('hideGoal', '1');
+        }
+        if (vb && typeof vb.applyToParams === 'function') {
+            vb.applyToParams(params);
+            if (!isCard) params.delete('title');
         }
 
         const queryString = params.toString() ? `?${params.toString()}` : '';
@@ -554,6 +565,7 @@
         isResettingWizard = true;
         try {
             try { localStorage.removeItem(WIZARD_STORAGE_KEY); } catch {}
+            window.WizardVariableBinder?.resetAll?.();
             applyWizardSnapshot(wizardDefaults);
             refreshWizard();
         } finally {
@@ -577,6 +589,19 @@
     restoreWizardState();
     wizardReady = true;
     window.addEventListener('resize', updatePreviewSize);
+    if (window.WizardVariableBinder) {
+        window.WizardVariableBinder.mount({
+            storageKey: 'streampulse_wizard_milestone_vars_v1',
+            onChange: () => refreshWizard(),
+            bindings: [
+                { id: 'custom-title', param: 'title', kind: 'text', label: 'Card Title' },
+                { id: 'wiz-font', param: 'font', kind: 'font', label: 'Font Family' },
+                { id: 'wiz-weight', param: 'weight', kind: 'number', label: 'Font Weight' },
+                { id: 'accent-color', param: 'accent', kind: 'color', label: 'Accent Color' },
+                { id: 'scale', param: 'fontScale', kind: 'number', label: 'Font Scale' }
+            ]
+        });
+    }
     _origRefreshWizard();
     </script>
 </body>

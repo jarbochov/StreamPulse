@@ -63,6 +63,7 @@ module.exports = function createVariables({ dataDir, onChange = null, getDepende
     let vars = {};
     let sets = {};
     let moduleEnabled = true;
+    let variableSettingsEnabled = true;
 
     function load() {
         variableGroups.reload();
@@ -73,7 +74,7 @@ module.exports = function createVariables({ dataDir, onChange = null, getDepende
 
     function notifyChange(extra = {}) {
         if (typeof onChange === 'function') {
-            try { onChange({ variables: list(), groups: listGroups(), sets: listSets(), variableSetsEnabled: moduleEnabled, ...extra }); } catch { /* ignore listener errors */ }
+            try { onChange({ variables: list(), groups: listGroups(), sets: listSets(), variableSetsEnabled: moduleEnabled, variableSettingsEnabled, ...extra }); } catch { /* ignore listener errors */ }
         }
     }
 
@@ -136,6 +137,12 @@ module.exports = function createVariables({ dataDir, onChange = null, getDepende
             return text;
         };
         for (const [key, v] of records) if (v.type === 'template') out[key] = resolve(key, 0);
+        for (const [name, v] of Object.entries(vars)) {
+            const k = variableKey({ name, ...v });
+            if (out[name] === undefined && out[k] !== undefined) {
+                out[name] = out[k];
+            }
+        }
         return out;
     }
 
@@ -1250,6 +1257,15 @@ module.exports = function createVariables({ dataDir, onChange = null, getDepende
     }
 
     const isModuleEnabled = () => moduleEnabled;
+    const isVariableSettingsEnabled = () => variableSettingsEnabled;
+
+    function setVariableSettingsEnabled(enabled) {
+        const next = enabled !== false;
+        if (variableSettingsEnabled === next) return variableSettingsEnabled;
+        variableSettingsEnabled = next;
+        notifyChange();
+        return variableSettingsEnabled;
+    }
 
     function setModuleEnabled(enabled) {
         const next = Boolean(enabled);
@@ -1347,7 +1363,10 @@ module.exports = function createVariables({ dataDir, onChange = null, getDepende
             const body = contentType.includes('text/csv') ? {} : JSON.parse(rawBody || '{}');
 
             if (pathname === '/api/variables' && req.method === 'GET') {
-                return json(200, { variables: list(), groups: listGroups(), sets: listSets(), variableSetsEnabled: moduleEnabled }), true;
+                return json(200, { variables: list(), groups: listGroups(), sets: listSets(), values: values(), variableSetsEnabled: moduleEnabled, variableSettingsEnabled }), true;
+            }
+            if (pathname === '/api/variables/values' && req.method === 'GET') {
+                return json(200, values()), true;
             }
             if (pathname === '/api/variables/groups/manage' && req.method === 'POST') {
                 return json(200, manageGroup(body.name, body.variables, { createOnly: body.createOnly === true, originalName: body.originalName ?? null })), true;
@@ -1527,6 +1546,8 @@ module.exports = function createVariables({ dataDir, onChange = null, getDepende
         stepRotation,
         isModuleEnabled,
         setModuleEnabled,
+        isVariableSettingsEnabled,
+        setVariableSettingsEnabled,
         dispose,
         reload: () => { load(); for (const id of new Set([...rotationTimers.keys(), ...Object.keys(sets)])) scheduleRotation(id); }
     };

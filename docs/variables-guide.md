@@ -212,7 +212,20 @@ Instead of cluttering color inputs with full variable lists, click the **`{}`** 
 
 ---
 
-## 5. Variable & Field Icons (Inline Text & Badge Builder)
+## 5. Variable Settings in URL Wizards & Studio Overlays
+
+When **Variable Settings** (`variable_settings_enabled`) is turned on in **Config Editor**, you can bind fonts, colors, numeric sizes/scales/radiuses/blurs, and titles to variables across all standalone **URL Wizards** (`overlay-url-wizard.html`, `timer-url-wizard.html`, `milestone-url-wizard.html`, `music-url-wizard.html`, `game-plan-url-wizard.html`) and **Studio Overlay & Theming Builders** (**Polls Studio**, **Versus Studio**, **Tier List Maker**, **Trivia Studio**, and **Subathon Rules Studio**):
+
+- **Inline `{}` Bind Button**: Click the **`{}`** button next to any eligible font, color, number/slider, or title control to open the **Bind Variable Setting** modal (filtered to matching types first — `font`, `color`, `number`/`counter`, plus active-slot **Variable Set** fields — followed by `text` and `template` variables). If **Variable Settings** is disabled in **Config Editor**, the `{}` buttons are hidden automatically.
+- **URL Parameter Token Syntax**:
+  - Compact syntax: `var:<key>` or `var:<key>|<fallback>` (for example, `?accent=var:brand_color|#3b82f6&font=var:heading_font|Oswald&scale=var:ui_scale|1.25`).
+  - Curly-brace syntax (`{{var.<key>}}` and `{{var.<key>|<fallback>}}`) is also accepted.
+- **Zero-Overhead Load/Refresh Resolution**:
+  - Overlays resolve `var:<key>` URL parameters and server-saved theme tokens **on load or refresh only** via `GET /api/variables`, with zero WebSocket listener overhead during broadcast and zero network requests when no variable tokens are present in the URL or theme.
+
+---
+
+## 6. Variable & Field Icons (Inline Text & Badge Builder)
 
 Attach a Font Awesome icon (such as `fa-brands fa-twitch` or `fa-brands fa-youtube`) to any **Global Variable** (in the Variable Inspector) or any **Variable Set Field** (in the Set Schema modal):
 
@@ -225,6 +238,6 @@ Attach a Font Awesome icon (such as `fa-brands fa-twitch` or `fa-brands fa-youtu
 
 ---
 
-## 6. Bitfocus Companion & Technical Automation
+## 7. Bitfocus Companion & Technical Automation
 
 Stream Deck buttons and HTTP triggers can update counters, switch slots, step trackers, and read live values automatically. See **[Bitfocus Companion](companion.md)**, **[Variable Operations](variable-operations.md)**, and the **[API Reference](api-reference.md#variables-amp-variable-sets-api)** under **The Project → Technical**.

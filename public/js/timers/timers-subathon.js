@@ -373,32 +373,45 @@ function setupSizeSelect(selectId, customInputId) {
 }
 
 export function collectStudioTheme() {
+    const vb = window.WizardVariableBinder;
+    const readVal = (id, fallback = '') => vb ? vb.readValue(id, $(id)?.value ?? fallback) : ($(id)?.value ?? fallback);
     const preset = $('sb-cfg-preset')?.value || 'dark';
     const layout = $('sb-cfg-layout')?.value || 'grid';
-    const columns = parseInt($('sb-cfg-columns')?.value, 10) || 0;
-    const scale = parseFloat($('sb-cfg-scale')?.value) || 1.0;
+    const columnsRaw = readVal('sb-cfg-columns', '0');
+    const columns = vb?.hasToken(columnsRaw) ? columnsRaw : (parseInt(columnsRaw, 10) || 0);
+    const scaleRaw = readVal('sb-cfg-scale', '1');
+    const scale = vb?.hasToken(scaleRaw) ? scaleRaw : (parseFloat(scaleRaw) || 1.0);
     const showHeader = $('sb-cfg-show-header')?.checked !== false;
-    const titleText = $('sb-cfg-title-text')?.value.trim() || 'Subathon Rates';
+    const titleText = String(readVal('sb-cfg-title-text', 'Subathon Rates')).trim() || 'Subathon Rates';
 
     let headerSize = $('sb-cfg-header-size')?.value || '1.15rem';
-    if (headerSize === 'custom') headerSize = $('sb-cfg-header-size-custom')?.value.trim() || '1.15rem';
+    if (vb?.getBoundToken('sb-cfg-header-size-custom')) {
+        headerSize = vb.getBoundToken('sb-cfg-header-size-custom');
+    } else if (headerSize === 'custom') {
+        headerSize = String(readVal('sb-cfg-header-size-custom', '1.15rem')).trim() || '1.15rem';
+    }
 
-    const headerFontFamily = $('sb-cfg-header-font')?.value || '';
+    const headerFontFamily = String(readVal('sb-cfg-header-font', ''));
     const showTotalBadge = $('sb-cfg-show-total')?.checked !== false;
     const showBoostBanner = $('sb-cfg-show-boost-banner')?.checked !== false;
 
-    const cardBackground = $('sb-cfg-card-bg')?.value.trim() || 'rgba(18, 24, 38, 0.88)';
-    const cardBorder = $('sb-cfg-card-border')?.value.trim() || 'rgba(255, 255, 255, 0.12)';
-    const cardRadius = parseInt($('sb-cfg-card-radius')?.value, 10) || 10;
-    const accentColor = $('sb-cfg-accent')?.value.trim() || '#3b82f6';
+    const cardBackground = String(readVal('sb-cfg-card-bg', 'rgba(18, 24, 38, 0.88)')).trim() || 'rgba(18, 24, 38, 0.88)';
+    const cardBorder = String(readVal('sb-cfg-card-border', 'rgba(255, 255, 255, 0.12)')).trim() || 'rgba(255, 255, 255, 0.12)';
+    const radiusRaw = readVal('sb-cfg-card-radius', '10');
+    const cardRadius = vb?.hasToken(radiusRaw) ? radiusRaw : (parseInt(radiusRaw, 10) || 10);
+    const accentColor = String(readVal('sb-cfg-accent', '#3b82f6')).trim() || '#3b82f6';
 
-    const fontFamily = $('sb-cfg-font')?.value || '';
+    const fontFamily = String(readVal('sb-cfg-font', ''));
     let valueSize = $('sb-cfg-value-size')?.value || '1.35rem';
-    if (valueSize === 'custom') valueSize = $('sb-cfg-value-size-custom')?.value.trim() || '1.35rem';
+    if (vb?.getBoundToken('sb-cfg-value-size-custom')) {
+        valueSize = vb.getBoundToken('sb-cfg-value-size-custom');
+    } else if (valueSize === 'custom') {
+        valueSize = String(readVal('sb-cfg-value-size-custom', '1.35rem')).trim() || '1.35rem';
+    }
 
-    const valueWeight = $('sb-cfg-value-weight')?.value || '800';
-    const textColor = $('sb-cfg-text-color')?.value.trim() || '#ffffff';
-    const textMuted = $('sb-cfg-text-muted')?.value.trim() || 'rgba(255, 255, 255, 0.7)';
+    const valueWeight = String(readVal('sb-cfg-value-weight', '800')) || '800';
+    const textColor = String(readVal('sb-cfg-text-color', '#ffffff')).trim() || '#ffffff';
+    const textMuted = String(readVal('sb-cfg-text-muted', 'rgba(255, 255, 255, 0.7)')).trim() || 'rgba(255, 255, 255, 0.7)';
     const showCardIcons = $('sb-cfg-show-icons')?.checked !== false;
     const showNotes = $('sb-cfg-show-notes')?.checked !== false;
 
@@ -417,12 +430,14 @@ export function collectStudioTheme() {
 }
 
 export function renderStudioTheme(theme = {}) {
+    const vb = window.WizardVariableBinder;
     if ($('sb-cfg-preset')) $('sb-cfg-preset').value = theme.preset || 'dark';
     if ($('sb-cfg-layout')) $('sb-cfg-layout').value = theme.layout || 'grid';
     if ($('sb-cfg-columns')) $('sb-cfg-columns').value = String(theme.columns || 0);
     if ($('sb-cfg-scale')) {
-        $('sb-cfg-scale').value = theme.scale || 1.0;
-        $('sb-cfg-scale-val').textContent = `${(theme.scale || 1.0).toFixed(2)}×`;
+        const resScale = vb?.hasToken(theme.scale) ? (parseFloat(vb.resolveToken(theme.scale)) || 1.0) : (Number(theme.scale) || 1.0);
+        $('sb-cfg-scale').value = resScale;
+        $('sb-cfg-scale-val').textContent = `${resScale.toFixed(2)}×`;
     }
     if ($('sb-cfg-show-header')) $('sb-cfg-show-header').checked = theme.showHeader !== false;
     if ($('sb-cfg-title-text')) $('sb-cfg-title-text').value = theme.titleText || 'Subathon Rates';
@@ -449,9 +464,10 @@ export function renderStudioTheme(theme = {}) {
     if ($('sb-cfg-card-bg')) $('sb-cfg-card-bg').value = theme.cardBackground || 'rgba(18, 24, 38, 0.88)';
     if ($('sb-cfg-card-border')) $('sb-cfg-card-border').value = theme.cardBorder || 'rgba(255, 255, 255, 0.12)';
     if ($('sb-cfg-card-radius')) {
-        const rad = theme.cardRadius !== undefined ? theme.cardRadius : 10;
-        $('sb-cfg-card-radius').value = rad;
-        $('sb-cfg-card-radius-val').textContent = `${rad}px`;
+        const rawRad = theme.cardRadius !== undefined ? theme.cardRadius : 10;
+        const resRad = vb?.hasToken(rawRad) ? (parseInt(vb.resolveToken(rawRad), 10) || 10) : (Number(rawRad) || 10);
+        $('sb-cfg-card-radius').value = resRad;
+        $('sb-cfg-card-radius-val').textContent = `${resRad}px`;
     }
     if ($('sb-cfg-accent')) $('sb-cfg-accent').value = theme.accentColor || '#3b82f6';
     if ($('sb-cfg-font')) $('sb-cfg-font').value = theme.fontFamily || '';
@@ -487,6 +503,7 @@ export function renderStudioTheme(theme = {}) {
 }
 
 export function syncStudioToPreview() {
+    const vb = window.WizardVariableBinder;
     const theme = collectStudioTheme();
     if ($('sb-cfg-columns-row')) {
         $('sb-cfg-columns-row').style.display = theme.layout === 'grid' ? '' : 'none';
@@ -495,10 +512,13 @@ export function syncStudioToPreview() {
     const params = new URLSearchParams();
     if (theme.layout !== 'grid') params.set('layout', theme.layout);
     if (theme.preset !== 'dark') params.set('theme', theme.preset);
-    if (theme.layout === 'grid' && theme.columns > 0) params.set('columns', theme.columns);
-    if (theme.scale !== 1.0) params.set('scale', theme.scale);
+    if (theme.layout === 'grid' && (vb?.hasToken(theme.columns) || theme.columns > 0)) params.set('columns', theme.columns);
+    if (vb?.hasToken(theme.scale) || theme.scale !== 1.0) params.set('scale', theme.scale);
     if (!theme.showHeader) params.set('header', '0');
-    if (theme.titleText && theme.titleText !== 'Subathon Rates') params.set('title', theme.titleText);
+    if (theme.titleText && (vb?.hasToken(theme.titleText) || theme.titleText !== 'Subathon Rates')) params.set('title', theme.titleText);
+    if (vb && typeof vb.applyToParams === 'function') {
+        vb.applyToParams(params, 'subathon');
+    }
 
     const qs = params.toString();
     const obsUrl = `${location.origin}/overlays/subathon-rules.html${qs ? `?${qs}` : ''}`;
@@ -711,6 +731,7 @@ export function initSubathon() {
 
     $('sb-reset-theme-btn')?.addEventListener('click', async () => {
         if (!await StreamPulse.confirm('Reset Theme', 'Reset subathon rules appearance to default StreamPulse Navy theme?', { danger: false })) return;
+        window.WizardVariableBinder?.resetAll?.();
         renderStudioTheme(SUBATHON_THEME_PRESETS.dark);
         try {
             await api('/api/subathon', jsonBody('PUT', { theme: SUBATHON_THEME_PRESETS.dark }));
@@ -818,4 +839,26 @@ export function initSubathon() {
             switchSubathonView('appearance');
         }
     } catch (_) {}
+
+    if (window.WizardVariableBinder) {
+        window.WizardVariableBinder.mount({
+            storageKey: 'streampulse_subathon_overlay_vars_v1',
+            onChange: () => syncStudioToPreview(),
+            bindings: [
+                { id: 'sb-cfg-scale', param: 'scale', kind: 'number', label: 'Subathon Font Scale', overlays: ['subathon'] },
+                { id: 'sb-cfg-title-text', param: 'title', kind: 'text', label: 'Subathon Header Title', overlays: ['subathon'] },
+                { id: 'sb-cfg-header-size-custom', param: 'headerSize', kind: 'number', label: 'Subathon Header Font Size', overlays: ['subathon'] },
+                { id: 'sb-cfg-header-font', param: 'headerFont', kind: 'font', label: 'Subathon Header Font', overlays: ['subathon'] },
+                { id: 'sb-cfg-card-bg', param: 'cardBg', kind: 'color', label: 'Subathon Card Background', overlays: ['subathon'] },
+                { id: 'sb-cfg-card-border', param: 'cardBorder', kind: 'color', label: 'Subathon Card Border', overlays: ['subathon'] },
+                { id: 'sb-cfg-card-radius', param: 'radius', kind: 'number', label: 'Subathon Card Radius (px)', overlays: ['subathon'] },
+                { id: 'sb-cfg-accent', param: 'accent', kind: 'color', label: 'Subathon Accent Color', overlays: ['subathon'] },
+                { id: 'sb-cfg-font', param: 'font', kind: 'font', label: 'Subathon Body Font', overlays: ['subathon'] },
+                { id: 'sb-cfg-value-size-custom', param: 'valueSize', kind: 'number', label: 'Subathon Rate Value Font Size', overlays: ['subathon'] },
+                { id: 'sb-cfg-value-weight', param: 'valueWeight', kind: 'number', label: 'Subathon Rate Value Weight', overlays: ['subathon'] },
+                { id: 'sb-cfg-text-color', param: 'text', kind: 'color', label: 'Subathon Primary Text Color', overlays: ['subathon'] },
+                { id: 'sb-cfg-text-muted', param: 'muted', kind: 'color', label: 'Subathon Muted Text Color', overlays: ['subathon'] }
+            ]
+        });
+    }
 }

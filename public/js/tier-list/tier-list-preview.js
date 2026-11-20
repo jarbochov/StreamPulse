@@ -310,8 +310,10 @@ function writeControlsFromOptions() {
 }
 
 function readOptionsFromControls() {
+    const vb = window.WizardVariableBinder;
+    const readVal = (id, fallback = '') => vb ? vb.readValue(id, $(id)?.value ?? fallback) : ($(id)?.value ?? fallback);
     const titleEl = $('overlay-opt-title');
-    if (titleEl) overlayOptions.title = titleEl.value.trim() || 'Community Tier List';
+    if (titleEl) overlayOptions.title = String(readVal('overlay-opt-title', titleEl.value)).trim() || 'Community Tier List';
     const bannerUrlEl = $('overlay-opt-banner-url');
     if (bannerUrlEl) overlayOptions.bannerUrl = bannerUrlEl.value.trim();
     const bannerModeEl = $('overlay-opt-banner-mode');
@@ -319,7 +321,10 @@ function readOptionsFromControls() {
     const bannerFitEl = $('overlay-opt-banner-fit');
     if (bannerFitEl) overlayOptions.bannerFit = bannerFitEl.value === 'contain' ? 'contain' : 'cover';
     const bannerHeightEl = $('overlay-opt-banner-height');
-    if (bannerHeightEl) overlayOptions.bannerHeight = Math.min(240, Math.max(48, Math.round(Number(bannerHeightEl.value) || 110)));
+    if (bannerHeightEl) {
+        const bhRaw = readVal('overlay-opt-banner-height', bannerHeightEl.value);
+        overlayOptions.bannerHeight = vb?.hasToken(bhRaw) ? bhRaw : Math.min(240, Math.max(48, Math.round(Number(bhRaw) || 110)));
+    }
 
     overlayOptions.layout = $('overlay-opt-layout')?.value || 'board';
     const autoFitEl = $('overlay-opt-autofit');
@@ -349,32 +354,35 @@ function readOptionsFromControls() {
         overlayOptions.customThemeId = selectedThemeVal;
     }
 
-    overlayOptions.headingFont = $('overlay-opt-heading-font')?.value?.trim() || '';
-    overlayOptions.fontFamily = $('overlay-opt-font')?.value?.trim() || '';
-    overlayOptions.fontWeight = $('overlay-opt-weight')?.value || '';
-    overlayOptions.fontScale = $('overlay-opt-fontscale')?.value || '1';
+    overlayOptions.headingFont = String(readVal('overlay-opt-heading-font', '')).trim();
+    overlayOptions.fontFamily = String(readVal('overlay-opt-font', '')).trim();
+    overlayOptions.fontWeight = String(readVal('overlay-opt-weight', ''));
+    overlayOptions.fontScale = String(readVal('overlay-opt-fontscale', '1') || '1');
     overlayOptions.textTransform = $('overlay-opt-transform')?.value || '';
-    overlayOptions.textOutline = $('overlay-opt-outline')?.value || '';
-    overlayOptions.borderRadius = $('overlay-opt-radius')?.value || '';
+    overlayOptions.textOutline = String(readVal('overlay-opt-outline', ''));
+    overlayOptions.borderRadius = String(readVal('overlay-opt-radius', ''));
 
     const blurEl = $('overlay-opt-blur');
     if (blurEl) {
-        if (blurEl.dataset.isCustom === '1') {
+        const blurRaw = readVal('overlay-opt-blur', blurEl.value);
+        if (vb?.hasToken(blurRaw)) {
+            overlayOptions.backdropBlur = blurRaw;
+        } else if (blurEl.dataset.isCustom === '1') {
             overlayOptions.backdropBlur = `${Math.min(24, Math.max(0, Math.round(Number(blurEl.value) || 0)))}px`;
         } else {
             overlayOptions.backdropBlur = '';
         }
     }
 
-    overlayOptions.backgroundColor = $('overlay-opt-bg')?.value?.trim() || '';
-    overlayOptions.rowBackgroundColor = $('overlay-opt-rowbg')?.value?.trim() || '';
-    overlayOptions.borderColor = $('overlay-opt-border')?.value?.trim() || '';
-    overlayOptions.textColor = $('overlay-opt-text')?.value?.trim() || '';
-    overlayOptions.mutedColor = $('overlay-opt-muted')?.value?.trim() || '';
-    overlayOptions.accentColor = $('overlay-opt-accent')?.value?.trim() || '';
+    overlayOptions.backgroundColor = String(readVal('overlay-opt-bg', '')).trim();
+    overlayOptions.rowBackgroundColor = String(readVal('overlay-opt-rowbg', '')).trim();
+    overlayOptions.borderColor = String(readVal('overlay-opt-border', '')).trim();
+    overlayOptions.textColor = String(readVal('overlay-opt-text', '')).trim();
+    overlayOptions.mutedColor = String(readVal('overlay-opt-muted', '')).trim();
+    overlayOptions.accentColor = String(readVal('overlay-opt-accent', '')).trim();
 
     overlayOptions.howtovote = $('overlay-opt-hint')?.value || 'auto';
-    overlayOptions.hintScale = $('overlay-opt-hintscale')?.value || '1';
+    overlayOptions.hintScale = String(readVal('overlay-opt-hintscale', '1') || '1');
     const sfxEl = $('overlay-opt-sfx');
     if (sfxEl) overlayOptions.sfx = sfxEl.checked ? '1' : '0';
 
@@ -409,7 +417,7 @@ function buildOverrideUrl() {
     if (overlayOptions.headingFont) params.set('headingfont', overlayOptions.headingFont);
     if (overlayOptions.fontFamily) params.set('font', overlayOptions.fontFamily);
     if (overlayOptions.fontWeight) params.set('weight', overlayOptions.fontWeight);
-    if (overlayOptions.fontScale && Number(overlayOptions.fontScale) !== 1) params.set('fontscale', String(overlayOptions.fontScale));
+    if (overlayOptions.fontScale && (window.WizardVariableBinder?.hasToken(overlayOptions.fontScale) || Number(overlayOptions.fontScale) !== 1)) params.set('fontscale', String(overlayOptions.fontScale));
     if (overlayOptions.textTransform) params.set('transform', overlayOptions.textTransform);
     if (overlayOptions.textOutline) params.set('outline', overlayOptions.textOutline);
     if (overlayOptions.borderRadius) params.set('radius', overlayOptions.borderRadius);
@@ -426,13 +434,16 @@ function buildOverrideUrl() {
     }
     if (overlayOptions.bannerUrl) {
         if (overlayOptions.bannerMode === 'behind') params.set('bannerMode', 'behind');
-        if (Number(overlayOptions.bannerHeight) !== 110) params.set('bannerHeight', String(overlayOptions.bannerHeight));
+        if (window.WizardVariableBinder?.hasToken(overlayOptions.bannerHeight) || Number(overlayOptions.bannerHeight) !== 110) params.set('bannerHeight', String(overlayOptions.bannerHeight));
         if (overlayOptions.bannerFit === 'contain') params.set('bannerFit', 'contain');
     }
     if (overlayOptions.howtovote === '0') params.set('howtovote', '0');
     else if (overlayOptions.howtovote === 'always') params.set('howtovote', 'always');
-    if (overlayOptions.hintScale && overlayOptions.hintScale !== '1') params.set('hintScale', overlayOptions.hintScale);
+    if (overlayOptions.hintScale && (window.WizardVariableBinder?.hasToken(overlayOptions.hintScale) || overlayOptions.hintScale !== '1')) params.set('hintScale', overlayOptions.hintScale);
     if (overlayOptions.sfx === '0') params.set('sfx', '0');
+    if (window.WizardVariableBinder) {
+        window.WizardVariableBinder.applyToParams(params);
+    }
 
     const qs = params.toString();
     return `${location.origin}/overlays/tier-list.html${qs ? `?${qs}` : ''}`;
@@ -484,7 +495,7 @@ function sendPreviewPostMessage() {
                 headingFont: overlayOptions.headingFont,
                 fontFamily: overlayOptions.fontFamily,
                 fontWeight: overlayOptions.fontWeight,
-                fontScale: Number(overlayOptions.fontScale) || 1,
+                fontScale: window.WizardVariableBinder?.hasToken(overlayOptions.fontScale) ? overlayOptions.fontScale : (Number(overlayOptions.fontScale) || 1),
                 textTransform: overlayOptions.textTransform,
                 textOutline: overlayOptions.textOutline,
                 backgroundColor: overlayOptions.backgroundColor,
@@ -497,7 +508,7 @@ function sendPreviewPostMessage() {
                 backdropBlur: overlayOptions.backdropBlur,
                 bannerUrl: overlayOptions.bannerUrl,
                 bannerMode: overlayOptions.bannerMode,
-                bannerHeight: Number(overlayOptions.bannerHeight) || 110,
+                bannerHeight: window.WizardVariableBinder?.hasToken(overlayOptions.bannerHeight) ? overlayOptions.bannerHeight : (Number(overlayOptions.bannerHeight) || 110),
                 bannerFit: overlayOptions.bannerFit,
                 showCaptions: overlayOptions.showCaptions !== '0',
                 fitCaptions: overlayOptions.fitCaptions === '1',
@@ -538,7 +549,7 @@ function buildServerThemePatch() {
         headingFont: overlayOptions.headingFont || '',
         fontFamily: overlayOptions.fontFamily || '',
         fontWeight: overlayOptions.fontWeight || '',
-        fontScale: Number(overlayOptions.fontScale) || 1,
+        fontScale: window.WizardVariableBinder?.hasToken(overlayOptions.fontScale) ? overlayOptions.fontScale : (Number(overlayOptions.fontScale) || 1),
         textTransform: overlayOptions.textTransform || '',
         textOutline: overlayOptions.textOutline || '',
         backgroundColor: overlayOptions.backgroundColor || '',
@@ -555,7 +566,7 @@ function buildServerThemePatch() {
         cardFit: overlayOptions.coverFit,
         bannerUrl: overlayOptions.bannerUrl || '',
         bannerMode: overlayOptions.bannerMode || 'replace',
-        bannerHeight: Number(overlayOptions.bannerHeight) || 110,
+        bannerHeight: window.WizardVariableBinder?.hasToken(overlayOptions.bannerHeight) ? overlayOptions.bannerHeight : (Number(overlayOptions.bannerHeight) || 110),
         bannerFit: overlayOptions.bannerFit || 'cover',
         showCaptions: overlayOptions.showCaptions !== '0',
         fitCaptions: overlayOptions.fitCaptions === '1',
@@ -1126,6 +1137,7 @@ export function initPreviewOptionsListeners() {
 
     $('btn-reset-theming')?.addEventListener('click', async () => {
         const currentTitle = overlayOptions.title || 'Community Tier List';
+        window.WizardVariableBinder?.resetAll?.();
         overlayOptions = Object.assign({}, DEFAULT_OVERLAY_OPTIONS, { title: currentTitle });
         populateThemeDropdown($('overlay-opt-theme'));
         writeControlsFromOptions();
@@ -1223,5 +1235,31 @@ export function initPreviewOptionsListeners() {
 
     restorePreviewViewport();
     restoreActiveTab();
+    if (window.WizardVariableBinder) {
+        window.WizardVariableBinder.mount({
+            storageKey: 'streampulse_tierlist_overlay_vars_v1',
+            onChange: () => {
+                updateOverlayUrl({ persist: true, immediate: true });
+            },
+            bindings: [
+                { id: 'overlay-opt-title', param: 'title', kind: 'text', label: 'Tier List Title' },
+                { id: 'overlay-opt-banner-height', param: 'bannerHeight', kind: 'number', label: 'Banner Height (px)' },
+                { id: 'overlay-opt-heading-font', param: 'headingfont', kind: 'font', label: 'Title Font' },
+                { id: 'overlay-opt-font', param: 'font', kind: 'font', label: 'Body Font' },
+                { id: 'overlay-opt-weight', param: 'weight', kind: 'number', label: 'Font Weight' },
+                { id: 'overlay-opt-fontscale', param: 'fontscale', kind: 'number', label: 'Font Scale' },
+                { id: 'overlay-opt-outline', param: 'outline', kind: 'text', label: 'Text Outline' },
+                { id: 'overlay-opt-radius', param: 'radius', kind: 'number', label: 'Corner Radius' },
+                { id: 'overlay-opt-blur', param: 'blur', kind: 'number', label: 'Backdrop Blur (px)' },
+                { id: 'overlay-opt-bg', param: 'bg', kind: 'color', label: 'Board Background Color' },
+                { id: 'overlay-opt-rowbg', param: 'rowbg', kind: 'color', label: 'Row Background Color' },
+                { id: 'overlay-opt-border', param: 'border', kind: 'color', label: 'Border Color' },
+                { id: 'overlay-opt-text', param: 'text', kind: 'color', label: 'Text Color' },
+                { id: 'overlay-opt-muted', param: 'muted', kind: 'color', label: 'Muted Color' },
+                { id: 'overlay-opt-accent', param: 'accent', kind: 'color', label: 'Accent Color' },
+                { id: 'overlay-opt-hintscale', param: 'hintScale', kind: 'number', label: 'Hint Scale' }
+            ]
+        });
+    }
     applyViewportScale();
 }

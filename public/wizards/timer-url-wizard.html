@@ -77,6 +77,8 @@
         <div id="main-nav" class="nav"></div>
         <script src="/nav.js"></script>
         <script src="/overlay-shared.js"></script>
+        <script src="/js/overlay-theme.js"></script>
+        <script src="/js/wizard-variable-binder.js"></script>
     </div>
 
     <div style="max-width:1280px; margin:1rem auto 0; padding:0 2rem; display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
@@ -232,6 +234,14 @@
         refreshWizard();
     }
 
+    function readCtrlVal(id) {
+        if (window.WizardVariableBinder && typeof window.WizardVariableBinder.readValue === 'function') {
+            return window.WizardVariableBinder.readValue(id);
+        }
+        const el = document.getElementById(id);
+        return el ? el.value : '';
+    }
+
     function buildOverlayUrl() {
         const id = document.getElementById('timer-id').value;
         const kind = document.getElementById('overlay-kind').value;
@@ -243,21 +253,24 @@
         if (document.getElementById('milliseconds').checked) params.set('milliseconds', 'true');
         if (id && document.getElementById('autostart').checked) params.set('autostart', 'true');
         if (!document.getElementById('show-title').checked) params.set('showtitle', 'false');
-        if (document.getElementById('title').value.trim()) params.set('title', document.getElementById('title').value.trim());
+        if (readCtrlVal('title').trim()) params.set('title', readCtrlVal('title').trim());
         if (kind === 'countdown') params.set('progress', document.getElementById('progress').checked ? 'true' : 'false');
         params.set('sound', document.getElementById('sound').checked ? 'true' : 'false');
-        ['font', 'titlefont', 'timerweight', 'titleweight'].forEach(id => { const v = document.getElementById(id).value; if (v) params.set(id, v); });
+        ['font', 'titlefont', 'timerweight', 'titleweight'].forEach(id => { const v = readCtrlVal(id); if (v) params.set(id, v); });
         if (kind === 'countdown' && document.getElementById('display').value === 'ring' && document.getElementById('ringfill').value === 'fill') params.set('ringfill', 'fill');
-        params.set('fontscale', document.getElementById('fontscale').value || '1');
-        if ((document.getElementById('titlescale').value || '1') !== '1') params.set('titlescale', document.getElementById('titlescale').value);
+        params.set('fontscale', readCtrlVal('fontscale') || '1');
+        if ((readCtrlVal('titlescale') || '1') !== '1') params.set('titlescale', readCtrlVal('titlescale'));
         ['bgcolor','timercolor','textcolor','labelcolor','progresscolor','titlecolor'].forEach(id => {
-            const value = document.getElementById(id).value.trim();
+            const value = readCtrlVal(id).trim();
             if (value) params.set(id, value);
         });
         if (document.getElementById('gradient-on').checked) {
-            params.set('gradient', ['grad1', 'grad2', 'grad3'].map(id => document.getElementById(id).value.replace('#', '')).join(','));
-            params.set('gradientspeed', document.getElementById('gradspeed').value || '8');
-            params.set('gradientangle', document.getElementById('gradangle').value || '135');
+            params.set('gradient', ['grad1', 'grad2', 'grad3'].map(id => readCtrlVal(id).replace('#', '')).join(','));
+            params.set('gradientspeed', readCtrlVal('gradspeed') || '8');
+            params.set('gradientangle', readCtrlVal('gradangle') || '135');
+        }
+        if (window.WizardVariableBinder) {
+            window.WizardVariableBinder.applyToParams(params);
         }
         return `/${kind}.html?${params.toString()}`;
     }
@@ -462,6 +475,7 @@
         isResettingWizard = true;
         try {
             try { localStorage.removeItem(WIZARD_STORAGE_KEY); } catch {}
+            window.WizardVariableBinder?.resetAll?.();
             applyWizardSnapshot(wizardDefaults, { respectUrlQuery: false });
             refreshWizard();
         } finally {
@@ -485,6 +499,29 @@
             titlefont: ''
         };
         restoreWizardState();
+        if (window.WizardVariableBinder) {
+            window.WizardVariableBinder.mount({
+                storageKey: 'streampulse_wizard_timer_vars_v1',
+                onChange: () => refreshWizard(),
+                bindings: [
+                    { id: 'title', param: 'title', kind: 'text', label: 'Title Override' },
+                    { id: 'font', param: 'font', kind: 'font', label: 'Timer Font' },
+                    { id: 'titlefont', param: 'titlefont', kind: 'font', label: 'Title Font' },
+                    { id: 'timerweight', param: 'timerweight', kind: 'number', label: 'Timer Weight' },
+                    { id: 'titleweight', param: 'titleweight', kind: 'number', label: 'Title Weight' },
+                    { id: 'fontscale', param: 'fontscale', kind: 'number', label: 'Overall Scale' },
+                    { id: 'titlescale', param: 'titlescale', kind: 'number', label: 'Title Scale' },
+                    { id: 'timercolor', param: 'timercolor', kind: 'color', label: 'Timer Box Color', pairColorId: 'timercolor-picker' },
+                    { id: 'textcolor', param: 'textcolor', kind: 'color', label: 'Text Color', pairColorId: 'textcolor-picker' },
+                    { id: 'labelcolor', param: 'labelcolor', kind: 'color', label: 'Labels Color', pairColorId: 'labelcolor-picker' },
+                    { id: 'progresscolor', param: 'progresscolor', kind: 'color', label: 'Progress Bar Color', pairColorId: 'progresscolor-picker' },
+                    { id: 'titlecolor', param: 'titlecolor', kind: 'color', label: 'Title Color', pairColorId: 'titlecolor-picker' },
+                    { id: 'bgcolor', param: 'bgcolor', kind: 'color', label: 'Page Background Color', pairColorId: 'bgcolor-picker' },
+                    { id: 'gradspeed', param: 'gradientspeed', kind: 'number', label: 'Gradient Speed (sec)' },
+                    { id: 'gradangle', param: 'gradientangle', kind: 'number', label: 'Gradient Angle (deg)' }
+                ]
+            });
+        }
         wizardReady = true;
         const leftCol = document.querySelector('.left-col');
         if (leftCol) {

@@ -1,16 +1,168 @@
 // Shared theme handling for StreamPulse overlays (credits, stats, goals, timers, versus, tournaments).
 (function () {
+    const VAR_TOKEN_TEST_RE = /(?:^var:[a-z0-9_.]|\{\{\s*var\.[a-z0-9_.])/i;
+    const COMPACT_VAR_RE = /^var:([a-z0-9_.]+)(?:\|(.*))?$/i;
+    const BRACE_EXACT_VAR_RE = /^\{\{\s*var\.([a-z0-9_.]+)\s*(?:\|([^{}]*?))?\s*\}\}$/i;
+    const BRACE_INLINE_VAR_RE = /\{\{\s*var\.([a-z0-9_.]+)\s*(?:\|([^{}]*?))?\s*\}\}/gi;
+
+    let localCachedValues = null;
+
+    function hasVarToken(raw) {
+        if (typeof raw !== 'string' || !raw) return false;
+        return VAR_TOKEN_TEST_RE.test(raw.trim());
+    }
+
+    function parseVarToken(raw) {
+        if (typeof raw !== 'string' || !raw) return null;
+        const trimmed = raw.trim();
+        let m = trimmed.match(COMPACT_VAR_RE);
+        if (m) return { key: m[1].toLowerCase(), fallback: m[2] !== undefined ? m[2].trim() : '', syntax: 'compact' };
+        m = trimmed.match(BRACE_EXACT_VAR_RE);
+        if (m) return { key: m[1].toLowerCase(), fallback: m[2] !== undefined ? m[2].trim() : '', syntax: 'brace' };
+        return null;
+    }
+
+    function formatVarToken(key, fallback = '') {
+        const cleanKey = String(key || '').trim().replace(/^var[.:]/i, '').toLowerCase();
+        if (!cleanKey) return '';
+        const fb = fallback !== undefined && fallback !== null ? String(fallback).trim() : '';
+        return fb ? `var:${cleanKey}|${fb}` : `var:${cleanKey}`;
+    }
+
+    function ingestVarPayload(data) {
+        const map = {};
+        if (!data || typeof data !== 'object') return map;
+        if (data.values && typeof data.values === 'object') {
+            Object.entries(data.values).forEach(([k, v]) => {
+                if (v !== undefined && v !== null) map[String(k).toLowerCase()] = String(v);
+            });
+        }
+        if (Array.isArray(data.variables)) {
+            data.variables.forEach(v => {
+                if (!v || !v.name) return;
+                const k = String(v.key || (v.group && !v.setId ? `${v.group}.${v.name}` : v.name)).toLowerCase();
+                if (map[k] === undefined && v.value !== undefined && v.value !== null) map[k] = String(v.value);
+                const rawName = String(v.name).toLowerCase();
+                if (map[rawName] === undefined && v.value !== undefined && v.value !== null) map[rawName] = String(v.value);
+            });
+        }
+        return map;
+    }
+
+    function ensureVarsLoadedSync() {
+        if (localCachedValues !== null) return localCachedValues;
+        localCachedValues = {};
+        const XHR = (typeof window !== 'undefined' && window.XMLHttpRequest)
+            || (typeof globalThis !== 'undefined' ? globalThis.XMLHttpRequest : undefined);
+        if (typeof XHR !== 'function') return localCachedValues;
+        try {
+            const xhr = new XHR();
+            xhr.open('GET', '/api/variables', false);
+            xhr.send(null);
+            if (xhr.status >= 200 && xhr.status < 300 && xhr.responseText) {
+                localCachedValues = ingestVarPayload(JSON.parse(xhr.responseText));
+            }
+        } catch {}
+        return localCachedValues;
+    }
+
+    function lookupVarKey(map, key) {
+        const k = String(key || '').toLowerCase();
+        if (!k || !map) return undefined;
+        if (map[k] !== undefined && map[k] !== '') return map[k];
+        if (k.includes('.')) {
+            const shortName = k.split('.').pop();
+            if (map[shortName] !== undefined && map[shortName] !== '') return map[shortName];
+        }
+        return map[k];
+    }
+
+    function resolveVarValue(raw, customMap) {
+        if (typeof raw !== 'string' || !hasVarToken(raw)) return raw;
+        if (typeof window !== 'undefined' && window.OverlayVariableSettings && typeof window.OverlayVariableSettings.resolve === 'function' && window.OverlayVariableSettings.resolve !== resolveVarValue) {
+            return window.OverlayVariableSettings.resolve(raw, customMap);
+        }
+        const map = customMap || (localCachedValues !== null ? localCachedValues : ensureVarsLoadedSync());
+        const exact = parseVarToken(raw);
+        if (exact) {
+            const found = lookupVarKey(map, exact.key);
+            if (found !== undefined && found !== null && String(found).trim() !== '') return String(found).trim();
+            return exact.fallback;
+        }
+        return raw.replace(BRACE_INLINE_VAR_RE, (_m, key, fb) => {
+            const found = lookupVarKey(map, key);
+            if (found !== undefined && found !== null && String(found).trim() !== '') return String(found).trim();
+            return fb !== undefined ? fb.trim() : '';
+        });
+    }
+
+    if (typeof window !== 'undefined') {
+        const origGet = typeof URLSearchParams !== 'undefined'
+            ? (URLSearchParams.prototype.get.__origGet || URLSearchParams.prototype.get)
+            : null;
+        if (origGet && !URLSearchParams.prototype.get.__spVarPatched) {
+            const patchedGet = function (name) {
+                const val = origGet.call(this, name);
+                if (val && hasVarToken(val) && !window.__SP_WIZARD_RAW_URL_PARAMS) {
+                    return window.OverlayVariableSettings.resolve(val);
+                }
+                return val;
+            };
+            patchedGet.__spVarPatched = true;
+            patchedGet.__origGet = origGet;
+            URLSearchParams.prototype.get = patchedGet;
+        }
+        if (!window.OverlayVariableSettings) {
+            window.OverlayVariableSettings = {
+                hasToken: hasVarToken,
+                parseToken: parseVarToken,
+                formatToken: formatVarToken,
+                resolve: resolveVarValue,
+                setValues(valuesMap) {
+                    if (!valuesMap || typeof valuesMap !== 'object') return;
+                    if (valuesMap.variables || valuesMap.values) {
+                        localCachedValues = ingestVarPayload(valuesMap);
+                        return;
+                    }
+                    const next = {};
+                    Object.entries(valuesMap).forEach(([k, v]) => {
+                        if (v !== undefined && v !== null) next[String(k).toLowerCase()] = String(v);
+                    });
+                    localCachedValues = next;
+                },
+                async refreshAsync() {
+                    if (typeof fetch !== 'function') return localCachedValues || {};
+                    try {
+                        const res = await fetch('/api/variables', { cache: 'no-store' });
+                        if (res.ok) localCachedValues = ingestVarPayload(await res.json());
+                    } catch {}
+                    return localCachedValues || {};
+                },
+                ensureLoadedSync: ensureVarsLoadedSync,
+                getRawParam(params, name) {
+                    if (!params) return null;
+                    if (typeof params.getRaw === 'function') return params.getRaw(name);
+                    if (origGet && params instanceof URLSearchParams) return origGet.call(params, name);
+                    return typeof params.get === 'function' ? params.get(name) : null;
+                },
+                getValues: () => (localCachedValues !== null ? localCachedValues : ensureVarsLoadedSync())
+            };
+        }
+    }
+
     const COLOR = /^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([0-9.,%\s/]+\)|[a-z]{3,20})$/i;
     const HEX = /^[0-9a-f]{3}([0-9a-f]{3}([0-9a-f]{2})?)?$/i;
 
     function cleanColor(raw) {
-        const value = String(raw || '').trim();
+        const resolved = resolveVarValue(raw);
+        const value = String(resolved || '').trim();
         if (HEX.test(value)) return `#${value}`;
         return COLOR.test(value) ? value : '';
     }
 
     function cleanRadius(raw) {
-        const value = String(raw || '').trim();
+        const resolved = resolveVarValue(raw);
+        const value = String(resolved || '').trim();
         if (!value) return '';
         if (/^\d+$/.test(value)) return `${value}px`;
         if (/^\d+(\.\d+)?(px|rem|em|vmin|vmax|%)$/.test(value)) return value;
@@ -86,7 +238,8 @@
 
     function loadUrlFont(name) {
         if (!name) return;
-        const cleanName = String(name).replace(/["'<>;{}\\]/g, '').trim().slice(0, 80);
+        const resolved = resolveVarValue(name);
+        const cleanName = String(resolved || '').replace(/["'<>;{}\\]/g, '').trim().slice(0, 80);
         if (!cleanName || SYSTEM_FONTS.map(f => f.toLowerCase()).includes(cleanName.toLowerCase())) return;
         if (loadedFonts.has(cleanName.toLowerCase())) return;
         loadedFonts.add(cleanName.toLowerCase());
@@ -283,14 +436,28 @@
     }
 
     function resolveThemeParams(options) {
+        let baseParams;
         if (options && options.params) {
-            if (typeof options.params.get === 'function') return options.params;
-            const raw = String(options.params);
-            return (typeof overlayParams === 'function') ? overlayParams(raw) : new URLSearchParams(raw);
+            if (typeof options.params.get === 'function') {
+                baseParams = options.params;
+            } else {
+                const raw = String(options.params);
+                baseParams = (typeof overlayParams === 'function') ? overlayParams(raw) : new URLSearchParams(raw);
+            }
+        } else {
+            baseParams = (typeof overlayParams === 'function')
+                ? overlayParams()
+                : new URLSearchParams(window.location.search);
         }
-        return (typeof overlayParams === 'function')
-            ? overlayParams()
-            : new URLSearchParams(window.location.search);
+        return {
+            get(name) {
+                const val = baseParams.get(name);
+                return (val && hasVarToken(val)) ? resolveVarValue(val) : val;
+            },
+            has(name) {
+                return typeof baseParams.has === 'function' ? baseParams.has(name) : (baseParams.get(name) !== null);
+            }
+        };
     }
 
     // Applied by /matchup.html
@@ -823,12 +990,18 @@
     // Shared theme handling for legacy browser-source overlays (credits, stats, hashtags, goal, viewers).
     window.applyOverlayTheme = function applyOverlayTheme(theme, vars, options = {}) {
         const t = theme || {};
-        const params = window.overlayParams ? window.overlayParams() : { get: () => null };
+        const baseParams = window.overlayParams ? window.overlayParams() : new URLSearchParams(window.location.search);
+        const params = {
+            get: name => {
+                const val = baseParams.get(name);
+                return (val && hasVarToken(val)) ? resolveVarValue(val) : val;
+            }
+        };
         const root = document.documentElement.style;
         const resolved = {};
 
         const urlFont = String(params.get('font') || '').replace(/["'<>;{}\\]/g, '').trim().slice(0, 80);
-        const family = urlFont || t.font_family || options.defaultFont || '';
+        const family = urlFont || resolveVarValue(t.font_family) || options.defaultFont || '';
         if (family && vars.font) {
             resolved.font = family;
             if (urlFont) loadUrlFont(urlFont);
@@ -868,8 +1041,9 @@
         }
 
         if (vars.scale) {
-            const urlScale = Number(params.get('scale') || params.get('fontscale'));
-            const scale = urlScale > 0 ? Math.max(0.5, Math.min(5, urlScale)) : t.font_scale;
+            const rawScale = resolveVarValue(params.get('scale') || params.get('fontscale') || '');
+            const urlScale = Number(rawScale);
+            const scale = (urlScale > 0 && Number.isFinite(urlScale)) ? Math.max(0.5, Math.min(5, urlScale)) : Number(resolveVarValue(t.font_scale)) || t.font_scale;
             if (scale) { root.setProperty(vars.scale, scale); resolved.scale = scale; }
         }
         return resolved;

@@ -4,6 +4,7 @@
     <link rel="stylesheet" href="/admin.css">
     <script src="/appearance.js"></script>
     <script src="/overlay-theme.js"></script>
+    <script src="/js/wizard-variable-binder.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -355,28 +356,30 @@
 
     // Build the theme override object for postMessage
     function getWizTheme() {
+        const vb = window.WizardVariableBinder;
+        const readRes = (id) => vb ? vb.readResolvedValue(id, document.getElementById(id)?.value) : (document.getElementById(id)?.value || '');
         const mode = document.getElementById('wiz-mode').value;
-        const font = document.getElementById('wiz-font').value;
-        const weight = document.getElementById('wiz-weight').value;
+        const font = readRes('wiz-font');
+        const weight = readRes('wiz-weight');
         const theme = {};
 
         if (font) { theme.font_family = font; theme.font_import = fontImportUrl(font); }
         if (weight) theme.font_weight = weight;
 
-        const tc = document.getElementById('wiz-textColor').value.trim();
+        const tc = String(readRes('wiz-textColor') || '').trim();
         if (tc) theme.text_color = tc;
 
-        const ac = document.getElementById('wiz-accentColor').value.trim();
+        const ac = String(readRes('wiz-accentColor') || '').trim();
         if (ac) theme.accent_color = ac;
 
-        const bg = document.getElementById('wiz-bgColor').value.trim();
+        const bg = String(readRes('wiz-bgColor') || '').trim();
         if (bg) theme.bg_color = bg;
 
-        const fs = parseFloat(document.getElementById('wiz-fontScale').value);
+        const fs = parseFloat(readRes('wiz-fontScale'));
         if (fs && fs !== 1) theme.font_scale = fs;
 
-        const w = parseInt(document.getElementById('wiz-w').value) || 0;
-        const h = parseInt(document.getElementById('wiz-h').value) || 0;
+        const w = parseInt(readRes('wiz-w')) || 0;
+        const h = parseInt(readRes('wiz-h')) || 0;
         if (w || h) {
             theme.sizes = { [mode]: {} };
             if (w) theme.sizes[mode].width = w;
@@ -384,12 +387,12 @@
         }
 
         if (mode === 'full') {
-            const artSz = parseInt(document.getElementById('wiz-artSize').value) || 0;
+            const artSz = parseInt(readRes('wiz-artSize')) || 0;
             if (artSz > 0) theme.full_art_size = artSz;
         }
 
         // Label
-        const labelText = document.getElementById('wiz-label').value;
+        const labelText = readRes('wiz-label');
         const labelMode = document.getElementById('wiz-labelMode').value;
         theme.label = {};
         if (labelText) theme.label.text = labelText;
@@ -406,14 +409,14 @@
 
         theme.art_persist_info = document.getElementById('wiz-persist').checked;
 
-        const artBr = parseFloat(document.getElementById('wiz-artBrightness').value);
-        if (artBr < 1) theme.art_brightness = artBr;
+        const artBr = parseFloat(readRes('wiz-artBrightness'));
+        if (!isNaN(artBr) && artBr < 1) theme.art_brightness = artBr;
 
-        const scrim = document.getElementById('wiz-scrimColor').value.trim();
+        const scrim = String(readRes('wiz-scrimColor') || '').trim();
         if (scrim) theme.art_scrim_color = scrim;
 
-        const artBlur = parseInt(document.getElementById('wiz-artBlur').value);
-        if (artBlur > 0) theme.art_blur = artBlur;
+        const artBlur = parseInt(readRes('wiz-artBlur'));
+        if (!isNaN(artBlur) && artBlur > 0) theme.art_blur = artBlur;
 
         const layout = document.getElementById('wiz-layout').value;
         if (layout) theme.mini_layout = layout;
@@ -423,41 +426,48 @@
 
     // Build URL from wizard controls
     function buildUrl() {
+        const vb = window.WizardVariableBinder;
+        const readRaw = (id) => vb ? vb.readValue(id, document.getElementById(id)?.value) : (document.getElementById(id)?.value || '');
         const base = `${location.protocol}//${location.host}/music.html`;
         const p = new URLSearchParams();
         const mode = document.getElementById('wiz-mode').value;
         p.set('mode', mode);
 
-        const font = document.getElementById('wiz-font').value;
+        const font = readRaw('wiz-font');
         if (font) p.set('font', font);
 
-        const weight = document.getElementById('wiz-weight').value;
+        const weight = readRaw('wiz-weight');
         if (weight) p.set('weight', weight);
 
-        const tc = document.getElementById('wiz-textColor').value.trim();
+        const tc = String(readRaw('wiz-textColor') || '').trim();
         if (tc) p.set('textColor', tc);
 
-        const ac = document.getElementById('wiz-accentColor').value.trim();
+        const ac = String(readRaw('wiz-accentColor') || '').trim();
         if (ac) p.set('accentColor', ac);
 
-        const bg = document.getElementById('wiz-bgColor').value.trim();
+        const bg = String(readRaw('wiz-bgColor') || '').trim();
         if (bg) p.set('bgColor', bg);
 
-        const fs = parseFloat(document.getElementById('wiz-fontScale').value);
-        if (fs && fs !== 1) p.set('fontScale', fs);
+        const fsRaw = readRaw('wiz-fontScale');
+        if (vb?.hasToken(fsRaw)) {
+            p.set('fontScale', fsRaw);
+        } else {
+            const fs = parseFloat(fsRaw);
+            if (fs && fs !== 1) p.set('fontScale', fs);
+        }
 
-        const w = document.getElementById('wiz-w').value;
+        const w = readRaw('wiz-w');
         if (w) p.set('w', w);
 
-        const h = document.getElementById('wiz-h').value;
+        const h = readRaw('wiz-h');
         if (h) p.set('h', h);
 
         if (mode === 'full') {
-            const artSz = document.getElementById('wiz-artSize').value;
-            if (artSz && parseInt(artSz) > 0) p.set('artSize', artSz);
+            const artSz = readRaw('wiz-artSize');
+            if (artSz && (vb?.hasToken(artSz) || parseInt(artSz) > 0)) p.set('artSize', artSz);
         }
 
-        const labelText = document.getElementById('wiz-label').value;
+        const labelText = readRaw('wiz-label');
         if (labelText) p.set('label', labelText);
 
         const labelMode = document.getElementById('wiz-labelMode').value;
@@ -477,17 +487,31 @@
 
         if (document.getElementById('wiz-persist').checked) p.set('persist', '1');
 
-        const artBr = parseFloat(document.getElementById('wiz-artBrightness').value);
-        if (artBr < 1) p.set('artBrightness', artBr);
+        const artBrRaw = readRaw('wiz-artBrightness');
+        if (vb?.hasToken(artBrRaw)) {
+            p.set('artBrightness', artBrRaw);
+        } else {
+            const artBr = parseFloat(artBrRaw);
+            if (!isNaN(artBr) && artBr < 1) p.set('artBrightness', artBr);
+        }
 
-        const scrim = document.getElementById('wiz-scrimColor').value.trim();
+        const scrim = String(readRaw('wiz-scrimColor') || '').trim();
         if (scrim) p.set('scrimColor', scrim);
 
-        const artBlur = parseInt(document.getElementById('wiz-artBlur').value);
-        if (artBlur > 0) p.set('artBlur', artBlur);
+        const artBlurRaw = readRaw('wiz-artBlur');
+        if (vb?.hasToken(artBlurRaw)) {
+            p.set('artBlur', artBlurRaw);
+        } else {
+            const artBlur = parseInt(artBlurRaw);
+            if (!isNaN(artBlur) && artBlur > 0) p.set('artBlur', artBlur);
+        }
 
         const layout = document.getElementById('wiz-layout').value;
         if (layout) p.set('layout', layout);
+        if (vb && typeof vb.applyToParams === 'function') {
+            vb.applyToParams(p);
+            if (mode !== 'full') p.delete('artSize');
+        }
 
         const url = `${base}?${p.toString()}`;
         document.getElementById('wiz-url').childNodes[0].textContent = url;
@@ -618,6 +642,7 @@
         isResettingMusicWizard = true;
         try {
             try { localStorage.removeItem(WIZ_MUSIC_STORAGE_KEY); } catch {}
+            window.WizardVariableBinder?.resetAll?.();
             document.getElementById('wiz-mode').value = 'full';
             document.getElementById('wiz-font').value = '';
             document.getElementById('wiz-weight').value = '';
@@ -712,6 +737,30 @@
     restoreMusicWizardState();
     musicWizardReady = true;
     updateModeUI();
+    if (window.WizardVariableBinder) {
+        window.WizardVariableBinder.mount({
+            storageKey: 'streampulse_wizard_music_vars_v1',
+            onChange: () => {
+                syncWizColorPickersFromInputs();
+                onWizChange();
+            },
+            bindings: [
+                { id: 'wiz-font', param: 'font', kind: 'font', label: 'Font Family' },
+                { id: 'wiz-weight', param: 'weight', kind: 'number', label: 'Font Weight' },
+                { id: 'wiz-textColor', param: 'textColor', kind: 'color', label: 'Text Color' },
+                { id: 'wiz-accentColor', param: 'accentColor', kind: 'color', label: 'Accent Color' },
+                { id: 'wiz-bgColor', param: 'bgColor', kind: 'color', label: 'Background Color' },
+                { id: 'wiz-fontScale', param: 'fontScale', kind: 'number', label: 'Font Scale' },
+                { id: 'wiz-w', param: 'w', kind: 'number', label: 'Width (px)' },
+                { id: 'wiz-h', param: 'h', kind: 'number', label: 'Height (px)' },
+                { id: 'wiz-artSize', param: 'artSize', kind: 'number', label: 'Album Art Size (px)' },
+                { id: 'wiz-label', param: 'label', kind: 'text', label: 'Label Text' },
+                { id: 'wiz-artBrightness', param: 'artBrightness', kind: 'number', label: 'Art Brightness' },
+                { id: 'wiz-scrimColor', param: 'scrimColor', kind: 'color', label: 'Scrim Color' },
+                { id: 'wiz-artBlur', param: 'artBlur', kind: 'number', label: 'Art Blur (px)' }
+            ]
+        });
+    }
     buildUrl();
     updateWizPreviewSize();
     const initialMode = document.getElementById('wiz-mode').value;

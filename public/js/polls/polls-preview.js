@@ -727,6 +727,9 @@ export function updatePollOverlayUrl() {
             if ($('poll-opt-confetti') && !$('poll-opt-confetti').checked) {
                 urlParams.set('confetti', '0');
             }
+            if (window.WizardVariableBinder) {
+                window.WizardVariableBinder.applyToParams(urlParams, 'poll');
+            }
 
             const qs = urlParams.toString();
             const fullUrl = `${origin}/overlays/poll.html${qs ? `?${qs}` : ''}`;
@@ -745,6 +748,9 @@ export function updatePollOverlayUrl() {
 
 export function resetPollOverlayDefaults() {
             resetContainerControlsToDefaults('ov-sec-poll');
+            if (window.WizardVariableBinder) {
+                ['poll-opt-heading-font','poll-opt-font','poll-opt-scale','poll-opt-weight','poll-opt-radius','poll-opt-outline','poll-opt-text','poll-opt-muted','poll-opt-cardbg','poll-opt-border','poll-opt-accent','poll-opt-winner','poll-opt-track'].forEach(id => window.WizardVariableBinder.unbindControl(id, true));
+            }
             updatePollOverlayUrl();
             updateAssetFontBadges();
             savePollsOverlayPrefs();
@@ -863,6 +869,9 @@ export function updateTourneyOverlayUrl() {
             const fitCheck = $('tourney-opt-fit');
             if (fitCheck && fitCheck.checked) urlParams.set('fit', '1');
             if ($('tourney-opt-wide') && $('tourney-opt-wide').checked) urlParams.set('wide', '1');
+            if (window.WizardVariableBinder) {
+                window.WizardVariableBinder.applyToParams(urlParams, 'tourney');
+            }
 
             const qs = urlParams.toString();
             const fullUrl = `${origin}/overlays/poll-tournament.html${qs ? `?${qs}` : ''}`;
@@ -884,6 +893,9 @@ export function updateTourneyOverlayUrl() {
 
 export function resetPollTourneyOverlayDefaults() {
             resetContainerControlsToDefaults('ov-sec-tourney');
+            if (window.WizardVariableBinder) {
+                ['tourney-opt-heading-font','tourney-opt-font','tourney-opt-scale','tourney-opt-weight','tourney-opt-radius','tourney-opt-outline','tourney-opt-gap','tourney-opt-logosize','tourney-opt-text','tourney-opt-muted','tourney-opt-cardbg','tourney-opt-bg','tourney-opt-border','tourney-opt-accent','tourney-opt-winner','tourney-opt-badgecolor','tourney-opt-p1color','tourney-opt-p2color'].forEach(id => window.WizardVariableBinder.unbindControl(id, true));
+            }
             if ($('tourney-opt-layout')) {
                 $('tourney-opt-layout').value = previewMode === 'active' ? 'active' : 'tree';
             }

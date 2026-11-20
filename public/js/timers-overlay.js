@@ -203,30 +203,45 @@
         }
     }
 
+    function normalizeTimerColor(raw) {
+        const val = String(raw || '').trim();
+        if (!val) return '';
+        if (/^[0-9a-f]{3,8}$/i.test(val)) return `#${val}`;
+        return val;
+    }
+
     function applyTheme() {
         body.classList.toggle('theme-light', params.get('theme') === 'light');
         if (params.has('bgcolor')) {
-            document.documentElement.style.setProperty('--background-color', `#${params.get('bgcolor')}`);
-            document.documentElement.style.background = `#${params.get('bgcolor')}`;
-            body.style.background = 'transparent';
+            const bgCol = normalizeTimerColor(params.get('bgcolor'));
+            if (bgCol) {
+                document.documentElement.style.setProperty('--background-color', bgCol);
+                document.documentElement.style.background = bgCol;
+                body.style.background = 'transparent';
+            }
         }
         if (params.has('font')) {
             const font = params.get('font');
-            document.documentElement.style.setProperty('--font-family', font);
-            if (window.OverlayShared) { OverlayShared.loadGoogleFont(font); OverlayShared.loadAssetFonts(); }
+            if (font) {
+                document.documentElement.style.setProperty('--font-family', font);
+                if (window.OverlayShared) { OverlayShared.loadGoogleFont(font); OverlayShared.loadAssetFonts(); }
+            }
         }
         if (params.has('titlefont')) {
-            document.documentElement.style.setProperty('--title-font-family', params.get('titlefont'));
-            if (window.OverlayShared) { OverlayShared.loadGoogleFont(params.get('titlefont')); OverlayShared.loadAssetFonts(); }
+            const tf = params.get('titlefont');
+            if (tf) {
+                document.documentElement.style.setProperty('--title-font-family', tf);
+                if (window.OverlayShared) { OverlayShared.loadGoogleFont(tf); OverlayShared.loadAssetFonts(); }
+            }
         }
-        const weight = value => ['400', '500', '600', '700', '900'].includes(value) ? value : '';
-        if (weight(params.get('timerweight'))) document.documentElement.style.setProperty('--timer-weight', params.get('timerweight'));
-        if (weight(params.get('titleweight'))) document.documentElement.style.setProperty('--title-weight', params.get('titleweight'));
-        if (params.has('timercolor')) document.documentElement.style.setProperty('--timer-background', `#${params.get('timercolor')}`);
-        if (params.has('textcolor')) document.documentElement.style.setProperty('--text-color', `#${params.get('textcolor')}`);
-        if (params.has('labelcolor')) document.documentElement.style.setProperty('--label-color', `#${params.get('labelcolor')}`);
-        if (params.has('progresscolor')) document.documentElement.style.setProperty('--progress-color', `#${params.get('progresscolor')}`);
-        if (params.has('titlecolor')) document.documentElement.style.setProperty('--title-color', `#${params.get('titlecolor')}`);
+        const weight = value => ['400', '500', '600', '700', '900'].includes(String(value).trim()) ? String(value).trim() : '';
+        if (weight(params.get('timerweight'))) document.documentElement.style.setProperty('--timer-weight', weight(params.get('timerweight')));
+        if (weight(params.get('titleweight'))) document.documentElement.style.setProperty('--title-weight', weight(params.get('titleweight')));
+        if (params.has('timercolor')) document.documentElement.style.setProperty('--timer-background', normalizeTimerColor(params.get('timercolor')));
+        if (params.has('textcolor')) document.documentElement.style.setProperty('--text-color', normalizeTimerColor(params.get('textcolor')));
+        if (params.has('labelcolor')) document.documentElement.style.setProperty('--label-color', normalizeTimerColor(params.get('labelcolor')));
+        if (params.has('progresscolor')) document.documentElement.style.setProperty('--progress-color', normalizeTimerColor(params.get('progresscolor')));
+        if (params.has('titlecolor')) document.documentElement.style.setProperty('--title-color', normalizeTimerColor(params.get('titlecolor')));
         if (params.has('scale') || params.has('fontscale')) {
             const raw = Number(params.get('scale') || params.get('fontscale')) || 1;
             const scale = Math.min(3, Math.max(0.5, raw));

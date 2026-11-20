@@ -270,16 +270,27 @@
             return `${remS}s`;
         }
 
+        function resolveVar(val) {
+            if (typeof val !== 'string' || !val) return val;
+            if (window.OverlayVariableSettings && typeof window.OverlayVariableSettings.resolve === 'function') {
+                return window.OverlayVariableSettings.resolve(val);
+            }
+            return val;
+        }
+
         function getEffectiveTheme() {
             const serverTheme = subathonData?.config?.theme || {};
             const override = previewThemeOverride || {};
+            const colVal = urlParams.get('columns') ? urlParams.get('columns') : (override.columns !== undefined ? override.columns : (serverTheme.columns || 0));
+            const scaleVal = urlParams.get('scale') || urlParams.get('fontscale') || (override.scale !== undefined ? override.scale : (serverTheme.scale || 1.0));
+            const radVal = urlParams.get('radius') || (override.cardRadius !== undefined ? override.cardRadius : serverTheme.cardRadius);
             return {
                 preset: urlParams.get('theme') || urlParams.get('preset') || override.preset || serverTheme.preset || 'dark',
                 layout: urlParams.get('layout') || override.layout || serverTheme.layout || 'grid',
-                columns: urlParams.get('columns') ? parseInt(urlParams.get('columns'), 10) : (override.columns !== undefined ? override.columns : (serverTheme.columns || 0)),
-                scale: urlParams.get('scale') ? parseFloat(urlParams.get('scale')) : (override.scale !== undefined ? override.scale : (serverTheme.scale || 1.0)),
+                columns: parseInt(resolveVar(colVal), 10) || 0,
+                scale: parseFloat(resolveVar(scaleVal)) || 1.0,
                 showHeader: urlParams.get('header') !== null ? (urlParams.get('header') !== '0' && urlParams.get('header') !== 'false') : (override.showHeader !== undefined ? override.showHeader : (serverTheme.showHeader !== false)),
-                titleText: urlParams.get('title') || override.titleText || serverTheme.titleText || 'Subathon Rates',
+                titleText: resolveVar(urlParams.get('title') || override.titleText || serverTheme.titleText || 'Subathon Rates'),
                 showTotalBadge: urlParams.get('total') !== null ? (urlParams.get('total') !== '0') : (override.showTotalBadge !== undefined ? override.showTotalBadge : (serverTheme.showTotalBadge !== false)),
                 showBoostBanner: urlParams.get('boost') !== null ? (urlParams.get('boost') !== '0') : (override.showBoostBanner !== undefined ? override.showBoostBanner : (serverTheme.showBoostBanner !== false)),
                 showCardIcons: urlParams.get('icons') !== null ? (urlParams.get('icons') !== '0') : (override.showCardIcons !== undefined ? override.showCardIcons : (serverTheme.showCardIcons !== false)),
@@ -289,18 +300,18 @@
                 showBits: urlParams.get('bits') !== null ? (urlParams.get('bits') !== '0') : (override.showBits !== undefined ? override.showBits : (serverTheme.showBits !== false)),
                 showFollows: urlParams.get('follows') !== null ? (urlParams.get('follows') !== '0') : (override.showFollows !== undefined ? override.showFollows : (serverTheme.showFollows !== false)),
                 showRaids: urlParams.get('raids') !== null ? (urlParams.get('raids') !== '0') : (override.showRaids !== undefined ? override.showRaids : (serverTheme.showRaids !== false)),
-                cardBackground: override.cardBackground || serverTheme.cardBackground || '',
-                cardBorder: override.cardBorder || serverTheme.cardBorder || '',
-                cardRadius: override.cardRadius !== undefined ? override.cardRadius : serverTheme.cardRadius,
-                textColor: override.textColor || serverTheme.textColor || '',
-                textMuted: override.textMuted || serverTheme.textMuted || '',
-                accentColor: override.accentColor || serverTheme.accentColor || '',
-                boostBannerColor: override.boostBannerColor || serverTheme.boostBannerColor || '',
-                fontFamily: override.fontFamily || serverTheme.fontFamily || '',
-                headerFontFamily: override.headerFontFamily || serverTheme.headerFontFamily || '',
-                headerSize: override.headerSize || serverTheme.headerSize || '1.15rem',
-                valueSize: override.valueSize || serverTheme.valueSize || '1.35rem',
-                valueWeight: override.valueWeight || serverTheme.valueWeight || '800'
+                cardBackground: resolveVar(urlParams.get('bg') || urlParams.get('cardbg') || override.cardBackground || serverTheme.cardBackground || ''),
+                cardBorder: resolveVar(urlParams.get('border') || override.cardBorder || serverTheme.cardBorder || ''),
+                cardRadius: radVal !== undefined && radVal !== null ? resolveVar(String(radVal)) : undefined,
+                textColor: resolveVar(urlParams.get('text') || override.textColor || serverTheme.textColor || ''),
+                textMuted: resolveVar(urlParams.get('muted') || override.textMuted || serverTheme.textMuted || ''),
+                accentColor: resolveVar(urlParams.get('accent') || override.accentColor || serverTheme.accentColor || ''),
+                boostBannerColor: resolveVar(override.boostBannerColor || serverTheme.boostBannerColor || ''),
+                fontFamily: resolveVar(urlParams.get('font') || override.fontFamily || serverTheme.fontFamily || ''),
+                headerFontFamily: resolveVar(urlParams.get('headingfont') || urlParams.get('hfont') || override.headerFontFamily || serverTheme.headerFontFamily || ''),
+                headerSize: resolveVar(urlParams.get('hsize') || override.headerSize || serverTheme.headerSize || '1.15rem'),
+                valueSize: resolveVar(urlParams.get('vsize') || override.valueSize || serverTheme.valueSize || '1.35rem'),
+                valueWeight: resolveVar(urlParams.get('weight') || override.valueWeight || serverTheme.valueWeight || '800')
             };
         }
 
@@ -334,7 +345,10 @@
             root.style.setProperty('--scale', theme.scale || 1);
             if (theme.cardBackground) root.style.setProperty('--bg-card', theme.cardBackground);
             if (theme.cardBorder) root.style.setProperty('--border-card', theme.cardBorder);
-            if (theme.cardRadius !== undefined) root.style.setProperty('--radius-card', `${theme.cardRadius}px`);
+            if (theme.cardRadius !== undefined) {
+                const radStr = String(theme.cardRadius).trim();
+                root.style.setProperty('--radius-card', /^\d+(\.\d+)?$/.test(radStr) ? `${radStr}px` : radStr);
+            }
             if (theme.textColor) root.style.setProperty('--text-main', theme.textColor);
             if (theme.textMuted) root.style.setProperty('--text-sub', theme.textMuted);
             if (theme.accentColor) {

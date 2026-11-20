@@ -17,7 +17,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - **Temporal Variables**: Standalone Date, Time, Date & Time, and Duration values with inline editing, inspector controls and type filters.
 - **Variable Groups & Fonts**: Renamable groups with group-qualified placeholders, drag-and-drop membership, JSON import/export, inline editing, bookmarkable links and live font bindings; reusable Badge/Strip builders with uniformly scaled previews.
 - **Number Variables**: Bounds, steps, precision, explicit resets, counter controls, independently formatted Text placeholders, live numeric style bindings, and a laptop-friendly grouped Variables Studio with inline editing and a shared inspector.
-- **Variables & Variable Sets**: Typed live values, slotless/multi-slot rosters, named slots, queues, rotation, group formatting, inline icons/color bindings, JSON/CSV import/export and Companion controls.
+- **Variables & Variable Sets**: Typed live values, slotless/multi-slot rosters, named slots, queues, rotation, group formatting, inline icons/color bindings, JSON/CSV import/export, Companion controls, and Variable Settings (`var:<key>|<fallback>`) across all URL Wizards and Studio Theming Builders.
 - **Custom Overlay Styling & Presets**: Composable 21 frame border styles (`solid`..`outset`, `neon-tube`, `double-ring`, `corner-brackets`, `tech-hud`, `chamfer`, `notched`, `crosshair`, `hazard`, `chevron-track`, `scallop-stamp`, `ornate-filigree`, `pixel-arcade`, `film-sprocket`) compatible with border gradients and all 10 animated border modes, per-corner border radiuses (`borderRadiusCorners`), box/text shadow quick-chips, explicit **Middle color stop (optional)** toggle on 3-stop gradients, `X`/`Y` text shadow offsets, italic & tabular-numeral typography toggles, pure-motion whole-block / per-word / per-character text animations (with `Loop continuously` or `Once on load` playback + configurable start delay) honoring `.sp-fx-paused` and `prefers-reduced-motion`, element-specific sections prioritized at the top of the **Style** tab, and built-in plus saved Element **Style Presets** (`/api/custom-overlays/style-presets`, persisted in `data/style-presets.json`).
 - **Custom Overlay Text Cycling**: Added `cycle` options (`fade`, `slide-up`, `flip`, `none`, configurable hold & transition duration) to Text elements so multi-line templates automatically rotate and skip lines whose placeholders resolve to empty.
 - **Analytics**: Period comparisons, activity heatmaps, milestone estimates, and remembered views and date ranges.
@@ -50,6 +50,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - **Trivia**: Chat-voting silence, saved sound/blur/collapse controls, live-edit preservation, question ordering/tracking, auto-advance, and Companion state mapping.
 - **Subathon**: Preserve omitted donation settings during rule edits and update idle overlays when timed boosts expire.
 - **Tier List**: Apply appearance and viewport changes to the live preview without reloading it.
+- **Credits**: Display the formatted donation total (`$XX.XX`) from `stats.donations[name].amounts` instead of `(×1)` count when the Donators section uses the `stats` (Last N days) source.
 
 ---
 

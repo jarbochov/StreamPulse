@@ -422,9 +422,18 @@
                 return val !== '0' && val !== 'false' && val !== 'off';
             }
 
+            function resolveVar(val) {
+                if (typeof val !== 'string' || !val) return val;
+                if (window.OverlayVariableSettings && typeof window.OverlayVariableSettings.resolve === 'function') {
+                    return window.OverlayVariableSettings.resolve(val);
+                }
+                return val;
+            }
+
             function formatColor(raw) {
-                if (!raw || typeof raw !== 'string') return '';
-                const s = raw.trim();
+                const resolved = resolveVar(raw);
+                if (!resolved || typeof resolved !== 'string') return '';
+                const s = resolved.trim();
                 if (!s) return '';
                 if (/^[0-9a-fA-F]{3,8}$/.test(s)) return '#' + s;
                 return s;
@@ -439,11 +448,12 @@
                 const sortBy = params.get('sort') || params.get('sortBy') || merged.sortBy || liveData.settings?.leaderboard?.sortBy || 'points';
                 const layout = params.get('layout') || params.get('mode') || merged.layout || 'full';
                 const theme = params.get('theme') || merged.theme || 'modern';
-                const limitRaw = parseInt(params.get('limit') ?? merged.limit ?? 10, 10);
+                const limitRaw = parseInt(resolveVar(params.get('limit') ?? merged.limit ?? 10), 10);
                 const limit = Math.max(1, Math.min(25, Number.isFinite(limitRaw) ? limitRaw : 10));
-                const scaleRaw = parseFloat(params.get('scale') ?? merged.scale ?? 1);
+                const scaleRaw = parseFloat(resolveVar(params.get('scale') ?? merged.scale ?? 1));
                 const scale = Math.max(0.5, Math.min(2.5, Number.isFinite(scaleRaw) ? scaleRaw : 1));
-                const title = params.has('title') ? params.get('title') : (merged.title || 'Trivia Leaderboard');
+                const title = resolveVar(params.has('title') ? params.get('title') : (merged.title || 'Trivia Leaderboard'));
+                const fontFamily = resolveVar(params.get('font') || merged.fontFamily || '');
 
                 return {
                     scope: scope === 'session' ? 'session' : 'season',
@@ -453,6 +463,7 @@
                     limit,
                     scale,
                     title,
+                    fontFamily,
                     bgColor: formatColor(params.get('bg') || merged.bgColor),
                     cardBgColor: formatColor(params.get('cardbg') || merged.cardBgColor),
                     accentColor: formatColor(params.get('accent') || merged.accentColor),
@@ -504,6 +515,13 @@
 
                 if (cfg.textColor) document.documentElement.style.setProperty('--text-color', cfg.textColor);
                 else document.documentElement.style.removeProperty('--text-color');
+
+                if (cfg.fontFamily) {
+                    window.loadUrlFont?.(cfg.fontFamily);
+                    document.documentElement.style.setProperty('--font-family', `"${cfg.fontFamily}", 'Inter', system-ui, sans-serif`);
+                } else {
+                    document.documentElement.style.removeProperty('--font-family');
+                }
 
                 headerEl.style.display = cfg.showHeader ? 'flex' : 'none';
                 titleEl.textContent = cfg.title || 'Trivia Leaderboard';

@@ -83,6 +83,48 @@ async function init() {
     await Preview.populateFontDatalist();
     Preview.populateThemeDropdowns();
     Preview.restorePollsOverlayPrefs();
+    if (window.WizardVariableBinder) {
+        window.WizardVariableBinder.mount({
+            storageKey: 'streampulse_polls_overlay_vars_v1',
+            onChange: () => {
+                Preview.updatePollOverlayUrl();
+                Preview.updateTourneyOverlayUrl();
+            },
+            bindings: [
+                { id: 'poll-opt-heading-font', param: 'headingfont', kind: 'font', label: 'Poll Title Font', overlays: ['poll'] },
+                { id: 'poll-opt-font', param: 'font', kind: 'font', label: 'Poll Body Font', overlays: ['poll'] },
+                { id: 'poll-opt-scale', param: 'fontscale', kind: 'number', label: 'Poll Font Scale', overlays: ['poll'] },
+                { id: 'poll-opt-weight', param: 'weight', kind: 'number', label: 'Poll Font Weight', overlays: ['poll'] },
+                { id: 'poll-opt-radius', param: 'radius', kind: 'number', label: 'Poll Corner Radius', overlays: ['poll'] },
+                { id: 'poll-opt-outline', param: 'outline', kind: 'text', label: 'Poll Text Outline', overlays: ['poll'] },
+                { id: 'poll-opt-text', param: 'text', kind: 'color', label: 'Poll Text Color', overlays: ['poll'] },
+                { id: 'poll-opt-muted', param: 'muted', kind: 'color', label: 'Poll Muted Color', overlays: ['poll'] },
+                { id: 'poll-opt-cardbg', param: 'cardbg', kind: 'color', label: 'Poll Card Background', overlays: ['poll'] },
+                { id: 'poll-opt-border', param: 'border', kind: 'color', label: 'Poll Border Color', overlays: ['poll'] },
+                { id: 'poll-opt-accent', param: 'accent', kind: 'color', label: 'Poll Accent Color', overlays: ['poll'] },
+                { id: 'poll-opt-winner', param: 'winner', kind: 'color', label: 'Poll Winner Color', overlays: ['poll'] },
+                { id: 'poll-opt-track', param: 'track', kind: 'color', label: 'Poll Track Color', overlays: ['poll'] },
+                { id: 'tourney-opt-heading-font', param: 'headingfont', kind: 'font', label: 'Bracket Title Font', overlays: ['tourney'] },
+                { id: 'tourney-opt-font', param: 'font', kind: 'font', label: 'Bracket Body Font', overlays: ['tourney'] },
+                { id: 'tourney-opt-scale', param: 'scale', kind: 'number', label: 'Bracket Font Scale', overlays: ['tourney'] },
+                { id: 'tourney-opt-weight', param: 'weight', kind: 'number', label: 'Bracket Font Weight', overlays: ['tourney'] },
+                { id: 'tourney-opt-radius', param: 'radius', kind: 'number', label: 'Bracket Corner Radius', overlays: ['tourney'] },
+                { id: 'tourney-opt-outline', param: 'outline', kind: 'text', label: 'Bracket Text Outline', overlays: ['tourney'] },
+                { id: 'tourney-opt-gap', param: 'gap', kind: 'number', label: 'Bracket Gap', overlays: ['tourney'] },
+                { id: 'tourney-opt-logosize', param: 'logosize', kind: 'number', label: 'Bracket Logo Size', overlays: ['tourney'] },
+                { id: 'tourney-opt-text', param: 'text', kind: 'color', label: 'Bracket Text Color', overlays: ['tourney'] },
+                { id: 'tourney-opt-muted', param: 'muted', kind: 'color', label: 'Bracket Muted Color', overlays: ['tourney'] },
+                { id: 'tourney-opt-cardbg', param: 'cardbg', kind: 'color', label: 'Bracket Card Background', overlays: ['tourney'] },
+                { id: 'tourney-opt-bg', param: 'bg', kind: 'color', label: 'Bracket Page Background', overlays: ['tourney'] },
+                { id: 'tourney-opt-border', param: 'border', kind: 'color', label: 'Bracket Border Color', overlays: ['tourney'] },
+                { id: 'tourney-opt-accent', param: 'accent', kind: 'color', label: 'Bracket Accent Color', overlays: ['tourney'] },
+                { id: 'tourney-opt-winner', param: 'winner', kind: 'color', label: 'Bracket Winner Color', overlays: ['tourney'] },
+                { id: 'tourney-opt-badgecolor', param: 'badgecolor', kind: 'color', label: 'Bracket Badge Color', overlays: ['tourney'] },
+                { id: 'tourney-opt-p1color', param: 'p1color', kind: 'color', label: 'Bracket Option A Color', overlays: ['tourney'] },
+                { id: 'tourney-opt-p2color', param: 'p2color', kind: 'color', label: 'Bracket Option B Color', overlays: ['tourney'] }
+            ]
+        });
+    }
     Preview.setPreviewMode(Preview.previewMode);
     const restored = Editor.restorePollDraft();
     if (!restored) {

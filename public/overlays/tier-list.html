@@ -1066,8 +1066,16 @@
                 return '';
             }
 
+            function resolveVar(val) {
+                if (typeof val !== 'string' || !val) return val;
+                if (window.OverlayVariableSettings && typeof window.OverlayVariableSettings.resolve === 'function') {
+                    return window.OverlayVariableSettings.resolve(val);
+                }
+                return val;
+            }
+
             function cleanCssColor(raw) {
-                const val = String(raw ?? '').trim();
+                const val = String(resolveVar(raw) ?? '').trim();
                 if (!val || val.length > 160) return '';
                 if (/[;{}<>]|url\s*\(|expression/i.test(val)) return '';
                 if (/^[0-9a-f]{3}([0-9a-f]{3}([0-9a-f]{2})?)?$/i.test(val)) return `#${val}`;
@@ -1077,11 +1085,11 @@
             }
 
             function cleanFontName(raw) {
-                return String(raw ?? '').replace(/["'<>;{}\\]/g, '').trim().slice(0, 80);
+                return String(resolveVar(raw) ?? '').replace(/["'<>;{}\\]/g, '').trim().slice(0, 80);
             }
 
             function cleanWeight(raw) {
-                const w = String(raw ?? '').trim().toLowerCase();
+                const w = String(resolveVar(raw) ?? '').trim().toLowerCase();
                 if (!w) return '';
                 if (w === 'normal') return '400';
                 if (w === 'bold') return '700';
@@ -1089,19 +1097,20 @@
             }
 
             function cleanTransform(raw) {
-                const t = String(raw ?? '').trim().toLowerCase();
+                const t = String(resolveVar(raw) ?? '').trim().toLowerCase();
                 return ['none', 'uppercase', 'capitalize', 'lowercase'].includes(t) ? t : '';
             }
 
             function cleanOutline(raw) {
-                const o = String(raw ?? '').trim().toLowerCase();
+                const resolved = resolveVar(raw);
+                const o = String(resolved ?? '').trim().toLowerCase();
                 if (!o) return '';
                 if (['none', 'subtle', 'strong'].includes(o)) return o;
-                return cleanCssColor(raw);
+                return cleanCssColor(resolved);
             }
 
             function cleanRadius(raw) {
-                const v = String(raw ?? '').trim().toLowerCase();
+                const v = String(resolveVar(raw) ?? '').trim().toLowerCase();
                 if (!v) return '';
                 if (/^\d+$/.test(v)) return `${Math.min(999, Math.max(0, Number(v)))}px`;
                 if (/^\d+(\.\d+)?(px|rem|em|%)$/.test(v)) return v;
@@ -1111,7 +1120,7 @@
             }
 
             function cleanBlur(raw) {
-                const v = String(raw ?? '').trim().toLowerCase();
+                const v = String(resolveVar(raw) ?? '').trim().toLowerCase();
                 if (!v) return '';
                 if (v === 'none') return '0px';
                 if (/^\d+(\.\d+)?$/.test(v)) return `${Math.min(24, Math.max(0, Math.round(Number(v))))}px`;
@@ -1121,7 +1130,7 @@
             }
 
             function cleanFontScale(raw) {
-                const n = Number(raw);
+                const n = Number(resolveVar(raw));
                 if (Number.isFinite(n) && n > 0) {
                     return Math.round(Math.min(2.5, Math.max(0.5, n)) * 100) / 100;
                 }
@@ -1209,8 +1218,9 @@
             }
 
             function parseScaleNumber(raw) {
-                if (!raw) return 1.0;
-                const s = String(raw).trim().toLowerCase();
+                const resolved = resolveVar(raw);
+                if (!resolved) return 1.0;
+                const s = String(resolved).trim().toLowerCase();
                 if (s === 'compact' || s === 'small') return 0.8;
                 if (s === 'medium' || s === 'normal') return 1.0;
                 if (s === 'large') return 1.35;
@@ -1223,8 +1233,9 @@
             }
 
             function parseHintScaleNumber(raw, fallbackSize) {
-                if (raw !== undefined && raw !== null && String(raw).trim() !== '') {
-                    const s = String(raw).trim().toLowerCase();
+                const resolved = resolveVar(raw);
+                if (resolved !== undefined && resolved !== null && String(resolved).trim() !== '') {
+                    const s = String(resolved).trim().toLowerCase();
                     if (s === 'compact' || s === 'small') return 0.85;
                     if (s === 'medium' || s === 'normal') return 1.0;
                     if (s === 'large') return 1.25;
@@ -1240,7 +1251,7 @@
             }
 
             function clampBannerHeight(raw) {
-                const n = Math.round(Number(raw));
+                const n = Math.round(Number(resolveVar(raw)));
                 return Number.isFinite(n) ? Math.min(240, Math.max(48, n)) : 110;
             }
 

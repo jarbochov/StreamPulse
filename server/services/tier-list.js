@@ -256,9 +256,16 @@ function sanitizeAudioUrl(raw) {
     return '';
 }
 
+const VAR_TOKEN_VALUE_RE = /^(?:var:[a-z0-9_.]+(?:\|[^;{}<>]*)?|\{\{\s*var\.[a-z0-9_.]+\s*(?:\|[^;{}<>]*?)?\s*\}\})$/i;
+
+function isVarTokenValue(val) {
+    return typeof val === 'string' && VAR_TOKEN_VALUE_RE.test(val.trim());
+}
+
 function sanitizeCssColor(raw) {
     const val = String(raw ?? '').trim();
     if (!val || val.length > 160) return '';
+    if (isVarTokenValue(val)) return val;
     if (/[;{}<>]|url\s*\(|expression/i.test(val)) return '';
     if (/^[0-9a-f]{3}([0-9a-f]{3}([0-9a-f]{2})?)?$/i.test(val)) return `#${val}`;
     if (/^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([0-9.,%\s/+-]+\)|transparent|[a-z]{3,20})$/i.test(val)) return val;
@@ -267,11 +274,15 @@ function sanitizeCssColor(raw) {
 }
 
 function sanitizeFontName(raw) {
-    return String(raw ?? '').replace(/["'<>;{}\\]/g, '').trim().slice(0, 80);
+    const val = String(raw ?? '').trim();
+    if (isVarTokenValue(val)) return val.slice(0, 120);
+    return val.replace(/["'<>;{}\\]/g, '').trim().slice(0, 80);
 }
 
 function sanitizeFontWeight(raw) {
-    const w = String(raw ?? '').trim().toLowerCase();
+    const rawStr = String(raw ?? '').trim();
+    if (isVarTokenValue(rawStr)) return rawStr;
+    const w = rawStr.toLowerCase();
     if (!w) return '';
     if (w === 'normal') return '400';
     if (w === 'bold') return '700';
@@ -291,7 +302,9 @@ function sanitizeTextOutline(raw) {
 }
 
 function sanitizeBorderRadius(raw) {
-    const v = String(raw ?? '').trim().toLowerCase();
+    const rawStr = String(raw ?? '').trim();
+    if (isVarTokenValue(rawStr)) return rawStr;
+    const v = rawStr.toLowerCase();
     if (!v) return '';
     if (/^\d+$/.test(v)) return `${Math.min(999, Math.max(0, Number(v)))}px`;
     if (/^\d+(\.\d+)?(px|rem|em|%)$/.test(v)) return v;
@@ -301,7 +314,9 @@ function sanitizeBorderRadius(raw) {
 }
 
 function sanitizeBackdropBlur(raw) {
-    const v = String(raw ?? '').trim().toLowerCase();
+    const rawStr = String(raw ?? '').trim();
+    if (isVarTokenValue(rawStr)) return rawStr;
+    const v = rawStr.toLowerCase();
     if (!v) return '';
     if (v === 'none') return '0px';
     if (/^\d+(\.\d+)?$/.test(v)) {
@@ -341,10 +356,15 @@ function normalizeTheme(patch = {}, current = DEFAULT_THEME) {
     merged.headingFont = sanitizeFontName(src.headingFont !== undefined ? src.headingFont : merged.headingFont);
     merged.fontFamily = sanitizeFontName(src.fontFamily !== undefined ? src.fontFamily : merged.fontFamily);
     merged.fontWeight = sanitizeFontWeight(src.fontWeight !== undefined ? src.fontWeight : merged.fontWeight);
-    const parsedFontScale = Number(src.fontScale !== undefined ? src.fontScale : merged.fontScale);
-    merged.fontScale = (Number.isFinite(parsedFontScale) && parsedFontScale > 0)
-        ? Math.round(Math.min(2.5, Math.max(0.5, parsedFontScale)) * 100) / 100
-        : 1;
+    const rawFontScale = src.fontScale !== undefined ? src.fontScale : merged.fontScale;
+    if (isVarTokenValue(String(rawFontScale || ''))) {
+        merged.fontScale = String(rawFontScale).trim();
+    } else {
+        const parsedFontScale = Number(rawFontScale);
+        merged.fontScale = (Number.isFinite(parsedFontScale) && parsedFontScale > 0)
+            ? Math.round(Math.min(2.5, Math.max(0.5, parsedFontScale)) * 100) / 100
+            : 1;
+    }
     merged.textTransform = sanitizeTextTransform(src.textTransform !== undefined ? src.textTransform : merged.textTransform);
     merged.textOutline = sanitizeTextOutline(src.textOutline !== undefined ? src.textOutline : merged.textOutline);
 
@@ -387,7 +407,7 @@ function normalizeTheme(patch = {}, current = DEFAULT_THEME) {
 
     const rawHintScale = String(merged.hintScale ?? '1').trim();
     const parsedHintScale = parseFloat(rawHintScale);
-    if (['0.85', '1', '1.25', '1.5'].includes(rawHintScale)) {
+    if (isVarTokenValue(rawHintScale) || ['0.85', '1', '1.25', '1.5'].includes(rawHintScale)) {
         merged.hintScale = rawHintScale;
     } else if (Number.isFinite(parsedHintScale) && parsedHintScale > 0 && parsedHintScale <= 5) {
         merged.hintScale = String(parsedHintScale);

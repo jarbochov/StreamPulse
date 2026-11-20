@@ -5,6 +5,7 @@
     <script src="/appearance.js"></script>
     <script src="/overlay-theme.js"></script>
     <script src="/js/overlay-shared.js"></script>
+    <script src="/js/wizard-variable-binder.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -867,21 +868,26 @@
     }
 
     function refreshWizard() {
+        const vb = window.WizardVariableBinder;
+        const readRaw = (id) => vb ? vb.readValue(id, document.getElementById(id)?.value) : (document.getElementById(id)?.value || '');
+        const readRes = (id) => vb ? vb.readResolvedValue(id, document.getElementById(id)?.value) : (document.getElementById(id)?.value || '');
         const view = document.getElementById('view-mode').value;
         const list = document.getElementById('list-id').value;
-        const period = document.getElementById('period-filter').value.trim();
-        const max = document.getElementById('max-items').value.trim();
+        const period = String(readRaw('period-filter') || '').trim();
+        const max = String(readRaw('max-items') || '').trim();
         const sort = document.getElementById('sort-order')?.value;
         const theme = document.getElementById('theme').value;
-        const font = (document.getElementById('wiz-font').value || '').trim();
-        const weight = document.getElementById('wiz-weight').value;
-        const accent = document.getElementById('accent').value.trim();
-        const bg = (document.getElementById('wiz-bg')?.value || '').trim();
-        const border = (document.getElementById('wiz-border')?.value || '').trim();
-        const text = (document.getElementById('wiz-text')?.value || '').trim();
-        const blur = document.getElementById('wiz-blur')?.value;
-        const scale = parseFloat(document.getElementById('scale').value || '1');
-        const coverScale = parseFloat(document.getElementById('cover-scale').value || '1');
+        const font = String(readRaw('wiz-font') || '').trim();
+        const weight = readRaw('wiz-weight');
+        const accent = String(readRaw('accent') || '').trim();
+        const bg = String(readRaw('wiz-bg') || '').trim();
+        const border = String(readRaw('wiz-border') || '').trim();
+        const text = String(readRaw('wiz-text') || '').trim();
+        const blur = readRaw('wiz-blur');
+        const scaleRaw = readRaw('scale') || '1';
+        const coverScaleRaw = readRaw('cover-scale') || '1';
+        const scale = parseFloat(readRes('scale') || '1') || 1;
+        const coverScale = parseFloat(readRes('cover-scale') || '1') || 1;
         const coverFit = document.getElementById('cover-fit').value;
         const align = document.getElementById('align').value;
         const showCovers = document.getElementById('show-covers').checked;
@@ -897,31 +903,39 @@
         if (view !== 'schedule') params.set('view', view);
         if (list !== 'scheduled') params.set('list', list);
         if (period) params.set('period', period);
-        if (max && max !== '5') params.set('max', max);
+        if (max && (vb?.hasToken(max) || max !== '5')) params.set('max', max);
         if (sort && sort !== 'plan') params.set('sort', sort);
         if (theme && theme !== 'glass') params.set('theme', theme);
         if (font) params.set('font', font);
         if (weight) params.set('weight', weight);
 
         const currentPreset = THEME_PRESETS[theme];
-        if (accent && (theme === 'custom' || accent !== (currentPreset?.accent || '#3b82f6'))) {
+        if (accent && (vb?.hasToken(accent) || theme === 'custom' || accent !== (currentPreset?.accent || '#3b82f6'))) {
             params.set('accent', accent);
         }
-        if (bg && (theme === 'custom' || bg !== currentPreset?.bg)) {
+        if (bg && (vb?.hasToken(bg) || theme === 'custom' || bg !== currentPreset?.bg)) {
             params.set('bg', bg);
         }
-        if (border && (theme === 'custom' || border !== currentPreset?.border)) {
+        if (border && (vb?.hasToken(border) || theme === 'custom' || border !== currentPreset?.border)) {
             params.set('border', border);
         }
-        if (text && (theme === 'custom' || text !== currentPreset?.text)) {
+        if (text && (vb?.hasToken(text) || theme === 'custom' || text !== currentPreset?.text)) {
             params.set('text', text);
         }
-        if (blur !== undefined && blur !== '' && (theme === 'custom' || parseInt(blur, 10) !== currentPreset?.blur)) {
+        if (blur !== undefined && blur !== '' && (vb?.hasToken(blur) || theme === 'custom' || parseInt(blur, 10) !== currentPreset?.blur)) {
             params.set('blur', blur);
         }
 
-        if (scale !== 1) params.set('fontScale', scale.toFixed(2));
-        if (coverScale !== 1) params.set('coverScale', coverScale.toFixed(2));
+        if (vb?.hasToken(scaleRaw)) {
+            params.set('fontScale', scaleRaw);
+        } else if (scale !== 1) {
+            params.set('fontScale', scale.toFixed(2));
+        }
+        if (vb?.hasToken(coverScaleRaw)) {
+            params.set('coverScale', coverScaleRaw);
+        } else if (coverScale !== 1) {
+            params.set('coverScale', coverScale.toFixed(2));
+        }
         if (coverFit !== 'cover') params.set('coverFit', coverFit);
         if (align !== 'center') params.set('align', align);
         if (!showCovers) params.set('covers', '0');
@@ -929,6 +943,9 @@
         if (!showStatus) params.set('status', '0');
         if (!showGroups) params.set('groups', '0');
         if (!showDates) params.set('dates', '0');
+        if (vb && typeof vb.applyToParams === 'function') {
+            vb.applyToParams(params);
+        }
 
         const qs = params.toString();
         const relUrl = `/game-plan.html${qs ? `?${qs}` : ''}`;
@@ -951,28 +968,33 @@
         // Real-time iframe DOM style synchronization for immediate visual response
         try {
             const doc = iframe.contentDocument || iframe.contentWindow?.document;
+            const resBg = String(readRes('wiz-bg') || '').trim();
+            const resBorder = String(readRes('wiz-border') || '').trim();
+            const resText = String(readRes('wiz-text') || '').trim();
+            const resAccent = String(readRes('accent') || '').trim();
+            const resBlur = readRes('wiz-blur');
             if (doc && doc.body) {
-                if (bg) {
-                    doc.body.style.setProperty('--gp-bg', bg);
-                    doc.documentElement.style.setProperty('--gp-bg', bg);
+                if (resBg) {
+                    doc.body.style.setProperty('--gp-bg', resBg);
+                    doc.documentElement.style.setProperty('--gp-bg', resBg);
                     doc.body.classList.add('has-custom-bg');
                 }
-                if (border) {
-                    doc.body.style.setProperty('--gp-border', border);
-                    doc.documentElement.style.setProperty('--gp-border', border);
+                if (resBorder) {
+                    doc.body.style.setProperty('--gp-border', resBorder);
+                    doc.documentElement.style.setProperty('--gp-border', resBorder);
                     doc.body.classList.add('has-custom-border');
                 }
-                if (text) {
-                    doc.body.style.setProperty('--gp-text', text);
-                    doc.documentElement.style.setProperty('--gp-text', text);
+                if (resText) {
+                    doc.body.style.setProperty('--gp-text', resText);
+                    doc.documentElement.style.setProperty('--gp-text', resText);
                 }
-                if (accent) {
-                    const acc = accent.startsWith('#') ? accent : `#${accent}`;
+                if (resAccent) {
+                    const acc = resAccent.startsWith('#') ? resAccent : `#${resAccent}`;
                     doc.body.style.setProperty('--gp-accent', acc);
                     doc.documentElement.style.setProperty('--gp-accent', acc);
                 }
-                if (blur !== undefined && blur !== '') {
-                    const b = parseFloat(blur);
+                if (resBlur !== undefined && resBlur !== '') {
+                    const b = parseFloat(resBlur);
                     if (!isNaN(b)) {
                         doc.body.style.setProperty('--gp-blur', `${b}px`);
                         doc.documentElement.style.setProperty('--gp-blur', `${b}px`);
@@ -1165,6 +1187,7 @@
         gpResetting = true;
         try {
             try { localStorage.removeItem(WIZ_STORAGE_KEY); } catch {}
+            window.WizardVariableBinder?.resetAll?.();
             pendingListId = '';
             applyWizardPrefs(gpWizardDefaults);
             document.getElementById('list-id').value = '';
@@ -1241,6 +1264,28 @@
     gpWizardDefaults = captureWizardDefaults();
     window.addEventListener('resize', updatePreviewSize);
     initFromUrl();
+    if (window.WizardVariableBinder) {
+        window.WizardVariableBinder.mount({
+            storageKey: 'streampulse_wizard_gameplan_vars_v1',
+            onChange: () => {
+                syncPickersFromInputs();
+                refreshWizard();
+            },
+            bindings: [
+                { id: 'period-filter', param: 'period', kind: 'text', label: 'Period Filter' },
+                { id: 'max-items', param: 'max', kind: 'number', label: 'Max Items' },
+                { id: 'wiz-font', param: 'font', kind: 'font', label: 'Font Family' },
+                { id: 'wiz-weight', param: 'weight', kind: 'number', label: 'Font Weight' },
+                { id: 'accent', param: 'accent', kind: 'color', label: 'Accent Color' },
+                { id: 'wiz-bg', param: 'bg', kind: 'color', label: 'Background Color' },
+                { id: 'wiz-border', param: 'border', kind: 'color', label: 'Border Color' },
+                { id: 'wiz-text', param: 'text', kind: 'color', label: 'Text Color' },
+                { id: 'wiz-blur', param: 'blur', kind: 'number', label: 'Backdrop Blur (px)' },
+                { id: 'scale', param: 'fontScale', kind: 'number', label: 'Font Scale' },
+                { id: 'cover-scale', param: 'coverScale', kind: 'number', label: 'Cover Art Scale' }
+            ]
+        });
+    }
     gpWizardReady = true;
     loadCustomLists().then(() => {
         syncChipsFromInput();

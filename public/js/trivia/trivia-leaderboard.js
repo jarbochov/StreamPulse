@@ -51,6 +51,7 @@ function saveLbPref(key, val) {
 function normalizeColorValue(val) {
     const raw = String(val || '').trim();
     if (!raw) return '';
+    if (window.WizardVariableBinder?.hasToken(raw)) return raw;
     return raw.startsWith('#') ? raw : `#${raw}`;
 }
 
@@ -60,7 +61,10 @@ function setPairColor(baseId, value, fallback) {
     const pickerEl = document.getElementById(`${baseId}-picker`);
     if (textEl) textEl.value = resolved;
     if (pickerEl) {
-        const hex6 = resolved.replace(/[^0-9a-fA-F]/g, '').slice(0, 6);
+        const resVal = window.WizardVariableBinder?.hasToken(resolved)
+            ? String(window.WizardVariableBinder.resolveToken(resolved) || fallback)
+            : resolved;
+        const hex6 = resVal.replace(/[^0-9a-fA-F]/g, '').slice(0, 6);
         if (hex6.length === 6) pickerEl.value = `#${hex6}`;
     }
 }
@@ -86,29 +90,34 @@ function bindColorPair(baseId, onUpdate) {
 }
 
 function collectThemeFormPayload() {
-    const limitVal = parseInt(document.getElementById('cfg-lb-limit')?.value, 10);
-    const scaleVal = parseFloat(document.getElementById('cfg-lb-scale')?.value);
+    const vb = window.WizardVariableBinder;
+    const readVal = (id, fallback = '') => vb ? vb.readValue(id, document.getElementById(id)?.value ?? fallback) : (document.getElementById(id)?.value ?? fallback);
+    const limitRaw = readVal('cfg-lb-limit', '10');
+    const scaleRaw = readVal('cfg-lb-scale', '1');
+    const limitVal = parseInt(limitRaw, 10);
+    const scaleVal = parseFloat(scaleRaw);
     return {
         layout: document.getElementById('cfg-lb-layout')?.value || 'full',
         theme: document.getElementById('cfg-lb-theme')?.value || 'modern',
         scope: document.getElementById('cfg-lb-scope')?.value || 'season',
         sortBy: document.getElementById('cfg-lb-sort')?.value || 'points',
-        limit: Number.isFinite(limitVal) ? Math.max(1, Math.min(25, limitVal)) : 10,
-        title: document.getElementById('cfg-lb-title')?.value.trim() || 'Trivia Leaderboard',
-        bgColor: normalizeColorValue(document.getElementById('cfg-lb-bg-color')?.value) || '#0e1118f0',
-        cardBgColor: normalizeColorValue(document.getElementById('cfg-lb-card-bg')?.value) || '#161b26cc',
-        accentColor: normalizeColorValue(document.getElementById('cfg-lb-accent-color')?.value) || '#6366f1',
-        textColor: normalizeColorValue(document.getElementById('cfg-lb-text-color')?.value) || '#f8fafc',
+        limit: vb?.hasToken(limitRaw) ? limitRaw : (Number.isFinite(limitVal) ? Math.max(1, Math.min(25, limitVal)) : 10),
+        title: String(readVal('cfg-lb-title', 'Trivia Leaderboard')).trim() || 'Trivia Leaderboard',
+        bgColor: normalizeColorValue(readVal('cfg-lb-bg-color', '')) || '#0e1118f0',
+        cardBgColor: normalizeColorValue(readVal('cfg-lb-card-bg', '')) || '#161b26cc',
+        accentColor: normalizeColorValue(readVal('cfg-lb-accent-color', '')) || '#6366f1',
+        textColor: normalizeColorValue(readVal('cfg-lb-text-color', '')) || '#f8fafc',
         showPoints: document.getElementById('cfg-lb-show-points')?.checked !== false,
         showCorrect: document.getElementById('cfg-lb-show-correct')?.checked !== false,
         showAccuracy: document.getElementById('cfg-lb-show-accuracy')?.checked !== false,
         showStreak: document.getElementById('cfg-lb-show-streak')?.checked !== false,
         showHeader: document.getElementById('cfg-lb-show-header')?.checked !== false,
-        scale: Number.isFinite(scaleVal) ? Math.max(0.5, Math.min(2.0, scaleVal)) : 1
+        scale: vb?.hasToken(scaleRaw) ? scaleRaw : (Number.isFinite(scaleVal) ? Math.max(0.5, Math.min(2.0, scaleVal)) : 1)
     };
 }
 
 export function buildLeaderboardObsUrl() {
+    const vb = window.WizardVariableBinder;
     const cfg = collectThemeFormPayload();
     const qs = new URLSearchParams();
     qs.set('scope', cfg.scope);
@@ -116,13 +125,16 @@ export function buildLeaderboardObsUrl() {
     qs.set('limit', String(cfg.limit));
     qs.set('layout', cfg.layout);
     qs.set('theme', cfg.theme);
-    if (cfg.title && cfg.title !== 'Trivia Leaderboard') qs.set('title', cfg.title);
+    if (cfg.title && (vb?.hasToken(cfg.title) || cfg.title !== 'Trivia Leaderboard')) qs.set('title', cfg.title);
     if (!cfg.showPoints) qs.set('points', '0');
     if (!cfg.showCorrect) qs.set('correct', '0');
     if (!cfg.showAccuracy) qs.set('accuracy', '0');
     if (!cfg.showStreak) qs.set('streak', '0');
     if (!cfg.showHeader) qs.set('header', '0');
-    if (cfg.scale !== 1) qs.set('scale', String(cfg.scale));
+    if (vb?.hasToken(cfg.scale) || cfg.scale !== 1) qs.set('scale', String(cfg.scale));
+    if (vb && typeof vb.applyToParams === 'function') {
+        vb.applyToParams(qs, 'leaderboard');
+    }
     return `${location.origin}/overlays/trivia-leaderboard.html?${qs.toString()}`;
 }
 
@@ -448,9 +460,28 @@ export function initLeaderboardListeners() {
 
     document.getElementById('btn-lb-reset-theme')?.addEventListener('click', async () => {
         if (!confirm('Reset leaderboard overlay customization back to defaults?')) return;
+        if (window.WizardVariableBinder) {
+            ['cfg-lb-limit', 'cfg-lb-title', 'cfg-lb-scale', 'cfg-lb-bg-color', 'cfg-lb-card-bg', 'cfg-lb-accent-color', 'cfg-lb-text-color'].forEach(id => window.WizardVariableBinder.unbindControl(id, true));
+        }
         lbFormSignature = '';
         await resetLeaderboardTheme();
     });
+
+    if (window.WizardVariableBinder) {
+        window.WizardVariableBinder.mount({
+            storageKey: 'streampulse_trivia_lb_overlay_vars_v1',
+            onChange: () => updateLeaderboardPreview(),
+            bindings: [
+                { id: 'cfg-lb-limit', param: 'limit', kind: 'number', label: 'Leaderboard Top N Limit', overlays: ['leaderboard'] },
+                { id: 'cfg-lb-title', param: 'title', kind: 'text', label: 'Leaderboard Header Title', overlays: ['leaderboard'] },
+                { id: 'cfg-lb-scale', param: 'scale', kind: 'number', label: 'Leaderboard Scale', overlays: ['leaderboard'] },
+                { id: 'cfg-lb-bg-color', param: 'bg', kind: 'color', label: 'Leaderboard Panel Background', overlays: ['leaderboard'] },
+                { id: 'cfg-lb-card-bg', param: 'cardbg', kind: 'color', label: 'Leaderboard Row Card Fill', overlays: ['leaderboard'] },
+                { id: 'cfg-lb-accent-color', param: 'accent', kind: 'color', label: 'Leaderboard Accent Color', overlays: ['leaderboard'] },
+                { id: 'cfg-lb-text-color', param: 'text', kind: 'color', label: 'Leaderboard Text Color', overlays: ['leaderboard'] }
+            ]
+        });
+    }
 
     window.addEventListener('message', (event) => {
         if (event.data?.type === 'trivia-leaderboard:overlay-ready') {

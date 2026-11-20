@@ -254,7 +254,9 @@ const variablesStore = require('./server/services/variables')({
 const isVariableSetsEnabled = (cfg = config) => (typeof cfg?.variable_sets_enabled === 'boolean'
     ? cfg.variable_sets_enabled
     : variablesStore.listSets().length > 0);
+const isVariableSettingsEnabled = (cfg = config) => cfg?.variable_settings_enabled !== false;
 variablesStore.setModuleEnabled(isVariableSetsEnabled(config));
+variablesStore.setVariableSettingsEnabled(isVariableSettingsEnabled(config));
 const variableDisplays = require('./server/services/variable-displays')({
     dataDir: DATA_DIR,
     getDependencies: id => variableDependencies.forDisplay(id),
@@ -1115,6 +1117,7 @@ function applyRuntimeConfig(nextConfig) {
     communityService?.configChanged(previousCommunityEnabled);
     communityBot?.configChanged();
     variablesStore.setModuleEnabled(isVariableSetsEnabled(config));
+    variablesStore.setVariableSettingsEnabled(isVariableSettingsEnabled(config));
 
     const nextMusicConfig = config.music || { enabled: false, source: 'apple_music', poll_seconds: 5 };
     for (const key of Object.keys(MUSIC_CONFIG)) delete MUSIC_CONFIG[key];
@@ -1763,9 +1766,12 @@ function ingestEvent(input = {}) {
     chatData.donations.push({ chatname: user, amount: label, amountValue: amount, chatimg: avatar, timestamp: now.getTime(), source, ...(id ? { id } : {}) });
     if (!statsData.donations) statsData.donations = {};
     const entry = statsData.donations[user] ||= { chatimg: avatar, firstSeen: now.toISOString(), lastSeen: now.toISOString(), days: {}, amounts: {} };
+    if (!entry.days) entry.days = {};
+    if (!entry.amounts) entry.amounts = {};
     entry.days[today] = (entry.days[today] || 0) + 1;
     entry.amounts[today] = Number(((entry.amounts[today] || 0) + amount).toFixed(2));
     entry.lastSeen = now.toISOString();
+    if (avatar) entry.chatimg = avatar;
     console.log(`[Ingest] Donation (${source}): ${user} - ${label}`);
     saveChatData();
     saveStats();

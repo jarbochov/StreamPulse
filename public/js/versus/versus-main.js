@@ -134,6 +134,53 @@ function init() {
     populateFontDatalist();
     populateThemeDropdowns();
     restoreVersusOverlayPrefs();
+    if (window.WizardVariableBinder) {
+        window.WizardVariableBinder.mount({
+            storageKey: 'streampulse_versus_overlay_vars_v1',
+            onChange: () => {
+                updateMatchupOverlayUrl();
+                updateTourneyOverlayUrl();
+            },
+            bindings: [
+                { id: 'matchup-opt-heading-font', param: 'headingfont', kind: 'font', label: 'Matchup Title Font', overlays: ['matchup'] },
+                { id: 'matchup-opt-font', param: 'font', kind: 'font', label: 'Matchup Body Font', overlays: ['matchup'] },
+                { id: 'matchup-opt-weight', param: 'weight', kind: 'number', label: 'Matchup Font Weight', overlays: ['matchup'] },
+                { id: 'matchup-opt-radius', param: 'radius', kind: 'number', label: 'Matchup Corner Radius', overlays: ['matchup'] },
+                { id: 'matchup-opt-outline', param: 'outline', kind: 'text', label: 'Matchup Text Outline', overlays: ['matchup'] },
+                { id: 'matchup-opt-scale', param: 'scale', kind: 'number', label: 'Matchup Font Scale', overlays: ['matchup'] },
+                { id: 'matchup-opt-width', param: 'width', kind: 'number', label: 'Matchup Max Width', overlays: ['matchup'] },
+                { id: 'matchup-opt-gap', param: 'gap', kind: 'number', label: 'Matchup Gap', overlays: ['matchup'] },
+                { id: 'matchup-opt-accent', param: 'accent', kind: 'color', label: 'Matchup Accent Color', overlays: ['matchup'] },
+                { id: 'matchup-opt-badgecolor', param: 'badgecolor', kind: 'color', label: 'Matchup Badge Color', overlays: ['matchup'] },
+                { id: 'matchup-opt-text', param: 'text', kind: 'color', label: 'Matchup Text Color', overlays: ['matchup'] },
+                { id: 'matchup-opt-muted', param: 'muted', kind: 'color', label: 'Matchup Muted Color', overlays: ['matchup'] },
+                { id: 'matchup-opt-cardbg', param: 'cardbg', kind: 'color', label: 'Matchup Card Background', overlays: ['matchup'] },
+                { id: 'matchup-opt-bg', param: 'bg', kind: 'color', label: 'Matchup Page Background', overlays: ['matchup'] },
+                { id: 'matchup-opt-border', param: 'border', kind: 'color', label: 'Matchup Border Color', overlays: ['matchup'] },
+                { id: 'matchup-opt-winner', param: 'winner', kind: 'color', label: 'Matchup Winner Color', overlays: ['matchup'] },
+                { id: 'matchup-opt-p1color', param: 'p1color', kind: 'color', label: 'Matchup Player 1 Color', overlays: ['matchup'] },
+                { id: 'matchup-opt-p2color', param: 'p2color', kind: 'color', label: 'Matchup Player 2 Color', overlays: ['matchup'] },
+                { id: 'tourney-opt-heading-font', param: 'headingfont', kind: 'font', label: 'Bracket Title Font', overlays: ['tourney'] },
+                { id: 'tourney-opt-font', param: 'font', kind: 'font', label: 'Bracket Body Font', overlays: ['tourney'] },
+                { id: 'tourney-opt-scale', param: 'scale', kind: 'number', label: 'Bracket Font Scale', overlays: ['tourney'] },
+                { id: 'tourney-opt-weight', param: 'weight', kind: 'number', label: 'Bracket Font Weight', overlays: ['tourney'] },
+                { id: 'tourney-opt-radius', param: 'radius', kind: 'number', label: 'Bracket Corner Radius', overlays: ['tourney'] },
+                { id: 'tourney-opt-outline', param: 'outline', kind: 'text', label: 'Bracket Text Outline', overlays: ['tourney'] },
+                { id: 'tourney-opt-gap', param: 'gap', kind: 'number', label: 'Bracket Gap', overlays: ['tourney'] },
+                { id: 'tourney-opt-logosize', param: 'logosize', kind: 'number', label: 'Bracket Logo Size', overlays: ['tourney'] },
+                { id: 'tourney-opt-accent', param: 'accent', kind: 'color', label: 'Bracket Accent Color', overlays: ['tourney'] },
+                { id: 'tourney-opt-badgecolor', param: 'badgecolor', kind: 'color', label: 'Bracket Badge Color', overlays: ['tourney'] },
+                { id: 'tourney-opt-p1color', param: 'p1color', kind: 'color', label: 'Bracket Player 1 Color', overlays: ['tourney'] },
+                { id: 'tourney-opt-p2color', param: 'p2color', kind: 'color', label: 'Bracket Player 2 Color', overlays: ['tourney'] },
+                { id: 'tourney-opt-text', param: 'text', kind: 'color', label: 'Bracket Text Color', overlays: ['tourney'] },
+                { id: 'tourney-opt-muted', param: 'muted', kind: 'color', label: 'Bracket Muted Color', overlays: ['tourney'] },
+                { id: 'tourney-opt-cardbg', param: 'cardbg', kind: 'color', label: 'Bracket Card Background', overlays: ['tourney'] },
+                { id: 'tourney-opt-bg', param: 'bg', kind: 'color', label: 'Bracket Page Background', overlays: ['tourney'] },
+                { id: 'tourney-opt-border', param: 'border', kind: 'color', label: 'Bracket Border Color', overlays: ['tourney'] },
+                { id: 'tourney-opt-winner', param: 'winner', kind: 'color', label: 'Bracket Winner Color', overlays: ['tourney'] }
+            ]
+        });
+    }
     setPreviewMode(State.previewMode);
 
     try {

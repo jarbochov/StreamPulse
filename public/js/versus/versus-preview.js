@@ -437,6 +437,9 @@ export function updateTourneyOverlayUrl() {
 
     if (tourneyFitWholeBracket) urlParams.set('fit', '1');
     if ($('tourney-opt-wide') && $('tourney-opt-wide').checked) urlParams.set('wide', '1');
+    if (window.WizardVariableBinder) {
+        window.WizardVariableBinder.applyToParams(urlParams, 'tourney');
+    }
 
     const qs = urlParams.toString();
     const fullUrl = `${origin}/overlays/tournament.html${qs ? `?${qs}` : ''}`;
@@ -637,6 +640,9 @@ export function updateMatchupOverlayUrl() {
     if (fitCheck && fitCheck.checked) urlParams.set('fit', 'content');
     if (confettiCheck && !confettiCheck.checked) urlParams.set('confetti', '0');
     if ($('matchup-opt-wide') && $('matchup-opt-wide').checked) urlParams.set('wide', '1');
+    if (window.WizardVariableBinder) {
+        window.WizardVariableBinder.applyToParams(urlParams, 'matchup');
+    }
 
     const qs = urlParams.toString();
     const fullUrl = `${origin}/overlays/matchup.html${qs ? `?${qs}` : ''}`;
@@ -666,6 +672,9 @@ export function updateMatchupOverlayUrl() {
 export function resetMatchupOverlayDefaults() {
     resetContainerControlsToDefaults('ov-sec-matchup');
     resetContainerControlsToDefaults('preview-toolbar-matchup');
+    if (window.WizardVariableBinder) {
+        ['matchup-opt-heading-font','matchup-opt-font','matchup-opt-weight','matchup-opt-radius','matchup-opt-outline','matchup-opt-scale','matchup-opt-width','matchup-opt-gap','matchup-opt-accent','matchup-opt-badgecolor','matchup-opt-text','matchup-opt-muted','matchup-opt-cardbg','matchup-opt-bg','matchup-opt-border','matchup-opt-winner','matchup-opt-p1color','matchup-opt-p2color'].forEach(id => window.WizardVariableBinder.unbindControl(id, true));
+    }
     updateMatchupOverlayUrl();
     updateAssetFontBadges();
     saveVersusOverlayPrefs();
@@ -675,6 +684,9 @@ export function resetMatchupOverlayDefaults() {
 export function resetTourneyOverlayDefaults() {
     resetContainerControlsToDefaults('ov-sec-tree');
     resetContainerControlsToDefaults('preview-toolbar-tourney');
+    if (window.WizardVariableBinder) {
+        ['tourney-opt-heading-font','tourney-opt-font','tourney-opt-scale','tourney-opt-weight','tourney-opt-radius','tourney-opt-outline','tourney-opt-gap','tourney-opt-logosize','tourney-opt-accent','tourney-opt-badgecolor','tourney-opt-p1color','tourney-opt-p2color','tourney-opt-text','tourney-opt-muted','tourney-opt-cardbg','tourney-opt-bg','tourney-opt-border','tourney-opt-winner'].forEach(id => window.WizardVariableBinder.unbindControl(id, true));
+    }
     syncTourneyOverlayLogoUi('');
     setTourneyFitWholeBracket(false);
     updateTourneyOverlayUrl();
