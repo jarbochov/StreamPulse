@@ -1032,6 +1032,48 @@
             ]
         },
         {
+            section: 'OBS Border Studio (Beta / Advanced)',
+            items: [
+                {
+                    method: 'GET', path: '/api/obs-borders',
+                    desc: 'Get all OBS border profiles, target mappings, and scene rules',
+                    details: 'Returns activeProfileId, profiles, resolvedProfiles (with Variable Settings resolved), targetOverrides, knownScenes, knownBundles, manifestPath, and luaScriptPath.'
+                },
+                {
+                    method: 'GET', path: '/api/obs-borders/status',
+                    desc: 'Companion-friendly status summary for OBS Border Studio',
+                    details: 'Returns { activeProfileId, activeProfileName, profilesCount, bundlesCount, scenesCount, revision }.'
+                },
+                {
+                    method: 'GET', path: '/api/obs-borders/manifest',
+                    desc: 'Fetch the resolved manifest.json consumed by streampulse-borders.lua',
+                    details: 'Re-evaluates Variable Settings tokens (var:<key>|<fallback>) into numeric/RGBA values and returns the manifest payload.'
+                },
+                {
+                    method: 'GET', path: '/api/obs-borders/lua?download=1',
+                    desc: 'Download or view the generated Metal-safe OBS Lua effect filter script',
+                    details: 'Regenerates streampulse-borders.lua pre-configured with your local manifest.json path. Pass ?download=1 for Content-Disposition attachment.'
+                },
+                {
+                    method: 'GET', path: '/api/obs-borders/activate?profile=ID&target=BUNDLE',
+                    desc: 'Activate a border profile globally or assign it to a target bundle/source (Companion trigger)',
+                    details: 'Supports both GET query triggers and POST JSON { "profileId": "neon-rotator", "target": "Bundle - Webcam Full w/ Border" }. Omit target to switch the default active profile.'
+                },
+                {
+                    method: 'POST', path: '/api/obs-borders/profile',
+                    desc: 'Create or update a border profile',
+                    body: '{ "profile": { "id": "dual-gradient-bundle", "name": "Dual Gradient", "placement": "outset", "pad": 48, "radius": 20 }, "setActive": false }',
+                    details: 'Saves the profile, updates data/obs-borders/manifest.json immediately so OBS hot-reloads within 0.5s, and broadcasts obs-borders-update over WebSocket.'
+                },
+                {
+                    method: 'POST', path: '/api/obs-borders/import-scenes',
+                    desc: 'Import Scenes, Target Bundles, and legacy shader targets from an OBS Scene Collection JSON',
+                    body: '{ "filePath": "/path/to/PS4.json" }',
+                    details: 'Accepts either a loopback local filePath or inline jsonData. Extracts scenes, nested Bundle scenes, and legacy shader_filter targets.'
+                }
+            ]
+        },
+        {
             section: 'Custom Overlays & Assets',
             items: [
                 {

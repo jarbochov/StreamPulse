@@ -658,6 +658,27 @@
                             <label for="cfg-speaker-badges-enabled">Enable Speaker Badges module</label>
                         </div>
                     </div>
+
+                    <!-- OBS Border Studio (Beta / Advanced) Card -->
+                    <div class="module-card" data-module="obs-borders">
+                        <div class="module-card-head">
+                            <div class="module-card-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><rect x="7" y="7" width="10" height="10" rx="1.5"/></svg>
+                                <span>OBS Border Studio</span>
+                                <span class="beta-tag">BETA</span>
+                                <span class="advanced-tag">ADVANCED</span>
+                            </div>
+                            <span class="module-badge" id="badge-obs-borders">Active</span>
+                        </div>
+                        <p class="hint">Metal-compatible single-pass OBS Lua effect filter for dual outset/inset borders, 3D bevels, per-corner radii, and variable-driven live restyling.</p>
+                        <div class="cfg-toggle">
+                            <input type="checkbox" id="cfg-obs-borders-enabled" checked>
+                            <label for="cfg-obs-borders-enabled">Enable OBS Border Studio module</label>
+                        </div>
+                        <div class="module-links">
+                            <a class="module-link" href="/tools/obs-borders.html">Open Border Studio <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1033,6 +1054,7 @@
             document.getElementById('obs-scene-sync-options').hidden = !document.getElementById('cfg-obs-scene-sync-enabled')?.checked;
         }
         updateBadge('badge-speaker-badges', document.getElementById('cfg-speaker-badges-enabled')?.checked);
+        updateBadge('badge-obs-borders', document.getElementById('cfg-obs-borders-enabled')?.checked);
         updateBadge('badge-variable-sets', document.getElementById('cfg-variable-sets-enabled')?.checked);
         updateBadge('badge-variable-settings', document.getElementById('cfg-variable-settings-enabled')?.checked);
 
@@ -1123,6 +1145,7 @@
             document.getElementById('cfg-obs-enabled').checked = Boolean(obs.enabled);
             document.getElementById('cfg-speaker-badges-enabled').checked = cfg.speaker_badges_enabled === true;
             document.getElementById('cfg-obs-scene-sync-enabled').checked = cfg.obs_scene_sync_enabled !== false;
+            document.getElementById('cfg-obs-borders-enabled').checked = cfg.obs_borders_enabled !== false;
             document.getElementById('cfg-obs-host').value = obs.host || '127.0.0.1';
             document.getElementById('cfg-obs-port').value = obs.port || 4455;
             document.getElementById('cfg-obs-password').value = '';
@@ -1189,6 +1212,7 @@
             chatbot_enabled: document.getElementById('cfg-chatbot-enabled').checked,
             speaker_badges_enabled: document.getElementById('cfg-speaker-badges-enabled').checked,
             obs_scene_sync_enabled: document.getElementById('cfg-obs-scene-sync-enabled').checked,
+            obs_borders_enabled: document.getElementById('cfg-obs-borders-enabled').checked,
             polls_enabled: document.getElementById('cfg-polls-enabled').checked,
             versus_enabled: document.getElementById('cfg-versus-enabled').checked,
             trivia_enabled: document.getElementById('cfg-trivia-enabled').checked,
@@ -1289,7 +1313,7 @@
     document.getElementById('ssn-session-toggle').addEventListener('click', toggleSsnSession);
 
     // Module toggles update badges live
-    ['cfg-chatbot-enabled', 'cfg-music-enabled', 'cfg-wx-enabled', 'cfg-clips-enabled', 'cfg-polls-enabled', 'cfg-versus-enabled', 'cfg-trivia-enabled', 'cfg-subathon-enabled', 'cfg-variable-sets-enabled', 'cfg-variable-settings-enabled', 'cfg-obs-enabled', 'cfg-obs-scene-sync-enabled', 'cfg-speaker-badges-enabled'].forEach(id => {
+    ['cfg-chatbot-enabled', 'cfg-music-enabled', 'cfg-wx-enabled', 'cfg-clips-enabled', 'cfg-polls-enabled', 'cfg-versus-enabled', 'cfg-trivia-enabled', 'cfg-subathon-enabled', 'cfg-variable-sets-enabled', 'cfg-variable-settings-enabled', 'cfg-obs-enabled', 'cfg-obs-scene-sync-enabled', 'cfg-obs-borders-enabled', 'cfg-speaker-badges-enabled'].forEach(id => {
         document.getElementById(id)?.addEventListener('change', updateModuleBadges);
     });
 

@@ -69,7 +69,7 @@
     document.head.appendChild(style);
 
     const MODULE_STORAGE_KEY = 'streampulse:modules';
-    let moduleState = { chatbot: true, clips: true, weather: true, music: true, hashtags: true, polls: true, versus: true, trivia: true, subathon: false };
+    let moduleState = { chatbot: true, clips: true, weather: true, music: true, hashtags: true, polls: true, versus: true, trivia: true, subathon: false, obsBorders: true };
     try {
         const cached = localStorage.getItem(MODULE_STORAGE_KEY);
         if (cached) {
@@ -112,6 +112,7 @@
         { label: 'Tools', children: [
             { heading: 'Broadcast & Media' },
             { label: 'Alerts & SFX', href: '/alerts.html' },
+            { label: 'OBS Border Studio', href: '/tools/obs-borders.html', module: 'obsBorders' },
             { label: 'Chat Bot', href: '/chatbot.html', module: 'chatbot' },
             { label: 'Clips', href: '/clips.html', module: 'clips' },
             { label: 'Promo Creator', href: '/promo-creator.html' },
@@ -225,6 +226,7 @@
 
         // 3. Stream Tools & Automation
         list.push({ label: 'Alerts & SFX', href: '/alerts.html', group: 'Stream Tools' });
+        list.push({ label: 'OBS Border Studio (Beta)', href: '/tools/obs-borders.html', group: 'Stream Tools', module: 'obsBorders', keywords: 'obs border studio shader filter metal lua outset bevel rounded corners' });
         list.push({ label: 'Chat Bot', href: '/chatbot.html', group: 'Stream Tools', module: 'chatbot' });
         list.push({ label: 'Clips', href: '/clips.html', group: 'Stream Tools', module: 'clips', keywords: 'clips twitch video vod highlights markers' });
         list.push({ label: 'Trivia Studio', href: '/tools/trivia.html', group: 'Stream Tools', module: 'trivia', keywords: 'trivia quiz audience voting question bank true false questions game' });
@@ -796,6 +798,10 @@
             }
             if (event.detail.subathon_enabled !== undefined && moduleState.subathon !== (event.detail.subathon_enabled === true)) {
                 moduleState.subathon = event.detail.subathon_enabled === true;
+                changed = true;
+            }
+            if (event.detail.obs_borders_enabled !== undefined && moduleState.obsBorders !== (event.detail.obs_borders_enabled !== false)) {
+                moduleState.obsBorders = event.detail.obs_borders_enabled !== false;
                 changed = true;
             }
             if (changed) {

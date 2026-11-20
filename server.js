@@ -82,6 +82,8 @@ const { normalizeSsnSessionId } = require('./server/ssn-config');
 const { createUpdateService } = require('./server/services/updates');
 const { createObsService, normalizeObsConfig } = require('./server/services/obs');
 const { createObsRoutes } = require('./server/routes/obs');
+const { createObsBordersService } = require('./server/services/obs-borders');
+const { createObsBordersRoutes } = require('./server/routes/obs-borders');
 const { createRateLimiter } = require('./server/services/rate-limit');
 const { createGameInfoService, infoKey, GAME_INFO_VERSION } = require('./server/services/game-info');
 const { createShareBundleService } = require('./server/services/share-bundle');
@@ -245,11 +247,15 @@ const staticRouter = createStaticRouter({
     filterRecords: records => userModeration.filterRecords(records)
 });
 
+let obsBordersService = null;
 const variablesStore = require('./server/services/variables')({
     dataDir: DATA_DIR,
     getDependencies: (id, entryId, fieldKey) => fieldKey
         ? variableDependencies.forField(id, fieldKey) : variableDependencies.forSet(id, entryId),
-    onChange: data => broadcastToOverlays('variables-update', data)
+    onChange: data => {
+        broadcastToOverlays('variables-update', data);
+        obsBordersService?.syncResolvedManifest();
+    }
 });
 const isVariableSetsEnabled = (cfg = config) => (typeof cfg?.variable_sets_enabled === 'boolean'
     ? cfg.variable_sets_enabled
@@ -1118,6 +1124,7 @@ function applyRuntimeConfig(nextConfig) {
     communityBot?.configChanged();
     variablesStore.setModuleEnabled(isVariableSetsEnabled(config));
     variablesStore.setVariableSettingsEnabled(isVariableSettingsEnabled(config));
+    obsBordersService?.syncResolvedManifest();
 
     const nextMusicConfig = config.music || { enabled: false, source: 'apple_music', poll_seconds: 5 };
     for (const key of Object.keys(MUSIC_CONFIG)) delete MUSIC_CONFIG[key];
@@ -1287,6 +1294,19 @@ const triviaService = createTriviaService({
 const handleTriviaRoutes = createTriviaRoutes({
     triviaService,
     isTriviaEnabled: () => config.trivia_enabled === true
+});
+
+obsBordersService = createObsBordersService({
+    dataDir: DATA_DIR,
+    safeWriteFileSync,
+    getVariablesValues: () => variablesStore.values(),
+    isVariableSettingsEnabled: () => isVariableSettingsEnabled(config),
+    broadcastToOverlays
+});
+const handleObsBordersRoutes = createObsBordersRoutes({
+    obsBordersService,
+    obsService,
+    isLoopbackRequest
 });
 
 
@@ -1872,6 +1892,7 @@ const server = createHttpServer(async (req, res) => {
     if (await handleHighlightsRoutes(req, res, url, pathname)) return;
 
     if (await handleObsRoutes(req, res, pathname)) return;
+    if (await handleObsBordersRoutes(req, res, url, pathname)) return;
 
     // Static file serving via cascading static router
     if (staticRouter.handleRequest(req, res)) {

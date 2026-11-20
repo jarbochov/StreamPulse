@@ -23,6 +23,7 @@ All notable changes to StreamPulse are documented in this file. The format is ba
 - **Analytics**: Period comparisons, activity heatmaps, milestone estimates, and remembered views and date ranges.
 - **Community insights**: Optional viewer history, Twitch follow dates, and configurable welcome-back and personal milestone chat messages.
 - **Trivia Leaderboard**: Dual session and persistent season player standings (points, correct count, accuracy, streaks, optional speed bonus), standalone `/overlays/trivia-leaderboard.html` overlay with Reset to Defaults, `!triviastats`/`!triviatop` chat commands, leaderboard & question bank JSON/CSV export and import, and `trivia.leader.*` placeholders.
+- **OBS Border Studio (Beta / Advanced) (`/tools/obs-borders.html`)**: Metal-compatible single-pass OBS Lua effect filter (`streampulse-borders.lua`) with live `manifest.json` hot-reloading, true outset canvas expansion, dual inner + outer borders, 45° mitered 3D outset/inset bevels, per-corner radii, outer glow, GPU animations, Variable Settings bindings, OBS Scene Collection JSON importer, per-scene Include/Exclude rules, and Companion triggers.
 
 ### Changed
 - **Asset pickers**: Shared name/tag/caption search, tag filters and recent/name sorting across library selectors, with remembered preferences.
