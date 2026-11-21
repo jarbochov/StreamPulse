@@ -10,7 +10,8 @@
         'checker', 'waves', 'rings', 'scales', 'topography',
         'starfield', 'sparkles', 'dots', 'confetti', 'circuit',
         'leaves', 'turkeys', 'christmas-trees', 'christmas-lights',
-        'snowflakes', 'pumpkins', 'hearts', 'fireworks'
+        'snowflakes', 'pumpkins', 'hearts', 'fireworks',
+        'honeycomb', 'evergreens', 'football-field'
     ];
 
     const PATTERN_CAPABILITIES = SHARED_CAT ? SHARED_CAT.PATTERN_CAPABILITIES : {
@@ -30,10 +31,13 @@
         'christmas-trees': { sizeVariance: true, scatter: true, inPlace: true, spin: false, fill: true, colorMode: true, label: 'Christmas trees' },
         'christmas-lights': { sizeVariance: true, scatter: true, inPlace: true, spin: false, fill: true, colorMode: true, label: 'Christmas string lights' },
         snowflakes: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, colorMode: true, label: 'Snowflakes' },
-        hearts: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, colorMode: true, label: 'Floating hearts' },
-        fireworks: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, colorMode: true, label: 'Celebration fireworks' },
+        hearts: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, density: true, spacing: true, colorMode: true, label: 'Floating hearts' },
+        fireworks: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, density: true, spacing: true, colorMode: true, label: 'Celebration fireworks' },
+        evergreens: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, density: true, spacing: true, colorMode: true, label: 'Evergreen forest' },
 
         // Continuous line & vector mesh patterns: in-place animation (swells, ripples, rotations, line shimmers)
+        honeycomb: { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: true, density: true, spacing: true, colorMode: true, label: 'Honeycomb', hint: 'Interlinked contiguous hexagonal honeycomb cells with 3D inner bevel shading and recessed depth.' },
+        'football-field': { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: true, density: true, spacing: true, colorMode: true, label: 'Football field', hint: 'Gridiron football field with alternating turf bands, yard lines, hash marks, yard numbers, and directional arrows.' },
         grid: { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: false, colorMode: true, label: 'Grid', hint: 'Continuous Cartesian coordinate grid. Line width, geometry scale, color placement, and in-place shimmer adjust this pattern.' },
         isometric: { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: false, colorMode: true, label: 'Isometric tiles', hint: 'Continuous 3D isometric line grid. Line width, geometry scale, color placement, and in-place pulse adjust this pattern.' },
         mesh: { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: false, colorMode: true, label: 'Curved mesh', hint: 'Continuous curved wire mesh. Adjust wave amplitude with scale, color placement, and in-place wave oscillation.' },
@@ -55,6 +59,7 @@
                 ['geometry', 'Geometry'],
                 ['orbits', 'Orbits'],
                 ['hexagons', 'Hexagons'],
+                ['honeycomb', 'Honeycomb'],
                 ['diamonds', 'Diamonds'],
                 ['isometric', 'Isometric tiles'],
                 ['mesh', 'Curved mesh'],
@@ -71,7 +76,9 @@
                 ['rings', 'Rings'],
                 ['scales', 'Scales'],
                 ['topography', 'Topography'],
-                ['circuit', 'Circuit board']
+                ['circuit', 'Circuit board'],
+                ['evergreens', 'Evergreen forest'],
+                ['football-field', 'Football field']
             ]
         },
         {
@@ -456,6 +463,130 @@
         ctx.fillStyle = withAlpha(topperColor, 'eb');
         drawFourPointStar(ctx, 0, -r * 0.92, r * 0.22);
         ctx.fill();
+
+        ctx.restore();
+    }
+
+    function drawEvergreenTreeMotif(ctx, cx, cy, r, variant, treeColor, subColor, hasFill, fillHex, lineW) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.lineWidth = lineW;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+
+        const fillCol = withAlpha(treeColor, hasFill ? fillHex : '34');
+        const strokeCol = withAlpha(treeColor, 'aa');
+        const ribCol = withAlpha(subColor || treeColor, '72');
+
+        if (variant === 0) {
+            // 0: Classic 4-Tiered Forest Pine
+            ctx.fillStyle = withAlpha('#78350f', hasFill ? 'cc' : '78');
+            ctx.fillRect(-r * 0.12, r * 0.54, r * 0.24, r * 0.30);
+
+            ctx.fillStyle = fillCol;
+            ctx.strokeStyle = strokeCol;
+            const tiers = [
+                { topY: -r * 0.05, botY: r * 0.56, halfW: r * 0.74 },
+                { topY: -r * 0.38, botY: r * 0.22, halfW: r * 0.60 },
+                { topY: -r * 0.68, botY: -r * 0.12, halfW: r * 0.45 },
+                { topY: -r * 0.96, botY: -r * 0.44, halfW: r * 0.30 }
+            ];
+            for (const t of tiers) {
+                ctx.beginPath();
+                ctx.moveTo(0, t.topY);
+                ctx.lineTo(t.halfW, t.botY);
+                ctx.lineTo(t.halfW * 0.45, t.botY - r * 0.05);
+                ctx.lineTo(0, t.botY + r * 0.03);
+                ctx.lineTo(-t.halfW * 0.45, t.botY - r * 0.05);
+                ctx.lineTo(-t.halfW, t.botY);
+                ctx.closePath();
+                if (hasFill) ctx.fill();
+                ctx.stroke();
+            }
+        } else if (variant === 1) {
+            // 1: Tall Slender Alpine Spruce / Douglas Fir
+            ctx.fillStyle = withAlpha('#78350f', hasFill ? 'cc' : '78');
+            ctx.fillRect(-r * 0.09, r * 0.58, r * 0.18, r * 0.28);
+
+            ctx.fillStyle = fillCol;
+            ctx.strokeStyle = strokeCol;
+            const tiers = [
+                { topY: r * 0.04, botY: r * 0.60, halfW: r * 0.54 },
+                { topY: -r * 0.24, botY: r * 0.32, halfW: r * 0.45 },
+                { topY: -r * 0.52, botY: r * 0.02, halfW: r * 0.36 },
+                { topY: -r * 0.78, botY: -r * 0.28, halfW: r * 0.27 },
+                { topY: -r * 1.04, botY: -r * 0.56, halfW: r * 0.18 }
+            ];
+            for (const t of tiers) {
+                ctx.beginPath();
+                ctx.moveTo(0, t.topY);
+                ctx.lineTo(t.halfW, t.botY);
+                ctx.lineTo(-t.halfW, t.botY);
+                ctx.closePath();
+                if (hasFill) ctx.fill();
+                ctx.stroke();
+            }
+            // Central spire spine
+            ctx.strokeStyle = ribCol;
+            ctx.beginPath();
+            ctx.moveTo(0, -r * 0.92);
+            ctx.lineTo(0, r * 0.54);
+            ctx.stroke();
+        } else if (variant === 2) {
+            // 2: Columnar Cedar / Cypress with Chevron Needle Ribs
+            ctx.fillStyle = withAlpha('#78350f', hasFill ? 'cc' : '78');
+            ctx.fillRect(-r * 0.10, r * 0.52, r * 0.20, r * 0.32);
+
+            ctx.fillStyle = fillCol;
+            ctx.strokeStyle = strokeCol;
+            ctx.beginPath();
+            ctx.moveTo(0, -r * 0.98);
+            quadTo(ctx, r * 0.62, -r * 0.25, r * 0.46, r * 0.42);
+            quadTo(ctx, r * 0.32, r * 0.58, 0, r * 0.56);
+            quadTo(ctx, -r * 0.32, r * 0.58, -r * 0.46, r * 0.42);
+            quadTo(ctx, -r * 0.62, -r * 0.25, 0, -r * 0.98);
+            ctx.closePath();
+            if (hasFill) ctx.fill();
+            ctx.stroke();
+
+            ctx.strokeStyle = ribCol;
+            ctx.beginPath();
+            ctx.moveTo(0, -r * 0.72);
+            ctx.lineTo(0, r * 0.54);
+            for (const [ry, rw] of [[-0.42, 0.22], [-0.10, 0.30], [0.22, 0.28]]) {
+                ctx.moveTo(-r * rw, r * (ry + 0.14));
+                ctx.lineTo(0, r * ry);
+                ctx.lineTo(r * rw, r * (ry + 0.14));
+            }
+            ctx.stroke();
+        } else {
+            // 3: Woodland Twin-Evergreen Cluster (Main Pine + Companion Sapling)
+            const drawMiniPine = (ox, oy, sc, col) => {
+                ctx.save();
+                ctx.translate(ox, oy);
+                ctx.scale(sc, sc);
+                ctx.fillStyle = withAlpha('#78350f', hasFill ? 'cc' : '78');
+                ctx.fillRect(-r * 0.11, r * 0.52, r * 0.22, r * 0.28);
+                ctx.fillStyle = withAlpha(col, hasFill ? fillHex : '34');
+                ctx.strokeStyle = withAlpha(col, 'aa');
+                for (const t of [
+                    { topY: -r * 0.12, botY: r * 0.54, halfW: r * 0.68 },
+                    { topY: -r * 0.50, botY: r * 0.14, halfW: r * 0.52 },
+                    { topY: -r * 0.86, botY: -r * 0.24, halfW: r * 0.36 }
+                ]) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, t.topY);
+                    ctx.lineTo(t.halfW, t.botY);
+                    ctx.lineTo(-t.halfW, t.botY);
+                    ctx.closePath();
+                    if (hasFill) ctx.fill();
+                    ctx.stroke();
+                }
+                ctx.restore();
+            };
+            drawMiniPine(r * 0.28, r * 0.14, 0.64, subColor || treeColor);
+            drawMiniPine(-r * 0.16, -r * 0.04, 0.88, treeColor);
+        }
 
         ctx.restore();
     }
@@ -918,8 +1049,8 @@
         // overlap crossfade joins edges without reversing the lattice direction.
         let tiled = false;
         const tileSize = Math.round(Math.max(192, Math.min(384, 384 * scale / 0.1)));
-        const tilePatterns = ['dots', 'diamonds', 'hexagons', 'triangles', 'scales', 'circuit',
-            'checker', 'chevrons', 'leaves', 'turkeys', 'pumpkins', 'christmas-trees',
+        const tilePatterns = ['dots', 'diamonds', 'hexagons', 'honeycomb', 'triangles', 'scales', 'circuit',
+            'checker', 'chevrons', 'leaves', 'turkeys', 'pumpkins', 'christmas-trees', 'evergreens', 'football-field',
             'christmas-lights', 'snowflakes', 'hearts', 'fireworks'];
         if (options.detail !== 'exact' && !options._patternViewport && scale <= 0.2 && fullWidth * fullHeight >= 768 * 768 &&
             tilePatterns.includes(pattern) && typeof document !== 'undefined' && typeof ctx.createPattern === 'function') {
@@ -2184,6 +2315,264 @@
                     ctx.fill();
 
                     ctx.restore();
+                }
+            }
+        } else if (pattern === 'honeycomb') {
+            // Contiguous interlinked hexagonal honeycomb with 3D inner bevel depth shading
+            const baseRadius = Math.max(8, (fullWidth / (22 * dens2D)) * spacingMult);
+            const rowStep = Math.sqrt(3) * baseRadius;
+            const columnStep = baseRadius * 1.5;
+            const outerR = baseRadius * 0.97;
+            const innerR = outerR * 0.64;
+            ctx.lineWidth = getLineW(1.05);
+            const cStart = Math.floor(minX / columnStep) - 2, cEnd = Math.ceil(maxX / columnStep) + 2;
+            const rStart = Math.floor((minY - fallDy) / rowStep) - 2, rEnd = Math.ceil((maxY - fallDy) / rowStep) + 2;
+            const hexAngles = [0, 1, 2, 3, 4, 5].map(i => (i * Math.PI) / 3);
+            const cosA = hexAngles.map(Math.cos);
+            const sinA = hexAngles.map(Math.sin);
+
+            for (let col = cStart; col <= cEnd; col++) {
+                for (let row = rStart; row <= rEnd; row++) {
+                    const idx = Math.abs(col * 19 + row * 23);
+                    const cellPulse = hasInPlaceAnim ? (0.82 + 0.18 * Math.sin(inPlacePhase * 1.6 + idx * 0.65)) : 1;
+                    const cx = col * columnStep + fallSwayX;
+                    const cy = row * rowStep + (((col % 2) + 2) % 2) * (rowStep * 0.5) + fallDy;
+                    const cIdx = getCellColorIndex(row, col, cx, cy, idx);
+                    const color = getPatternColor(palette, cIdx, accent, secondary);
+
+                    const baseFillVal = hasFill ? Number.parseInt(fillHex, 16) : 0x42;
+                    const effFill = Math.max(12, Math.min(255, Math.round(baseFillVal * cellPulse)));
+
+                    // 1. Base cell chamber fill
+                    ctx.beginPath();
+                    for (let p = 0; p < 6; p++) {
+                        const x = cx + cosA[p] * outerR, y = cy + sinA[p] * outerR;
+                        if (p === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                    }
+                    ctx.closePath();
+                    if (options.fillMode !== 'outline') {
+                        ctx.fillStyle = withAlpha(color, Math.round(effFill * 0.55).toString(16).padStart(2, '0'));
+                        ctx.fill();
+                    }
+
+                    // 2. Top-left 3 inner bevel walls (shadowed depth facet: vertices 2->3->4->5)
+                    ctx.beginPath();
+                    for (let p = 2; p <= 5; p++) {
+                        const x = cx + cosA[p] * outerR, y = cy + sinA[p] * outerR;
+                        if (p === 2) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                    }
+                    for (let p = 5; p >= 2; p--) {
+                        ctx.lineTo(cx + cosA[p] * innerR, cy + sinA[p] * innerR);
+                    }
+                    ctx.closePath();
+                    ctx.fillStyle = withAlpha('#000000', Math.max(18, Math.min(180, Math.round(effFill * 0.65))).toString(16).padStart(2, '0'));
+                    ctx.fill();
+
+                    // 3. Bottom-right 3 inner bevel walls (illuminated rim facet: vertices 5->0->1->2)
+                    ctx.beginPath();
+                    for (const p of [5, 0, 1, 2]) {
+                        const x = cx + cosA[p] * outerR, y = cy + sinA[p] * outerR;
+                        if (p === 5) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                    }
+                    for (const p of [2, 1, 0, 5]) {
+                        ctx.lineTo(cx + cosA[p] * innerR, cy + sinA[p] * innerR);
+                    }
+                    ctx.closePath();
+                    ctx.fillStyle = withAlpha(color, Math.max(24, Math.min(230, Math.round(effFill * 0.92))).toString(16).padStart(2, '0'));
+                    ctx.fill();
+
+                    // 4. Deep recessed inner hex core + subtle inner rim stroke
+                    ctx.beginPath();
+                    for (let p = 0; p < 6; p++) {
+                        const x = cx + cosA[p] * innerR, y = cy + sinA[p] * innerR;
+                        if (p === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                    }
+                    ctx.closePath();
+                    if (options.fillMode !== 'outline') {
+                        ctx.fillStyle = withAlpha('#000000', Math.max(14, Math.min(140, Math.round(effFill * 0.38))).toString(16).padStart(2, '0'));
+                        ctx.fill();
+                    }
+                    ctx.strokeStyle = withAlpha(color, Math.max(24, Math.min(200, Math.round(0x58 * cellPulse))).toString(16).padStart(2, '0'));
+                    ctx.stroke();
+
+                    // 5. Outer shared interlinked honeycomb ridge
+                    ctx.beginPath();
+                    for (let p = 0; p < 6; p++) {
+                        const x = cx + cosA[p] * outerR, y = cy + sinA[p] * outerR;
+                        if (p === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                    }
+                    ctx.closePath();
+                    const strokeAlpha = hasInPlaceAnim ? Math.max(40, Math.min(255, Math.round(0xb8 * cellPulse))).toString(16).padStart(2, '0') : 'b8';
+                    ctx.strokeStyle = withAlpha(color, strokeAlpha);
+                    ctx.stroke();
+                }
+            }
+        } else if (pattern === 'evergreens') {
+            // Multi-species evergreen forest (classic pine, alpine spruce, columnar cedar, twin-pine stand)
+            const stepX = isSeamless ? (fullWidth / wCols) : (Math.max(24, fullWidth / (10 * dens2D)) * spacingMult);
+            const stepY = isSeamless ? (fullHeight / wRows) : (stepX * 0.92);
+            const baseR = (stepX / spacingMult) * 0.34;
+            ctx.lineWidth = getLineW(1.15);
+            const rStart = isSeamless ? -1 : (Math.floor((minY - fallDy) / stepY) - 1);
+            const rEnd = isSeamless ? (wRows + 1) : (Math.ceil((maxY - fallDy) / stepY) + 1);
+            const cStart = isSeamless ? -1 : (Math.floor(minX / stepX) - 1);
+            const cEnd = isSeamless ? (wCols + 1) : (Math.ceil(maxX / stepX) + 1);
+            for (let row = rStart; row <= rEnd; row++) {
+                const wRow = wrapRow(row);
+                const rowOffset = (((wRow % 2) + 2) % 2) * (stepX * 0.5);
+                for (let col = cStart; col <= cEnd; col++) {
+                    const wCol = wrapCol(col);
+                    const idx = Math.abs(wRow * 19 + wCol * 31);
+                    const variant = (wRow * 3 + wCol * 5 + idx) % 4;
+                    const sizeHash = (((idx * 7919 + 104729) % 1000) / 1000);
+                    const sizeMult = (1 - sizeVarAmount * 0.4) + sizeHash * (sizeVarAmount * 0.8);
+                    const r = baseR * sizeMult;
+                    const scatterX = ((((idx * 43) % 100) / 100 - 0.5) * stepX * 0.45) * scatterAmount;
+                    const scatterY = ((((idx * 67) % 100) / 100 - 0.5) * stepY * 0.45) * scatterAmount;
+                    const cx = col * stepX + rowOffset + scatterX + fallSwayX;
+                    const cy = row * stepY + scatterY + fallDy;
+                    const sway = hasInPlaceAnim ? Math.sin(inPlacePhase + idx * 0.7) * 0.05 : 0;
+                    const randomAngle = ((((idx * 137) % 360) / 360) * Math.PI * 2) * rotVarAmount;
+                    const treeSpin = hasSpin ? (spinMode === 'sway' ? Math.sin(continuousSpinAngle + idx) * 0.14 : continuousSpinAngle * ((idx & 1) ? 1 : -1) * 0.4) : 0;
+                    const cIdx = getCellColorIndex(wRow, wCol, wrapColorX(cx), wrapColorY(cy), idx);
+                    const treeColor = getPatternColor(palette, cIdx, accent, secondary);
+                    const subColor = getPatternColor(palette, cIdx + 1, accent, secondary);
+
+                    ctx.save();
+                    ctx.translate(cx, cy);
+                    ctx.rotate(sway + randomAngle + treeSpin);
+
+                    const lineW = stampLineW(getLineW(1.15), r, 95);
+                    const cacheKey = `evergreen:${variant}:${treeColor}:${subColor}:${hasFill}:${fillHex}:${lineW}`;
+                    const stamp = lineW <= 64 && (motifStampCache.get(cacheKey) || getOrCreateStamp(cacheKey, (sCtx, stampCx, stampCy) => {
+                        drawEvergreenTreeMotif(sCtx, stampCx, stampCy, 95, variant, treeColor, subColor, hasFill, fillHex, lineW);
+                    }));
+
+                    if (stamp) {
+                        const drawDim = (r / 95) * 384;
+                        ctx.drawImage(stamp, -drawDim / 2, -drawDim / 2, drawDim, drawDim);
+                    } else {
+                        drawEvergreenTreeMotif(ctx, 0, 0, r, variant, treeColor, subColor, hasFill, fillHex, getLineW(1.15));
+                    }
+
+                    ctx.restore();
+                }
+            }
+        } else if (pattern === 'football-field') {
+            // Gridiron football field: alternating 5-yard turf stripes, yard lines, hash marks, yard numbers & directional arrows
+            const stripeCols = isSeamless ? Math.max(2, wCols) : Math.max(6, Math.round(10 * dens2D));
+            const stripeW = isSeamless ? (fullWidth / stripeCols) : (Math.max(48, fullWidth / (10 * dens2D)) * spacingMult);
+            const pitchH = isSeamless ? fullHeight : (Math.max(240, fullHeight / Math.max(0.5, dens2D * 0.85)) * spacingMult);
+            const cStart = isSeamless ? -1 : (Math.floor(minX / stripeW) - 1);
+            const cEnd = isSeamless ? (stripeCols + 1) : (Math.ceil(maxX / stripeW) + 1);
+            const rStart = isSeamless ? 0 : (Math.floor((minY - fallDy) / pitchH) - 1);
+            const rEnd = isSeamless ? 0 : (Math.ceil((maxY - fallDy) / pitchH) + 1);
+            const baseLineW = getLineW(1.1);
+            const yardNumbers = ['10', '20', '30', '40', '50', '40', '30', '20', '10'];
+
+            for (let row = rStart; row <= rEnd; row++) {
+                const topY = row * pitchH + fallDy;
+                const botY = topY + pitchH;
+                const sidePad = pitchH * 0.05;
+                const fieldTop = topY + sidePad;
+                const fieldBot = botY - sidePad;
+                const fieldH = Math.max(40, fieldBot - fieldTop);
+                const hashUpperY = fieldTop + fieldH * 0.36;
+                const hashLowerY = fieldTop + fieldH * 0.64;
+                const numUpperY = fieldTop + fieldH * 0.17;
+                const numLowerY = fieldTop + fieldH * 0.83;
+                const pulse = hasInPlaceAnim ? (0.84 + 0.16 * Math.sin(inPlacePhase * 1.4 + row * 0.5)) : 1;
+
+                for (let col = cStart; col <= cEnd; col++) {
+                    const wCol = ((col % 10) + 10) % 10;
+                    const x0 = col * stripeW + fallSwayX;
+                    const x1 = x0 + stripeW;
+                    const cIdx = getCellColorIndex(row, wCol, x0 + stripeW * 0.5, topY + pitchH * 0.5, wCol);
+                    const turfCol = getPatternColor(palette, cIdx, accent, secondary);
+                    const lineCol = getPatternColor(palette, cIdx + 1, secondary, accent);
+
+                    // 1. Alternating 5-yard mowed turf bands
+                    if (options.fillMode !== 'outline') {
+                        const baseFill = hasFill ? Number.parseInt(fillHex, 16) : 0x38;
+                        const bandMult = (Math.abs(col) % 2 === 0) ? 0.85 : 0.42;
+                        const bandAlpha = Math.max(10, Math.min(240, Math.round(baseFill * bandMult * pulse))).toString(16).padStart(2, '0');
+                        ctx.fillStyle = withAlpha(turfCol, bandAlpha);
+                        ctx.fillRect(x0, fieldTop, stripeW + 0.5, fieldH);
+                    }
+
+                    // 2. Vertical 5-yard line at x0 (every even column is a 10-yard numbered line)
+                    const isMajor10 = (wCol % 2 === 0);
+                    const lineAlpha = Math.max(35, Math.min(255, Math.round((isMajor10 ? 0xd8 : 0x8c) * pulse))).toString(16).padStart(2, '0');
+                    ctx.strokeStyle = withAlpha(lineCol, lineAlpha);
+                    ctx.lineWidth = isMajor10 ? baseLineW * 1.35 : baseLineW * 0.85;
+                    ctx.beginPath();
+                    ctx.moveTo(x0, fieldTop);
+                    ctx.lineTo(x0, fieldBot);
+                    ctx.stroke();
+
+                    // 3. 1-yard hash ticks (4 interior sub-yard ticks between 5-yard lines)
+                    const tickLen = Math.max(4, fieldH * 0.024);
+                    ctx.lineWidth = Math.max(1, baseLineW * 0.75);
+                    ctx.strokeStyle = withAlpha(lineCol, Math.max(30, Math.min(220, Math.round(0x88 * pulse))).toString(16).padStart(2, '0'));
+                    ctx.beginPath();
+                    for (let sub = 1; sub <= 4; sub++) {
+                        const hx = x0 + (stripeW * sub) / 5;
+                        // Top & bottom sideline hash ticks
+                        ctx.moveTo(hx, fieldTop + 2); ctx.lineTo(hx, fieldTop + 2 + tickLen);
+                        ctx.moveTo(hx, fieldBot - 2); ctx.lineTo(hx, fieldBot - 2 - tickLen);
+                        // Upper & lower inner college/pro hash marks
+                        ctx.moveTo(hx, hashUpperY - tickLen * 0.5); ctx.lineTo(hx, hashUpperY + tickLen * 0.5);
+                        ctx.moveTo(hx, hashLowerY - tickLen * 0.5); ctx.lineTo(hx, hashLowerY + tickLen * 0.5);
+                    }
+                    ctx.stroke();
+
+                    // 4. Sideline borders across this band
+                    ctx.lineWidth = baseLineW * 1.4;
+                    ctx.strokeStyle = withAlpha(lineCol, lineAlpha);
+                    ctx.beginPath();
+                    ctx.moveTo(x0, fieldTop); ctx.lineTo(x1, fieldTop);
+                    ctx.moveTo(x0, fieldBot); ctx.lineTo(x1, fieldBot);
+                    ctx.stroke();
+
+                    // 5. Yard numbers & directional arrows on 10-yard lines (10..50..10)
+                    const numIdx = Math.floor(wCol / 2) - 1;
+                    if (isMajor10 && numIdx >= 0 && numIdx < yardNumbers.length) {
+                        const label = yardNumbers[numIdx];
+                        const fontSize = Math.max(10, Math.min(stripeW * 0.42, fieldH * 0.11));
+                        ctx.save();
+                        ctx.font = `800 ${Math.round(fontSize)}px "Impact", "Arial Black", sans-serif`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillStyle = withAlpha(lineCol, lineAlpha);
+
+                        // Bottom numbers (upright)
+                        if (typeof ctx.fillText === 'function') {
+                            ctx.fillText(label, x0, numLowerY);
+                            // Top numbers (rotated 180 deg facing the top sideline)
+                            ctx.save();
+                            ctx.translate(x0, numUpperY);
+                            ctx.rotate(Math.PI);
+                            ctx.fillText(label, 0, 0);
+                            ctx.restore();
+                        }
+
+                        // Directional triangle arrow next to 10-40 yard numbers
+                        if (label !== '50') {
+                            const dir = numIdx < 4 ? -1 : 1;
+                            const arrowOffset = fontSize * 0.78 * dir;
+                            const aw = Math.max(3, fontSize * 0.22);
+                            const ah = Math.max(2.5, fontSize * 0.15);
+                            for (const ny of [numLowerY, numUpperY]) {
+                                ctx.beginPath();
+                                ctx.moveTo(x0 + arrowOffset + dir * aw, ny);
+                                ctx.lineTo(x0 + arrowOffset, ny - ah);
+                                ctx.lineTo(x0 + arrowOffset, ny + ah);
+                                ctx.closePath();
+                                ctx.fill();
+                            }
+                        }
+                        ctx.restore();
+                    }
                 }
             }
         } else if (pattern === 'geometry') {

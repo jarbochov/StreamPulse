@@ -450,7 +450,7 @@ describe('OBS Pattern Studio (Beta / Advanced)', () => {
     });
 
     it('creates default profiles, manifest.json, and Metal-safe Lua input source script', () => {
-        assert.equal(PATTERNS.length, 28);
+        assert.equal(PATTERNS.length, 31);
         const state = service.getState();
         assert.ok(state.profiles.length >= 4);
         assert.equal(state.activeProfileId, 'cyber-hex-grid');

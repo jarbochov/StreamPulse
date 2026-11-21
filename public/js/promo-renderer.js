@@ -377,7 +377,7 @@ function drawThemeBackdrop(ctx, width, height, design, pattern, motion = 'none',
         ctx.beginPath(); ctx.moveTo(width * .55, 0); ctx.lineTo(width, 0); ctx.lineTo(width, height * .8); ctx.closePath(); ctx.fill();
         ctx.globalAlpha = .15;
         ctx.beginPath(); ctx.moveTo(0, height * .72); ctx.lineTo(width * .7, height); ctx.lineTo(0, height); ctx.closePath(); ctx.fill();
-    } else if (['leaves', 'turkeys', 'pumpkins', 'christmas-trees', 'christmas-lights', 'snowflakes', 'hearts', 'fireworks'].includes(pattern) && window.StreamPulsePatterns?.drawProceduralPattern) {
+    } else if (['leaves', 'turkeys', 'pumpkins', 'christmas-trees', 'christmas-lights', 'snowflakes', 'hearts', 'fireworks', 'honeycomb', 'evergreens', 'football-field'].includes(pattern) && window.StreamPulsePatterns?.drawProceduralPattern) {
         ctx.restore();
         window.StreamPulsePatterns.drawProceduralPattern(ctx, pattern, fullWidth, fullHeight, {
             scale: scale * 100,

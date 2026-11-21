@@ -7,8 +7,8 @@ import { F } from './editor-form.js';
 import { renderCanvas } from './editor-canvas.js';
 
 const FALLBACK_PATTERN_CATEGORIES = [
-    { group: 'Geometric', options: [['grid', 'Grid'], ['geometry', 'Geometry'], ['orbits', 'Orbits'], ['hexagons', 'Hexagons'], ['diamonds', 'Diamonds'], ['isometric', 'Isometric tiles'], ['mesh', 'Curved mesh'], ['sunburst', 'Sunburst'], ['triangles', 'Triangles'], ['chevrons', 'Chevrons'], ['checker', 'Checkerboard']] },
-    { group: 'Organic & decorative', options: [['waves', 'Waves'], ['rings', 'Rings'], ['scales', 'Scales'], ['topography', 'Topography'], ['circuit', 'Circuit board']] },
+    { group: 'Geometric', options: [['grid', 'Grid'], ['geometry', 'Geometry'], ['orbits', 'Orbits'], ['hexagons', 'Hexagons'], ['honeycomb', 'Honeycomb'], ['diamonds', 'Diamonds'], ['isometric', 'Isometric tiles'], ['mesh', 'Curved mesh'], ['sunburst', 'Sunburst'], ['triangles', 'Triangles'], ['chevrons', 'Chevrons'], ['checker', 'Checkerboard']] },
+    { group: 'Organic & decorative', options: [['waves', 'Waves'], ['rings', 'Rings'], ['scales', 'Scales'], ['topography', 'Topography'], ['circuit', 'Circuit board'], ['evergreens', 'Evergreen forest'], ['football-field', 'Football field']] },
     { group: 'Particle & field', options: [['starfield', 'Starfield'], ['sparkles', 'Sparkles'], ['dots', 'Dots'], ['confetti', 'Confetti']] },
     { group: 'Seasonal & holiday', options: [['leaves', 'Autumn leaves'], ['turkeys', 'Thanksgiving turkeys'], ['pumpkins', 'Pumpkins & harvest'], ['christmas-trees', 'Christmas trees'], ['christmas-lights', 'Christmas string lights'], ['snowflakes', 'Snowflakes'], ['hearts', 'Floating hearts'], ['fireworks', 'Celebration fireworks']] }
 ];

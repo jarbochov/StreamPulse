@@ -16,7 +16,8 @@ const PATTERNS = [
     'checker', 'waves', 'rings', 'scales', 'topography',
     'starfield', 'sparkles', 'dots', 'confetti', 'circuit',
     'leaves', 'turkeys', 'christmas-trees', 'christmas-lights',
-    'snowflakes', 'pumpkins', 'hearts', 'fireworks'
+    'snowflakes', 'pumpkins', 'hearts', 'fireworks',
+    'honeycomb', 'evergreens', 'football-field'
 ];
 
 const PATTERN_CODE_MAP = PATTERNS.reduce((acc, id, idx) => {
@@ -28,7 +29,7 @@ const ANALYTIC_GPU_PRESETS = new Set([
     'grid', 'geometry', 'orbits', 'hexagons', 'diamonds',
     'isometric', 'mesh', 'sunburst', 'triangles', 'chevrons',
     'checker', 'waves', 'rings', 'scales', 'topography',
-    'starfield', 'sparkles', 'dots', 'circuit'
+    'starfield', 'sparkles', 'dots', 'circuit', 'honeycomb'
 ]);
 
 const PATTERN_CAPABILITIES = {
@@ -49,7 +50,10 @@ const PATTERN_CAPABILITIES = {
     snowflakes: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, density: true, spacing: true, colorMode: true, label: 'Snowflakes' },
     hearts: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, density: true, spacing: true, colorMode: true, label: 'Floating hearts' },
     fireworks: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, density: true, spacing: true, colorMode: true, label: 'Celebration fireworks' },
+    evergreens: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, density: true, spacing: true, colorMode: true, label: 'Evergreen forest' },
 
+    honeycomb: { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: true, density: true, spacing: true, colorMode: true, label: 'Honeycomb', hint: 'Interlinked contiguous hexagonal honeycomb cells with 3D inner bevel shading and recessed depth.' },
+    'football-field': { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: true, density: true, spacing: true, colorMode: true, label: 'Football field', hint: 'Gridiron football field with alternating turf bands, yard lines, hash marks, yard numbers, and directional arrows.' },
     grid: { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: false, density: true, spacing: true, colorMode: true, label: 'Grid', hint: 'Continuous Cartesian coordinate grid. Line width, density, geometry scale, color placement, and in-place shimmer adjust this pattern.' },
     isometric: { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: false, density: true, spacing: true, colorMode: true, label: 'Isometric tiles', hint: 'Continuous 3D isometric line grid. Line width, density, geometry scale, color placement, and in-place pulse adjust this pattern.' },
     mesh: { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: false, density: true, spacing: true, colorMode: true, label: 'Curved mesh', hint: 'Continuous curved wire mesh. Adjust line spacing with density, wave amplitude with scale, color placement, and in-place wave oscillation.' },
@@ -71,6 +75,7 @@ const PATTERN_CATEGORIES = [
             ['geometry', 'Geometry'],
             ['orbits', 'Orbits'],
             ['hexagons', 'Hexagons'],
+            ['honeycomb', 'Honeycomb'],
             ['diamonds', 'Diamonds'],
             ['isometric', 'Isometric tiles'],
             ['mesh', 'Curved mesh'],
@@ -87,7 +92,9 @@ const PATTERN_CATEGORIES = [
             ['rings', 'Rings'],
             ['scales', 'Scales'],
             ['topography', 'Topography'],
-            ['circuit', 'Circuit board']
+            ['circuit', 'Circuit board'],
+            ['evergreens', 'Evergreen forest'],
+            ['football-field', 'Football field']
         ]
     },
     {

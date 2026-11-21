@@ -1214,6 +1214,7 @@
             else if (proc_spin_mode >= 2.5) spin_base = sin(t * proc_spin_speed * 1.6) * 0.45;
 
             float mask = 0.0;
+            float shade_mul = 1.0;
             vec2 cell_id = floor(p / (64.0 * s));
 
             if (proc_preset < 0.5) {
@@ -1450,6 +1451,26 @@
                 vec2 lp = (fract(p / step_px) - 0.5) * step_px;
                 float d_line = (hash21(cell_id) > 0.5) ? abs(lp.x - lp.y) * 0.7071 : min(abs(lp.x), abs(lp.y));
                 mask = max(1.0 - smoothstep(max(0.0, lw * 0.5 - 0.55), lw * 0.5 + 0.55, d_line), 1.0 - smoothstep(-1.0, 1.0, length(lp) - (4.5 + lw * 0.7)));
+            } else if (proc_preset >= 27.5 && proc_preset < 28.5) {
+                float hex_r = 46.0 * elem_s * sp;
+                vec2 r = vec2(1.0, 1.7320508) * hex_r * 2.0;
+                vec2 h = r * 0.5;
+                vec2 a = fract(p / r) * r - h;
+                vec2 b = fract((p - h) / r) * r - h;
+                vec2 gv = (dot(a, a) < dot(b, b)) ? a : b;
+                cell_id = floor((p - gv) / h);
+                float d_outer = sdHex(gv, hex_r * 0.98);
+                float d_inner = sdHex(gv, hex_r * 0.62);
+                float wall_m = 1.0 - smoothstep(max(0.0, lw * 0.55 - 0.55), lw * 0.55 + 0.55, abs(d_outer));
+                float inner_rim_m = (1.0 - smoothstep(max(0.0, lw * 0.35 - 0.55), lw * 0.35 + 0.55, abs(d_inner))) * 0.58;
+                float bevel_zone = (1.0 - smoothstep(-0.8, 0.8, d_outer)) * smoothstep(-0.8, 0.8, d_inner);
+                float core_zone = 1.0 - smoothstep(-0.8, 0.8, d_inner);
+                float dir_light = clamp(dot(gv / max(1.0, hex_r), vec2(0.58, 0.81)) * 0.85 + 0.5, 0.0, 1.0);
+                float fa = (proc_fill_mode >= 1.5) ? 0.25 : clamp(proc_fill_opacity / 100.0, 0.18, 1.0) * ((proc_fill_mode >= 0.5) ? 1.0 : 0.78);
+                float bevel_alpha = bevel_zone * fa * (0.42 + 0.58 * dir_light);
+                float core_alpha = (proc_fill_mode >= 1.5) ? 0.0 : (core_zone * fa * 0.32);
+                mask = max(max(wall_m, inner_rim_m), max(bevel_alpha, core_alpha));
+                shade_mul = mix(0.32 + 0.92 * dir_light, 1.12, max(wall_m, inner_rim_m * dir_light));
             } else {
                 float step_px = 68.0 * elem_s * sp;
                 cell_id = floor(p / step_px);
@@ -1465,7 +1486,8 @@
             else if (proc_inplace_mode >= 2.5 && proc_inplace_mode < 3.5) mask *= 0.82 + 0.18 * sin(t_ip * 1.4 + hash21(cell_id) * 6.28318);
             else if (proc_inplace_mode >= 3.5) mask *= 0.45 + 0.55 * abs(sin(t_ip * 4.2 + hash21(cell_id) * 12.56));
             vec4 col = pickProcColor(cell_id, px, t);
-            return vec4(col.rgb * (col.a * clamp(mask, 0.0, 1.0)), col.a * clamp(mask, 0.0, 1.0));
+            float out_a = col.a * clamp(mask, 0.0, 1.0);
+            return vec4(clamp(col.rgb * shade_mul, 0.0, 1.0) * out_a, out_a);
         }
         vec4 sampleTileStamp(vec2 uv, float slot_idx) {
             if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return vec4(0.0);
@@ -2050,7 +2072,7 @@
         gl.uniform1f(u.proc_size_var, resolveNum(pr.sizeVariance, 0, 0, 100));
         gl.uniform1f(u.proc_scatter, resolveNum(pr.scatter, 0, 0, 100));
         gl.uniform1f(u.proc_rot_var, Number(pr.rotationVariance ?? 0));
-        const hasVoronoiGrid = !ANALYTIC_GPU_SET.has(pr.preset) && pr.preset !== 'confetti' && pr.preset !== 'christmas-lights';
+        const hasVoronoiGrid = !ANALYTIC_GPU_SET.has(pr.preset) && pr.preset !== 'confetti' && pr.preset !== 'christmas-lights' && pr.preset !== 'football-field';
         const fallbackGrid = (hasVoronoiGrid && !(Number(pr.stampCols) > 0))
             ? window.StreamPulsePatternBake.spec(pr.preset, resolveNum(pr.density, 1, 0.25, 4), resolveNum(pr.spacing, 100, 50, 300))
             : { cols: Number(pr.stampCols) || 0, rows: Number(pr.stampRows) || 0 };

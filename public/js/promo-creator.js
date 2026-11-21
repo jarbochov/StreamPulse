@@ -482,8 +482,8 @@ $('properties').addEventListener('pointerdown', event => {
 function renderStyle() {
     const bg = design.background, m = bg.mode;
     const patterns = [
-        { group: 'Geometric', options: [['grid', 'Grid'], ['geometry', 'Geometry'], ['orbits', 'Orbits'], ['hexagons', 'Hexagons'], ['diamonds', 'Diamonds'], ['isometric', 'Isometric tiles'], ['mesh', 'Curved mesh'], ['sunburst', 'Sunburst'], ['triangles', 'Triangles'], ['chevrons', 'Chevrons'], ['checker', 'Checkerboard']] },
-        { group: 'Organic', options: [['waves', 'Waves'], ['rings', 'Concentric rings'], ['scales', 'Scales'], ['topography', 'Topographic contours']] },
+        { group: 'Geometric', options: [['grid', 'Grid'], ['geometry', 'Geometry'], ['orbits', 'Orbits'], ['hexagons', 'Hexagons'], ['honeycomb', 'Honeycomb'], ['diamonds', 'Diamonds'], ['isometric', 'Isometric tiles'], ['mesh', 'Curved mesh'], ['sunburst', 'Sunburst'], ['triangles', 'Triangles'], ['chevrons', 'Chevrons'], ['checker', 'Checkerboard']] },
+        { group: 'Organic', options: [['waves', 'Waves'], ['rings', 'Concentric rings'], ['scales', 'Scales'], ['topography', 'Topographic contours'], ['evergreens', 'Evergreen forest'], ['football-field', 'Football field']] },
         { group: 'Atmospheric', options: [['starfield', 'Starfield'], ['sparkles', 'Sparkles'], ['dots', 'Dots']] },
         { group: 'Playful & tech', options: [['confetti', 'Confetti'], ['circuit', 'Circuit board']] },
         { group: 'Seasonal & holiday', options: [['leaves', 'Autumn leaves'], ['turkeys', 'Thanksgiving turkeys'], ['pumpkins', 'Pumpkins & harvest'], ['christmas-trees', 'Christmas trees'], ['christmas-lights', 'Christmas string lights'], ['snowflakes', 'Snowflakes'], ['hearts', 'Floating hearts'], ['fireworks', 'Celebration fireworks']] }

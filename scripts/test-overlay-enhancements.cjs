@@ -7,9 +7,12 @@ const { PATTERNS, PATTERN_CATEGORIES, PALETTES, drawProceduralPattern } = requir
 
 test('Shared patterns module: exports, categories and canvas drawing', () => {
     assert.equal(Array.isArray(PATTERNS), true);
-    assert.equal(PATTERNS.length, 28);
+    assert.equal(PATTERNS.length, 31);
     assert.ok(PATTERNS.includes('grid'));
     assert.ok(PATTERNS.includes('hexagons'));
+    assert.ok(PATTERNS.includes('honeycomb'));
+    assert.ok(PATTERNS.includes('evergreens'));
+    assert.ok(PATTERNS.includes('football-field'));
     assert.ok(PATTERNS.includes('circuit'));
     assert.ok(PATTERNS.includes('topography'));
     assert.ok(PATTERNS.includes('starfield'));
@@ -1029,7 +1032,7 @@ test('Decoupled In-Place Animation, Speed Calibration & Snowflake Morphologies',
 test('Universal In-Place Animation and Pattern Capabilities Gating', () => {
     const { PATTERNS, PATTERN_CAPABILITIES, drawProceduralPattern } = require('../public/js/patterns-shared.js');
     assert.ok(PATTERN_CAPABILITIES, 'PATTERN_CAPABILITIES must be exported');
-    assert.equal(Object.keys(PATTERN_CAPABILITIES).length, 28, 'All 28 patterns must have capability entries');
+    assert.equal(Object.keys(PATTERN_CAPABILITIES).length, 31, 'All 31 patterns must have capability entries');
 
     // 1. Verify in-place animation works across all 28 patterns when canvas movement is static (motion: 'none')
     for (const pat of PATTERNS) {
@@ -1731,10 +1734,10 @@ test('Procedural Patterns: Rendering Efficiency, 60fps Frame Pacing, Triangle Mo
     };
 
     const allPatterns = [
-        'grid', 'hexagons', 'diamonds', 'isometric', 'mesh', 'sunburst', 'dots',
+        'grid', 'hexagons', 'honeycomb', 'diamonds', 'isometric', 'mesh', 'sunburst', 'dots',
         'starfield', 'sparkles', 'checker', 'waves', 'rings', 'scales', 'triangles',
         'chevrons', 'topography', 'confetti', 'circuit', 'leaves', 'turkeys',
-        'pumpkins', 'christmas-trees', 'christmas-lights', 'snowflakes', 'hearts',
+        'pumpkins', 'christmas-trees', 'evergreens', 'football-field', 'christmas-lights', 'snowflakes', 'hearts',
         'fireworks', 'geometry', 'orbits'
     ];
 

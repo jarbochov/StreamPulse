@@ -715,6 +715,7 @@ float4 evalProceduralPattern(float2 px, float t) {
     else if (proc_spin_mode >= 2.5) spin_base = sin(t * proc_spin_speed * 1.6) * 0.45;
 
     float mask = 0.0;
+    float shade_mul = 1.0;
     float2 cell_id = floor(p / (64.0 * s));
 
     if (proc_preset < 0.5) {
@@ -1001,6 +1002,27 @@ float4 evalProceduralPattern(float2 px, float t) {
         float d_line = (h > 0.5) ? abs(lp.x - lp.y) * 0.7071 : min(abs(lp.x), abs(lp.y));
         float d_node = length(lp) - (4.5 + lw * 0.7);
         mask = max(1.0 - smoothstep(max(0.0, lw * 0.5 - 0.55), lw * 0.5 + 0.55, d_line), 1.0 - smoothstep(-1.0, 1.0, d_node));
+    } else if (proc_preset >= 27.5 && proc_preset < 28.5) {
+        // 28: honeycomb (interlinked contiguous hexagons with 3D inner bevel depth shading)
+        float hex_r = 46.0 * elem_s * sp;
+        float2 r = float2(1.0, 1.7320508) * hex_r * 2.0;
+        float2 h = r * 0.5;
+        float2 a = frac(p / r) * r - h;
+        float2 b = frac((p - h) / r) * r - h;
+        float2 gv = (dot(a, a) < dot(b, b)) ? a : b;
+        cell_id = floor((p - gv) / h);
+        float d_outer = sdHex(gv, hex_r * 0.98);
+        float d_inner = sdHex(gv, hex_r * 0.62);
+        float wall_m = 1.0 - smoothstep(max(0.0, lw * 0.55 - 0.55), lw * 0.55 + 0.55, abs(d_outer));
+        float inner_rim_m = (1.0 - smoothstep(max(0.0, lw * 0.35 - 0.55), lw * 0.35 + 0.55, abs(d_inner))) * 0.58;
+        float bevel_zone = (1.0 - smoothstep(-0.8, 0.8, d_outer)) * smoothstep(-0.8, 0.8, d_inner);
+        float core_zone = 1.0 - smoothstep(-0.8, 0.8, d_inner);
+        float dir_light = clamp(dot(gv / max(1.0, hex_r), float2(0.58, 0.81)) * 0.85 + 0.5, 0.0, 1.0);
+        float fa = (proc_fill_mode >= 1.5) ? 0.25 : clamp(proc_fill_opacity / 100.0, 0.18, 1.0) * ((proc_fill_mode >= 0.5) ? 1.0 : 0.78);
+        float bevel_alpha = bevel_zone * fa * (0.42 + 0.58 * dir_light);
+        float core_alpha = (proc_fill_mode >= 1.5) ? 0.0 : (core_zone * fa * 0.32);
+        mask = max(max(wall_m, inner_rim_m), max(bevel_alpha, core_alpha));
+        shade_mul = lerp(0.32 + 0.92 * dir_light, 1.12, max(wall_m, inner_rim_m * dir_light));
     } else {
         // Fallback analytic diamonds for unbaked seasonal presets
         float step_px = 68.0 * elem_s * sp;
@@ -1014,7 +1036,7 @@ float4 evalProceduralPattern(float2 px, float t) {
     if (proc_motion >= 5.5 && proc_motion < 6.5) {
         // 6: sweep scanner beam
         float beam = 0.5 + 0.5 * sin((px.x + px.y) * 0.004 - t * proc_speed * 2.2);
-        mask *= 0.45 + 0.75 * pow(beam, 3.0);
+        mask *= 0.45 + 0.75 * pow(max(0.0, beam), 3.0);
     }
     if (proc_inplace_mode >= 1.5 && proc_inplace_mode < 2.5) {
         mask *= 0.7 + 0.35 * sin(t_ip * 3.0 + hash21(cell_id) * 6.28318);
@@ -1025,7 +1047,8 @@ float4 evalProceduralPattern(float2 px, float t) {
     }
 
     float4 col = pickProcColor(cell_id, px, t);
-    return float4(col.rgb * (col.a * clamp(mask, 0.0, 1.0)), col.a * clamp(mask, 0.0, 1.0));
+    float out_a = col.a * clamp(mask, 0.0, 1.0);
+    return float4(clamp(col.rgb * shade_mul, 0.0, 1.0) * out_a, out_a);
 }
 
 float4 sampleTileStamp(float2 uv, float slot_idx) {

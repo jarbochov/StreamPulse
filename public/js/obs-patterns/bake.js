@@ -11,6 +11,8 @@
             turkeys: { baseCols: 8.5, aspect: 0.94 },
             pumpkins: { baseCols: 10, aspect: 0.88 },
             'christmas-trees': { baseCols: 10, aspect: 0.95 },
+            evergreens: { baseCols: 10, aspect: 0.92 },
+            'football-field': { baseCols: 10, aspect: 0.85, multipleOf: 2 },
             'christmas-lights': { baseCols: 18, aspect: 0.96, multipleOf: 3 },
             snowflakes: { baseCols: 10, aspect: 0.86 },
             hearts: { baseCols: 11, aspect: 0.88 },
@@ -55,10 +57,11 @@
             rotationVariance: pr.rotationVariance, snowflakeStyle: pr.snowflakeStyle || 'all',
             motion: 'none', inPlace: 'none', vignette: 0
         });
+        const noGrid = preset === 'christmas-lights' || preset === 'confetti' || preset === 'football-field';
         return {
             dataUrl: canvas.toDataURL('image/png'),
-            cols: (preset === 'christmas-lights' || preset === 'confetti') ? 0 : layout.cols,
-            rows: (preset === 'christmas-lights' || preset === 'confetti') ? 0 : layout.rows
+            cols: noGrid ? 0 : layout.cols,
+            rows: noGrid ? 0 : layout.rows
         };
     }
 

@@ -37,7 +37,10 @@ var StreamPulsePatternCatalog = (() => {
         "snowflakes",
         "pumpkins",
         "hearts",
-        "fireworks"
+        "fireworks",
+        "honeycomb",
+        "evergreens",
+        "football-field"
       ];
       var PATTERN_CODE_MAP = PATTERNS.reduce((acc, id, idx) => {
         acc[id] = idx;
@@ -62,7 +65,8 @@ var StreamPulsePatternCatalog = (() => {
         "starfield",
         "sparkles",
         "dots",
-        "circuit"
+        "circuit",
+        "honeycomb"
       ]);
       var PATTERN_CAPABILITIES = {
         dots: { sizeVariance: true, scatter: true, inPlace: true, spin: false, fill: true, density: true, spacing: true, colorMode: true, label: "Dots matrix" },
@@ -82,6 +86,9 @@ var StreamPulsePatternCatalog = (() => {
         snowflakes: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, density: true, spacing: true, colorMode: true, label: "Snowflakes" },
         hearts: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, density: true, spacing: true, colorMode: true, label: "Floating hearts" },
         fireworks: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, density: true, spacing: true, colorMode: true, label: "Celebration fireworks" },
+        evergreens: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, density: true, spacing: true, colorMode: true, label: "Evergreen forest" },
+        honeycomb: { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: true, density: true, spacing: true, colorMode: true, label: "Honeycomb", hint: "Interlinked contiguous hexagonal honeycomb cells with 3D inner bevel shading and recessed depth." },
+        "football-field": { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: true, density: true, spacing: true, colorMode: true, label: "Football field", hint: "Gridiron football field with alternating turf bands, yard lines, hash marks, yard numbers, and directional arrows." },
         grid: { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: false, density: true, spacing: true, colorMode: true, label: "Grid", hint: "Continuous Cartesian coordinate grid. Line width, density, geometry scale, color placement, and in-place shimmer adjust this pattern." },
         isometric: { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: false, density: true, spacing: true, colorMode: true, label: "Isometric tiles", hint: "Continuous 3D isometric line grid. Line width, density, geometry scale, color placement, and in-place pulse adjust this pattern." },
         mesh: { sizeVariance: false, scatter: false, inPlace: true, spin: false, fill: false, density: true, spacing: true, colorMode: true, label: "Curved mesh", hint: "Continuous curved wire mesh. Adjust line spacing with density, wave amplitude with scale, color placement, and in-place wave oscillation." },
@@ -102,6 +109,7 @@ var StreamPulsePatternCatalog = (() => {
             ["geometry", "Geometry"],
             ["orbits", "Orbits"],
             ["hexagons", "Hexagons"],
+            ["honeycomb", "Honeycomb"],
             ["diamonds", "Diamonds"],
             ["isometric", "Isometric tiles"],
             ["mesh", "Curved mesh"],
@@ -118,7 +126,9 @@ var StreamPulsePatternCatalog = (() => {
             ["rings", "Rings"],
             ["scales", "Scales"],
             ["topography", "Topography"],
-            ["circuit", "Circuit board"]
+            ["circuit", "Circuit board"],
+            ["evergreens", "Evergreen forest"],
+            ["football-field", "Football field"]
           ]
         },
         {
