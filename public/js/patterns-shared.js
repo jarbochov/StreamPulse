@@ -559,7 +559,7 @@
                 ctx.lineTo(r * rw, r * (ry + 0.14));
             }
             ctx.stroke();
-        } else {
+        } else if (variant === 3) {
             // 3: Woodland Twin-Evergreen Cluster (Main Pine + Companion Sapling)
             const drawMiniPine = (ox, oy, sc, col) => {
                 ctx.save();
@@ -586,6 +586,56 @@
             };
             drawMiniPine(r * 0.28, r * 0.14, 0.64, subColor || treeColor);
             drawMiniPine(-r * 0.16, -r * 0.04, 0.88, treeColor);
+        } else if (variant === 4) {
+            // 4: Broad Umbrella Pine / Old-Growth Douglas Fir with high layered canopy & branch forks
+            ctx.fillStyle = withAlpha('#78350f', hasFill ? 'cc' : '78');
+            ctx.fillRect(-r * 0.11, r * 0.12, r * 0.22, r * 0.72);
+            ctx.strokeStyle = withAlpha('#78350f', 'aa');
+            ctx.beginPath();
+            ctx.moveTo(0, r * 0.36); ctx.lineTo(-r * 0.38, r * 0.12);
+            ctx.moveTo(0, r * 0.26); ctx.lineTo(r * 0.40, r * 0.04);
+            ctx.stroke();
+
+            ctx.fillStyle = fillCol;
+            ctx.strokeStyle = strokeCol;
+            const pads = [
+                { cx: -r * 0.38, cy: r * 0.08, rx: r * 0.36, ry: r * 0.18 },
+                { cx: r * 0.38, cy: r * 0.02, rx: r * 0.36, ry: r * 0.18 },
+                { cx: 0, cy: -r * 0.24, rx: r * 0.68, ry: r * 0.26 },
+                { cx: 0, cy: -r * 0.62, rx: r * 0.48, ry: r * 0.24 }
+            ];
+            for (const p of pads) {
+                ctx.beginPath();
+                ctx.moveTo(p.cx - p.rx, p.cy + p.ry * 0.5);
+                quadTo(ctx, p.cx, p.cy - p.ry * 1.4, p.cx + p.rx, p.cy + p.ry * 0.5);
+                quadTo(ctx, p.cx, p.cy + p.ry * 0.9, p.cx - p.rx, p.cy + p.ry * 0.5);
+                ctx.closePath();
+                if (hasFill) ctx.fill();
+                ctx.stroke();
+            }
+        } else {
+            // 5: Highland Hemlock with Curved Swooping Boughs
+            ctx.fillStyle = withAlpha('#78350f', hasFill ? 'cc' : '78');
+            ctx.fillRect(-r * 0.11, r * 0.54, r * 0.22, r * 0.30);
+
+            ctx.fillStyle = fillCol;
+            ctx.strokeStyle = strokeCol;
+            const swoops = [
+                { topY: -r * 0.10, botY: r * 0.56, halfW: r * 0.78 },
+                { topY: -r * 0.44, botY: r * 0.20, halfW: r * 0.62 },
+                { topY: -r * 0.74, botY: -r * 0.16, halfW: r * 0.46 },
+                { topY: -r * 1.00, botY: -r * 0.48, halfW: r * 0.28 }
+            ];
+            for (const s of swoops) {
+                ctx.beginPath();
+                ctx.moveTo(0, s.topY);
+                quadTo(ctx, s.halfW * 0.35, (s.topY + s.botY) * 0.52, s.halfW, s.botY);
+                quadTo(ctx, 0, s.botY - r * 0.12, -s.halfW, s.botY);
+                quadTo(ctx, -s.halfW * 0.35, (s.topY + s.botY) * 0.52, 0, s.topY);
+                ctx.closePath();
+                if (hasFill) ctx.fill();
+                ctx.stroke();
+            }
         }
 
         ctx.restore();
@@ -2423,7 +2473,7 @@
                 for (let col = cStart; col <= cEnd; col++) {
                     const wCol = wrapCol(col);
                     const idx = Math.abs(wRow * 19 + wCol * 31);
-                    const variant = (wRow * 3 + wCol * 5 + idx) % 4;
+                    const variant = (((wRow * 5 + wCol + ((wRow + wCol) & 1) * 2) % 6) + 6) % 6;
                     const sizeHash = (((idx * 7919 + 104729) % 1000) / 1000);
                     const sizeMult = (1 - sizeVarAmount * 0.4) + sizeHash * (sizeVarAmount * 0.8);
                     const r = baseR * sizeMult;
