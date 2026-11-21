@@ -110,9 +110,6 @@
             { label: 'Milestones', href: '/milestone-url-wizard.html' }
         ]},
         { label: 'Tools', children: [
-            { heading: 'OBS Studios' },
-            { label: 'OBS Border Studio', href: '/tools/obs-borders.html', module: 'obsBorders' },
-            { label: 'OBS Pattern Studio', href: '/tools/obs-patterns.html', module: 'obsPatterns' },
             { heading: 'Broadcast & Media' },
             { label: 'Alerts & SFX', href: '/alerts.html' },
             { label: 'Chat Bot', href: '/chatbot.html', module: 'chatbot' },
@@ -129,7 +126,10 @@
             { heading: 'Data & Social' },
             { label: 'Placeholders & Variables', href: '/placeholders.html' },
             { label: 'Operator Mode', href: '/operator.html' },
-            { label: 'Hashtag Tools', href: '/manage-hashtags.html', module: 'hashtags' }
+            { label: 'Hashtag Tools', href: '/manage-hashtags.html', module: 'hashtags' },
+            { heading: 'OBS Studios' },
+            { label: 'OBS Border Studio', href: '/tools/obs-borders.html', module: 'obsBorders' },
+            { label: 'OBS Pattern Studio', href: '/tools/obs-patterns.html', module: 'obsPatterns' }
         ]},
         { label: 'Library', children: [
             { label: 'Display Library', href: '/variable-displays.html' },
@@ -202,8 +202,8 @@
     const groupOrder = [
         'Navigation',
         'Editors & Studios',
-        'OBS Studios',
         'Stream Tools',
+        'OBS Studios',
         'URL Wizards (OBS)',
         'System & Settings',
         'Overlays Hub',
@@ -227,11 +227,7 @@
         list.push({ label: 'Game Plan Manager', href: '/game-plan-editor.html', group: 'Editors & Studios' });
         list.push({ label: 'Music Settings', href: '/music-editor.html', group: 'Editors & Studios', module: 'music' });
 
-        // 3. OBS Studios
-        list.push({ label: 'OBS Border Studio (Beta)', href: '/tools/obs-borders.html', group: 'OBS Studios', module: 'obsBorders', keywords: 'obs border studio shader filter metal lua outset bevel rounded corners' });
-        list.push({ label: 'OBS Pattern Studio (Beta)', href: '/tools/obs-patterns.html', group: 'OBS Studios', module: 'obsPatterns', keywords: 'obs pattern studio tile background procedural shader lua gpu kaleidoscope' });
-
-        // 4. Stream Tools & Automation
+        // 3. Stream Tools & Automation
         list.push({ label: 'Alerts & SFX', href: '/alerts.html', group: 'Stream Tools' });
         list.push({ label: 'Chat Bot', href: '/chatbot.html', group: 'Stream Tools', module: 'chatbot' });
         list.push({ label: 'Clips', href: '/clips.html', group: 'Stream Tools', module: 'clips', keywords: 'clips twitch video vod highlights markers' });
@@ -245,6 +241,10 @@
         list.push({ label: 'Hashtag Tools', href: '/manage-hashtags.html', group: 'Stream Tools', module: 'hashtags' });
         list.push({ label: 'Chat Commands Cheat Sheet', href: '/commands.html', group: 'Stream Tools', module: 'chatbot' });
         list.push({ label: 'Alert Queue Monitor', href: '/alert-queue.html', group: 'Stream Tools' });
+
+        // 4. OBS Studios
+        list.push({ label: 'OBS Border Studio (Beta)', href: '/tools/obs-borders.html', group: 'OBS Studios', module: 'obsBorders', keywords: 'obs border studio shader filter metal lua outset bevel rounded corners' });
+        list.push({ label: 'OBS Pattern Studio (Beta)', href: '/tools/obs-patterns.html', group: 'OBS Studios', module: 'obsPatterns', keywords: 'obs pattern studio tile background procedural shader lua gpu kaleidoscope' });
 
         // 4. URL Wizards (OBS Parameterized Source Generators)
         list.push({ label: 'Credits, Goals & Stats Wizard', href: '/overlay-url-wizard.html', group: 'URL Wizards (OBS)' });

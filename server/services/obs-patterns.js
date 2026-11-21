@@ -1023,33 +1023,20 @@ float4 evalPatternTiles(float2 px, float t) {
             grid_p.y += sy_dir * tile_speed * t * (c_odd > 0.5 ? -1.0 : 1.0);
         }
     } else if (tile_motion >= 3.5 && tile_motion < 4.5) {
-        // Six completed cycles return lane parity to its starting state.
         float cyc = t * max(0.12, tile_speed * 0.015);
-        float base_c = floor(cyc);
         float ph = frac(cyc);
-        float ro = fmod(abs(floor(grid_p.y / step_px)), 2.0);
-        float co = fmod(abs(floor(grid_p.x / step_px)), 2.0);
-        float block = tile_track_mode >= 7.5 ? ((ro > 0.5 && co < 0.5) ? 0.0 : 4.0)
-            : (tile_track_mode >= 6.5 ? ((ro > 0.5 && co > 0.5) ? 12.0 : 8.0) : 0.0);
-        grid_p += float2(block, block) * floor(base_c / 6.0) * step_px;
-        float remainder = fmod(base_c, 6.0);
-        for (int wi = 0; wi < 5; wi++) {
-            if (float(wi) >= remainder) break;
-            ro = fmod(abs(floor(grid_p.y / step_px)), 2.0);
-            grid_p.x += step_px * (tile_track_mode >= 7.5 ? (ro < 0.5 ? 1.0 : 0.0)
-                : (tile_track_mode >= 6.5 ? (ro > 0.5 ? 2.0 : 1.0) : (ro > 0.5 ? -1.0 : 1.0)));
-            co = fmod(abs(floor(grid_p.x / step_px)), 2.0);
-            grid_p.y += step_px * (tile_track_mode >= 7.5 ? (co > 0.5 ? 1.0 : 0.0)
-                : (tile_track_mode >= 6.5 ? (co > 0.5 ? 2.0 : 1.0) : (co > 0.5 ? -1.0 : 1.0)));
-        }
         float q = ph < 0.5 ? ph * 2.0 : (ph - 0.5) * 2.0;
         float eased = q < 0.5 ? 4.0 * q * q * q : 1.0 - pow(-2.0 * q + 2.0, 3.0) * 0.5;
-        ro = fmod(abs(floor(grid_p.y / step_px)), 2.0);
-        grid_p.x += step_px * (ph < 0.5 ? eased : 1.0) * (tile_track_mode >= 7.5 ? (ro < 0.5 ? 1.0 : 0.0)
-            : (tile_track_mode >= 6.5 ? (ro > 0.5 ? 2.0 : 1.0) : (ro > 0.5 ? -1.0 : 1.0)));
-        co = fmod(abs(floor(grid_p.x / step_px)), 2.0);
-        grid_p.y += step_px * (ph < 0.5 ? 0.0 : eased) * (tile_track_mode >= 7.5 ? (co > 0.5 ? 1.0 : 0.0)
-            : (tile_track_mode >= 6.5 ? (co > 0.5 ? 2.0 : 1.0) : (co > 0.5 ? -1.0 : 1.0)));
+        float span = 2.0 * step_px * eased;
+        if (ph < 0.5) {
+            float ro = fmod(abs(floor(grid_p.y / step_px)), 2.0);
+            float rx_dir = (tile_track_mode >= 6.5) ? (ro < 0.5 ? 1.0 : 0.0) : (ro > 0.5 ? -1.0 : 1.0);
+            grid_p.x += span * rx_dir;
+        } else {
+            float co = fmod(abs(floor(grid_p.x / step_px)), 2.0);
+            float cy_dir = (tile_track_mode >= 6.5) ? (co > 0.5 ? 1.0 : 0.0) : (co > 0.5 ? -1.0 : 1.0);
+            grid_p.y += span * cy_dir;
+        }
     }
 
     float row = floor(grid_p.y / step_px);

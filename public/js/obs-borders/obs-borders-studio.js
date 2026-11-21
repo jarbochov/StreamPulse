@@ -1200,7 +1200,8 @@
             } else if (a_type < 3.5) {
                 vec2 norm_p = p / max(half_base, vec2(1.0, 1.0));
                 float sweep_pos = fract(cyc_raw * dir_sign) * 3.2 - 1.6;
-                float laser = exp(-pow((norm_p.x + norm_p.y * 0.7) - sweep_pos, 2.0) * 18.0);
+                float laser_d = (norm_p.x + norm_p.y * 0.7) - sweep_pos;
+                float laser = exp(-laser_d * laser_d * 18.0);
                 anim_rgb = mix(base_col.rgb, a_color2.rgb, clamp(laser * 0.92, 0.0, 1.0));
             } else if (a_type < 4.5) {
                 float wave = 0.5 + 0.5 * sin(norm_ang * 18.8495 + phase * 2.0) * cos(norm_ang * 12.566 - phase * 1.4);
@@ -1443,7 +1444,7 @@
                 }
                 float scan = 0.90 + 0.10 * sin(px.y * 0.95);
                 vec3 out_rgb = mix(bg_color1.rgb, snow * scan, clamp(bg_static_noise, 0.0, 1.0));
-                return vec4(out_rgb, bg_color1.a);
+                return vec4(out_rgb * bg_color1.a, bg_color1.a);
             }
 
             vec4 card = mix(bg_color1, bg_color2, proj);
@@ -1458,7 +1459,8 @@
             );
             float d_person = min(d_head, d_torso);
             float p_mask = (1.0 - smoothstep(-1.2, 1.2, d_person)) * bg_icon_color.a;
-            return vec4(mix(card.rgb, bg_icon_color.rgb, p_mask), card.a);
+            vec3 person_rgb = mix(card.rgb, bg_icon_color.rgb, p_mask);
+            return vec4(person_rgb * card.a, card.a);
         }
 
         void main() {

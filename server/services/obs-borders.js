@@ -759,7 +759,8 @@ float4 applyBorderAnimOverlay(
         // 3: laser-scan
         float2 norm_p = p / max(half_base, float2(1.0, 1.0));
         float sweep_pos = frac(cyc_raw * dir_sign) * 3.2 - 1.6;
-        float laser = exp(-pow((norm_p.x + norm_p.y * 0.7) - sweep_pos, 2.0) * 18.0);
+        float laser_d = (norm_p.x + norm_p.y * 0.7) - sweep_pos;
+        float laser = exp(-laser_d * laser_d * 18.0);
         anim_rgb = lerp(base_col.rgb, a_color2.rgb, clamp(laser * 0.92, 0.0, 1.0));
     } else if (a_type < 4.5) {
         // 4: plasma
@@ -1074,7 +1075,7 @@ float4 evalBackgroundFill(float2 p, float2 half_base, float a_time) {
         // Subtle CRT scanline bar
         float scan = 0.90 + 0.10 * sin(px.y * 0.95);
         float3 out_rgb = lerp(bg_color1.rgb, snow * scan, clamp(bg_static_noise, 0.0, 1.0));
-        return float4(out_rgb, bg_color1.a);
+        return float4(out_rgb * bg_color1.a, bg_color1.a);
     }
 
     // 1: person silhouette over subtle gradient backdrop
@@ -1090,7 +1091,8 @@ float4 evalBackgroundFill(float2 p, float2 half_base, float a_time) {
     );
     float d_person = min(d_head, d_torso);
     float p_mask = (1.0 - smoothstep(-1.2, 1.2, d_person)) * bg_icon_color.a;
-    return float4(lerp(card.rgb, bg_icon_color.rgb, p_mask), card.a);
+    float3 person_rgb = lerp(card.rgb, bg_icon_color.rgb, p_mask);
+    return float4(person_rgb * card.a, card.a);
 }
 
 float4 PSDefault(VertDataOut v_in) : TARGET {
