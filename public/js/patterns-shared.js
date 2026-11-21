@@ -2469,6 +2469,17 @@
             const rEnd = isSeamless ? 0 : (Math.ceil((maxY - fallDy) / pitchH) + 1);
             const baseLineW = getLineW(1.1);
             const yardNumbers = ['10', '20', '30', '40', '50', '40', '30', '20', '10'];
+            const toChalkLineColor = (hex) => {
+                const clean = String(hex || '#ffffff').replace(/^#/, '');
+                const r = Number.parseInt(clean.slice(0, 2), 16);
+                const g = Number.parseInt(clean.slice(2, 4), 16);
+                const b = Number.parseInt(clean.slice(4, 6), 16);
+                if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b)) return '#f8fafc';
+                const lr = Math.min(255, Math.round(255 * 0.84 + r * 0.16));
+                const lg = Math.min(255, Math.round(255 * 0.84 + g * 0.16));
+                const lb = Math.min(255, Math.round(255 * 0.84 + b * 0.16));
+                return `#${lr.toString(16).padStart(2, '0')}${lg.toString(16).padStart(2, '0')}${lb.toString(16).padStart(2, '0')}`;
+            };
 
             for (let row = rStart; row <= rEnd; row++) {
                 const topY = row * pitchH + fallDy;
@@ -2489,7 +2500,7 @@
                     const x1 = x0 + stripeW;
                     const cIdx = getCellColorIndex(row, wCol, x0 + stripeW * 0.5, topY + pitchH * 0.5, wCol);
                     const turfCol = getPatternColor(palette, cIdx, accent, secondary);
-                    const lineCol = getPatternColor(palette, cIdx + 1, secondary, accent);
+                    const lineCol = toChalkLineColor(getPatternColor(palette, cIdx + 1, secondary, accent));
 
                     // 1. Alternating 5-yard mowed turf bands
                     if (options.fillMode !== 'outline') {
@@ -2502,7 +2513,7 @@
 
                     // 2. Vertical 5-yard line at x0 (every even column is a 10-yard numbered line)
                     const isMajor10 = (wCol % 2 === 0);
-                    const lineAlpha = Math.max(35, Math.min(255, Math.round((isMajor10 ? 0xd8 : 0x8c) * pulse))).toString(16).padStart(2, '0');
+                    const lineAlpha = Math.max(45, Math.min(255, Math.round((isMajor10 ? 0xf0 : 0xb4) * pulse))).toString(16).padStart(2, '0');
                     ctx.strokeStyle = withAlpha(lineCol, lineAlpha);
                     ctx.lineWidth = isMajor10 ? baseLineW * 1.35 : baseLineW * 0.85;
                     ctx.beginPath();
@@ -2513,7 +2524,7 @@
                     // 3. 1-yard hash ticks (4 interior sub-yard ticks between 5-yard lines)
                     const tickLen = Math.max(4, fieldH * 0.024);
                     ctx.lineWidth = Math.max(1, baseLineW * 0.75);
-                    ctx.strokeStyle = withAlpha(lineCol, Math.max(30, Math.min(220, Math.round(0x88 * pulse))).toString(16).padStart(2, '0'));
+                    ctx.strokeStyle = withAlpha(lineCol, Math.max(40, Math.min(235, Math.round(0xa8 * pulse))).toString(16).padStart(2, '0'));
                     ctx.beginPath();
                     for (let sub = 1; sub <= 4; sub++) {
                         const hx = x0 + (stripeW * sub) / 5;
