@@ -2368,26 +2368,17 @@
                 }
             }
         } else if (pattern === 'honeycomb') {
-            // Contiguous interlinked hexagonal honeycomb with 6-faceted 3D inner walls, corner ribs & recessed floor
+            // Contiguous interlinked hexagonal honeycomb walls with smooth interior depth shading
             const cellRadius = Math.max(8, (fullWidth / (22 * dens2D)) * spacingMult);
             const rowStep = Math.sqrt(3) * cellRadius;
             const columnStep = cellRadius * 1.5;
             const outerR = cellRadius * Math.min(1, 1 / Math.max(1, spacingMult * 0.98));
-            const innerR = outerR * 0.56;
-            const parX = outerR * 0.06;
-            const parY = outerR * 0.09;
-            const baseLW = getLineW(1.05);
+            const baseLW = getLineW(1.1);
             const cStart = Math.floor(minX / columnStep) - 2, cEnd = Math.ceil(maxX / columnStep) + 2;
             const rStart = Math.floor((minY - fallDy) / rowStep) - 2, rEnd = Math.ceil((maxY - fallDy) / rowStep) + 2;
             const hexAngles = [0, 1, 2, 3, 4, 5].map(i => (i * Math.PI) / 3);
             const cosA = hexAngles.map(Math.cos);
             const sinA = hexAngles.map(Math.sin);
-            // 6 trapezoidal wall facets ordered from p -> (p+1)%6:
-            // p=3 (180->240 top-left) & p=4 (240->300 top): deep shadow
-            // p=2 (120->180 bot-left) & p=5 (300->0 top-right): mid-tone
-            // p=0 (0->60 bot-right) & p=1 (60->120 bottom shelf): bright highlight
-            const facetIsShadow = [false, false, true, true, true, true];
-            const facetWeight = [0.95, 0.88, 0.25, 0.72, 0.82, 0.35];
 
             for (let col = cStart; col <= cEnd; col++) {
                 for (let row = rStart; row <= rEnd; row++) {
@@ -2398,74 +2389,53 @@
                     const cIdx = getCellColorIndex(row, col, cx, cy, idx);
                     const color = getPatternColor(palette, cIdx, accent, secondary);
 
-                    const baseFillVal = hasFill ? Number.parseInt(fillHex, 16) : 0x54;
+                    const baseFillVal = hasFill ? Number.parseInt(fillHex, 16) : 0x58;
                     const effFill = Math.max(18, Math.min(255, Math.round(baseFillVal * cellPulse)));
 
-                    const ox = [], oy = [], ix = [], iy = [];
+                    ctx.beginPath();
                     for (let p = 0; p < 6; p++) {
-                        ox.push(cx + cosA[p] * outerR);
-                        oy.push(cy + sinA[p] * outerR);
-                        ix.push(cx + parX + cosA[p] * innerR);
-                        iy.push(cy + parY + sinA[p] * innerR);
+                        const x = cx + cosA[p] * outerR;
+                        const y = cy + sinA[p] * outerR;
+                        if (p === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
                     }
+                    ctx.closePath();
 
-                    // 1. Base cell chamber tint
-                    if (options.fillMode !== 'outline') {
-                        ctx.beginPath();
-                        for (let p = 0; p < 6; p++) {
-                            if (p === 0) ctx.moveTo(ox[p], oy[p]); else ctx.lineTo(ox[p], oy[p]);
-                        }
-                        ctx.closePath();
+                    // 1. Smooth inner cavity depth shading (radial gradient from offset interior highlight to shaded cell walls)
+                    if (typeof ctx.createRadialGradient === 'function') {
+                        const grad = ctx.createRadialGradient(
+                            cx + outerR * 0.18, cy + outerR * 0.22, outerR * 0.08,
+                            cx, cy, outerR
+                        );
+                        const coreAlpha = Math.max(8, Math.min(200, Math.round(effFill * 0.22))).toString(16).padStart(2, '0');
+                        const midAlpha = Math.max(14, Math.min(220, Math.round(effFill * 0.48))).toString(16).padStart(2, '0');
+                        const rimAlpha = Math.max(24, Math.min(245, Math.round(effFill * 0.88))).toString(16).padStart(2, '0');
+                        grad.addColorStop(0, withAlpha(color, coreAlpha));
+                        grad.addColorStop(0.62, withAlpha(color, midAlpha));
+                        grad.addColorStop(1, withAlpha(color, rimAlpha));
+                        ctx.fillStyle = grad;
+                        ctx.fill();
+                    } else if (options.fillMode !== 'outline') {
                         ctx.fillStyle = withAlpha(color, Math.round(effFill * 0.52).toString(16).padStart(2, '0'));
                         ctx.fill();
                     }
 
-                    // 2. 6 trapezoidal 3D inner wall facets
-                    for (let p = 0; p < 6; p++) {
-                        const np = (p + 1) % 6;
-                        ctx.beginPath();
-                        ctx.moveTo(ox[p], oy[p]);
-                        ctx.lineTo(ox[np], oy[np]);
-                        ctx.lineTo(ix[np], iy[np]);
-                        ctx.lineTo(ix[p], iy[p]);
-                        ctx.closePath();
-                        const alphaHex = Math.max(16, Math.min(235, Math.round(effFill * facetWeight[p]))).toString(16).padStart(2, '0');
-                        ctx.fillStyle = withAlpha(facetIsShadow[p] ? '#000000' : color, alphaHex);
+                    // 2. Soft top-left inner wall shadow gradient inside the cell
+                    if (typeof ctx.createLinearGradient === 'function') {
+                        const sGrad = ctx.createLinearGradient(
+                            cx - outerR * 0.7, cy - outerR * 0.85,
+                            cx + outerR * 0.7, cy + outerR * 0.85
+                        );
+                        const shAlpha = Math.max(14, Math.min(180, Math.round(effFill * 0.62))).toString(16).padStart(2, '0');
+                        sGrad.addColorStop(0, withAlpha('#000000', shAlpha));
+                        sGrad.addColorStop(0.55, withAlpha('#000000', '00'));
+                        sGrad.addColorStop(1, withAlpha(color, Math.max(10, Math.min(160, Math.round(effFill * 0.35))).toString(16).padStart(2, '0')));
+                        ctx.fillStyle = sGrad;
                         ctx.fill();
                     }
 
-                    // 3. Deep recessed inner hexagonal floor + inner rim contour
-                    ctx.beginPath();
-                    for (let p = 0; p < 6; p++) {
-                        if (p === 0) ctx.moveTo(ix[p], iy[p]); else ctx.lineTo(ix[p], iy[p]);
-                    }
-                    ctx.closePath();
-                    if (options.fillMode !== 'outline') {
-                        ctx.fillStyle = withAlpha('#000000', Math.max(20, Math.min(170, Math.round(effFill * 0.48))).toString(16).padStart(2, '0'));
-                        ctx.fill();
-                    }
-                    ctx.lineWidth = Math.max(0.75, baseLW * 0.7);
-                    ctx.strokeStyle = withAlpha(color, Math.max(30, Math.min(210, Math.round(0x6e * cellPulse))).toString(16).padStart(2, '0'));
-                    ctx.stroke();
-
-                    // 4. 6 corner depth ribs connecting outer vertices to inner recessed vertices
-                    ctx.beginPath();
-                    for (let p = 0; p < 6; p++) {
-                        ctx.moveTo(ox[p], oy[p]);
-                        ctx.lineTo(ix[p], iy[p]);
-                    }
-                    ctx.lineWidth = Math.max(0.7, baseLW * 0.65);
-                    ctx.strokeStyle = withAlpha(color, Math.max(25, Math.min(190, Math.round(0x5c * cellPulse))).toString(16).padStart(2, '0'));
-                    ctx.stroke();
-
-                    // 5. Outer shared interlinked honeycomb ridge
-                    ctx.beginPath();
-                    for (let p = 0; p < 6; p++) {
-                        if (p === 0) ctx.moveTo(ox[p], oy[p]); else ctx.lineTo(ox[p], oy[p]);
-                    }
-                    ctx.closePath();
+                    // 3. Shared interlinked honeycomb cell walls
                     ctx.lineWidth = baseLW;
-                    const strokeAlpha = hasInPlaceAnim ? Math.max(50, Math.min(255, Math.round(0xc8 * cellPulse))).toString(16).padStart(2, '0') : 'c8';
+                    const strokeAlpha = hasInPlaceAnim ? Math.max(55, Math.min(255, Math.round(0xd4 * cellPulse))).toString(16).padStart(2, '0') : 'd4';
                     ctx.strokeStyle = withAlpha(color, strokeAlpha);
                     ctx.stroke();
                 }
