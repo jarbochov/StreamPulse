@@ -465,6 +465,12 @@
         setHidden('op-tile-dist-wrap', slots.length <= 1);
         setHidden('op-tile-kaleido-wrap', !isRadial);
         setHidden('op-tile-kaleido-morph-wrap', !isRadial);
+        const hueSpeedEl = document.getElementById('op-tile-hue-speed');
+        if (hueSpeedEl) {
+            const hueOff = (tl.hueShift || 'none') === 'none';
+            hueSpeedEl.disabled = hueOff;
+            hueSpeedEl.style.opacity = hueOff ? '0.5' : '';
+        }
         const addBtn = document.getElementById('op-tile-add-slot');
         if (addBtn) addBtn.disabled = slots.length >= 4;
     }
@@ -493,9 +499,14 @@
         listEl.innerHTML = slots.map((slot, idx) => {
             const hasIcon = slot.sourceType === 'icon' && slot.iconClass;
             const hasImg = slot.sourceType === 'image' && slot.src;
-            let thumb = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 22 12 12 22 2 12"/></svg>`;
+            const isBuiltIn = !hasIcon && !hasImg;
+            const effectiveSlotColor = (isBuiltIn && slots.length === 1) ? (tl.tintColor || slot.color || '#FFFFFFFF') : (slot.color || '#FFFFFFFF');
+            let thumb = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="${escapeHtml(effectiveSlotColor.slice(0, 7))}" stroke-width="1.8"><polygon points="12 2 22 12 12 22 2 12"/></svg>`;
             if (hasImg) thumb = `<img src="${escapeHtml(slot.src)}" alt="" style="width:100%;height:100%;object-fit:contain;">`;
             else if (hasIcon) thumb = `<i class="${escapeHtml(slot.iconClass)}" style="font-size:18px;color:${escapeHtml((slot.color || '#FFFFFFFF').slice(0, 7))};"></i>`;
+            const colorControl = hasImg
+                ? ''
+                : `<input type="color" data-slot-color="${idx}" value="${escapeHtml(colorPickHex(effectiveSlotColor))}" title="${isBuiltIn && slots.length === 1 ? 'Tile color tint (syncs Master Tint)' : 'Icon color tint'}" style="width:26px;height:22px;padding:0;border:1px solid var(--border);border-radius:4px;cursor:pointer;">`;
             return `<div class="op-slot-card" data-slot-idx="${idx}" style="display:flex;align-items:center;gap:0.55rem;padding:0.45rem 0.55rem;border:1px solid var(--border);border-radius:8px;background:var(--bg-inset);">
                 <div style="width:36px;height:36px;flex:0 0 36px;border-radius:6px;background:var(--bg-card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;overflow:hidden;">${thumb}</div>
                 <div style="flex:1;min-width:0;">
@@ -510,7 +521,7 @@
                         <label style="display:inline-flex;align-items:center;gap:0.25rem;font-size:0.7rem;color:var(--text-muted);margin-left:0.2rem;">
                             Scale %<input type="number" data-slot-scale="${idx}" value="${Number(slot.scale ?? 100)}" min="25" max="200" step="5" style="width:52px;padding:0.12rem 0.3rem;font-size:0.72rem;">
                         </label>
-                        <input type="color" data-slot-color="${idx}" value="${escapeHtml(colorPickHex(slot.color || '#FFFFFFFF'))}" title="Icon color tint" style="width:26px;height:22px;padding:0;border:1px solid var(--border);border-radius:4px;cursor:pointer;">
+                        ${colorControl}
                     </div>
                 </div>
                 ${slots.length > 1 ? `<button type="button" class="btn btn-sm" data-slot-remove="${idx}" title="Remove slot" aria-label="Remove slot ${idx + 1}" style="padding:0.2rem 0.45rem;">×</button>` : ''}
@@ -587,7 +598,14 @@
         listEl.querySelectorAll('[data-slot-color]').forEach(inp => {
             inp.addEventListener('change', async () => {
                 const idx = Number(inp.dataset.slotColor);
-                slots[idx].color = inp.value.toUpperCase() + 'FF';
+                const hex = inp.value.toUpperCase() + 'FF';
+                slots[idx].color = hex;
+                if (slots.length === 1 && !(slots[0].sourceType === 'icon' && slots[0].iconClass) && !(slots[0].sourceType === 'image' && slots[0].src)) {
+                    tl.tintColor = hex;
+                    setControlValue('op-tile-tint', hex, '#FFFFFFFF', { isColor: true });
+                    syncColorPicker('op-tile-tint', 'op-tile-tint-pick');
+                    previewDirty = true;
+                }
                 renderTileSlots();
                 await rebuildTileAtlasAndUpload('Color');
             });
@@ -1520,9 +1538,9 @@
             float slot_idx = 0.0;
             if (tile_count > 1.5) {
                 float nslots = clamp(tile_count, 1.0, 4.0);
-                if (tile_dist < 0.5) slot_idx = mod(abs(cell_id.x + cell_id.y), nslots);
-                else if (tile_dist < 1.5) slot_idx = mod(abs(cell_id.y), nslots);
-                else if (tile_dist < 2.5) slot_idx = mod(abs(cell_id.x), nslots);
+                if (tile_dist < 0.5) slot_idx = mod(cell_id.x + cell_id.y + 4096.0 * nslots, nslots);
+                else if (tile_dist < 1.5) slot_idx = mod(cell_id.y + 4096.0 * nslots, nslots);
+                else if (tile_dist < 2.5) slot_idx = mod(cell_id.x + 4096.0 * nslots, nslots);
                 else if (tile_dist < 3.5) slot_idx = mod(mod(abs(cell_id.x), 2.0) + mod(abs(cell_id.y), 2.0) * 2.0, nslots);
                 else slot_idx = floor(rnd.x * nslots);
             }
@@ -1539,12 +1557,12 @@
                 if (has_hue_fx > 0.5) {
                     float mx = max(unpm.r, max(unpm.g, unpm.b));
                     float mn = min(unpm.r, min(unpm.g, unpm.b));
-                    if ((mx - mn) < 0.08) {
-                        float l_base = (mx > 0.92) ? 0.58 : max(0.32, mx * 0.72);
-                        unpm = clamp(hueShiftRgb(vec3(l_base * 1.48, l_base * 0.36, l_base * 0.56), hue_a), 0.0, 1.0);
-                    } else {
-                        unpm = clamp(hueShiftRgb(unpm, hue_a), 0.0, 1.0);
-                    }
+                    float chroma = mx - mn;
+                    float mono_w = 1.0 - smoothstep(0.02, 0.16, chroma);
+                    float l_base = (mx > 0.92) ? 0.58 : clamp(mx * 0.72, 0.0, 0.58);
+                    vec3 mono_rgb = hueShiftRgb(vec3(l_base * 1.48, l_base * 0.36, l_base * 0.56), hue_a);
+                    vec3 col_rgb = hueShiftRgb(unpm, hue_a);
+                    unpm = clamp(mix(col_rgb, mono_rgb, mono_w), 0.0, 1.0);
                 }
                 if (tile_sat_jitter > 0.5) {
                     float lum = dot(unpm, vec3(0.299, 0.587, 0.114));
@@ -2100,6 +2118,11 @@
             if (previewDirty) uploadPreviewUniforms(gl, u, p, w, h, nowMs);
             else gl.uniform1f(u.anim_time, (nowMs - animStartMs) / 1000);
             if (useBlur) {
+                if (!scene) {
+                    gl.activeTexture(gl.TEXTURE1);
+                    gl.bindTexture(gl.TEXTURE_2D, glSceneTexture);
+                    gl.activeTexture(gl.TEXTURE0);
+                }
                 gl.uniform2f(u.scene_padding, padX * w / canvas.width, padY * h / canvas.height);
                 gl.uniform1i(u.scene_tex, 1);
             }
@@ -2136,7 +2159,7 @@
                     animFrameId = null;
                     return;
                 }
-                if (previewDirty || (now - lastAnimDrawMs) >= 16) {
+                if (previewDirty || (now - lastAnimDrawMs) >= 14.5) {
                     lastAnimDrawMs = now;
                     drawPreviewFrame(now);
                 }

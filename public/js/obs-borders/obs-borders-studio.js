@@ -1922,7 +1922,7 @@
                     animFrameId = null;
                     return;
                 }
-                if (previewDirty || (now - lastAnimDrawMs) >= 16) {
+                if (previewDirty || (now - lastAnimDrawMs) >= 14.5) {
                     lastAnimDrawMs = now;
                     drawPreviewFrame(now);
                 }

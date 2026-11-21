@@ -777,4 +777,12 @@ describe('OBS Pattern Studio (Beta / Advanced)', () => {
             await new Promise(resolve => mockServer.close(resolve));
         }
     });
+
+    it('emits static-frame cache and smooth monochrome tile hue-shift in Lua/HLSL', () => {
+        const lua = fs.readFileSync(service.getState().luaScriptPath, 'utf8');
+        assert.ok(lua.includes('is_profile_animated(prof)'), 'Expected static-frame check in OBS Lua tick');
+        assert.ok(lua.includes('static_rendered_key'), 'Expected static_rendered_key cache in OBS Lua');
+        assert.ok(lua.includes('smoothstep(0.02, 0.16, chroma)'), 'Expected smooth monochrome blend for tile hue shift');
+        assert.ok(lua.includes('4096.0 * nslots'), 'Expected non-negative modulo for multi-slot tile distribution');
+    });
 });

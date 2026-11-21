@@ -1110,9 +1110,9 @@ float4 evalPatternTiles(float2 px, float t) {
     float slot_idx = 0.0;
     if (tile_count > 1.5) {
         float nslots = clamp(tile_count, 1.0, 4.0);
-        if (tile_dist < 0.5) slot_idx = fmod(abs(cell_id.x + cell_id.y), nslots);
-        else if (tile_dist < 1.5) slot_idx = fmod(abs(cell_id.y), nslots);
-        else if (tile_dist < 2.5) slot_idx = fmod(abs(cell_id.x), nslots);
+        if (tile_dist < 0.5) slot_idx = fmod(max(0.0, cell_id.x + cell_id.y + 4096.0 * nslots), nslots);
+        else if (tile_dist < 1.5) slot_idx = fmod(max(0.0, cell_id.y + 4096.0 * nslots), nslots);
+        else if (tile_dist < 2.5) slot_idx = fmod(max(0.0, cell_id.x + 4096.0 * nslots), nslots);
         else if (tile_dist < 3.5) slot_idx = fmod(fmod(abs(cell_id.x), 2.0) + fmod(abs(cell_id.y), 2.0) * 2.0, nslots);
         else slot_idx = floor(rnd.x * nslots);
     }
@@ -1134,12 +1134,12 @@ float4 evalPatternTiles(float2 px, float t) {
         if (has_hue_fx > 0.5) {
             float mx = max(unpm.r, max(unpm.g, unpm.b));
             float mn = min(unpm.r, min(unpm.g, unpm.b));
-            if ((mx - mn) < 0.08) {
-                float l_base = (mx > 0.92) ? 0.58 : max(0.32, mx * 0.72);
-                unpm = clamp(hueShiftRgb(float3(l_base * 1.48, l_base * 0.36, l_base * 0.56), hue_a), 0.0, 1.0);
-            } else {
-                unpm = clamp(hueShiftRgb(unpm, hue_a), 0.0, 1.0);
-            }
+            float chroma = mx - mn;
+            float mono_w = 1.0 - smoothstep(0.02, 0.16, chroma);
+            float l_base = (mx > 0.92) ? 0.58 : clamp(mx * 0.72, 0.0, 0.58);
+            float3 mono_rgb = hueShiftRgb(float3(l_base * 1.48, l_base * 0.36, l_base * 0.56), hue_a);
+            float3 col_rgb = hueShiftRgb(unpm, hue_a);
+            unpm = clamp(lerp(col_rgb, mono_rgb, mono_w), 0.0, 1.0);
         }
         if (tile_sat_jitter > 0.5) {
             float lum = dot(unpm, float3(0.299, 0.587, 0.114));
@@ -1777,6 +1777,7 @@ source_def.update = function(data, settings)
     local h = obs.obs_data_get_int(settings, "height")
     data.width = (w and w > 0) and w or 1920
     data.height = (h and h > 0) and h or 1080
+    data.static_rendered_key = ""
     pcall(reload_manifest, true)
     pcall(refresh_active_scene_name)
 end
@@ -1790,6 +1791,7 @@ source_def.create = function(settings, source)
     data.anim_time = 0
     data.loaded_stamp_file = ""
     data.loaded_stamp_key = ""
+    data.static_rendered_key = ""
     data.stamp_img = nil
     data.stamp_img_ex = obs.gs_image_file_ex and obs.gs_image_file_ex() or nil
     data.stamp_tex = nil
@@ -2062,6 +2064,27 @@ source_def.get_height = function(data)
     return data.height or 1080
 end
 
+local function is_profile_animated(prof)
+    if not prof then return false end
+    local fl = prof.filters or {}
+    if (prof.bgTypeCode or 1) >= 2 and (prof.bgMotionCode or 0) > 0.5 then return true end
+    if (fl.grainAmount or 0) > 0.005 and (fl.grainAnim or 0) > 0.5 then return true end
+    if (prof.modeCode or 0) > 0.5 then
+        local tl = prof.tiles or {}
+        if (tl.motionCode or 0) > 0.5 then return true end
+        if (tl.hueModeCode or 0) > 0.5 then return true end
+        if (tl.symmetryCode or 0) >= 2 and (tl.kaleidoMorph or 0) > 0.5 then return true end
+        if (tl.twinkle or 0) > 0.5 then return true end
+        return false
+    end
+    local pr = prof.procedural or {}
+    if (pr.motionCode or 0) > 0.5 then return true end
+    if (pr.colorAnimCode or 0) > 0.5 then return true end
+    if (pr.inPlaceCode or 0) > 0.5 then return true end
+    if (pr.spinModeCode or 0) > 0.5 then return true end
+    return false
+end
+
 source_def.video_tick = function(data, seconds)
     data.anim_time = (data.anim_time or 0) + (seconds or 0.016)
     data.blur_ready = false
@@ -2087,6 +2110,11 @@ source_def.video_tick = function(data, seconds)
         and (not obs.obs_source_showing or obs.obs_source_showing(data.context)) then
         local w = data.width or 1920
         local h = data.height or 1080
+        local is_anim = is_profile_animated(prof)
+        local static_key = (not is_anim) and (tostring(prof.id) .. ":" .. tostring(manifest_revision) .. ":" .. tostring(w) .. "x" .. tostring(h) .. ":" .. tostring(data.loaded_stamp_key or "")) or ""
+        if (not is_anim) and data.rt ~= nil and data.static_rendered_key == static_key then
+            return
+        end
         obs.obs_enter_graphics()
         local use_blur = prepare_blur_texture(data, prof)
         if data.rt == nil then
@@ -2114,6 +2142,7 @@ source_def.video_tick = function(data, seconds)
                 obs.gs_projection_pop()
                 obs.gs_viewport_pop()
                 obs.gs_texrender_end(data.rt)
+                data.static_rendered_key = static_key
             end
         end
         obs.obs_leave_graphics()

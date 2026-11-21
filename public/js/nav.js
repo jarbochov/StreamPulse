@@ -110,10 +110,11 @@
             { label: 'Milestones', href: '/milestone-url-wizard.html' }
         ]},
         { label: 'Tools', children: [
-            { heading: 'Broadcast & Media' },
-            { label: 'Alerts & SFX', href: '/alerts.html' },
+            { heading: 'OBS Studios' },
             { label: 'OBS Border Studio', href: '/tools/obs-borders.html', module: 'obsBorders' },
             { label: 'OBS Pattern Studio', href: '/tools/obs-patterns.html', module: 'obsPatterns' },
+            { heading: 'Broadcast & Media' },
+            { label: 'Alerts & SFX', href: '/alerts.html' },
             { label: 'Chat Bot', href: '/chatbot.html', module: 'chatbot' },
             { label: 'Clips', href: '/clips.html', module: 'clips' },
             { label: 'Promo Creator', href: '/promo-creator.html' },
@@ -201,6 +202,7 @@
     const groupOrder = [
         'Navigation',
         'Editors & Studios',
+        'OBS Studios',
         'Stream Tools',
         'URL Wizards (OBS)',
         'System & Settings',
@@ -225,10 +227,12 @@
         list.push({ label: 'Game Plan Manager', href: '/game-plan-editor.html', group: 'Editors & Studios' });
         list.push({ label: 'Music Settings', href: '/music-editor.html', group: 'Editors & Studios', module: 'music' });
 
-        // 3. Stream Tools & Automation
+        // 3. OBS Studios
+        list.push({ label: 'OBS Border Studio (Beta)', href: '/tools/obs-borders.html', group: 'OBS Studios', module: 'obsBorders', keywords: 'obs border studio shader filter metal lua outset bevel rounded corners' });
+        list.push({ label: 'OBS Pattern Studio (Beta)', href: '/tools/obs-patterns.html', group: 'OBS Studios', module: 'obsPatterns', keywords: 'obs pattern studio tile background procedural shader lua gpu kaleidoscope' });
+
+        // 4. Stream Tools & Automation
         list.push({ label: 'Alerts & SFX', href: '/alerts.html', group: 'Stream Tools' });
-        list.push({ label: 'OBS Border Studio (Beta)', href: '/tools/obs-borders.html', group: 'Stream Tools', module: 'obsBorders', keywords: 'obs border studio shader filter metal lua outset bevel rounded corners' });
-        list.push({ label: 'OBS Pattern Studio (Beta)', href: '/tools/obs-patterns.html', group: 'Stream Tools', module: 'obsPatterns', keywords: 'obs pattern studio tile background procedural shader lua gpu kaleidoscope' });
         list.push({ label: 'Chat Bot', href: '/chatbot.html', group: 'Stream Tools', module: 'chatbot' });
         list.push({ label: 'Clips', href: '/clips.html', group: 'Stream Tools', module: 'clips', keywords: 'clips twitch video vod highlights markers' });
         list.push({ label: 'Trivia Studio', href: '/tools/trivia.html', group: 'Stream Tools', module: 'trivia', keywords: 'trivia quiz audience voting question bank true false questions game' });

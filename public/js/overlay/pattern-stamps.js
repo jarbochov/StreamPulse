@@ -331,7 +331,15 @@ function createPatternStampRenderer(state) {
         const satShift = saturationJitter > 0 ? (((idx * 7) % 11 - 5) / 5) * (saturationJitter / 100) : 0;
         const briShift = brightnessJitter > 0 ? (((idx * 13) % 11 - 5) / 5) * (brightnessJitter / 100) : 0;
 
-        if (hKey === 0 && satShift === 0 && briShift === 0) {
+        const baseHex = slotObj.sourceType === 'icon' ? (slotObj.color || curElement.style?.color || '#ffffff') : '#ffffff';
+        const baseRgb = parseColorHex(baseHex);
+        const baseHsl = rgbToHsl(baseRgb.r, baseRgb.g, baseRgb.b);
+        const needsMonoPromotion = hasHue && (
+            (slotObj.sourceType === 'icon' && (baseHsl.s < 0.08 || baseHsl.l > 0.95 || baseHsl.l < 0.08))
+            || Boolean(slotObj.baseStampIsMonochrome)
+        );
+
+        if (hKey === 0 && satShift === 0 && briShift === 0 && !needsMonoPromotion) {
             slotObj.iconHueCache.set(idx, null);
             return null;
         }
@@ -342,14 +350,11 @@ function createPatternStampRenderer(state) {
         c.width = sW; c.height = sH;
         const tCtx = c.getContext('2d');
 
-        if (slotObj.sourceType === 'icon' || (slotObj.baseStampIsMonochrome && hKey !== 0)) {
-            const baseHex = slotObj.sourceType === 'icon' ? (slotObj.color || curElement.style?.color || '#ffffff') : '#ffffff';
-            const rgb = parseColorHex(baseHex);
-            const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
-            let h = (hsl.h + hKey) % 360;
+        if (slotObj.sourceType === 'icon' || (slotObj.baseStampIsMonochrome && hasHue)) {
+            let h = (baseHsl.h + hKey) % 360;
             if (h < 0) h += 360;
-            let s = hsl.s < 0.08 ? 0.88 : hsl.s;
-            let l = (hsl.l > 0.95 || hsl.l < 0.08) ? 0.58 : hsl.l;
+            let s = baseHsl.s < 0.08 ? 0.88 : baseHsl.s;
+            let l = (baseHsl.l > 0.95 || baseHsl.l < 0.08) ? 0.58 : baseHsl.l;
             if (satShift !== 0) s = Math.max(0.05, Math.min(1, s + satShift));
             if (briShift !== 0) l = Math.max(0.05, Math.min(0.95, l * (1 + briShift)));
             const colorStr = `hsl(${Math.round(h)}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%)`;

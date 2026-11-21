@@ -9,6 +9,7 @@
     width: 100%;
     margin: 0 auto;
     padding: 0.9rem 1.75rem 3rem;
+    box-sizing: border-box;
 }
 
 .ob-badge-group {
@@ -158,8 +159,12 @@
 
 @media (max-width: 1120px) {
     .ob-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
+}
+
+.ob-grid > * {
+    min-width: 0;
 }
 
 /* Standardized Studio Inspector Panels (matching custom-overlay-editor.css) */
@@ -560,7 +565,7 @@
 
 .ob-source-scenes {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
     gap: 0.5rem 0.7rem;
 }
 
@@ -803,4 +808,54 @@
     width: 8px;
     height: 8px;
     border-radius: 50%;
+}
+
+@media (max-width: 720px) {
+    .header h1 {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 1.05rem;
+    }
+    .ob-badge-group {
+        margin-left: 0;
+    }
+    .ob-wrap {
+        padding: 0.75rem 0.8rem 2.5rem;
+    }
+    .sub-nav-bar {
+        padding: 0 0.55rem !important;
+    }
+    .sub-nav-inner {
+        max-width: 100%;
+    }
+    .sub-nav-group {
+        max-width: 100%;
+        overflow-x: auto;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+    }
+    .sub-nav-group::-webkit-scrollbar {
+        display: none;
+    }
+    .ob-controls-left {
+        flex: 1 1 100%;
+        flex-wrap: wrap;
+    }
+    .ob-controls-left .seg,
+    .ob-controls-left input[type="text"],
+    .ob-toolbar select,
+    .ob-source-controls select,
+    .ob-scene-override-item select {
+        min-width: 0;
+        width: 100%;
+        max-width: 100%;
+    }
+    .ob-drawer {
+        padding: 0.65rem 0.75rem;
+    }
+    .ob-scene-override-item {
+        flex-wrap: wrap;
+    }
 }
