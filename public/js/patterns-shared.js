@@ -2368,18 +2368,26 @@
                 }
             }
         } else if (pattern === 'honeycomb') {
-            // Contiguous interlinked hexagonal honeycomb with 3D inner bevel depth shading
-            const baseRadius = Math.max(8, (fullWidth / (22 * dens2D)) * spacingMult);
-            const rowStep = Math.sqrt(3) * baseRadius;
-            const columnStep = baseRadius * 1.5;
-            const outerR = baseRadius * 0.97;
-            const innerR = outerR * 0.64;
-            ctx.lineWidth = getLineW(1.05);
+            // Contiguous interlinked hexagonal honeycomb with 6-faceted 3D inner walls, corner ribs & recessed floor
+            const cellRadius = Math.max(8, (fullWidth / (22 * dens2D)) * spacingMult);
+            const rowStep = Math.sqrt(3) * cellRadius;
+            const columnStep = cellRadius * 1.5;
+            const outerR = cellRadius * Math.min(1, 1 / Math.max(1, spacingMult * 0.98));
+            const innerR = outerR * 0.56;
+            const parX = outerR * 0.06;
+            const parY = outerR * 0.09;
+            const baseLW = getLineW(1.05);
             const cStart = Math.floor(minX / columnStep) - 2, cEnd = Math.ceil(maxX / columnStep) + 2;
             const rStart = Math.floor((minY - fallDy) / rowStep) - 2, rEnd = Math.ceil((maxY - fallDy) / rowStep) + 2;
             const hexAngles = [0, 1, 2, 3, 4, 5].map(i => (i * Math.PI) / 3);
             const cosA = hexAngles.map(Math.cos);
             const sinA = hexAngles.map(Math.sin);
+            // 6 trapezoidal wall facets ordered from p -> (p+1)%6:
+            // p=3 (180->240 top-left) & p=4 (240->300 top): deep shadow
+            // p=2 (120->180 bot-left) & p=5 (300->0 top-right): mid-tone
+            // p=0 (0->60 bot-right) & p=1 (60->120 bottom shelf): bright highlight
+            const facetIsShadow = [false, false, true, true, true, true];
+            const facetWeight = [0.95, 0.88, 0.25, 0.72, 0.82, 0.35];
 
             for (let col = cStart; col <= cEnd; col++) {
                 for (let row = rStart; row <= rEnd; row++) {
@@ -2390,69 +2398,74 @@
                     const cIdx = getCellColorIndex(row, col, cx, cy, idx);
                     const color = getPatternColor(palette, cIdx, accent, secondary);
 
-                    const baseFillVal = hasFill ? Number.parseInt(fillHex, 16) : 0x42;
-                    const effFill = Math.max(12, Math.min(255, Math.round(baseFillVal * cellPulse)));
+                    const baseFillVal = hasFill ? Number.parseInt(fillHex, 16) : 0x54;
+                    const effFill = Math.max(18, Math.min(255, Math.round(baseFillVal * cellPulse)));
 
-                    // 1. Base cell chamber fill
-                    ctx.beginPath();
+                    const ox = [], oy = [], ix = [], iy = [];
                     for (let p = 0; p < 6; p++) {
-                        const x = cx + cosA[p] * outerR, y = cy + sinA[p] * outerR;
-                        if (p === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                        ox.push(cx + cosA[p] * outerR);
+                        oy.push(cy + sinA[p] * outerR);
+                        ix.push(cx + parX + cosA[p] * innerR);
+                        iy.push(cy + parY + sinA[p] * innerR);
                     }
-                    ctx.closePath();
+
+                    // 1. Base cell chamber tint
                     if (options.fillMode !== 'outline') {
-                        ctx.fillStyle = withAlpha(color, Math.round(effFill * 0.55).toString(16).padStart(2, '0'));
+                        ctx.beginPath();
+                        for (let p = 0; p < 6; p++) {
+                            if (p === 0) ctx.moveTo(ox[p], oy[p]); else ctx.lineTo(ox[p], oy[p]);
+                        }
+                        ctx.closePath();
+                        ctx.fillStyle = withAlpha(color, Math.round(effFill * 0.52).toString(16).padStart(2, '0'));
                         ctx.fill();
                     }
 
-                    // 2. Top-left 3 inner bevel walls (shadowed depth facet: vertices 2->3->4->5)
-                    ctx.beginPath();
-                    for (let p = 2; p <= 5; p++) {
-                        const x = cx + cosA[p] * outerR, y = cy + sinA[p] * outerR;
-                        if (p === 2) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                    // 2. 6 trapezoidal 3D inner wall facets
+                    for (let p = 0; p < 6; p++) {
+                        const np = (p + 1) % 6;
+                        ctx.beginPath();
+                        ctx.moveTo(ox[p], oy[p]);
+                        ctx.lineTo(ox[np], oy[np]);
+                        ctx.lineTo(ix[np], iy[np]);
+                        ctx.lineTo(ix[p], iy[p]);
+                        ctx.closePath();
+                        const alphaHex = Math.max(16, Math.min(235, Math.round(effFill * facetWeight[p]))).toString(16).padStart(2, '0');
+                        ctx.fillStyle = withAlpha(facetIsShadow[p] ? '#000000' : color, alphaHex);
+                        ctx.fill();
                     }
-                    for (let p = 5; p >= 2; p--) {
-                        ctx.lineTo(cx + cosA[p] * innerR, cy + sinA[p] * innerR);
-                    }
-                    ctx.closePath();
-                    ctx.fillStyle = withAlpha('#000000', Math.max(18, Math.min(180, Math.round(effFill * 0.65))).toString(16).padStart(2, '0'));
-                    ctx.fill();
 
-                    // 3. Bottom-right 3 inner bevel walls (illuminated rim facet: vertices 5->0->1->2)
-                    ctx.beginPath();
-                    for (const p of [5, 0, 1, 2]) {
-                        const x = cx + cosA[p] * outerR, y = cy + sinA[p] * outerR;
-                        if (p === 5) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-                    }
-                    for (const p of [2, 1, 0, 5]) {
-                        ctx.lineTo(cx + cosA[p] * innerR, cy + sinA[p] * innerR);
-                    }
-                    ctx.closePath();
-                    ctx.fillStyle = withAlpha(color, Math.max(24, Math.min(230, Math.round(effFill * 0.92))).toString(16).padStart(2, '0'));
-                    ctx.fill();
-
-                    // 4. Deep recessed inner hex core + subtle inner rim stroke
+                    // 3. Deep recessed inner hexagonal floor + inner rim contour
                     ctx.beginPath();
                     for (let p = 0; p < 6; p++) {
-                        const x = cx + cosA[p] * innerR, y = cy + sinA[p] * innerR;
-                        if (p === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                        if (p === 0) ctx.moveTo(ix[p], iy[p]); else ctx.lineTo(ix[p], iy[p]);
                     }
                     ctx.closePath();
                     if (options.fillMode !== 'outline') {
-                        ctx.fillStyle = withAlpha('#000000', Math.max(14, Math.min(140, Math.round(effFill * 0.38))).toString(16).padStart(2, '0'));
+                        ctx.fillStyle = withAlpha('#000000', Math.max(20, Math.min(170, Math.round(effFill * 0.48))).toString(16).padStart(2, '0'));
                         ctx.fill();
                     }
-                    ctx.strokeStyle = withAlpha(color, Math.max(24, Math.min(200, Math.round(0x58 * cellPulse))).toString(16).padStart(2, '0'));
+                    ctx.lineWidth = Math.max(0.75, baseLW * 0.7);
+                    ctx.strokeStyle = withAlpha(color, Math.max(30, Math.min(210, Math.round(0x6e * cellPulse))).toString(16).padStart(2, '0'));
+                    ctx.stroke();
+
+                    // 4. 6 corner depth ribs connecting outer vertices to inner recessed vertices
+                    ctx.beginPath();
+                    for (let p = 0; p < 6; p++) {
+                        ctx.moveTo(ox[p], oy[p]);
+                        ctx.lineTo(ix[p], iy[p]);
+                    }
+                    ctx.lineWidth = Math.max(0.7, baseLW * 0.65);
+                    ctx.strokeStyle = withAlpha(color, Math.max(25, Math.min(190, Math.round(0x5c * cellPulse))).toString(16).padStart(2, '0'));
                     ctx.stroke();
 
                     // 5. Outer shared interlinked honeycomb ridge
                     ctx.beginPath();
                     for (let p = 0; p < 6; p++) {
-                        const x = cx + cosA[p] * outerR, y = cy + sinA[p] * outerR;
-                        if (p === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                        if (p === 0) ctx.moveTo(ox[p], oy[p]); else ctx.lineTo(ox[p], oy[p]);
                     }
                     ctx.closePath();
-                    const strokeAlpha = hasInPlaceAnim ? Math.max(40, Math.min(255, Math.round(0xb8 * cellPulse))).toString(16).padStart(2, '0') : 'b8';
+                    ctx.lineWidth = baseLW;
+                    const strokeAlpha = hasInPlaceAnim ? Math.max(50, Math.min(255, Math.round(0xc8 * cellPulse))).toString(16).padStart(2, '0') : 'c8';
                     ctx.strokeStyle = withAlpha(color, strokeAlpha);
                     ctx.stroke();
                 }

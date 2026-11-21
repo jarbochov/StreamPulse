@@ -753,7 +753,7 @@ float4 evalProceduralPattern(float2 px, float t) {
         // 3: hexagons
         float hex_cell_r = 46.0 * elem_s * sp;
         float hex_r = 46.0 * elem_s;
-        float2 r = float2(1.0, 1.7320508) * hex_cell_r * 2.0;
+        float2 r = float2(1.7320508, 1.0) * hex_cell_r * 2.0;
         float2 h = r * 0.5;
         float2 a = frac(p / r) * r - h;
         float2 b = frac((p - h) / r) * r - h;
@@ -1003,26 +1003,37 @@ float4 evalProceduralPattern(float2 px, float t) {
         float d_node = length(lp) - (4.5 + lw * 0.7);
         mask = max(1.0 - smoothstep(max(0.0, lw * 0.5 - 0.55), lw * 0.5 + 0.55, d_line), 1.0 - smoothstep(-1.0, 1.0, d_node));
     } else if (proc_preset >= 27.5 && proc_preset < 28.5) {
-        // 28: honeycomb (interlinked contiguous hexagons with 3D inner bevel depth shading)
-        float hex_r = 46.0 * elem_s * sp;
-        float2 r = float2(1.0, 1.7320508) * hex_r * 2.0;
+        // 28: honeycomb (interlinked contiguous hexagons with 3D faceted inner walls & recessed cavity)
+        float hex_cell_r = 46.0 * elem_s * sp;
+        float outer_r = 46.0 * elem_s * min(sp, 1.0);
+        float2 r = float2(1.7320508, 1.0) * hex_cell_r * 2.0;
         float2 h = r * 0.5;
         float2 a = frac(p / r) * r - h;
         float2 b = frac((p - h) / r) * r - h;
         float2 gv = (dot(a, a) < dot(b, b)) ? a : b;
         cell_id = floor((p - gv) / h);
-        float d_outer = sdHex(gv, hex_r * 0.98);
-        float d_inner = sdHex(gv, hex_r * 0.62);
-        float wall_m = 1.0 - smoothstep(max(0.0, lw * 0.55 - 0.55), lw * 0.55 + 0.55, abs(d_outer));
-        float inner_rim_m = (1.0 - smoothstep(max(0.0, lw * 0.35 - 0.55), lw * 0.35 + 0.55, abs(d_inner))) * 0.58;
-        float bevel_zone = (1.0 - smoothstep(-0.8, 0.8, d_outer)) * smoothstep(-0.8, 0.8, d_inner);
-        float core_zone = 1.0 - smoothstep(-0.8, 0.8, d_inner);
-        float dir_light = clamp(dot(gv / max(1.0, hex_r), float2(0.58, 0.81)) * 0.85 + 0.5, 0.0, 1.0);
-        float fa = (proc_fill_mode >= 1.5) ? 0.25 : clamp(proc_fill_opacity / 100.0, 0.18, 1.0) * ((proc_fill_mode >= 0.5) ? 1.0 : 0.78);
-        float bevel_alpha = bevel_zone * fa * (0.42 + 0.58 * dir_light);
-        float core_alpha = (proc_fill_mode >= 1.5) ? 0.0 : (core_zone * fa * 0.32);
-        mask = max(max(wall_m, inner_rim_m), max(bevel_alpha, core_alpha));
-        shade_mul = lerp(0.32 + 0.92 * dir_light, 1.12, max(wall_m, inner_rim_m * dir_light));
+        float d_outer = sdHex(gv, outer_r);
+        float2 parallax = float2(0.06, 0.09) * outer_r;
+        float d_inner = sdHex(gv - parallax, outer_r * 0.56);
+        float wall_m = 1.0 - smoothstep(max(0.0, lw * 0.65 - 0.55), lw * 0.65 + 0.55, abs(d_outer));
+        float inner_rim_m = (1.0 - smoothstep(max(0.0, lw * 0.4 - 0.55), lw * 0.4 + 0.55, abs(d_inner))) * 0.72;
+        float bevel_zone = (1.0 - smoothstep(-0.6, 0.6, d_outer)) * smoothstep(-0.6, 0.6, d_inner);
+        float core_zone = 1.0 - smoothstep(-0.6, 0.6, d_inner);
+        float ang = atan2(gv.y - parallax.y * 0.5, gv.x - parallax.x * 0.5);
+        float sector6 = floor((ang + 3.14159265) / 1.04719755);
+        float face_ang = (sector6 + 0.5) * 1.04719755 - 3.14159265;
+        float facet_light = clamp(dot(float2(cos(face_ang), sin(face_ang)), float2(0.55, 0.83)) * 0.52 + 0.5, 0.0, 1.0);
+        float crease_ang = abs(frac((ang + 3.14159265) / 1.04719755 + 0.5) - 0.5) * 1.04719755;
+        float crease_m = (1.0 - smoothstep(0.0, max(0.9, lw * 0.45 + 0.5), crease_ang * length(gv))) * bevel_zone * 0.65;
+        float depth_t = clamp(-d_outer / max(1.0, outer_r * 0.44), 0.0, 1.0);
+        float fa = (proc_fill_mode >= 1.5) ? 0.38 : clamp(proc_fill_opacity / 100.0, 0.28, 1.0) * ((proc_fill_mode >= 0.5) ? 1.0 : 0.85);
+        float bevel_alpha = bevel_zone * fa * (0.52 + 0.48 * facet_light);
+        float core_alpha = (proc_fill_mode >= 1.5) ? (core_zone * 0.14) : (core_zone * fa * 0.46);
+        mask = max(max(wall_m, max(inner_rim_m, crease_m)), max(bevel_alpha, core_alpha));
+        float facet_shade = (0.24 + 1.02 * facet_light) * (1.0 - 0.25 * depth_t);
+        float core_shade = 0.22 + 0.20 * clamp(dot(gv / max(1.0, outer_r), float2(0.55, 0.83)) + 0.5, 0.0, 1.0);
+        float interior_shade = lerp(facet_shade, core_shade, core_zone);
+        shade_mul = lerp(interior_shade, 1.18, max(wall_m, max(inner_rim_m * facet_light, crease_m * 0.75)));
     } else {
         // Fallback analytic diamonds for unbaked seasonal presets
         float step_px = 68.0 * elem_s * sp;
