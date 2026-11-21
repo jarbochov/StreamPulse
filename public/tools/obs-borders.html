@@ -6,6 +6,7 @@
     <title>StreamPulse — OBS Border Studio (Beta)</title>
     <link rel="stylesheet" href="/admin.css">
     <script src="/appearance.js"></script>
+    <script src="/js/border-catalog.js"></script>
     <script src="/js/wizard-variable-binder.js"></script>
     <link rel="stylesheet" href="/css/studio-common.css">
     <link rel="stylesheet" href="/css/obs-borders.css">
@@ -29,406 +30,594 @@
         <div class="sub-nav-bar" style="border-radius:10px;border:1px solid var(--border);padding:0 0.85rem;margin-bottom:0.85rem;background:var(--bg-card);">
             <div class="sub-nav-inner">
                 <div class="sub-nav-group" role="tablist" aria-label="OBS Border Studio Views">
-                    <button type="button" class="sub-nav-btn active" data-ob-tab="designer" role="tab" aria-selected="true">
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><rect x="7" y="7" width="10" height="10" rx="1.5"/></svg>
-                        Border Designer &amp; Preview
-                    </button>
-                    <button type="button" class="sub-nav-btn" data-ob-tab="scenes" role="tab" aria-selected="false">
+                    <button type="button" class="sub-nav-btn active" data-ob-tab="sources" role="tab" aria-selected="true">
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-                        Scenes &amp; Target Bundles
+                        Live OBS Sources &amp; Scenes
+                    </button>
+                    <button type="button" class="sub-nav-btn" data-ob-tab="designer" role="tab" aria-selected="false">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><rect x="7" y="7" width="10" height="10" rx="1.5"/></svg>
+                        Border Profiles &amp; Designer
                     </button>
                     <button type="button" class="sub-nav-btn" data-ob-tab="setup" role="tab" aria-selected="false">
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        OBS Lua Filter &amp; Setup
+                        OBS Filter Script &amp; API
                     </button>
                 </div>
                 <div class="sub-nav-actions">
-                    <span class="pill" id="ob-active-pill">Active: —</span>
+                    <span class="pill" id="ob-obs-ws-badge">Checking OBS…</span>
                 </div>
             </div>
         </div>
 
-        <!-- Profile Toolbar -->
-        <div class="ob-toolbar">
-            <div class="ob-toolbar-left">
-                <label for="ob-profile-select" style="font-size:0.8rem;font-weight:600;color:var(--text-muted);">Profile</label>
-                <select id="ob-profile-select"></select>
-                <button type="button" class="btn" id="ob-btn-activate" title="Make this profile the default active border in OBS">
-                    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                    <span>Set Active</span>
-                </button>
-                <button type="button" class="btn" id="ob-btn-new" title="Create a new border profile">
-                    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-                    <span>New</span>
-                </button>
-                <button type="button" class="btn" id="ob-btn-duplicate" title="Duplicate selected profile">
-                    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                    <span>Duplicate</span>
-                </button>
-                <button type="button" class="btn" id="ob-btn-delete" title="Delete selected profile">
-                    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
-                    <span>Delete</span>
-                </button>
-            </div>
-            <div class="ob-toolbar-right">
-                <a class="btn" href="/api/obs-borders/lua?download=1" download="streampulse-borders.lua" title="Download Metal-safe OBS Lua filter script">
-                    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    <span>Download Lua Filter</span>
-                </a>
-                <button type="button" class="btn primary" id="ob-btn-save">
-                    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                    <span>Save &amp; Sync OBS</span>
-                </button>
+        <!-- TAB 1: LIVE OBS SOURCES & SCENES -->
+        <div id="ob-pane-sources">
+            <div class="ob-panel ob-panel-pad">
+                <div class="ob-panel-head" style="margin:-1rem -1.15rem 0.85rem;">
+                    <div class="ob-panel-title">OBS WebSocket Source &amp; Scene Border Manager</div>
+                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+                        <button type="button" class="btn primary" id="ob-btn-obs-sync">Sync Live OBS</button>
+                        <button type="button" class="btn" id="ob-btn-obs-apply-all">Apply Filters to Assigned</button>
+                        <a href="/config-editor.html#connection" class="btn" style="text-decoration:none;">OBS Settings</a>
+                    </div>
+                </div>
+
+                <div class="ob-summary-strip">
+                    <span id="ob-import-result">Connecting to OBS WebSocket…</span>
+                    <label class="ob-check">
+                        <input type="checkbox" id="ob-disable-legacy-shaders">
+                        <span>Disable legacy shader filters when applying</span>
+                    </label>
+                </div>
+
+                <div class="ob-controls-bar">
+                    <div class="ob-controls-left">
+                        <span class="seg" id="ob-view-seg" role="group" aria-label="Organization View">
+                            <button type="button" data-view="sources" aria-pressed="true">By Source</button>
+                            <button type="button" data-view="scenes" aria-pressed="false">By Scene</button>
+                        </span>
+                        <input type="text" id="ob-source-search" placeholder="Search OBS sources or scenes…">
+                    </div>
+                    <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                        <div class="ob-chip-group" id="ob-source-filter-chips">
+                            <button type="button" class="ob-chip active" data-filter="all">All</button>
+                            <button type="button" class="ob-chip" data-filter="active">Active / Assigned</button>
+                            <button type="button" class="ob-chip" data-filter="video">Cameras &amp; Video</button>
+                            <button type="button" class="ob-chip" data-filter="other">Browser &amp; Media</button>
+                            <button type="button" class="ob-chip" data-filter="scenes">Scenes</button>
+                        </div>
+                        <div class="ob-chip-group" id="ob-source-expand-actions">
+                            <button type="button" class="btn btn-sm" id="ob-btn-expand-all" title="Expand all groups and scene override drawers">Expand All</button>
+                            <button type="button" class="btn btn-sm" id="ob-btn-collapse-all" title="Collapse all groups and scene override drawers">Collapse All</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="ob-source-list" class="ob-group-list"></div>
             </div>
         </div>
 
-        <!-- TAB 1: BORDER DESIGNER & LIVE PREVIEW -->
-        <div id="ob-pane-designer">
+        <!-- TAB 2: BORDER PROFILES & DESIGNER -->
+        <div id="ob-pane-designer" hidden>
+            <div class="ob-toolbar">
+                <div class="ob-toolbar-left">
+                    <label for="ob-profile-select" style="font-size:0.8rem;font-weight:600;color:var(--text-muted);">Profile</label>
+                    <select id="ob-profile-select"></select>
+                    <button type="button" class="btn" id="ob-btn-activate" title="Make this the fallback default profile">
+                        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                        <span>Set Default</span>
+                    </button>
+                    <button type="button" class="btn" id="ob-btn-new" title="Create a new border profile">
+                        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                        <span>New</span>
+                    </button>
+                    <button type="button" class="btn" id="ob-btn-duplicate" title="Duplicate selected profile">
+                        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                        <span>Duplicate</span>
+                    </button>
+                    <button type="button" class="btn" id="ob-btn-delete" title="Delete selected profile">
+                        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                        <span>Delete</span>
+                    </button>
+                </div>
+                <div class="ob-toolbar-right">
+                    <span class="pill" id="ob-active-pill" style="margin-right:0.25rem;">Default: —</span>
+                    <button type="button" class="btn primary" id="ob-btn-save">
+                        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        <span>Save &amp; Sync OBS</span>
+                    </button>
+                </div>
+            </div>
+
             <div class="ob-grid">
                 <div>
-                    <!-- Profile & Geometry -->
-                    <div class="ob-panel">
-                        <div class="ob-panel-head">
-                            <div class="ob-panel-title">Profile &amp; Outset Geometry</div>
+                    <!-- Section 1: Geometry & Border Placement -->
+                    <section class="sect">
+                        <div class="sect-head">
+                            <span class="sect-title">Border Geometry &amp; Placement</span>
                         </div>
-                        <div class="ob-form-grid">
-                            <div class="ob-field">
-                                <label for="ob-name">Profile Name</label>
-                                <input type="text" id="ob-name" maxlength="80">
+                        <div class="sect-body">
+                            <div class="grid2">
+                                <div class="field">
+                                    <label for="ob-name">Profile Name</label>
+                                    <input type="text" id="ob-name" maxlength="80">
+                                </div>
+                                <div class="field">
+                                    <label for="ob-id">Profile ID (Slug)</label>
+                                    <input type="text" id="ob-id" maxlength="64">
+                                </div>
                             </div>
-                            <div class="ob-field">
-                                <label for="ob-id">Profile ID (Slug)</label>
-                                <input type="text" id="ob-id" maxlength="64">
-                            </div>
-                            <div class="ob-field">
-                                <label for="ob-placement">Border Placement</label>
-                                <select id="ob-placement">
-                                    <option value="outset">Outset (Expands outside source — uniform 16:9)</option>
-                                    <option value="center">Center (Straddles source edge)</option>
-                                    <option value="inset">Inset (Inside source bounds)</option>
-                                </select>
-                            </div>
-                            <div class="ob-field">
-                                <label for="ob-corner-join">Corner Join</label>
-                                <select id="ob-corner-join">
-                                    <option value="rounded">Rounded Corners</option>
-                                    <option value="miter">Sharp 45° Mitered Corners</option>
-                                </select>
-                            </div>
-                            <div class="ob-field">
-                                <label for="ob-pad">Outer Bleed Padding (px)</label>
-                                <input type="number" id="ob-pad" min="0" max="400" step="1">
-                            </div>
-                            <div class="ob-field">
-                                <label for="ob-seam">Corner Seam Overlap (px)</label>
-                                <input type="number" id="ob-seam" min="0" max="10" step="0.5">
-                            </div>
-                            <div class="ob-field">
-                                <label for="ob-base-w">Preview Base Width (px)</label>
-                                <input type="number" id="ob-base-w" min="64" max="7680" step="1">
-                            </div>
-                            <div class="ob-field">
-                                <label for="ob-base-h">Preview Base Height (px)</label>
-                                <input type="number" id="ob-base-h" min="64" max="4320" step="1">
-                            </div>
-                        </div>
 
-                        <div style="margin-top:0.85rem;padding-top:0.75rem;border-top:1px solid var(--border);">
-                            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.6rem;flex-wrap:wrap;">
-                                <label class="ob-check">
-                                    <input type="checkbox" id="ob-per-corner">
-                                    <span>Independent Per-Corner Radii (TL / TR / BR / BL)</span>
+                            <div class="field">
+                                <span>Border Placement</span>
+                                <span class="seg" id="ob-placement-seg" role="group" aria-label="Border Placement">
+                                    <button type="button" data-placement="outside" aria-pressed="true">Outside</button>
+                                    <button type="button" data-placement="center" aria-pressed="false">Middle (Center)</button>
+                                    <button type="button" data-placement="inside" aria-pressed="false">Inside</button>
+                                </span>
+                                <span class="hint" id="ob-placement-hint">Expands the OBS canvas evenly outward so borders sit outside your 16:9 video cleanly.</span>
+                            </div>
+
+                            <div class="grid2" style="gap:0.55rem 0.75rem;">
+                                <label class="ob-check" id="ob-auto-pad-row">
+                                    <input type="checkbox" id="ob-auto-pad" checked>
+                                    <span>Auto-expand padding <span class="ob-pill" id="ob-auto-pad-pill" style="margin-left:0.25rem;">Auto: 0px</span></span>
+                                </label>
+                                <label class="ob-check" title="Checked: shrinks borders proportionally on smaller sources/scene items. Unchecked: keeps consistent visual px on canvas regardless of OBS scaling.">
+                                    <input type="checkbox" id="ob-auto-scale" checked>
+                                    <span>Auto-scale to smaller sources <span style="color:var(--text-muted);font-weight:400;">(uncheck = fixed px)</span></span>
                                 </label>
                             </div>
-                            <div class="ob-form-grid" id="ob-radius-uniform-wrap">
-                                <div class="ob-field">
-                                    <label for="ob-radius">Corner Radius (px)</label>
-                                    <input type="text" id="ob-radius" data-var-type="number" placeholder="20">
+
+                            <div class="grid2">
+                                <div class="field" id="ob-pad-auto-wrap">
+                                    <label for="ob-extra-pad">Extra Bleed Margin (px)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="ob-extra-pad" min="0" max="200" step="1" data-var-kind="number" data-var-label="Extra Bleed Margin">
+                                    </div>
+                                </div>
+                                <div class="field" id="ob-pad-manual-wrap" hidden>
+                                    <label for="ob-pad">Manual Bleed Padding (px)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="ob-pad" min="0" max="400" step="1" data-var-kind="number" data-var-label="Outer Bleed Padding">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="ob-seam">Corner Seam Overlap (px)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="ob-seam" min="0" max="10" step="0.5">
+                                    </div>
                                 </div>
                             </div>
-                            <div class="ob-form-grid" id="ob-radius-percorner-wrap" hidden>
-                                <div class="ob-field">
+
+                            <div class="grid2">
+                                <div class="field">
+                                    <label for="ob-base-w">Reference / Source Width (px)</label>
+                                    <input type="number" id="ob-base-w" min="64" max="7680" step="1">
+                                </div>
+                                <div class="field">
+                                    <label for="ob-base-h">Reference / Source Height (px)</label>
+                                    <input type="number" id="ob-base-h" min="64" max="4320" step="1">
+                                </div>
+                            </div>
+
+                            <label class="ob-check">
+                                <input type="checkbox" id="ob-per-corner">
+                                <span>Independent per-corner radius (TL / TR / BR / BL)</span>
+                            </label>
+
+                            <div class="grid2" id="ob-radius-uniform-wrap">
+                                <div class="field">
+                                    <label for="ob-radius">Corner Radius (px)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="ob-radius" min="0" max="500" step="1" data-var-kind="number" data-var-label="Corner Radius">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid2" id="ob-radius-percorner-wrap" hidden>
+                                <div class="field">
                                     <label for="ob-r-tl">Top-Left Radius (px)</label>
-                                    <input type="text" id="ob-r-tl" data-var-type="number" placeholder="13">
+                                    <div class="ob-input-row">
+                                        <input type="number" id="ob-r-tl" min="0" max="500" step="1" data-var-kind="number" data-var-label="Top-Left Radius">
+                                    </div>
                                 </div>
-                                <div class="ob-field">
+                                <div class="field">
                                     <label for="ob-r-tr">Top-Right Radius (px)</label>
-                                    <input type="text" id="ob-r-tr" data-var-type="number" placeholder="13">
+                                    <div class="ob-input-row">
+                                        <input type="number" id="ob-r-tr" min="0" max="500" step="1" data-var-kind="number" data-var-label="Top-Right Radius">
+                                    </div>
                                 </div>
-                                <div class="ob-field">
-                                    <label for="ob-r-br">Bottom-Right Radius (px)</label>
-                                    <input type="text" id="ob-r-br" data-var-type="number" placeholder="87">
-                                </div>
-                                <div class="ob-field">
+                                <div class="field">
                                     <label for="ob-r-bl">Bottom-Left Radius (px)</label>
-                                    <input type="text" id="ob-r-bl" data-var-type="number" placeholder="68">
+                                    <div class="ob-input-row">
+                                        <input type="number" id="ob-r-bl" min="0" max="500" step="1" data-var-kind="number" data-var-label="Bottom-Left Radius">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="ob-r-br">Bottom-Right Radius (px)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="ob-r-br" min="0" max="500" step="1" data-var-kind="number" data-var-label="Bottom-Right Radius">
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </section>
 
-                    <!-- Inner Border Layer -->
-                    <div class="ob-panel">
-                        <div class="ob-panel-head">
-                            <div class="ob-panel-title">Inner Border Layer</div>
+                    <!-- Section 2: Primary Border Layer -->
+                    <section class="sect">
+                        <div class="sect-head">
+                            <span class="sect-title">Primary Border (21 Custom Overlay Styles)</span>
                             <label class="ob-check">
                                 <input type="checkbox" id="ob-inner-enabled" checked>
                                 <span>Enabled</span>
                             </label>
                         </div>
-                        <div class="ob-form-grid">
-                            <div class="ob-field">
-                                <label for="ob-inner-style">Style</label>
-                                <select id="ob-inner-style">
-                                    <option value="solid">Solid</option>
-                                    <option value="gradient">Linear Gradient</option>
-                                    <option value="conic-gradient">Conic / Perimeter Gradient</option>
-                                    <option value="outset-bevel">3D Outset Bevel (45° Miter)</option>
-                                    <option value="inset-bevel">3D Inset Bevel (45° Miter)</option>
-                                    <option value="ridge">3D Ridge</option>
-                                    <option value="groove">3D Groove</option>
-                                    <option value="double">Double Ring</option>
-                                    <option value="corners">Corner Brackets</option>
-                                </select>
-                            </div>
-                            <div class="ob-field">
-                                <label for="ob-inner-thickness">Thickness (px)</label>
-                                <input type="text" id="ob-inner-thickness" data-var-type="number" placeholder="12">
-                            </div>
-                            <div class="ob-field">
-                                <label for="ob-inner-gap">Inner Gap (px)</label>
-                                <input type="text" id="ob-inner-gap" data-var-type="number" placeholder="0">
-                            </div>
-                            <div class="ob-field">
-                                <label for="ob-inner-angle">Gradient Angle (deg)</label>
-                                <input type="text" id="ob-inner-angle" data-var-type="number" placeholder="180">
-                            </div>
-                            <div class="ob-field">
-                                <label for="ob-inner-c1">Color 1 (Top/Left or Start)</label>
-                                <div class="ob-color-row">
-                                    <input type="color" id="ob-inner-c1-pick" value="#ffffff">
-                                    <input type="text" id="ob-inner-c1" data-var-type="color" placeholder="#FFFFFFFF">
+                        <div class="sect-body">
+                            <div class="grid2">
+                                <div class="field">
+                                    <label for="ob-inner-style">Border Style</label>
+                                    <select id="ob-inner-style" class="ob-style-select"></select>
+                                </div>
+                                <div class="field">
+                                    <label for="ob-inner-thickness">Border Width (px)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="ob-inner-thickness" min="0" max="200" step="1" data-var-kind="number" data-var-label="Primary Border Width">
+                                    </div>
                                 </div>
                             </div>
-                            <div class="ob-field">
-                                <label for="ob-inner-c2">Color 2 (Bottom/Right or End)</label>
-                                <div class="ob-color-row">
-                                    <input type="color" id="ob-inner-c2-pick" value="#999999">
-                                    <input type="text" id="ob-inner-c2" data-var-type="color" placeholder="#999999FF">
+
+                            <label class="ob-check">
+                                <input type="checkbox" id="ob-inner-grad">
+                                <span>Gradient border fill (Color 1 → Color 2)</span>
+                            </label>
+
+                            <div class="grid2">
+                                <div class="field">
+                                    <label for="ob-inner-c1">Color 1</label>
+                                    <div class="ob-color-row">
+                                        <input type="color" id="ob-inner-c1-pick" value="#ffffff">
+                                        <input type="text" id="ob-inner-c1" placeholder="#FFFFFFFF" data-var-kind="color" data-var-label="Primary Color 1">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="ob-inner-c2">Color 2 (Gradient / Bevel Shadow)</label>
+                                    <div class="ob-color-row">
+                                        <input type="color" id="ob-inner-c2-pick" value="#999999">
+                                        <input type="text" id="ob-inner-c2" placeholder="#999999FF" data-var-kind="color" data-var-label="Primary Color 2">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid2">
+                                <div class="field">
+                                    <label for="ob-inner-angle">Gradient Angle (deg)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="ob-inner-angle" min="-360" max="360" step="15" data-var-kind="number" data-var-label="Primary Gradient Angle">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="ob-inner-gap">Inner Offset Gap (px)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="ob-inner-gap" min="0" max="100" step="1" data-var-kind="number" data-var-label="Inner Gap">
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </section>
 
-                    <!-- Outer Border Layer -->
-                    <div class="ob-panel">
-                        <div class="ob-panel-head">
-                            <div class="ob-panel-title">Outer Border Layer</div>
+                    <!-- Section 3: Secondary Outer Accent Ring -->
+                    <section class="sect">
+                        <div class="sect-head">
+                            <span class="sect-title">Secondary Outer Ring (Optional)</span>
                             <label class="ob-check">
-                                <input type="checkbox" id="ob-outer-enabled" checked>
+                                <input type="checkbox" id="ob-outer-enabled">
                                 <span>Enabled</span>
                             </label>
                         </div>
-                        <div class="ob-form-grid">
-                            <div class="ob-field">
-                                <label for="ob-outer-style">Style</label>
-                                <select id="ob-outer-style">
-                                    <option value="solid">Solid</option>
-                                    <option value="gradient">Linear Gradient</option>
-                                    <option value="conic-gradient">Conic / Perimeter Gradient</option>
-                                    <option value="outset-bevel">3D Outset Bevel (45° Miter)</option>
-                                    <option value="inset-bevel">3D Inset Bevel (45° Miter)</option>
-                                    <option value="ridge">3D Ridge</option>
-                                    <option value="groove">3D Groove</option>
-                                    <option value="double">Double Ring</option>
-                                    <option value="corners">Corner Brackets</option>
-                                </select>
-                            </div>
-                            <div class="ob-field">
-                                <label for="ob-outer-thickness">Thickness (px)</label>
-                                <input type="text" id="ob-outer-thickness" data-var-type="number" placeholder="2">
-                            </div>
-                            <div class="ob-field">
-                                <label for="ob-outer-gap">Spacing Gap (px)</label>
-                                <input type="text" id="ob-outer-gap" data-var-type="number" placeholder="0">
-                            </div>
-                            <div class="ob-field">
-                                <label for="ob-outer-angle">Gradient Angle (deg)</label>
-                                <input type="text" id="ob-outer-angle" data-var-type="number" placeholder="180">
-                            </div>
-                            <div class="ob-field">
-                                <label for="ob-outer-c1">Color 1</label>
-                                <div class="ob-color-row">
-                                    <input type="color" id="ob-outer-c1-pick" value="#99a443">
-                                    <input type="text" id="ob-outer-c1" data-var-type="color" placeholder="#99A443FF">
+                        <div class="sect-body">
+                            <div class="grid2">
+                                <div class="field">
+                                    <label for="ob-outer-style">Border Style</label>
+                                    <select id="ob-outer-style" class="ob-style-select"></select>
+                                </div>
+                                <div class="field">
+                                    <label for="ob-outer-thickness">Ring Width (px)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="ob-outer-thickness" min="0" max="200" step="1" data-var-kind="number" data-var-label="Outer Ring Width">
+                                    </div>
                                 </div>
                             </div>
-                            <div class="ob-field">
-                                <label for="ob-outer-c2">Color 2</label>
-                                <div class="ob-color-row">
-                                    <input type="color" id="ob-outer-c2-pick" value="#026e54">
-                                    <input type="text" id="ob-outer-c2" data-var-type="color" placeholder="#026E54FF">
+
+                            <label class="ob-check">
+                                <input type="checkbox" id="ob-outer-grad">
+                                <span>Gradient outer ring (Color 1 → Color 2)</span>
+                            </label>
+
+                            <div class="grid2">
+                                <div class="field">
+                                    <label for="ob-outer-c1">Color 1</label>
+                                    <div class="ob-color-row">
+                                        <input type="color" id="ob-outer-c1-pick" value="#99a443">
+                                        <input type="text" id="ob-outer-c1" placeholder="#99A443FF" data-var-kind="color" data-var-label="Outer Ring Color 1">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="ob-outer-c2">Color 2</label>
+                                    <div class="ob-color-row">
+                                        <input type="color" id="ob-outer-c2-pick" value="#026e54">
+                                        <input type="text" id="ob-outer-c2" placeholder="#026E54FF" data-var-kind="color" data-var-label="Outer Ring Color 2">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid2">
+                                <div class="field">
+                                    <label for="ob-outer-angle">Gradient Angle (deg)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="ob-outer-angle" min="-360" max="360" step="15" data-var-kind="number" data-var-label="Outer Gradient Angle">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="ob-outer-gap">Gap Outside Primary Ring (px)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="ob-outer-gap" min="0" max="100" step="1" data-var-kind="number" data-var-label="Outer Ring Gap">
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </section>
 
-                    <!-- Glow & GPU Animation -->
-                    <div class="ob-panel">
-                        <div class="ob-panel-head">
-                            <div class="ob-panel-title">Outer Glow &amp; 60fps Metal GPU Animation</div>
+                    <!-- Section 4: Border Glow & Animation (Matches Custom Overlay Editor) -->
+                    <section class="sect">
+                        <div class="sect-head">
+                            <span class="sect-title">Border Glow &amp; Animation</span>
                             <label class="ob-check">
                                 <input type="checkbox" id="ob-glow-enabled">
-                                <span>Enable Glow</span>
+                                <span>Border Glow</span>
                             </label>
                         </div>
-                        <div class="ob-form-grid">
-                            <div class="ob-field">
-                                <label for="ob-glow-color">Glow Color</label>
-                                <div class="ob-color-row">
-                                    <input type="color" id="ob-glow-color-pick" value="#58a6ff">
-                                    <input type="text" id="ob-glow-color" data-var-type="color" placeholder="#58A6FFFF">
+                        <div class="sect-body">
+                            <div class="grid2">
+                                <div class="field">
+                                    <label for="ob-glow-color">Glow Color</label>
+                                    <div class="ob-color-row">
+                                        <input type="color" id="ob-glow-color-pick" value="#38bdf8">
+                                        <input type="text" id="ob-glow-color" placeholder="#38BDF8FF" data-var-kind="color" data-var-label="Glow Color">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="ob-glow-blur">Glow Blur (px)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="ob-glow-blur" min="0" max="120" step="1" data-var-kind="number" data-var-label="Glow Blur">
+                                    </div>
                                 </div>
                             </div>
-                            <div class="ob-field">
-                                <label for="ob-glow-size">Glow Spread (px)</label>
-                                <input type="text" id="ob-glow-size" data-var-type="number" placeholder="18">
+
+                            <div class="grid2">
+                                <label class="ob-check">
+                                    <input type="checkbox" id="ob-glow-neon">
+                                    <span>Neon core mode</span>
+                                </label>
+                                <label class="ob-check">
+                                    <input type="checkbox" id="ob-glow-inner">
+                                    <span>Inner glow</span>
+                                </label>
                             </div>
-                            <div class="ob-field">
-                                <label for="ob-glow-intensity">Glow Intensity (0–2)</label>
-                                <input type="text" id="ob-glow-intensity" data-var-type="number" placeholder="0.55">
+
+                            <div style="border-top:1px solid var(--border);padding-top:0.75rem;"></div>
+
+                            <div class="grid2">
+                                <div class="field">
+                                    <label for="ob-anim-type">Border Animation (Synced with Overlay Editor)</label>
+                                    <select id="ob-anim-type"></select>
+                                </div>
+                                <div class="field">
+                                    <label for="ob-anim-speed">Speed (seconds)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="ob-anim-speed" min="0.25" max="60" step="0.5" data-var-kind="number" data-var-label="Animation Speed">
+                                    </div>
+                                </div>
                             </div>
-                            <div class="ob-field">
-                                <label for="ob-anim-type">GPU Animation</label>
-                                <select id="ob-anim-type">
-                                    <option value="none">None (Static — 0% overhead)</option>
-                                    <option value="rotate-gradient">Rotating Gradient</option>
-                                    <option value="shimmer-bevel">Shimmer Bevel Sweep</option>
-                                    <option value="pulse-glow">Breathing / Pulsing Glow</option>
-                                    <option value="color-cycle">Color 1 ↔ Color 2 Cycle</option>
-                                </select>
+
+                            <div class="grid2">
+                                <div class="field">
+                                    <label for="ob-anim-c2">Beam / Accent Color</label>
+                                    <div class="ob-color-row">
+                                        <input type="color" id="ob-anim-c2-pick" value="#ffffff">
+                                        <input type="text" id="ob-anim-c2" placeholder="#FFFFFFFF" data-var-kind="color" data-var-label="Beam Color">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="ob-anim-size">Beam Arc (%)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="ob-anim-size" min="5" max="100" step="5" data-var-kind="number" data-var-label="Beam Arc">
+                                    </div>
+                                </div>
                             </div>
-                            <div class="ob-field">
-                                <label for="ob-anim-speed">Animation Speed (×)</label>
-                                <input type="text" id="ob-anim-speed" data-var-type="number" placeholder="1.0">
+
+                            <div class="field">
+                                <span>Direction</span>
+                                <span class="seg" id="ob-anim-dir-seg" role="group" aria-label="Animation Direction">
+                                    <button type="button" data-dir="cw" aria-pressed="true">Clockwise</button>
+                                    <button type="button" data-dir="ccw" aria-pressed="false">Counter-clockwise</button>
+                                    <button type="button" data-dir="alternate" aria-pressed="false">Alternate</button>
+                                </span>
                             </div>
                         </div>
-                    </div>
+                    </section>
+
+                    <!-- Section 5: Source Background & Placeholder Fill -->
+                    <section class="sect">
+                        <div class="sect-head">
+                            <span class="sect-title">Source Background &amp; Placeholder Fill</span>
+                            <label class="ob-check" title="Replace source video with placeholder fill (for BRB / Camera Off)">
+                                <input type="checkbox" id="ob-bg-standby">
+                                <span>Standby / Offline Override</span>
+                            </label>
+                        </div>
+                        <div class="sect-body">
+                            <div class="grid2">
+                                <div class="field">
+                                    <label for="ob-bg-mode">Background Fill Mode</label>
+                                    <select id="ob-bg-mode">
+                                        <option value="none">None (Transparent)</option>
+                                        <option value="person">Person Silhouette Icon</option>
+                                        <option value="solid">Solid Color</option>
+                                        <option value="gradient">Linear Gradient</option>
+                                        <option value="tv-static">TV Static &amp; Snow (Retro FX)</option>
+                                    </select>
+                                </div>
+                                <div class="field" id="ob-bg-icon-wrap" hidden>
+                                    <label for="ob-bg-icon-color">Person Icon Tint</label>
+                                    <div class="ob-color-row">
+                                        <input type="color" id="ob-bg-icon-color-pick" value="#64748b">
+                                        <input type="text" id="ob-bg-icon-color" placeholder="#64748BFF" data-var-kind="color" data-var-label="Placeholder Person Color">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid2" id="ob-bg-colors-wrap" hidden>
+                                <div class="field">
+                                    <label for="ob-bg-c1">Background Color 1</label>
+                                    <div class="ob-color-row">
+                                        <input type="color" id="ob-bg-c1-pick" value="#16202f">
+                                        <input type="text" id="ob-bg-c1" placeholder="#16202FFF" data-var-kind="color" data-var-label="Background Color 1">
+                                    </div>
+                                </div>
+                                <div class="field" id="ob-bg-c2-wrap">
+                                    <label for="ob-bg-c2">Background Color 2</label>
+                                    <div class="ob-color-row">
+                                        <input type="color" id="ob-bg-c2-pick" value="#0b101b">
+                                        <input type="text" id="ob-bg-c2" placeholder="#0B101BFF" data-var-kind="color" data-var-label="Background Color 2">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid2" id="ob-bg-angle-wrap" hidden>
+                                <div class="field">
+                                    <label for="ob-bg-angle">Backdrop Gradient Angle (deg)</label>
+                                    <input type="number" id="ob-bg-angle" min="-360" max="360" step="15">
+                                </div>
+                            </div>
+
+                            <div id="ob-bg-static-wrap" hidden style="display:flex;flex-direction:column;gap:0.75rem;">
+                                <div class="grid2">
+                                    <div class="field">
+                                        <label for="ob-bg-static-noise">TV Snow Intensity (%)</label>
+                                        <input type="number" id="ob-bg-static-noise" min="0" max="100" step="5">
+                                    </div>
+                                    <div class="field">
+                                        <label for="ob-bg-static-scale">Noise Dot Scale (px)</label>
+                                        <input type="number" id="ob-bg-static-scale" min="1" max="128" step="1">
+                                    </div>
+                                    <div class="field">
+                                        <label for="ob-bg-static-speed">Snow Refresh Speed (fps)</label>
+                                        <input type="number" id="ob-bg-static-speed" min="4" max="30" step="1">
+                                    </div>
+                                    <div class="field">
+                                        <label for="ob-bg-static-glitch">Glitch Tear Slices (%)</label>
+                                        <input type="number" id="ob-bg-static-glitch" min="0" max="100" step="5">
+                                    </div>
+                                </div>
+                                <label class="ob-check">
+                                    <input type="checkbox" id="ob-bg-static-color">
+                                    <span>RGB color static (uncheck for monochrome snow)</span>
+                                </label>
+                            </div>
+                        </div>
+                    </section>
                 </div>
 
-                <!-- Sticky Right Live Preview -->
+                <!-- Sticky Right Live WebGL Shader Preview -->
                 <div class="ob-preview-sticky">
-                    <div class="ob-panel">
-                        <div class="ob-panel-head">
-                            <div class="ob-panel-title">Live Metal Shader Preview</div>
+                    <section class="sect">
+                        <div class="sect-head">
+                            <span class="sect-title">Live OBS Shader Preview (1:1 SDF Parity)</span>
                             <div class="ob-chip-group" id="ob-preview-bg-chips">
                                 <button type="button" class="ob-chip active" data-bg="cam">Sample Cam</button>
                                 <button type="button" class="ob-chip" data-bg="game">Gameplay</button>
                                 <button type="button" class="ob-chip" data-bg="dark">Dark Matte</button>
+                                <button type="button" class="ob-chip" data-bg="transparent">Alpha Cutout</button>
                             </div>
                         </div>
-                        <div class="ob-preview-stage">
-                            <canvas id="ob-preview-canvas" width="960" height="540"></canvas>
+                        <div class="sect-body">
+                            <div class="ob-preview-stage">
+                                <canvas id="ob-preview-canvas" width="960" height="540"></canvas>
+                            </div>
+                            <div class="ob-preview-meta">
+                                <span id="ob-preview-dims">Source: 1920×1080 → Expanded: 2016×1176 (+48px pad)</span>
+                                <div style="display:flex;align-items:center;gap:0.65rem;flex-wrap:wrap;">
+                                    <label style="display:inline-flex;align-items:center;gap:0.35rem;font-size:0.76rem;color:var(--text-muted);">
+                                        <span>Test Size</span>
+                                        <select id="ob-preview-test-size" style="width:auto;background:var(--bg-inset);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:0.2rem 0.45rem;font-size:0.75rem;">
+                                            <option value="ref">Match Reference (1×)</option>
+                                            <option value="1920x1080">1080p (1920×1080)</option>
+                                            <option value="1280x720">720p (1280×720)</option>
+                                            <option value="856x482">Small Cam (856×482)</option>
+                                            <option value="480x480">Square Box (480×480)</option>
+                                            <option value="1080x1920">Vertical 9:16 (1080×1920)</option>
+                                            <option value="3840x2160">4K Display (3840×2160)</option>
+                                        </select>
+                                    </label>
+                                    <label class="ob-check" style="font-size:0.76rem;color:var(--text-muted);">
+                                        <input type="checkbox" id="ob-preview-guides" checked>
+                                        <span>Show source edge guide</span>
+                                    </label>
+                                </div>
+                            </div>
                         </div>
-                        <div class="ob-preview-meta">
-                            <span id="ob-preview-dims">Source: 1920×1080 → Expanded: 2016×1176 (+48px pad)</span>
-                            <span id="ob-preview-vars-note">Variables resolved live</span>
-                        </div>
-                    </div>
+                    </section>
                 </div>
             </div>
         </div>
 
-        <!-- TAB 2: SCENES & TARGET BUNDLES -->
-        <div id="ob-pane-scenes" hidden>
-            <div class="ob-panel">
-                <div class="ob-panel-head">
-                    <div class="ob-panel-title">Import OBS Scene Collection JSON</div>
-                </div>
-                <p style="font-size:0.83rem;color:var(--text-muted);margin:0 0 0.75rem;">
-                    Import your OBS Scene Collection (such as <code>PS4.json</code>) to discover all Scenes, nested Bundle scenes, and existing shader filter targets.
-                </p>
-                <div style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center;">
-                    <input type="text" id="ob-import-path" placeholder="/path/to/OBS-SceneCollection.json" style="flex:1;min-width:260px;background:var(--bg-inset);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:0.45rem 0.65rem;font-size:0.84rem;">
-                    <button type="button" class="btn primary" id="ob-btn-import-path">Import Path</button>
-                    <label class="btn" style="cursor:pointer;">
-                        <input type="file" id="ob-import-file" accept=".json,application/json" hidden>
-                        <span>Upload JSON File</span>
-                    </label>
-                </div>
-                <div id="ob-import-result" class="hint" style="margin-top:0.65rem;"></div>
-            </div>
-
-            <div class="ob-grid">
-                <div class="ob-panel">
-                    <div class="ob-panel-head">
-                        <div class="ob-panel-title">Target Bundle &amp; Source Profile Mapping</div>
-                    </div>
-                    <p style="font-size:0.82rem;color:var(--text-muted);margin:0 0 0.75rem;">
-                        When the <strong>StreamPulse Border</strong> filter in OBS is set to <em>Auto</em>, each Bundle scene or source automatically uses the profile assigned below.
-                    </p>
-                    <div id="ob-bundle-list"></div>
-                    <div style="display:flex;gap:0.5rem;margin-top:0.75rem;">
-                        <input type="text" id="ob-add-bundle-name" placeholder="Add bundle or source name…" style="flex:1;background:var(--bg-inset);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:0.4rem 0.6rem;font-size:0.83rem;">
-                        <button type="button" class="btn" id="ob-btn-add-bundle">Add Target</button>
-                    </div>
-                </div>
-
-                <div class="ob-panel">
-                    <div class="ob-panel-head">
-                        <div class="ob-panel-title">Per-Scene Rules for Selected Profile</div>
-                    </div>
-                    <div class="ob-form-grid" style="margin-bottom:0.75rem;">
-                        <div class="ob-field full">
-                            <label for="ob-scene-mode">Scene Activation Mode</label>
-                            <select id="ob-scene-mode">
-                                <option value="all">Active on All Scenes</option>
-                                <option value="include">Include Only Selected Scenes (Bypass on others)</option>
-                                <option value="exclude">Exclude Selected Scenes (Bypass when active)</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div style="display:flex;gap:0.5rem;margin-bottom:0.55rem;align-items:center;">
-                        <input type="text" id="ob-scene-search" placeholder="Filter scenes…" style="flex:1;background:var(--bg-inset);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:0.38rem 0.6rem;font-size:0.82rem;">
-                        <span class="hint" id="ob-scene-count">0 scenes</span>
-                    </div>
-                    <div id="ob-scene-list" class="ob-scene-list"></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- TAB 3: OBS LUA FILTER & SETUP -->
+        <!-- TAB 3: OBS SCRIPT SETUP & API -->
         <div id="ob-pane-setup" hidden>
             <div class="ob-grid">
-                <div class="ob-panel">
-                    <div class="ob-panel-head">
-                        <div class="ob-panel-title">OBS Studio Setup (macOS Metal / Windows / Linux)</div>
+                <div class="ob-panel ob-panel-pad">
+                    <div class="ob-panel-head" style="margin:-1rem -1.15rem 0.9rem;">
+                        <div class="ob-panel-title">OBS Studio Setup (One-Time Script Install)</div>
                     </div>
                     <ol style="margin:0;padding-left:1.25rem;line-height:1.65;color:var(--text);font-size:0.86rem;">
-                        <li>Download or locate <code>streampulse-borders.lua</code> (saved automatically in your StreamPulse data folder).</li>
-                        <li>In OBS Studio, open <strong>Tools → Scripts</strong>, click <strong>+</strong>, and add <code>streampulse-borders.lua</code>.</li>
-                        <li>Right-click any nested Bundle scene (e.g. <code>Bundle - Webcam Full w/ Border</code>) or Video Source → <strong>Filters</strong>.</li>
-                        <li>Remove any old <code>obs-shaderfilter</code> border layers, click <strong>+</strong> under Effect Filters, and choose <strong>StreamPulse Border</strong>.</li>
-                        <li>Leave the Profile dropdown on <strong>Auto</strong> (or pick a specific profile). Changes to borders or <strong>Variables</strong> auto-sync into OBS within 0.5s!</li>
+                        <li>Copy the canonical script path below (recommended so StreamPulse keeps it auto-updated automatically).</li>
+                        <li>In OBS Studio, open <strong>Tools → Scripts</strong>, click <strong>+</strong>, and load <code>streampulse-borders.lua</code>.</li>
+                        <li>Open <strong>Live OBS Sources &amp; Scenes</strong>, click <strong>Sync Live OBS</strong>, choose profiles per source or per scene, and click <strong>Apply Filter</strong>.</li>
+                        <li>Edits in StreamPulse or <strong>Variable Settings</strong> sync straight into OBS automatically!</li>
                     </ol>
+                    <div style="margin-top:1rem;display:flex;gap:0.5rem;flex-wrap:wrap;">
+                        <button type="button" class="btn primary" id="ob-btn-copy-lua-path">Copy Canonical Script Path</button>
+                        <a class="btn" href="/api/obs-borders/lua?download=1" download="streampulse-borders.lua">Download Copy</a>
+                        <button type="button" class="btn" id="ob-btn-reset-defaults">Reset Profiles &amp; Assignments</button>
+                    </div>
                     <div style="margin-top:1rem;">
-                        <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:0.35rem;">Generated Files on Disk</div>
+                        <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:0.35rem;">Canonical Files on Disk</div>
                         <div class="ob-code-box" id="ob-file-paths">—</div>
                     </div>
                     <div style="margin-top:1rem;">
                         <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:0.35rem;">Companion / HTTP Endpoints</div>
-                        <div class="ob-code-box">GET /api/obs-borders/activate?profile=neon-rotator
-GET /api/obs-borders/activate?profile=outset-3d-bevel&amp;target=Bundle%20-%20Webcam%20Full%20w%2F%20Border
+                        <div class="ob-code-box">GET /api/obs-borders/activate?profile=neon-rotating&amp;target=Facecam
+GET /api/obs-borders/activate?profile=none&amp;target=Facecam&amp;scene=Fullscreen
 GET /api/obs-borders/status</div>
                     </div>
+                    <details style="margin-top:1rem;border-top:1px solid var(--border);padding-top:0.75rem;">
+                        <summary style="cursor:pointer;font-size:0.8rem;font-weight:600;color:var(--text-muted);">Offline Fallback: Import OBS Scene Collection JSON</summary>
+                        <div style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center;margin-top:0.6rem;">
+                            <input type="text" id="ob-import-path" placeholder="/path/to/SceneCollection.json" style="flex:1;min-width:220px;background:var(--bg-inset);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:0.42rem 0.6rem;font-size:0.83rem;">
+                            <button type="button" class="btn" id="ob-btn-import-path">Import Path</button>
+                            <label class="btn" style="cursor:pointer;">
+                                <input type="file" id="ob-import-file" accept=".json,application/json" hidden>
+                                <span>Upload JSON</span>
+                            </label>
+                        </div>
+                    </details>
                 </div>
 
-                <div class="ob-panel">
-                    <div class="ob-panel-head">
+                <div class="ob-panel ob-panel-pad">
+                    <div class="ob-panel-head" style="margin:-1rem -1.15rem 0.9rem;">
                         <div class="ob-panel-title">Live Resolved Manifest JSON</div>
                         <button type="button" class="btn btn-sm" id="ob-btn-refresh-manifest">Refresh</button>
                     </div>
-                    <div class="ob-code-box" id="ob-manifest-preview" style="max-height:480px;overflow-y:auto;">Loading…</div>
+                    <div class="ob-code-box" id="ob-manifest-preview" style="max-height:520px;overflow-y:auto;">Loading…</div>
                 </div>
             </div>
         </div>

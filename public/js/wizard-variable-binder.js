@@ -219,11 +219,8 @@
                     : kind === 'number' ? ['number', 'counter']
                         : ['text', 'template', 'font', 'color', 'number', 'counter']
         );
-        const secondaryTypes = new Set(['text', 'template']);
-
         const primaryItems = [];
         const setPrimaryItems = [];
-        const secondaryItems = [];
 
         const seenKeys = new Set();
 
@@ -252,9 +249,6 @@
                 seenKeys.add(key);
                 if (item.isSet) setPrimaryItems.push(item);
                 else primaryItems.push(item);
-            } else if (kind !== 'text' && secondaryTypes.has(vType)) {
-                seenKeys.add(key);
-                secondaryItems.push(item);
             }
         }
 
@@ -284,9 +278,6 @@
                 if (primaryTypes.has(fType)) {
                     seenKeys.add(key);
                     setPrimaryItems.push(item);
-                } else if (kind !== 'text' && secondaryTypes.has(fType)) {
-                    seenKeys.add(key);
-                    secondaryItems.push(item);
                 }
             }
         }
@@ -302,9 +293,6 @@
         }
         if (setPrimaryItems.length) {
             groups.push({ label: `Variable Set ${kindTitle}`, items: setPrimaryItems });
-        }
-        if (secondaryItems.length) {
-            groups.push({ label: 'Text & Template Variables', items: secondaryItems });
         }
         return groups;
     }
@@ -1320,7 +1308,7 @@
                 if (!el.id) return;
                 mountSingleControl({
                     id: el.id,
-                    kind: el.dataset.varBind || undefined,
+                    kind: el.dataset.varBind || el.dataset.varKind || undefined,
                     param: el.dataset.varParam || undefined,
                     label: el.dataset.varLabel || undefined
                 });

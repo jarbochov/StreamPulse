@@ -95,6 +95,9 @@ test('worker archives preserve contents/exclusions, publish atomically and retai
 
 test('HTTP backup/HEAD/restore retain payloads, reload/restart fields, and selective sharing', async t => {
     const f = fixture(t);
+    const stampDir = path.join(f.dataDir, 'obs-patterns', 'stamps');
+    fs.mkdirSync(stampDir, { recursive: true });
+    fs.writeFileSync(path.join(stampDir, 'fixture.png'), 'fictional stamp');
     let reloads = 0;
     const handler = createBackupRoutes({
         rootDir: f.root, dataDir: f.dataDir, configPath: f.configPath, backupsDir: f.backupsDir,
@@ -124,16 +127,19 @@ test('HTTP backup/HEAD/restore retain payloads, reload/restart fields, and selec
     const archive = Buffer.from(await response.arrayBuffer());
     assert.equal(Number(response.headers.get('content-length')), archive.length);
     assert.equal(new AdmZip(archive).readAsText('config.json'), '{"port":3000,"fixture":true}');
+    assert.equal(new AdmZip(archive).readAsText('data/obs-patterns/stamps/fixture.png'), 'fictional stamp');
     const head = await fetch(base + '/api/backup', { method: 'HEAD' });
     assert.equal(head.status, 200);
     assert.equal(Number(head.headers.get('content-length')), archive.length);
     assert.equal((await head.arrayBuffer()).byteLength, 0);
     fs.writeFileSync(path.join(f.dataDir, 'stats.json'), '{"messages":0}');
+    fs.writeFileSync(path.join(stampDir, 'fixture.png'), 'changed');
     const restored = await fetch(base + '/api/restore', { method: 'POST', body: archive });
     const payload = await restored.json();
     assert.equal(restored.status, 200);
     assert.equal(payload.status, 'restored');
-    assert.equal(payload.files, 5);
+    assert.equal(payload.files, 6);
+    assert.equal(fs.readFileSync(path.join(stampDir, 'fixture.png'), 'utf8'), 'fictional stamp');
     assert.equal(payload.restartRequired, true);
     assert.deepEqual(payload.restartFields, ['port']);
     assert.equal(reloads, 1);

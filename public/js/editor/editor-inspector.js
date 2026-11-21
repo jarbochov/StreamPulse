@@ -347,26 +347,20 @@ export function boxEffectFields(el, multi) {
         <p class="hint">Backdrop blur frosts whatever is behind this box. Outer and inner shadows add dimensional depth around and inside the box edges.</p>`;
 }
 
-export const BORDER_STYLE_OPTIONS = [
-    { group: 'Standard', options: [['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted'], ['double', 'Double']] },
-    { group: '3D Bevel', options: [['groove', '3D Groove'], ['ridge', '3D Ridge'], ['inset', '3D Inset'], ['outset', '3D Outset']] },
-    { group: 'Broadcast & Tech HUD', options: [
-        ['neon-tube', 'Neon tube (hot core)'],
-        ['double-ring', 'Double ring track'],
-        ['corner-brackets', 'Corner brackets (HUD)'],
-        ['tech-hud', 'Mecha tech HUD'],
-        ['chamfer', 'Chamfered octagon'],
-        ['notched', 'Cyber notched HUD'],
-        ['crosshair', 'Scope crosshair reticles']
-    ] },
-    { group: 'Stylized & Decorative', options: [
-        ['hazard', 'Hazard stripes'],
-        ['chevron-track', 'Speed chevron track'],
-        ['scallop-stamp', 'Scallop ticket stamp'],
-        ['ornate-filigree', 'Royal diamond filigree'],
-        ['pixel-arcade', '8-bit pixel arcade'],
-        ['film-sprocket', 'Cinema filmstrip']
-    ] }
+function toInspectorSelectGroups(groups) {
+    return (groups || []).map(g => ({
+        group: g.label,
+        options: (g.options || []).map(o => [o.id, o.label])
+    }));
+}
+
+export const BORDER_STYLE_OPTIONS = shared.BORDER_STYLE_GROUPS
+    ? toInspectorSelectGroups(shared.BORDER_STYLE_GROUPS)
+    : [];
+
+export const BORDER_ANIMATION_OPTIONS = [
+    ['none', 'None (static)'],
+    ...(shared.BORDER_ANIMATION_GROUPS ? toInspectorSelectGroups(shared.BORDER_ANIMATION_GROUPS) : [])
 ];
 
 export function borderFxControls(container = {}, { glowKey = 'borderGlow', animKey = 'borderAnimation', prefix = 'style', fallbackColor = '#38bdf8' } = {}) {
@@ -388,25 +382,7 @@ export function borderFxControls(container = {}, { glowKey = 'borderGlow', animK
 
     const anim = container[animKey] || {};
     const ap = `${prefix}.${animKey}`;
-    html += F.select(`${ap}.type`, 'Border animation', anim.type || 'none', [
-        ['none', 'None (static)'],
-        { group: 'Beams & Energy', options: [
-            ['rotating', 'Rotating beam (spotlight)'],
-            ['dual-beam', 'Twin chasing beams'],
-            ['laser-scan', 'Laser scanner sweep'],
-            ['plasma', 'Electric plasma arc']
-        ] },
-        { group: 'Glow & Pulse', options: [
-            ['radial', 'Radial rotating (sweeping glow)'],
-            ['pulsing', 'Pulsing glow (breathing)'],
-            ['strobe-flash', 'Energy surge (double flash)']
-        ] },
-        { group: 'Color & Perimeter', options: [
-            ['gradient', 'Gradient sweep (flowing)'],
-            ['rainbow', 'Rainbow cycle (RGB chroma)'],
-            ['marching', 'Marching ants (perimeter chase)']
-        ] }
-    ]);
+    html += F.select(`${ap}.type`, 'Border animation', anim.type || 'none', BORDER_ANIMATION_OPTIONS);
     if (anim.type && anim.type !== 'none') {
         if (anim.type === 'rotating' || anim.type === 'dual-beam') {
             html += `

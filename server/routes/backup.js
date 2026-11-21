@@ -89,6 +89,7 @@ function createBackupRoutes({
                         { src: sessionsDir, dest: 'data/sessions' },
                         { src: customOverlayAssetsDir, dest: 'data/custom-overlay-assets' },
                         { src: customOverlayHistoryDir, dest: 'data/custom-overlay-history' },
+                        { src: path.join(dataDir, 'obs-patterns', 'stamps'), dest: 'data/obs-patterns/stamps' },
                         ...(customOverlayThumbnailsDir ? [{ src: customOverlayThumbnailsDir, dest: 'data/custom-overlay-thumbnails' }] : [])
                     ]
                 }, async ({ path: archivePath, size }, signal) => {

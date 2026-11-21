@@ -2,14 +2,62 @@
  * OBS Border Studio API & Companion Routes
  */
 
-const fs = require('fs');
-const { readRequestBody, sendJson, sendText, sendError } = require('./helpers');
+const { readRequestBody, sendJson, sendError } = require('./helpers');
 
 function createObsBordersRoutes({
     obsBordersService,
     obsService = null,
     isLoopbackRequest = () => true
 } = {}) {
+    async function pushSyncToObsSources(targetNames = [], { autoAttachIfAssigned = false } = {}) {
+        if (!obsService || typeof obsService.callRequest !== 'function' || !obsService.getStatus().connected) {
+            return;
+        }
+        const st = obsBordersService.getState();
+        const names = (Array.isArray(targetNames) && targetNames.length > 0)
+            ? [...new Set(targetNames.map(n => String(n || '').trim()).filter(Boolean))]
+            : [...new Set([...(st.knownSources || []), ...Object.keys(st.assignments || {})])];
+        const filterName = 'StreamPulse Border';
+        const filterKind = 'streampulse_border_filter';
+        const filterSettings = {
+            profile_id: 'auto',
+            respect_scene_rules: true,
+            sync_revision: Date.now()
+        };
+
+        await Promise.all(names.slice(0, 40).map(async (sourceName) => {
+            try {
+                const fl = await obsService.callRequest('GetSourceFilterList', { sourceName });
+                const filters = Array.isArray(fl?.filters) ? fl.filters : [];
+                const existing = filters.find(f => f.filterKind === filterKind || f.filterName === filterName);
+                if (existing) {
+                    await obsService.callRequest('SetSourceFilterSettings', {
+                        sourceName,
+                        filterName: existing.filterName,
+                        filterSettings,
+                        overlay: true
+                    });
+                } else if (autoAttachIfAssigned) {
+                    const cfg = st.assignments?.[sourceName];
+                    const hasRule = Boolean(
+                        (cfg?.defaultProfileId && cfg.defaultProfileId !== 'none')
+                        || Object.values(cfg?.sceneOverrides || {}).some(pid => pid && pid !== 'inherit' && pid !== 'none')
+                    );
+                    if (hasRule) {
+                        await obsService.callRequest('CreateSourceFilter', {
+                            sourceName,
+                            filterName,
+                            filterKind,
+                            filterSettings
+                        }).catch(() => {});
+                    }
+                }
+            } catch {
+                /* ignore sources unavailable in current OBS state */
+            }
+        }));
+    }
+
     return async function handleObsBordersRoutes(req, res, url, pathname) {
         if (!pathname.startsWith('/api/obs-borders')) return false;
 
@@ -27,7 +75,7 @@ function createObsBordersRoutes({
                 activeProfileId: st.activeProfileId,
                 activeProfileName: active ? active.name : '',
                 profilesCount: st.profiles.length,
-                bundlesCount: st.knownBundles.length,
+                sourcesCount: st.knownSources.length,
                 scenesCount: st.knownScenes.length,
                 revision: st.revision
             });
@@ -54,24 +102,79 @@ function createObsBordersRoutes({
             return true;
         }
 
-        // GET or POST /api/obs-borders/activate?profile=<id>&target=<optionalBundleName>
+        // GET or POST /api/obs-borders/activate?profile=<id>&target=<optionalSource>&scene=<optionalScene>
         if (pathname === '/api/obs-borders/activate' && (req.method === 'GET' || req.method === 'POST')) {
             try {
                 let profileId = url.searchParams.get('profile') || url.searchParams.get('id') || '';
-                let targetName = url.searchParams.get('target') || '';
+                let targetName = url.searchParams.get('target') || url.searchParams.get('source') || '';
+                let sceneName = url.searchParams.get('scene') || '';
                 if (req.method === 'POST') {
                     const body = JSON.parse(await readRequestBody(req) || '{}');
                     if (body.profileId || body.profile || body.id) profileId = body.profileId || body.profile || body.id;
-                    if (body.target) targetName = body.target;
+                    if (body.target || body.sourceName || body.source) targetName = body.target || body.sourceName || body.source;
+                    if (body.sceneName || body.scene) sceneName = body.sceneName || body.scene;
                 }
                 if (!profileId) throw new Error('Missing profile parameter');
                 if (targetName) {
-                    const nextState = obsBordersService.assignTargetToProfile(targetName, profileId);
-                    sendJson(res, { status: 'assigned', target: targetName, profileId, state: nextState });
+                    const nextState = obsBordersService.setSourceAssignment({
+                        sourceName: targetName,
+                        sceneName,
+                        profileId
+                    });
+                    pushSyncToObsSources([targetName], { autoAttachIfAssigned: profileId !== 'none' && profileId !== 'inherit' }).catch(() => {});
+                    sendJson(res, { status: 'assigned', target: targetName, sceneName, profileId, state: nextState });
                 } else {
                     const active = obsBordersService.setActiveProfile(profileId);
+                    pushSyncToObsSources().catch(() => {});
                     sendJson(res, { status: 'activated', activeProfileId: active.id, profile: active, state: obsBordersService.getState() });
                 }
+            } catch (err) {
+                sendError(res, err, 400);
+            }
+            return true;
+        }
+
+        // GET or POST /api/obs-borders/standby?profile=<id>&enabled=1|0|toggle
+        if (pathname === '/api/obs-borders/standby' && (req.method === 'GET' || req.method === 'POST')) {
+            try {
+                let profileId = url.searchParams.get('profile') || url.searchParams.get('id') || '';
+                let enabled = url.searchParams.get('enabled') ?? 'toggle';
+                if (req.method === 'POST') {
+                    const body = JSON.parse(await readRequestBody(req) || '{}');
+                    if (body.profileId || body.profile || body.id) profileId = body.profileId || body.profile || body.id;
+                    if (body.enabled !== undefined) enabled = body.enabled;
+                }
+                const profile = obsBordersService.setBackgroundStandby({ profileId, enabled });
+                pushSyncToObsSources().catch(() => {});
+                sendJson(res, {
+                    status: 'standby-updated',
+                    profileId: profile.id,
+                    standby: Boolean(profile.background?.standby),
+                    mode: profile.background?.mode || 'none',
+                    state: obsBordersService.getState()
+                });
+            } catch (err) {
+                sendError(res, err, 400);
+            }
+            return true;
+        }
+
+        // POST /api/obs-borders/assign — assign profile per source or per scene+source
+        if (pathname === '/api/obs-borders/assign' && req.method === 'POST') {
+            try {
+                const body = JSON.parse(await readRequestBody(req) || '{}');
+                const sourceName = String(body.sourceName || body.target || '').trim();
+                const sceneName = String(body.sceneName || '').trim();
+                const profileId = String(body.profileId || 'none').trim() || 'none';
+                const state = obsBordersService.setSourceAssignment({
+                    sourceName,
+                    sceneName,
+                    profileId
+                });
+                await pushSyncToObsSources([sourceName], {
+                    autoAttachIfAssigned: profileId !== 'none' && profileId !== 'inherit'
+                }).catch(() => {});
+                sendJson(res, { status: 'assigned', state });
             } catch (err) {
                 sendError(res, err, 400);
             }
@@ -84,6 +187,7 @@ function createObsBordersRoutes({
                 const body = JSON.parse(await readRequestBody(req) || '{}');
                 const setActive = Boolean(body.setActive);
                 const profile = obsBordersService.upsertProfile(body.profile || body, { setActive });
+                pushSyncToObsSources().catch(() => {});
                 sendJson(res, { status: 'saved', profile, state: obsBordersService.getState() });
             } catch (err) {
                 sendError(res, err, 400);
@@ -110,6 +214,7 @@ function createObsBordersRoutes({
             try {
                 const profileId = decodeURIComponent(delMatch[1]);
                 const state = obsBordersService.deleteProfile(profileId);
+                pushSyncToObsSources().catch(() => {});
                 sendJson(res, { status: 'deleted', state });
             } catch (err) {
                 sendError(res, err, 400);
@@ -121,6 +226,7 @@ function createObsBordersRoutes({
         if (pathname === '/api/obs-borders/reset-defaults' && (req.method === 'POST' || req.method === 'GET')) {
             try {
                 const state = obsBordersService.resetDefaults();
+                pushSyncToObsSources().catch(() => {});
                 sendJson(res, { status: 'reset', state });
             } catch (err) {
                 sendError(res, err, 400);
@@ -128,7 +234,7 @@ function createObsBordersRoutes({
             return true;
         }
 
-        // POST /api/obs-borders/import-scenes — import from OBS JSON path, uploaded JSON, or live OBS WebSocket
+        // POST /api/obs-borders/import-scenes — offline OBS JSON fallback importer
         if (pathname === '/api/obs-borders/import-scenes' && req.method === 'POST') {
             try {
                 const body = JSON.parse(await readRequestBody(req) || '{}');
@@ -144,6 +250,180 @@ function createObsBordersRoutes({
                     status: 'imported',
                     ...result,
                     state: obsBordersService.getState()
+                });
+            } catch (err) {
+                sendError(res, err, 400);
+            }
+            return true;
+        }
+
+        // GET /api/obs-borders/obs-status — live OBS WebSocket connection status
+        if (pathname === '/api/obs-borders/obs-status' && req.method === 'GET') {
+            const st = obsService ? obsService.getStatus() : { enabled: false, connected: false };
+            sendJson(res, st);
+            return true;
+        }
+
+        // POST /api/obs-borders/obs-sync — discover live OBS scenes & visual sources
+        if (pathname === '/api/obs-borders/obs-sync' && req.method === 'POST') {
+            try {
+                if (!obsService) throw new Error('OBS WebSocket service is not initialized');
+                const obsSt = obsService.getStatus();
+                if (!obsSt.connected) {
+                    sendError(res, 'OBS WebSocket is not connected. Enable & connect OBS in System Config > Connection & Security.', 503);
+                    return true;
+                }
+                const discovered = await obsService.listScenesAndSources();
+                if (!discovered.connected) throw new Error('OBS disconnected during scene discovery');
+                const syncResult = obsBordersService.syncFromObsDiscovery({
+                    scenes: discovered.scenes || [],
+                    sources: discovered.sources || [],
+                    byScene: discovered.byScene || {}
+                });
+
+                const filterStatuses = {};
+                const targetsToProbe = [...new Set([...(syncResult.sources || []), ...(syncResult.scenes || [])])];
+                if (typeof obsService.callRequest === 'function') {
+                    await Promise.all(targetsToProbe.slice(0, 60).map(async (targetName) => {
+                        try {
+                            const fl = await obsService.callRequest('GetSourceFilterList', { sourceName: targetName });
+                            const filters = Array.isArray(fl?.filters) ? fl.filters : [];
+                            const spFilter = filters.find(f => f.filterKind === 'streampulse_border_filter' || f.filterName === 'StreamPulse Border');
+                            filterStatuses[targetName] = {
+                                hasStreamPulseBorder: Boolean(spFilter),
+                                filterEnabled: spFilter ? spFilter.filterEnabled !== false : false,
+                                hasLegacyShader: filters.some(f => f.filterKind === 'shader_filter' && f.filterEnabled !== false),
+                                filtersCount: filters.length
+                            };
+                        } catch {
+                            /* ignore sources without filter list */
+                        }
+                    }));
+                }
+
+                sendJson(res, {
+                    status: 'synced',
+                    currentProgramScene: discovered.currentProgramScene || '',
+                    byScene: discovered.byScene || {},
+                    ...syncResult,
+                    filterStatuses,
+                    state: obsBordersService.getState()
+                });
+            } catch (err) {
+                sendError(res, err, 500);
+            }
+            return true;
+        }
+
+        // POST /api/obs-borders/obs-apply — attach, update, or remove StreamPulse Border filter via OBS WebSocket
+        if (pathname === '/api/obs-borders/obs-apply' && req.method === 'POST') {
+            try {
+                if (!isLoopbackRequest(req)) {
+                    sendError(res, 'Modifying OBS filters requires a local loopback connection', 403);
+                    return true;
+                }
+                if (!obsService || typeof obsService.callRequest !== 'function') {
+                    throw new Error('OBS WebSocket service is not available');
+                }
+                if (!obsService.getStatus().connected) {
+                    sendError(res, 'OBS WebSocket is not connected', 503);
+                    return true;
+                }
+                const body = JSON.parse(await readRequestBody(req) || '{}');
+                const action = body.action === 'remove' ? 'remove' : 'apply';
+                const st = obsBordersService.getState();
+                const targets = Array.isArray(body.targets) && body.targets.length > 0
+                    ? body.targets
+                    : Object.keys(st.assignments || {});
+                const disableLegacyShaders = Boolean(body.disableLegacyShaders);
+                const filterName = 'StreamPulse Border';
+                const filterKind = 'streampulse_border_filter';
+                const results = [];
+
+                for (const sourceName of targets) {
+                    const cleanTarget = String(sourceName || '').trim();
+                    if (!cleanTarget) continue;
+                    const assignedDefault = st.assignments?.[cleanTarget]?.defaultProfileId;
+                    const profileId = body.profileId || 'auto';
+                    const filterSettings = {
+                        profile_id: profileId,
+                        respect_scene_rules: true,
+                        sync_revision: Date.now()
+                    };
+                    try {
+                        const fl = await obsService.callRequest('GetSourceFilterList', { sourceName: cleanTarget });
+                        const filters = Array.isArray(fl?.filters) ? fl.filters : [];
+                        const existing = filters.find(f => f.filterName === filterName || f.filterKind === filterKind);
+
+                        if (action === 'remove') {
+                            if (existing) {
+                                await obsService.callRequest('RemoveSourceFilter', {
+                                    sourceName: cleanTarget,
+                                    filterName: existing.filterName
+                                });
+                            }
+                            if (body.clearAssignment !== false) {
+                                obsBordersService.clearSourceAssignment(cleanTarget);
+                            }
+                            results.push({ target: cleanTarget, ok: true, removed: Boolean(existing) });
+                            continue;
+                        }
+
+                        if (existing) {
+                            await obsService.callRequest('SetSourceFilterSettings', {
+                                sourceName: cleanTarget,
+                                filterName: existing.filterName,
+                                filterSettings,
+                                overlay: true
+                            });
+                            await obsService.callRequest('SetSourceFilterEnabled', {
+                                sourceName: cleanTarget,
+                                filterName: existing.filterName,
+                                filterEnabled: true
+                            });
+                        } else {
+                            await obsService.callRequest('CreateSourceFilter', {
+                                sourceName: cleanTarget,
+                                filterName,
+                                filterKind,
+                                filterSettings
+                            });
+                        }
+
+                        if (disableLegacyShaders) {
+                            for (const f of filters) {
+                                if (f.filterKind === 'shader_filter' && f.filterEnabled !== false) {
+                                    await obsService.callRequest('SetSourceFilterEnabled', {
+                                        sourceName: cleanTarget,
+                                        filterName: f.filterName,
+                                        filterEnabled: false
+                                    }).catch(() => {});
+                                }
+                            }
+                        }
+
+                        results.push({ target: cleanTarget, ok: true, profileId: assignedDefault || profileId });
+                    } catch (err) {
+                        if (action === 'remove' && body.clearAssignment !== false && /not found|no source/i.test(err.message)) {
+                            obsBordersService.clearSourceAssignment(cleanTarget);
+                            results.push({ target: cleanTarget, ok: true, removed: false, clearedMissing: true });
+                        } else {
+                            results.push({
+                                target: cleanTarget,
+                                ok: false,
+                                error: /not found|unavailable|create/i.test(err.message)
+                                    ? `${err.message} (Make sure data/obs-borders/streampulse-borders.lua is loaded in OBS Tools -> Scripts)`
+                                    : err.message
+                            });
+                        }
+                    }
+                }
+
+                sendJson(res, {
+                    status: results.every(r => r.ok) ? 'applied' : 'partial',
+                    applied: results.filter(r => r.ok).length,
+                    total: results.length,
+                    results
                 });
             } catch (err) {
                 sendError(res, err, 400);

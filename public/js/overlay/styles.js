@@ -1,4 +1,8 @@
 
+import borderCatalog from '../../../shared/border-catalog.cjs';
+
+const { BORDER_STYLES, BORDER_ANIM_TYPES } = borderCatalog;
+
 // Extra look-and-feel that every element type shares: gradient fills (box and text), frosted blur and drop shadow.
 // Progress elements put the gradient on their fill, so the track stays a plain color.
 const TEXT_FILL_TYPES = new Set(['text', 'random-text', 'markdown', 'game-list']);
@@ -76,22 +80,12 @@ function ensureGradientKeyframes() {
     document.head.appendChild(tag);
 }
 
-const BORDER_STYLES = [
-    'solid', 'dashed', 'dotted', 'double',
-    'groove', 'ridge', 'inset', 'outset',
-    'neon-tube', 'double-ring', 'corner-brackets', 'tech-hud', 'chamfer', 'notched', 'crosshair',
-    'hazard', 'chevron-track', 'scallop-stamp', 'ornate-filigree', 'pixel-arcade', 'film-sprocket'
-];
 const CUSTOM_RING_STYLES = new Set([
     'neon-tube', 'double-ring', 'corner-brackets', 'tech-hud', 'chamfer', 'notched', 'crosshair',
     'hazard', 'chevron-track', 'scallop-stamp', 'ornate-filigree', 'pixel-arcade', 'film-sprocket'
 ]);
 const SHAPE_CLIP_STYLES = new Set(['chamfer', 'notched', 'scallop-stamp', 'pixel-arcade']);
 const BORDER_PLACEMENTS = ['inside', 'center', 'outside'];
-const BORDER_ANIM_TYPES = [
-    'none', 'rotating', 'dual-beam', 'radial', 'pulsing',
-    'strobe-flash', 'laser-scan', 'plasma', 'gradient', 'rainbow', 'marching'
-];
 const TEXT_ANIM_TYPES = [
     'none',
     'pulse', 'heartbeat', 'float', 'wave', 'wiggle', 'wobble', 'shake', 'swing', 'bounce', 'glitch',

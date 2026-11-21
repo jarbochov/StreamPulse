@@ -69,7 +69,7 @@
     document.head.appendChild(style);
 
     const MODULE_STORAGE_KEY = 'streampulse:modules';
-    let moduleState = { chatbot: true, clips: true, weather: true, music: true, hashtags: true, polls: true, versus: true, trivia: true, subathon: false, obsBorders: true };
+    let moduleState = { chatbot: true, clips: true, weather: true, music: true, hashtags: true, polls: true, versus: true, trivia: true, subathon: false, obsBorders: true, obsPatterns: true };
     try {
         const cached = localStorage.getItem(MODULE_STORAGE_KEY);
         if (cached) {
@@ -113,6 +113,7 @@
             { heading: 'Broadcast & Media' },
             { label: 'Alerts & SFX', href: '/alerts.html' },
             { label: 'OBS Border Studio', href: '/tools/obs-borders.html', module: 'obsBorders' },
+            { label: 'OBS Pattern Studio', href: '/tools/obs-patterns.html', module: 'obsPatterns' },
             { label: 'Chat Bot', href: '/chatbot.html', module: 'chatbot' },
             { label: 'Clips', href: '/clips.html', module: 'clips' },
             { label: 'Promo Creator', href: '/promo-creator.html' },
@@ -227,6 +228,7 @@
         // 3. Stream Tools & Automation
         list.push({ label: 'Alerts & SFX', href: '/alerts.html', group: 'Stream Tools' });
         list.push({ label: 'OBS Border Studio (Beta)', href: '/tools/obs-borders.html', group: 'Stream Tools', module: 'obsBorders', keywords: 'obs border studio shader filter metal lua outset bevel rounded corners' });
+        list.push({ label: 'OBS Pattern Studio (Beta)', href: '/tools/obs-patterns.html', group: 'Stream Tools', module: 'obsPatterns', keywords: 'obs pattern studio tile background procedural shader lua gpu kaleidoscope' });
         list.push({ label: 'Chat Bot', href: '/chatbot.html', group: 'Stream Tools', module: 'chatbot' });
         list.push({ label: 'Clips', href: '/clips.html', group: 'Stream Tools', module: 'clips', keywords: 'clips twitch video vod highlights markers' });
         list.push({ label: 'Trivia Studio', href: '/tools/trivia.html', group: 'Stream Tools', module: 'trivia', keywords: 'trivia quiz audience voting question bank true false questions game' });
@@ -802,6 +804,10 @@
             }
             if (event.detail.obs_borders_enabled !== undefined && moduleState.obsBorders !== (event.detail.obs_borders_enabled !== false)) {
                 moduleState.obsBorders = event.detail.obs_borders_enabled !== false;
+                changed = true;
+            }
+            if (event.detail.obs_patterns_enabled !== undefined && moduleState.obsPatterns !== (event.detail.obs_patterns_enabled !== false)) {
+                moduleState.obsPatterns = event.detail.obs_patterns_enabled !== false;
                 changed = true;
             }
             if (changed) {

@@ -94,6 +94,18 @@ function createConnectedService(overrides = {}, features = {}) {
     return { service, socket };
 }
 
+test('scene discovery rejects partial OBS failures rather than reporting empty scenes', async () => {
+    const { service, socket } = createConnectedService();
+    try {
+        socket.handleRequest = request => {
+            if (request.requestType !== 'GetSceneItemList') return false;
+            socket.respond(request, 'scene temporarily unavailable');
+            return true;
+        };
+        await assert.rejects(service.listScenesAndSources(), /scene temporarily unavailable/);
+    } finally { service.disconnect(); }
+});
+
 test('Scene Sync module disables discovery and motion without stopping speaker meters or the global connection', async () => {
     let syncEnabled = false, badgesEnabled = true, meters = 0;
     const { service, socket } = createConnectedService({ motionEngine: 'websocket' }, {

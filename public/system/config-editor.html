@@ -679,6 +679,26 @@
                             <a class="module-link" href="/tools/obs-borders.html">Open Border Studio <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
                         </div>
                     </div>
+
+                    <div class="module-card">
+                        <div class="module-card-head">
+                            <div class="module-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+                                <strong>OBS Pattern Studio</strong>
+                                <span class="beta-tag">BETA</span>
+                                <span class="advanced-tag">ADVANCED</span>
+                            </div>
+                            <span class="module-badge" id="badge-obs-patterns">Active</span>
+                        </div>
+                        <p class="hint">Metal-compatible standalone OBS Lua video source for GPU-rendered Procedural Backgrounds and scrolling Pattern Tile wallpapers.</p>
+                        <div class="cfg-toggle">
+                            <input type="checkbox" id="cfg-obs-patterns-enabled" checked>
+                            <label for="cfg-obs-patterns-enabled">Enable OBS Pattern Studio module</label>
+                        </div>
+                        <div class="module-links">
+                            <a class="module-link" href="/tools/obs-patterns.html">Open Pattern Studio <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1055,6 +1075,7 @@
         }
         updateBadge('badge-speaker-badges', document.getElementById('cfg-speaker-badges-enabled')?.checked);
         updateBadge('badge-obs-borders', document.getElementById('cfg-obs-borders-enabled')?.checked);
+        updateBadge('badge-obs-patterns', document.getElementById('cfg-obs-patterns-enabled')?.checked);
         updateBadge('badge-variable-sets', document.getElementById('cfg-variable-sets-enabled')?.checked);
         updateBadge('badge-variable-settings', document.getElementById('cfg-variable-settings-enabled')?.checked);
 
@@ -1146,6 +1167,7 @@
             document.getElementById('cfg-speaker-badges-enabled').checked = cfg.speaker_badges_enabled === true;
             document.getElementById('cfg-obs-scene-sync-enabled').checked = cfg.obs_scene_sync_enabled !== false;
             document.getElementById('cfg-obs-borders-enabled').checked = cfg.obs_borders_enabled !== false;
+            document.getElementById('cfg-obs-patterns-enabled').checked = cfg.obs_patterns_enabled !== false;
             document.getElementById('cfg-obs-host').value = obs.host || '127.0.0.1';
             document.getElementById('cfg-obs-port').value = obs.port || 4455;
             document.getElementById('cfg-obs-password').value = '';
@@ -1213,6 +1235,7 @@
             speaker_badges_enabled: document.getElementById('cfg-speaker-badges-enabled').checked,
             obs_scene_sync_enabled: document.getElementById('cfg-obs-scene-sync-enabled').checked,
             obs_borders_enabled: document.getElementById('cfg-obs-borders-enabled').checked,
+            obs_patterns_enabled: document.getElementById('cfg-obs-patterns-enabled').checked,
             polls_enabled: document.getElementById('cfg-polls-enabled').checked,
             versus_enabled: document.getElementById('cfg-versus-enabled').checked,
             trivia_enabled: document.getElementById('cfg-trivia-enabled').checked,

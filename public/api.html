@@ -1074,6 +1074,60 @@
             ]
         },
         {
+            section: 'OBS Pattern Studio (Beta / Advanced)',
+            items: [
+                {
+                    method: 'GET', path: '/api/obs-patterns',
+                    desc: 'Get all OBS pattern profiles (Procedural & Pattern Tile), stamps, and source assignments',
+                    details: 'Returns activeProfileId, profiles, resolvedProfiles, assignments, knownScenes, knownPatternSources, manifestPath, luaScriptPath, and bakeError. Variable-bound baked patterns update in the background using Puppeteer Chrome; if Chrome is unavailable, run npm run install:chrome and restart StreamPulse.'
+                },
+                {
+                    method: 'GET', path: '/api/obs-patterns/status',
+                    desc: 'Companion-friendly status summary for OBS Pattern Studio',
+                    details: 'Returns { revision, activeProfileId, activeProfileName, profilesCount, assignmentsCount, knownScenesCount, knownPatternSourcesCount }.'
+                },
+                {
+                    method: 'GET', path: '/api/obs-patterns/lua?download=1',
+                    desc: 'Download or view the generated Metal-safe OBS Lua video source script (streampulse-patterns.lua)',
+                    details: 'Registers the standalone StreamPulse Pattern Background GPU source in OBS Studio.'
+                },
+                {
+                    method: 'GET', path: '/api/obs-patterns/activate?profile=ID&target=SOURCE&scene=SCENE',
+                    desc: 'Activate a pattern profile globally or assign it to a pattern source / scene override (Companion trigger)',
+                    details: 'Supports both GET query parameters and POST JSON, and pushes live sync_revision updates to OBS via WebSocket.'
+                },
+                {
+                    method: 'POST', path: '/api/obs-patterns/profile',
+                    desc: 'Save or update an OBS pattern profile (including Custom Palette stops, Spacing, Spin, GPU Blur/Color filters, & baked stamp metadata)',
+                    body: '{ "profile": { "id": "cyber-hex-grid", "name": "Holiday Lights", "mode": "procedural", "procedural": { "preset": "christmas-lights", "palette": "custom", "customColors": ["#EF4444FF","#22C55EFF","#FACC15FF","#3B82F6FF"], "lineWidth": 3.5, "density": 1.25, "spacing": 120, "spin": "cw" }, "filters": { "brightness": 95, "contrast": 110, "saturate": 125, "grayscale": 0, "hueRotate": 0, "blur": 6, "duotone": { "enabled": false }, "tint": { "enabled": false }, "grain": { "enabled": false } } }, "setActive": true }',
+                    details: 'Upserts the normalized profile, rebuilds manifest.json, and pushes a live sync_revision update to OBS via WebSocket.'
+                },
+                {
+                    method: 'POST', path: '/api/obs-patterns/palette',
+                    desc: 'Save a named 2–7 color Custom Palette for reuse across OBS Pattern Studio profiles',
+                    body: '{ "name": "Traditional Holiday", "colors": ["#EF4444FF", "#22C55EFF", "#FACC15FF", "#3B82F6FF"] }',
+                    details: 'Persists the custom palette in state.customPalettes and returns { status, palette, state }.'
+                },
+                {
+                    method: 'DELETE', path: '/api/obs-patterns/palette/:id',
+                    desc: 'Delete a saved Custom Palette by ID',
+                    details: 'Removes the custom palette entry from state.customPalettes and returns updated state.'
+                },
+                {
+                    method: 'POST', path: '/api/obs-patterns/stamp',
+                    desc: 'Upload a PNG stamp atlas or seamlessly wrapped seasonal tile PNG for GPU sampling',
+                    body: '{ "id": "cyber-hex-grid-christmas-lights", "dataUrl": "data:image/png;base64,..." }',
+                    details: 'Stores PNGs up to 6 MB in data/obs-patterns/stamps/ and returns { stampFile, stampPath, url }.'
+                },
+                {
+                    method: 'POST', path: '/api/obs-patterns/obs-create',
+                    desc: 'Create or update a native StreamPulse Pattern Background source inside an OBS scene',
+                    body: '{ "sceneName": "Main Scene", "sourceName": "StreamPulse Background", "profileId": "cyber-hex-grid", "width": 1920, "height": 1080 }',
+                    details: 'Requires OBS WebSocket connection and streampulse-patterns.lua loaded in OBS. Existing pattern inputs are added to the requested scene if needed. A name already used by another input kind returns HTTP 409 without changing that input. Managed sources use Auto so source and scene assignments take precedence over the active profile.'
+                }
+            ]
+        },
+        {
             section: 'Custom Overlays & Assets',
             items: [
                 {

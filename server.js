@@ -84,6 +84,9 @@ const { createObsService, normalizeObsConfig } = require('./server/services/obs'
 const { createObsRoutes } = require('./server/routes/obs');
 const { createObsBordersService } = require('./server/services/obs-borders');
 const { createObsBordersRoutes } = require('./server/routes/obs-borders');
+const { createObsPatternsService } = require('./server/services/obs-patterns');
+const { renderPatternStamps } = require('./server/services/obs-pattern-baker');
+const { createObsPatternsRoutes } = require('./server/routes/obs-patterns');
 const { createRateLimiter } = require('./server/services/rate-limit');
 const { createGameInfoService, infoKey, GAME_INFO_VERSION } = require('./server/services/game-info');
 const { createShareBundleService } = require('./server/services/share-bundle');
@@ -248,6 +251,7 @@ const staticRouter = createStaticRouter({
 });
 
 let obsBordersService = null;
+let obsPatternsService = null;
 const variablesStore = require('./server/services/variables')({
     dataDir: DATA_DIR,
     getDependencies: (id, entryId, fieldKey) => fieldKey
@@ -255,6 +259,7 @@ const variablesStore = require('./server/services/variables')({
     onChange: data => {
         broadcastToOverlays('variables-update', data);
         obsBordersService?.syncResolvedManifest();
+        obsPatternsService?.syncResolvedManifest();
     }
 });
 const isVariableSetsEnabled = (cfg = config) => (typeof cfg?.variable_sets_enabled === 'boolean'
@@ -1125,6 +1130,7 @@ function applyRuntimeConfig(nextConfig) {
     variablesStore.setModuleEnabled(isVariableSetsEnabled(config));
     variablesStore.setVariableSettingsEnabled(isVariableSettingsEnabled(config));
     obsBordersService?.syncResolvedManifest();
+    obsPatternsService?.syncResolvedManifest();
 
     const nextMusicConfig = config.music || { enabled: false, source: 'apple_music', poll_seconds: 5 };
     for (const key of Object.keys(MUSIC_CONFIG)) delete MUSIC_CONFIG[key];
@@ -1210,6 +1216,7 @@ async function performAutoBackup(force = false) {
                 { src: SESSIONS_DIR, dest: 'data/sessions' },
                 { src: CUSTOM_OVERLAY_ASSETS_DIR, dest: 'data/custom-overlay-assets' },
                 { src: CUSTOM_OVERLAY_HISTORY_DIR, dest: 'data/custom-overlay-history' },
+                { src: path.join(DATA_DIR, 'obs-patterns', 'stamps'), dest: 'data/obs-patterns/stamps' },
                 ...(CUSTOM_OVERLAY_THUMBNAILS_DIR ? [{ src: CUSTOM_OVERLAY_THUMBNAILS_DIR, dest: 'data/custom-overlay-thumbnails' }] : [])
             ]
         });
@@ -1305,6 +1312,20 @@ obsBordersService = createObsBordersService({
 });
 const handleObsBordersRoutes = createObsBordersRoutes({
     obsBordersService,
+    obsService,
+    isLoopbackRequest
+});
+
+obsPatternsService = createObsPatternsService({
+    dataDir: DATA_DIR,
+    safeWriteFileSync,
+    getVariablesValues: () => variablesStore.values(),
+    isVariableSettingsEnabled: () => isVariableSettingsEnabled(config),
+    broadcastToOverlays,
+    renderPatternStamps
+});
+const handleObsPatternsRoutes = createObsPatternsRoutes({
+    obsPatternsService,
     obsService,
     isLoopbackRequest
 });
@@ -1674,6 +1695,8 @@ function handleRestoreReload({ previousConfig }) {
     try { pollService.reload(); } catch (err) { console.warn('[Restore] Poll reload failed:', err.message); }
     try { chatbot.reload(); } catch (err) { console.warn('[Restore] Chatbot reload failed:', err.message); }
     try { variablesStore.reload(); } catch (err) { console.warn('[Restore] Variables reload failed:', err.message); }
+    try { obsBordersService.reload(); } catch (err) { console.warn('[Restore] OBS borders reload failed:', err.message); }
+    try { obsPatternsService.reload(); } catch (err) { console.warn('[Restore] OBS patterns reload failed:', err.message); }
     variableDisplays.reload();
     migrateSavedBadges();
     try { operatorService.reload(); } catch (err) { console.warn('[Restore] Operator reload failed:', err.message); }
@@ -1893,6 +1916,7 @@ const server = createHttpServer(async (req, res) => {
 
     if (await handleObsRoutes(req, res, pathname)) return;
     if (await handleObsBordersRoutes(req, res, url, pathname)) return;
+    if (await handleObsPatternsRoutes(req, res, url, pathname)) return;
 
     // Static file serving via cascading static router
     if (staticRouter.handleRequest(req, res)) {
@@ -2093,6 +2117,7 @@ function stopServer({ preserveSession = false } = {}) {
         attempt(() => alertEngine.stop());
         attempt(() => overlayService.stop());
         attempt(() => obsService.disconnect());
+        attempt(() => obsPatternsService.stop());
         attempt(() => pollService.destroy());
         attempt(() => matchupService.destroy());
         for (const wait of [() => sessionService.waitForPendingEnd(), () => backupService.waitForIdle()]) {

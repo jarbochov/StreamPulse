@@ -471,7 +471,8 @@ function createObsService({
         if (!state.identified) {
             return { connected: false, scenes: [], sources: [], currentProgramScene: '' };
         }
-        const scenesRes = await request('GetSceneList').catch(() => ({ scenes: [] }));
+        const scenesRes = await request('GetSceneList');
+        if (!Array.isArray(scenesRes.scenes)) throw new Error('OBS returned an invalid scene list');
         const sceneNames = (Array.isArray(scenesRes.scenes) ? scenesRes.scenes : [])
             .map(s => s.sceneName)
             .filter(Boolean)
@@ -481,14 +482,27 @@ function createObsService({
 
         const sourcesSet = new Set();
         const byScene = {};
-        for (const sName of sceneNames) {
-            const itemsRes = await request('GetSceneItemList', { sceneName: sName }).catch(() => ({ sceneItems: [] }));
-            const items = (Array.isArray(itemsRes.sceneItems) ? itemsRes.sceneItems : []).map(item => ({
-                sceneItemId: item.sceneItemId,
-                sourceName: item.sourceName,
-                inputKind: item.inputKind || item.sourceType || '',
-                sceneItemEnabled: item.sceneItemEnabled !== false
-            }));
+        const sceneResults = await Promise.all(sceneNames.map(async (sName) => {
+            const itemsRes = await request('GetSceneItemList', { sceneName: sName });
+            if (!Array.isArray(itemsRes.sceneItems)) throw new Error(`OBS returned an invalid item list for scene "${sName}"`);
+            return { sName, sceneItems: itemsRes.sceneItems };
+        }));
+        for (const { sName, sceneItems } of sceneResults) {
+            const items = sceneItems.map(item => {
+                const t = item.sceneItemTransform && typeof item.sceneItemTransform === 'object'
+                    ? item.sceneItemTransform
+                    : null;
+                const scaleX = t && Number.isFinite(Number(t.scaleX)) ? Math.abs(Number(t.scaleX)) : 1;
+                const scaleY = t && Number.isFinite(Number(t.scaleY)) ? Math.abs(Number(t.scaleY)) : 1;
+                const sceneScale = Number(Math.max(0.05, Math.min(8, Math.min(scaleX || 1, scaleY || 1))).toFixed(4));
+                return {
+                    sceneItemId: item.sceneItemId,
+                    sourceName: item.sourceName,
+                    inputKind: item.inputKind || item.sourceType || '',
+                    sceneItemEnabled: item.sceneItemEnabled !== false,
+                    sceneScale
+                };
+            });
             byScene[sName] = items;
             for (const item of items) {
                 if (item.sourceName) sourcesSet.add(item.sourceName);
@@ -1128,10 +1142,18 @@ function createObsService({
         return { ok: results.every(result => result.ok), synced, results };
     }
 
+    async function callRequest(type, data = {}) {
+        if (!state.identified) {
+            throw new Error('OBS WebSocket is not connected');
+        }
+        return request(type, data);
+    }
+
     return {
         connect,
         disconnect,
         getStatus,
+        callRequest,
         listScenesAndSources,
         listAudioInputs,
         refreshSubscriptions,

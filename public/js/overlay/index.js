@@ -22,6 +22,7 @@ import variableLinks from '../../../shared/variable-links.cjs';
 import variableDisplays from '../../../shared/variable-displays.cjs';
 import displayTable from '../../../shared/display-table.cjs';
 import variablePaths from '../../../shared/variable-paths.cjs';
+import borderCatalog from '../../../shared/border-catalog.cjs';
 import { renderVariableDisplay, setDisplayLibrary } from './displays.js';
 
 
@@ -33,4 +34,5 @@ Object.assign(root.OverlayShared, variableLinks);
 Object.assign(root.OverlayShared, variableDisplays, { renderVariableDisplay, setDisplayLibrary });
 Object.assign(root.OverlayShared, displayTable);
 Object.assign(root.OverlayShared, { variableKey: variablePaths.variableKey });
+Object.assign(root.OverlayShared, borderCatalog);
 Object.defineProperty(root.OverlayShared, Symbol.for('StreamPulse.OverlayShared'), { value: true });

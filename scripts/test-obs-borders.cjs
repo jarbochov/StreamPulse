@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const http = require('node:http');
 
-const { createObsBordersService } = require('../server/services/obs-borders');
+const { createObsBordersService, BORDER_STYLES, ANIMATION_TYPES } = require('../server/services/obs-borders');
 const { createObsBordersRoutes } = require('../server/routes/obs-borders');
 
 function requestJson(port, method, reqPath, body) {
@@ -78,17 +78,25 @@ describe('OBS Border Studio (Beta / Advanced)', () => {
         if (tmpDir) fs.rmSync(tmpDir, { recursive: true, force: true });
     });
 
-    it('creates default profiles, manifest.json, and Metal-safe Lua script on init', () => {
+    it('creates default profiles (with all 21 styles & 10 animations), manifest.json, and Lua script without hardcoded example scenes', () => {
+        assert.equal(BORDER_STYLES.length, 21);
+        assert.equal(ANIMATION_TYPES.length, 11); // none + 10 animations
+
         const state = service.getState();
         assert.ok(state.profiles.length >= 4);
-        assert.equal(state.activeProfileId, 'dual-gradient-bundle');
+        assert.equal(state.activeProfileId, 'dual-gradient');
+        assert.deepEqual(state.knownScenes, []);
+        assert.deepEqual(state.knownSources, []);
         assert.ok(fs.existsSync(state.manifestPath));
         assert.ok(fs.existsSync(state.luaScriptPath));
 
         const lua = fs.readFileSync(state.luaScriptPath, 'utf8');
         assert.match(lua, /obs\.OBS_SOURCE_TYPE_FILTER/);
         assert.match(lua, /sdRoundedBox/);
+        assert.match(lua, /sdChamferBox/);
+        assert.match(lua, /assignment_rules/);
         assert.match(lua, /technique Draw/);
+        assert.doesNotMatch(lua, /uniform int /);
     });
 
     it('resolves Variable Settings tokens into manifest.json and respects gate', () => {
@@ -98,10 +106,17 @@ describe('OBS Border Studio (Beta / Advanced)', () => {
             radius: 'var:theme.radius|10',
             inner: {
                 enabled: true,
-                style: 'outset-bevel',
+                style: 'outset',
                 thickness: 'var:theme.border_width|6',
                 color1: 'var:theme.primary|#112233FF',
                 color2: '#000000FF'
+            },
+            animation: {
+                type: 'dual-beam',
+                speed: 3,
+                size: 40,
+                color2: '#00FFAAFF',
+                direction: 'ccw'
             }
         }, { setActive: true });
 
@@ -111,7 +126,9 @@ describe('OBS Border Studio (Beta / Advanced)', () => {
         assert.equal(resolved.radius, 28);
         assert.equal(resolved.inner.thickness, 16);
         assert.equal(resolved.inner.color1, '#FF0088FF');
-        assert.equal(resolved.inner.styleCode, 3); // outset-bevel
+        assert.equal(resolved.inner.styleCode, 7); // outset
+        assert.equal(resolved.animation.typeCode, 2); // dual-beam
+        assert.equal(resolved.animation.dirCode, -1); // ccw
 
         // Gate disabled -> falls back to inline fallback values
         varSettingsEnabled = false;
@@ -123,46 +140,57 @@ describe('OBS Border Studio (Beta / Advanced)', () => {
         varSettingsEnabled = true;
     });
 
-    it('imports OBS Scene Collection JSON and extracts scenes, bundles, and shader targets', async () => {
-        const fakeObsJson = {
-            name: 'TestCollection',
-            sources: [
-                {
-                    name: 'Bundle - Webcam Full w/ Border',
-                    id: 'scene',
-                    filters: [{ id: 'shader_filter', name: 'Inner Border' }]
-                },
-                {
-                    name: 'Main Gameplay',
-                    id: 'scene',
-                    filters: []
-                },
-                {
-                    name: 'Fullscreen Camera',
-                    id: 'scene',
-                    filters: []
-                }
-            ]
-        };
+    it('tracks live OBS discovered sources/scenes and supports per-source and per-scene border overrides', async () => {
+        const syncRes = service.syncFromObsDiscovery({
+            scenes: ['Main Scene', 'Fullscreen Cam'],
+            sources: ['Facecam', 'Overlay Chat', 'Yeti Mic'],
+            byScene: {
+                'Main Scene': [
+                    { sourceName: 'Facecam', inputKind: 'macos-avcapture' },
+                    { sourceName: 'Overlay Chat', inputKind: 'browser_source' }
+                ],
+                'Fullscreen Cam': [
+                    { sourceName: 'Facecam', inputKind: 'macos-avcapture' },
+                    { sourceName: 'Yeti Mic', inputKind: 'coreaudio_input_capture' }
+                ]
+            }
+        });
 
-        const res = await requestJson(port, 'POST', '/api/obs-borders/import-scenes', { jsonData: fakeObsJson });
-        assert.equal(res.status, 200);
-        assert.equal(res.body.collectionName, 'TestCollection');
-        assert.ok(res.body.scenes.includes('Main Gameplay'));
-        assert.ok(res.body.scenes.includes('Fullscreen Camera'));
-        assert.ok(res.body.bundles.includes('Bundle - Webcam Full w/ Border'));
-        assert.equal(res.body.legacyShaderTargets.length, 1);
+        assert.deepEqual(syncRes.scenes, ['Fullscreen Cam', 'Main Scene']);
+        assert.ok(syncRes.sources.includes('Facecam'));
+        assert.ok(syncRes.sources.includes('Overlay Chat'));
+        assert.ok(!syncRes.sources.includes('Yeti Mic')); // audio-only filtered out
+
+        // Assign different defaults to Facecam vs Overlay Chat, plus bypass Facecam on Fullscreen Cam
+        await requestJson(port, 'POST', '/api/obs-borders/assign', {
+            sourceName: 'Facecam',
+            profileId: 'neon-rotating'
+        });
+        await requestJson(port, 'POST', '/api/obs-borders/assign', {
+            sourceName: 'Overlay Chat',
+            profileId: 'cyber-hud'
+        });
+        const overrideRes = await requestJson(port, 'POST', '/api/obs-borders/assign', {
+            sourceName: 'Facecam',
+            sceneName: 'Fullscreen Cam',
+            profileId: 'none'
+        });
+
+        assert.equal(overrideRes.status, 200);
+        assert.equal(overrideRes.body.state.assignmentRules['Facecam'], 'neon-rotating');
+        assert.equal(overrideRes.body.state.assignmentRules['Overlay Chat'], 'cyber-hud');
+        assert.equal(overrideRes.body.state.assignmentRules['Fullscreen Cam::Facecam'], 'none');
     });
 
-    it('supports Companion HTTP activation, target assignment, duplication, and Lua download', async () => {
+    it('supports Companion HTTP activation, duplication, and Lua download', async () => {
         const actRes = await requestJson(
             port,
             'GET',
-            '/api/obs-borders/activate?profile=outset-3d-bevel&target=Bundle%20-%20Webcam%20Full%20w%2F%20Border'
+            '/api/obs-borders/activate?profile=outset-3d-bevel&target=Facecam&scene=Main%20Scene'
         );
         assert.equal(actRes.status, 200);
         assert.equal(actRes.body.status, 'assigned');
-        assert.equal(actRes.body.state.targetOverrides['Bundle - Webcam Full w/ Border'], 'outset-3d-bevel');
+        assert.equal(actRes.body.state.assignmentRules['Main Scene::Facecam'], 'outset-3d-bevel');
 
         const statusRes = await requestJson(port, 'GET', '/api/obs-borders/status');
         assert.equal(statusRes.status, 200);
@@ -179,5 +207,153 @@ describe('OBS Border Studio (Beta / Advanced)', () => {
         assert.equal(luaRes.status, 200);
         assert.match(luaRes.headers['content-disposition'] || '', /streampulse-borders\.lua/);
         assert.match(String(luaRes.body), /StreamPulse Border Filter/);
+    });
+
+    it('keeps border styles and animations synchronized with Custom Overlay Editor via shared catalog', () => {
+        const catalog = require('../shared/border-catalog.cjs');
+        assert.deepEqual(BORDER_STYLES, catalog.BORDER_STYLES);
+        assert.deepEqual(ANIMATION_TYPES, catalog.BORDER_ANIM_TYPES);
+
+        const stylesJs = fs.readFileSync(path.join(__dirname, '../public/js/overlay/styles.js'), 'utf8');
+        assert.match(stylesJs, /border-catalog\.cjs/);
+
+        const inspectorJs = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-inspector.js'), 'utf8');
+        assert.match(inspectorJs, /BORDER_STYLE_GROUPS/);
+        assert.match(inspectorJs, /BORDER_ANIMATION_GROUPS/);
+
+        const studioJs = fs.readFileSync(path.join(__dirname, '../public/js/obs-borders/obs-borders-studio.js'), 'utf8');
+        assert.match(studioJs, /window\.OverlayShared/);
+        assert.match(studioJs, /BORDER_STYLE_GROUPS/);
+        assert.match(studioJs, /BORDER_ANIMATION_GROUPS/);
+    });
+
+    it('supports Outside Auto-Padding, Auto-Scale, Background Fill Modes (Person, TV Static), and Standby Companion API', async () => {
+        const catalog = require('../shared/border-catalog.cjs');
+        const autoPad = catalog.computeAutoBorderPad({
+            placement: 'outside',
+            autoPad: true,
+            extraPad: 6,
+            seamOverlap: 1,
+            inner: { enabled: true, style: 'solid', thickness: 12, gap: 0 },
+            outer: { enabled: false, style: 'solid', thickness: 0, gap: 0 },
+            glow: { enabled: true, inner: false, blur: 10 }
+        });
+        // (12 - 1) + ceil(10 * 1.65) = 11 + 17 = 28 + 6 extra + 2 safety = 36
+        assert.equal(autoPad, 36);
+        assert.equal(catalog.computeAutoBorderPad({ placement: 'inside', autoPad: true, inner: { enabled: true, thickness: 20 } }), 0);
+
+        const saved = service.upsertProfile({
+            id: 'standby-tv-static',
+            name: 'Standby TV Static',
+            placement: 'outside',
+            autoPad: true,
+            autoScale: true,
+            extraPad: 4,
+            inner: { enabled: true, style: 'film-sprocket', thickness: 14, color1: '#FFFFFFFF' },
+            background: {
+                mode: 'tv-static',
+                standby: false,
+                color1: '#101820FF',
+                staticNoise: 85,
+                staticScale: 2.5,
+                staticSpeed: 20,
+                staticColor: true,
+                staticGlitch: 45
+            }
+        });
+        assert.equal(saved.autoPad, true);
+        assert.equal(saved.autoScale, true);
+        assert.equal(saved.background.mode, 'tv-static');
+
+        const manifest = service.syncResolvedManifest();
+        const resolved = manifest.profiles.find(p => p.id === 'standby-tv-static');
+        assert.equal(resolved.background.modeCode, 4);
+        assert.equal(resolved.background.standby, false);
+        assert.ok(resolved.pad >= 17);
+
+        const toggleRes = await requestJson(port, 'GET', '/api/obs-borders/standby?profile=standby-tv-static&enabled=1');
+        assert.equal(toggleRes.status, 200);
+        assert.equal(toggleRes.body.standby, true);
+
+        const lua = fs.readFileSync(service.getState().luaScriptPath, 'utf8');
+        assert.match(lua, /evalBackgroundFill/);
+        assert.match(lua, /bg_static_glitch/);
+        assert.match(lua, /size_scale/);
+        assert.match(lua, /scene_scales/);
+        assert.doesNotMatch(lua, /tick_poll_accum/);
+    });
+
+    it('tracks OBS scene transform scales and avoids redundant revision bumps on unchanged discovery', () => {
+        const discovery = {
+            scenes: ['Live'],
+            sources: ['Facecam'],
+            byScene: {
+                Live: [{ sourceName: 'Facecam', inputKind: 'macos-avcapture', sceneScale: 0.494, sceneItemEnabled: true }]
+            }
+        };
+        const first = service.syncFromObsDiscovery(discovery);
+        assert.equal(first.sceneScales['Live::Facecam'], 0.494);
+        const revAfterFirst = service.getState().revision;
+
+        const manifest = JSON.parse(fs.readFileSync(service.getState().manifestPath, 'utf8'));
+        assert.equal(manifest.sceneScales['Live::Facecam'], 0.494);
+
+        // Repeat identical discovery -> must not bump revision
+        service.syncFromObsDiscovery(discovery);
+        assert.equal(service.getState().revision, revAfterFirst);
+    });
+
+    it('duplicates maximum-length IDs without replacing the original and uses distinct manifest revisions', () => {
+        const id = 'b'.repeat(64);
+        service.upsertProfile({ id, name: 'Original' });
+        const first = service.duplicateProfile(id);
+        const second = service.duplicateProfile(id);
+        assert.notEqual(first.id, id);
+        assert.notEqual(first.id, second.id);
+        assert.equal(service.getState().profiles.find(p => p.id === id).name, 'Original');
+        const now = Date.now;
+        try {
+            Date.now = () => 1;
+            const a = service.syncResolvedManifest({ force: true });
+            const b = service.syncResolvedManifest({ force: true });
+            assert.ok(b.revision > a.revision);
+        } finally { Date.now = now; }
+    });
+
+    it('reloads restored profile state and its manifest', () => {
+        const statePath = path.join(tmpDir, 'obs-borders.json');
+        const saved = fs.readFileSync(statePath, 'utf8');
+        service.upsertProfile({ id: 'temporary-restore-test', name: 'Temporary' });
+        fs.writeFileSync(statePath, saved);
+        service.reload();
+        assert.equal(service.getState().profiles.some(p => p.id === 'temporary-restore-test'), false);
+        assert.equal(JSON.parse(fs.readFileSync(service.getState().manifestPath)).profiles.some(p => p.id === 'temporary-restore-test'), false);
+    });
+
+    it('updates an existing OBS filter without re-enabling it', async () => {
+        const calls = [];
+        const obsService = {
+            getStatus: () => ({ connected: true }),
+            callRequest: async (type, params) => {
+                calls.push({ type, params });
+                if (type === 'GetSourceFilterList') return { filters: [{ filterName: 'StreamPulse Border', filterKind: 'streampulse_border_filter', filterEnabled: false }] };
+                return {};
+            }
+        };
+        const route = createObsBordersRoutes({ obsBordersService: service, obsService, isLoopbackRequest: () => true });
+        const mockServer = http.createServer(async (req, res) => {
+            const url = new URL(req.url, 'http://localhost');
+            if (!await route(req, res, url, url.pathname)) { res.writeHead(404); res.end(); }
+        });
+        await new Promise(resolve => mockServer.listen(0, '127.0.0.1', resolve));
+        try {
+            const result = await requestJson(mockServer.address().port, 'GET', '/api/obs-borders/activate?profile=dual-gradient&target=Facecam');
+            assert.equal(result.status, 200);
+            await new Promise(resolve => setImmediate(resolve));
+            assert.ok(calls.some(c => c.type === 'SetSourceFilterSettings'));
+            assert.equal(calls.some(c => c.type === 'SetSourceFilterEnabled'), false);
+        } finally {
+            await new Promise(resolve => mockServer.close(resolve));
+        }
     });
 });

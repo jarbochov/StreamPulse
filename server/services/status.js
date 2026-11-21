@@ -202,6 +202,7 @@ function createStatusService({
                 speakerBadges: config.speaker_badges_enabled === true,
                 obsSceneSync: config.obs_scene_sync_enabled !== false,
                 obsBorders: config.obs_borders_enabled !== false,
+                obsPatterns: config.obs_patterns_enabled !== false,
                 clips: config.clip_candidates?.enabled !== false,
                 weather: config.weather?.enabled === true,
                 music: Boolean(musicConfig.enabled),

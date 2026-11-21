@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>StreamPulse — OBS Pattern Studio (Beta)</title>
+    <link rel="stylesheet" href="/admin.css">
+    <script src="/appearance.js"></script>
+    <script src="/js/pattern-catalog.js"></script>
+    <script src="/js/patterns-shared.js"></script>
+    <script src="/js/obs-patterns/bake.js"></script>
+    <script src="/js/wizard-variable-binder.js"></script>
+    <script src="/icon-picker.js"></script>
+    <script src="/js/image-picker.js"></script>
+    <link rel="stylesheet" href="/css/studio-common.css">
+    <link rel="stylesheet" href="/css/obs-borders.css">
+</head>
+<body>
+
+    <div class="header">
+        <h1>
+            StreamPulse <span>OBS Pattern Studio</span>
+            <span class="ob-badge-group">
+                <span class="ob-pill beta">Beta</span>
+                <span class="ob-pill advanced">Advanced</span>
+            </span>
+        </h1>
+        <div id="main-nav" class="nav"></div>
+        <script src="/js/nav.js"></script>
+    </div>
+
+    <div class="ob-wrap">
+        <!-- Sub-Navigation Bar -->
+        <div class="sub-nav-bar" style="border-radius:10px;border:1px solid var(--border);padding:0 0.85rem;margin-bottom:0.85rem;background:var(--bg-card);">
+            <div class="sub-nav-inner">
+                <div class="sub-nav-group" role="tablist" aria-label="OBS Pattern Studio Views">
+                    <button type="button" class="sub-nav-btn active" data-op-tab="sources" role="tab" aria-selected="true">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                        Live OBS Pattern Sources
+                    </button>
+                    <button type="button" class="sub-nav-btn" data-op-tab="designer" role="tab" aria-selected="false">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+                        Pattern Profiles &amp; Designer
+                    </button>
+                    <button type="button" class="sub-nav-btn" data-op-tab="setup" role="tab" aria-selected="false">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        OBS Script &amp; API
+                    </button>
+                </div>
+                <div class="sub-nav-actions">
+                    <span class="pill" id="op-obs-ws-badge">Checking OBS…</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="op-bake-warning" class="ob-panel ob-panel-pad" role="status" hidden></div>
+
+        <!-- TAB 1: LIVE OBS PATTERN SOURCES -->
+        <div id="op-pane-sources">
+            <div class="ob-panel ob-panel-pad">
+                <div class="ob-panel-head" style="margin:-1rem -1.15rem 0.85rem;">
+                    <div class="ob-panel-title">OBS WebSocket Pattern Sources &amp; Scenes</div>
+                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+                        <button type="button" class="btn primary" id="op-btn-obs-sync">Sync Live OBS</button>
+                        <button type="button" class="btn" id="op-btn-toggle-create">+ Add Pattern Source</button>
+                        <a href="/config-editor.html#connection" class="btn" style="text-decoration:none;">OBS Settings</a>
+                    </div>
+                </div>
+
+                <div id="op-create-drawer" style="background:var(--bg-inset);border:1px solid var(--border);border-radius:8px;padding:0.75rem 0.85rem;margin-bottom:0.85rem;" hidden>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.6rem;align-items:end;">
+                        <div class="field">
+                            <label for="op-create-scene">Target OBS Scene</label>
+                            <select id="op-create-scene"></select>
+                        </div>
+                        <div class="field">
+                            <label for="op-create-name">OBS Source Name</label>
+                            <input type="text" id="op-create-name" value="StreamPulse Background" maxlength="80">
+                        </div>
+                        <div class="field">
+                            <label for="op-create-profile">Pattern Profile</label>
+                            <select id="op-create-profile"></select>
+                        </div>
+                        <div class="field">
+                            <label for="op-create-size">Resolution</label>
+                            <select id="op-create-size">
+                                <option value="1920x1080">1080p (1920×1080)</option>
+                                <option value="1280x720">720p (1280×720)</option>
+                                <option value="1080x1920">Vertical 9:16 (1080×1920)</option>
+                                <option value="3840x2160">4K (3840×2160)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <button type="button" class="btn primary" id="op-btn-obs-create" style="width:100%;">Create / Update</button>
+                        </div>
+                    </div>
+                    <p class="hint" style="margin-top:0.45rem;">Requires <code>streampulse-patterns.lua</code> loaded once in OBS → Tools → Scripts.</p>
+                </div>
+
+                <div class="ob-summary-strip">
+                    <span id="op-summary-strip">Syncing OBS sources…</span>
+                    <span id="op-sync-status" style="font-size:0.78rem;color:var(--text-muted);"></span>
+                </div>
+
+                <div class="ob-controls-bar">
+                    <div class="ob-controls-left">
+                        <span class="seg" id="op-view-seg" role="group" aria-label="View Mode">
+                            <button type="button" data-view="sources" aria-pressed="true">By Source</button>
+                            <button type="button" data-view="scenes" aria-pressed="false">By Scene</button>
+                        </span>
+                        <input type="text" id="op-source-search" placeholder="Search OBS pattern sources or scenes…">
+                    </div>
+                    <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                        <div class="ob-chip-group" id="op-source-expand-actions">
+                            <button type="button" class="btn btn-sm" id="op-btn-expand-all" title="Expand all groups and scene drawers">Expand All</button>
+                            <button type="button" class="btn btn-sm" id="op-btn-collapse-all" title="Collapse all groups and scene drawers">Collapse All</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="op-source-list" class="ob-group-list"></div>
+            </div>
+        </div>
+
+        <!-- TAB 2: PATTERN PROFILE DESIGNER -->
+        <div id="op-pane-designer" hidden>
+            <div class="ob-toolbar">
+                <div class="ob-toolbar-left">
+                    <select id="op-profile-select" title="Select Pattern Profile"></select>
+                    <button type="button" class="btn" id="op-btn-activate" title="Make this profile the default active pattern">Set Active</button>
+                    <button type="button" class="btn" id="op-btn-new" title="Create a new pattern profile">+ New</button>
+                    <button type="button" class="btn" id="op-btn-duplicate" title="Duplicate selected profile">Duplicate</button>
+                    <button type="button" class="btn danger" id="op-btn-delete" title="Delete selected profile">Delete</button>
+                </div>
+                <div class="ob-toolbar-right">
+                    <span class="pill" id="op-active-pill" style="margin-right:0.25rem;">Default: —</span>
+                    <button type="button" class="btn primary" id="op-btn-save">Save &amp; Sync OBS</button>
+                </div>
+            </div>
+
+            <div class="ob-grid">
+                <div>
+                    <!-- Section 1: Identity & Mode -->
+                    <section class="sect">
+                        <div class="sect-head">
+                            <span class="sect-title">Profile Mode &amp; Canvas</span>
+                        </div>
+                        <div class="sect-body">
+                            <div class="grid2">
+                                <div class="field">
+                                    <label for="op-name">Profile Name</label>
+                                    <input type="text" id="op-name" maxlength="80">
+                                </div>
+                                <div class="field">
+                                    <label for="op-id">Profile ID (Slug)</label>
+                                    <input type="text" id="op-id" maxlength="64">
+                                </div>
+                            </div>
+
+                            <div class="field">
+                                <span>Engine Mode</span>
+                                <span class="seg" id="op-mode-seg" role="group" aria-label="Pattern Mode">
+                                    <button type="button" data-mode="procedural" aria-pressed="true">Procedural Background (28 Presets)</button>
+                                    <button type="button" data-mode="tiles" aria-pressed="false">Pattern Tile (Image / Icon)</button>
+                                </span>
+                            </div>
+
+                            <div class="grid2">
+                                <div class="field">
+                                    <label for="op-width">Default Width (px)</label>
+                                    <input type="number" id="op-width" min="64" max="7680" step="1">
+                                </div>
+                                <div class="field">
+                                    <label for="op-height">Default Height (px)</label>
+                                    <input type="number" id="op-height" min="64" max="4320" step="1">
+                                </div>
+                            </div>
+
+                            <div class="grid2">
+                                <div class="field">
+                                    <label for="op-bg-type">Background Style</label>
+                                    <select id="op-bg-type"></select>
+                                </div>
+                                <div class="field">
+                                    <label for="op-opacity">Master Opacity (%)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-opacity" min="0" max="100" step="5" data-var-kind="number" data-var-label="Master Opacity">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="op-bg-gradient-bar" style="height:10px;border-radius:5px;border:1px solid var(--border);" hidden></div>
+
+                            <div class="grid2" id="op-bg-colors-wrap">
+                                <div class="field">
+                                    <label for="op-bg-color" id="op-bg-c1-label">Background Color</label>
+                                    <div class="ob-color-row">
+                                        <input type="color" id="op-bg-color-pick" value="#0b101b">
+                                        <input type="text" id="op-bg-color" placeholder="#0B101BFF" data-var-kind="color" data-var-label="Background Color">
+                                        <button type="button" class="btn" id="op-bg-clear" title="Switch background to transparent cutout" style="padding:0.25rem 0.5rem;font-size:0.72rem;">None</button>
+                                    </div>
+                                </div>
+                                <div class="field" id="op-bg-c2-wrap" hidden>
+                                    <label for="op-bg-color2">Gradient End Color</label>
+                                    <div class="ob-color-row">
+                                        <input type="color" id="op-bg-color2-pick" value="#1e1b4b">
+                                        <input type="text" id="op-bg-color2" placeholder="#1E1B4BFF" data-var-kind="color" data-var-label="Background Color 2">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="op-bg-grad-opts" hidden style="display:flex;flex-direction:column;gap:0.65rem;">
+                                <div class="grid2">
+                                    <label class="ob-check" style="margin-top:0.2rem;">
+                                        <input type="checkbox" id="op-bg-use-mid">
+                                        <span>3-Color Mid Stop</span>
+                                    </label>
+                                    <div class="field" id="op-bg-c3-wrap" hidden>
+                                        <label for="op-bg-color3">Mid Stop Color</label>
+                                        <div class="ob-color-row">
+                                            <input type="color" id="op-bg-color3-pick" value="#0f766e">
+                                            <input type="text" id="op-bg-color3" placeholder="#0F766EFF" data-var-kind="color" data-var-label="Background Mid Color">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="grid3">
+                                    <div class="field" id="op-bg-angle-wrap">
+                                        <label for="op-bg-angle">Gradient Angle (deg)</label>
+                                        <input type="number" id="op-bg-angle" min="-360" max="360" step="15">
+                                    </div>
+                                    <div class="field">
+                                        <label for="op-bg-motion">Gradient Motion</label>
+                                        <select id="op-bg-motion"></select>
+                                    </div>
+                                    <div class="field">
+                                        <label for="op-bg-motion-speed">Motion Speed</label>
+                                        <input type="number" id="op-bg-motion-speed" min="0.1" max="5" step="0.2">
+                                    </div>
+                                </div>
+
+                                <div class="grid3" id="op-bg-origin-wrap" hidden>
+                                    <div class="field">
+                                        <label for="op-bg-cx">Center X (%)</label>
+                                        <input type="number" id="op-bg-cx" min="0" max="100" step="5">
+                                    </div>
+                                    <div class="field">
+                                        <label for="op-bg-cy">Center Y (%)</label>
+                                        <input type="number" id="op-bg-cy" min="0" max="100" step="5">
+                                    </div>
+                                    <div class="field" id="op-bg-radius-wrap">
+                                        <label for="op-bg-radius">Spread / Radius (%)</label>
+                                        <input type="number" id="op-bg-radius" min="10" max="200" step="5">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid2">
+                                <div class="field">
+                                    <label for="op-vignette">Edge Vignette (%)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-vignette" min="0" max="100" step="5" data-var-kind="number" data-var-label="Vignette">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="op-vignette-color">Vignette Color</label>
+                                    <div class="ob-color-row">
+                                        <input type="color" id="op-vignette-color-pick" value="#000000">
+                                        <input type="text" id="op-vignette-color" placeholder="#000000FF" data-var-kind="color" data-var-label="Vignette Color">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Section 2: Procedural Background Controls -->
+                    <section class="sect" id="op-sect-procedural">
+                        <div class="sect-head">
+                            <span class="sect-title">Procedural Background Settings</span>
+                        </div>
+                        <div class="sect-body">
+                            <div class="grid2">
+                                <div class="field">
+                                    <label for="op-proc-preset">Pattern Preset (28 Presets)</label>
+                                    <select id="op-proc-preset"></select>
+                                </div>
+                                <div class="field">
+                                    <label for="op-proc-palette">Color Palette</label>
+                                    <select id="op-proc-palette"></select>
+                                </div>
+                            </div>
+
+                            <div class="op-pal-bar-row">
+                                <div id="op-palette-bar" style="display:flex;gap:4px;height:14px;border-radius:4px;overflow:hidden;border:1px solid var(--border);" aria-label="Active palette swatches"></div>
+                                <button type="button" class="btn sm" id="op-pal-customize-btn" title="Copy these colors into the Custom Palette Editor" style="white-space:nowrap;">
+                                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:3px;"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+                                    Customize
+                                </button>
+                            </div>
+
+                            <div id="op-custom-palette-editor" class="op-custom-pal-card" hidden>
+                                <div class="op-custom-pal-head">
+                                    <span class="op-custom-pal-title">Custom Palette Stops (2–7 Colors)</span>
+                                    <div class="op-custom-pal-actions">
+                                        <select id="op-custom-pal-import" title="Copy colors from a built-in palette" aria-label="Copy colors from a built-in palette">
+                                            <option value="">Copy Preset…</option>
+                                        </select>
+                                        <button type="button" class="btn sm" id="op-custom-pal-add">+ Add Color</button>
+                                        <button type="button" class="btn sm" id="op-custom-pal-reverse" title="Reverse color order">Reverse</button>
+                                        <button type="button" class="btn sm" id="op-custom-pal-shuffle" title="Shuffle color stops">Shuffle</button>
+                                    </div>
+                                </div>
+                                <div id="op-custom-pal-stops" class="op-custom-pal-stops"></div>
+                                <div class="op-custom-pal-save">
+                                    <input type="text" id="op-custom-pal-name" placeholder="Name this palette to reuse (e.g. Cozy Holiday)">
+                                    <button type="button" class="btn sm primary" id="op-custom-pal-save-btn">Save Palette</button>
+                                </div>
+                                <div id="op-saved-palettes-row" class="op-saved-pal-list" hidden></div>
+                            </div>
+
+                            <div class="grid2" id="op-proc-dual-colors">
+                                <div class="field">
+                                    <label for="op-proc-accent">Accent Color</label>
+                                    <div class="ob-color-row">
+                                        <input type="color" id="op-proc-accent-pick" value="#58a6ff">
+                                        <input type="text" id="op-proc-accent" placeholder="#58A6FFFF" data-var-kind="color" data-var-label="Pattern Accent">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="op-proc-secondary">Secondary Color</label>
+                                    <div class="ob-color-row">
+                                        <input type="color" id="op-proc-secondary-pick" value="#a855f7">
+                                        <input type="text" id="op-proc-secondary" placeholder="#A855F7FF" data-var-kind="color" data-var-label="Pattern Secondary">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid2">
+                                <div class="field">
+                                    <label for="op-proc-scale">Scale (%)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-proc-scale" min="15" max="400" step="5" data-var-kind="number" data-var-label="Pattern Scale">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="op-proc-lw">Line Width (px)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-proc-lw" min="0.5" max="24" step="0.5" data-var-kind="number" data-var-label="Pattern Line Width">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid2" id="op-proc-fill-wrap">
+                                <div class="field">
+                                    <label for="op-proc-fill-mode">Fill Style</label>
+                                    <select id="op-proc-fill-mode"></select>
+                                </div>
+                                <div class="field">
+                                    <label for="op-proc-fill-opacity">Fill Opacity (%)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-proc-fill-opacity" min="0" max="100" step="5">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid3">
+                                <div class="field">
+                                    <label for="op-proc-cmode">Color Placement</label>
+                                    <select id="op-proc-cmode"></select>
+                                </div>
+                                <div class="field">
+                                    <label for="op-proc-canim">Color Animation</label>
+                                    <select id="op-proc-canim"></select>
+                                </div>
+                                <div class="field">
+                                    <label for="op-proc-cspeed">Color Speed</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-proc-cspeed" min="0.2" max="3" step="0.1">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid3">
+                                <div class="field">
+                                    <label for="op-proc-motion">Canvas Movement</label>
+                                    <select id="op-proc-motion"></select>
+                                </div>
+                                <div class="field">
+                                    <label for="op-proc-speed">Move Speed</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-proc-speed" min="0" max="10" step="0.2" data-var-kind="number" data-var-label="Pattern Speed">
+                                    </div>
+                                </div>
+                                <div class="field" id="op-proc-pan-dir-wrap">
+                                    <label for="op-proc-pan-dir">Pan Direction</label>
+                                    <select id="op-proc-pan-dir"></select>
+                                </div>
+                            </div>
+
+                            <div class="grid3">
+                                <div class="field" id="op-proc-angle-wrap">
+                                    <label for="op-proc-angle">Pan Angle (deg)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-proc-angle" min="-360" max="360" step="15" data-var-kind="number" data-var-label="Pan Angle">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="op-proc-inplace">In-Place Motion</label>
+                                    <select id="op-proc-inplace"></select>
+                                </div>
+                                <div class="field">
+                                    <label for="op-proc-inplace-speed">In-Place Speed</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-proc-inplace-speed" min="0.2" max="5" step="0.2">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid3" id="op-proc-spin-wrap">
+                                <div class="field">
+                                    <label for="op-proc-spin">Element Spin</label>
+                                    <select id="op-proc-spin"></select>
+                                </div>
+                                <div class="field">
+                                    <label for="op-proc-spin-speed">Spin Speed</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-proc-spin-speed" min="0.1" max="5" step="0.1">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="op-proc-rotvar">Rotation Var (%)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-proc-rotvar" min="0" max="100" step="5">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid2" id="op-proc-density-spacing-wrap">
+                                <div class="field" id="op-proc-density-wrap">
+                                    <label for="op-proc-density">Density</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-proc-density" min="0.25" max="4" step="0.25">
+                                    </div>
+                                </div>
+                                <div class="field" id="op-proc-spacing-wrap">
+                                    <label for="op-proc-spacing">Spacing (%)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-proc-spacing" min="50" max="300" step="5" data-var-kind="number" data-var-label="Element Spacing">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid2" id="op-proc-detail-wrap">
+                                <div class="field" id="op-proc-scatter-wrap">
+                                    <label for="op-proc-scatter">Scatter (%)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-proc-scatter" min="0" max="100" step="5">
+                                    </div>
+                                </div>
+                                <div class="field" id="op-proc-sizevar-wrap">
+                                    <label for="op-proc-sizevar">Size Variance (%)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-proc-sizevar" min="0" max="100" step="5">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="field" id="op-proc-snow-wrap" hidden>
+                                <label for="op-proc-snow-style">Snowflake Style</label>
+                                <select id="op-proc-snow-style"></select>
+                            </div>
+                            <p class="hint" id="op-proc-cap-hint" style="margin:0.35rem 0 0;font-size:0.76rem;color:var(--text-muted);" hidden></p>
+                        </div>
+                    </section>
+
+                    <!-- Section 3: Pattern Tile Controls -->
+                    <section class="sect" id="op-sect-tiles" hidden>
+                        <div class="sect-head">
+                            <span class="sect-title">Pattern Tile Settings</span>
+                        </div>
+                        <div class="sect-body">
+                            <div class="field">
+                                <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.4rem;">
+                                    <label style="margin:0;">Tile Slots (1–4 Images, Assets, or Font Awesome Icons)</label>
+                                    <button type="button" class="btn btn-sm" id="op-tile-add-slot">+ Add Tile Slot</button>
+                                </div>
+                                <div id="op-tile-slots-list" style="display:flex;flex-direction:column;gap:0.5rem;"></div>
+                                <div class="field" id="op-tile-dist-wrap" style="margin-top:0.5rem;" hidden>
+                                    <label for="op-tile-dist">Multi-Tile Distribution</label>
+                                    <select id="op-tile-dist"></select>
+                                </div>
+                            </div>
+
+                            <div class="grid2">
+                                <div class="field">
+                                    <label for="op-tile-layout">Tile Layout</label>
+                                    <select id="op-tile-layout"></select>
+                                </div>
+                                <div class="field">
+                                    <label for="op-tile-symmetry">Symmetry / Kaleidoscope</label>
+                                    <select id="op-tile-symmetry"></select>
+                                </div>
+                            </div>
+
+                            <div class="grid3" id="op-tile-kaleido-wrap" hidden>
+                                <div class="field">
+                                    <label for="op-tile-wedges">Kaleido Wedges</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-tile-wedges" min="4" max="16" step="2">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="op-tile-kaleido-dir">Morph Direction</label>
+                                    <select id="op-tile-kaleido-dir">
+                                        <option value="cw">Clockwise</option>
+                                        <option value="ccw">Counter-clockwise</option>
+                                    </select>
+                                </div>
+                                <div class="field">
+                                    <label for="op-tile-kaleido-depth">Morph Depth (%)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-tile-kaleido-depth" min="5" max="100" step="5">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid2" id="op-tile-kaleido-morph-wrap" hidden>
+                                <label class="field" style="flex-direction:row;align-items:center;gap:0.45rem;cursor:pointer;margin-top:0.2rem;">
+                                    <input type="checkbox" id="op-tile-kaleido-morph">
+                                    <span>Animate Kaleidoscope Morph</span>
+                                </label>
+                                <div class="field">
+                                    <label for="op-tile-kaleido-speed">Morph Speed</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-tile-kaleido-speed" min="0.5" max="120" step="0.5">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid2">
+                                <div class="field">
+                                    <label for="op-tile-size">Tile Size (px)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-tile-size" min="16" max="512" step="4" data-var-kind="number" data-var-label="Tile Size">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="op-tile-gap">Gap (px)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-tile-gap" min="0" max="256" step="2" data-var-kind="number" data-var-label="Tile Gap">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid2">
+                                <div class="field">
+                                    <label for="op-tile-offsetx">Row Offset X (%)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-tile-offsetx" min="0" max="100" step="5">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="op-tile-offsety">Col Offset Y (%)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-tile-offsety" min="0" max="100" step="5">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid3">
+                                <div class="field">
+                                    <label for="op-tile-grid-angle">Grid Angle (deg)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-tile-grid-angle" min="-180" max="180" step="5">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="op-tile-angle">Tile Angle (deg)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-tile-angle" min="-180" max="180" step="5">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="op-tile-alt-flip">Alt Tile Mirror</label>
+                                    <select id="op-tile-alt-flip"></select>
+                                </div>
+                            </div>
+
+                            <div class="grid3">
+                                <div class="field">
+                                    <label for="op-tile-opacity">Base Opacity</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-tile-opacity" min="0.05" max="1" step="0.05">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="op-tile-alt-opacity">Alt Tile Opacity</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-tile-alt-opacity" min="0" max="1" step="0.05">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="op-tile-alt-scale">Alt Tile Scale</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-tile-alt-scale" min="0.25" max="2.5" step="0.05">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="field">
+                                <label for="op-tile-tint">Master Tint Color</label>
+                                <div class="ob-color-row">
+                                    <input type="color" id="op-tile-tint-pick" value="#ffffff">
+                                    <input type="text" id="op-tile-tint" placeholder="#FFFFFFFF" data-var-kind="color" data-var-label="Tile Tint">
+                                </div>
+                            </div>
+
+                            <div class="grid3">
+                                <div class="field">
+                                    <label for="op-tile-motion">Motion</label>
+                                    <select id="op-tile-motion"></select>
+                                </div>
+                                <div class="field">
+                                    <label for="op-tile-track-mode">Track Behavior</label>
+                                    <select id="op-tile-track-mode"></select>
+                                </div>
+                                <div class="field">
+                                    <label for="op-tile-speed">Move Speed</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-tile-speed" min="0.5" max="200" step="2" data-var-kind="number" data-var-label="Tile Speed">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid3">
+                                <div class="field">
+                                    <label for="op-tile-scroll-angle">Scroll Angle</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-tile-scroll-angle" min="-360" max="360" step="15">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="op-tile-spin">Spin (deg/s)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-tile-spin" min="0.5" max="120" step="2">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="op-tile-spin-dir">Spin Direction</label>
+                                    <select id="op-tile-spin-dir"></select>
+                                </div>
+                            </div>
+
+                            <div class="grid3">
+                                <div class="field">
+                                    <label for="op-tile-wave-amt">Wave / Float (%)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-tile-wave-amt" min="5" max="100" step="5">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="op-tile-hue-mode">Hue Shift</label>
+                                    <select id="op-tile-hue-mode"></select>
+                                </div>
+                                <div class="field">
+                                    <label for="op-tile-hue-speed">Hue Speed</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-tile-hue-speed" min="0.5" max="120" step="2">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid3">
+                                <div class="field">
+                                    <label for="op-tile-hue-jitter">Hue Jitter (deg)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-tile-hue-jitter" min="0" max="180" step="5">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="op-tile-sat-jitter">Sat Jitter (%)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-tile-sat-jitter" min="0" max="50" step="5">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="op-tile-bright-jitter">Bright Jitter (%)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-tile-bright-jitter" min="0" max="50" step="5">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid3">
+                                <div class="field">
+                                    <label for="op-tile-scale-jitter">Scale Jitter (%)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-tile-scale-jitter" min="0" max="50" step="5">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="op-tile-rot-jitter">Rot Jitter (deg)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-tile-rot-jitter" min="0" max="180" step="5">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="op-tile-pos-jitter">Pos Jitter (%)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-tile-pos-jitter" min="0" max="50" step="5">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid2">
+                                <div class="field">
+                                    <label for="op-tile-twinkle">Twinkle (%)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-tile-twinkle" min="0" max="100" step="5">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="op-tile-twinkle-speed">Twinkle Speed</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-tile-twinkle-speed" min="0.5" max="30" step="0.5">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Section 4: GPU Filters (Color Adjustments & Blur) -->
+                    <section class="sect" id="op-sect-filters">
+                        <div class="sect-head">
+                            <span class="sect-title">GPU Filters (Color Adjustments &amp; Blur)</span>
+                            <button type="button" class="btn sm" id="op-flt-reset">Reset</button>
+                        </div>
+                        <div class="sect-body">
+                            <div class="field">
+                                <label for="op-flt-preset">Filter Preset</label>
+                                <select id="op-flt-preset">
+                                    <option value="">Custom / Manual</option>
+                                </select>
+                            </div>
+
+                            <div class="grid3">
+                                <div class="field">
+                                    <label for="op-flt-brightness">Brightness (%)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-flt-brightness" min="0" max="200" step="5" data-var-kind="number" data-var-label="Filter Brightness">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="op-flt-contrast">Contrast (%)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-flt-contrast" min="0" max="200" step="5" data-var-kind="number" data-var-label="Filter Contrast">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="op-flt-saturate">Saturation (%)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-flt-saturate" min="0" max="300" step="5" data-var-kind="number" data-var-label="Filter Saturation">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid3">
+                                <div class="field">
+                                    <label for="op-flt-grayscale">Grayscale (%)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-flt-grayscale" min="0" max="100" step="5" data-var-kind="number" data-var-label="Filter Grayscale">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="op-flt-hue">Hue Shift (deg)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-flt-hue" min="-180" max="180" step="5" data-var-kind="number" data-var-label="Filter Hue Shift">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="op-flt-blur">Blur (px)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-flt-blur" min="0" max="60" step="1" data-var-kind="number" data-var-label="Filter Blur">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style="display:flex;gap:14px;flex-wrap:wrap;margin:0.35rem 0 0.5rem;">
+                                <label style="display:inline-flex;align-items:center;gap:0.4rem;font-size:0.8rem;cursor:pointer;">
+                                    <input type="checkbox" id="op-flt-duo-on">
+                                    <span>Duotone Gradient Map</span>
+                                </label>
+                                <label style="display:inline-flex;align-items:center;gap:0.4rem;font-size:0.8rem;cursor:pointer;">
+                                    <input type="checkbox" id="op-flt-tint-on">
+                                    <span>Color Tint</span>
+                                </label>
+                                <label style="display:inline-flex;align-items:center;gap:0.4rem;font-size:0.8rem;cursor:pointer;">
+                                    <input type="checkbox" id="op-flt-grain-on">
+                                    <span>Film Grain</span>
+                                </label>
+                            </div>
+
+                            <div class="grid2" id="op-flt-duo-wrap" hidden>
+                                <div class="field">
+                                    <label for="op-flt-duo-dark">Duotone Shadows</label>
+                                    <div class="ob-color-row">
+                                        <input type="color" id="op-flt-duo-dark-pick" value="#1e1b4b">
+                                        <input type="text" id="op-flt-duo-dark" placeholder="#1E1B4BFF" data-var-kind="color" data-var-label="Duotone Shadows">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="op-flt-duo-light">Duotone Highlights</label>
+                                    <div class="ob-color-row">
+                                        <input type="color" id="op-flt-duo-light-pick" value="#22d3ee">
+                                        <input type="text" id="op-flt-duo-light" placeholder="#22D3EEFF" data-var-kind="color" data-var-label="Duotone Highlights">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid2" id="op-flt-tint-wrap" hidden>
+                                <div class="field">
+                                    <label for="op-flt-tint-color">Tint Color</label>
+                                    <div class="ob-color-row">
+                                        <input type="color" id="op-flt-tint-color-pick" value="#58a6ff">
+                                        <input type="text" id="op-flt-tint-color" placeholder="#58A6FFFF" data-var-kind="color" data-var-label="Filter Tint Color">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="op-flt-tint-opacity">Tint Strength (%)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-flt-tint-opacity" min="0" max="100" step="5">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid3" id="op-flt-grain-wrap" hidden>
+                                <div class="field">
+                                    <label for="op-flt-grain-amt">Grain Strength (%)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-flt-grain-amt" min="0" max="100" step="5">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="op-flt-grain-size">Grain Size (%)</label>
+                                    <div class="ob-input-row">
+                                        <input type="number" id="op-flt-grain-size" min="50" max="400" step="25">
+                                    </div>
+                                </div>
+                                <label class="field" style="flex-direction:row;align-items:center;gap:0.4rem;cursor:pointer;margin-top:1.15rem;">
+                                    <input type="checkbox" id="op-flt-grain-anim">
+                                    <span>Animate Grain</span>
+                                </label>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Sticky Right Live WebGL Shader Preview -->
+                <div class="ob-preview-sticky">
+                    <section class="sect">
+                        <div class="sect-head">
+                            <span class="sect-title">Live OBS Pattern Preview (1:1 GPU Shader)</span>
+                            <div class="ob-chip-group" id="op-preview-bg-chips">
+                                <button type="button" class="ob-chip active" data-bg="dark">Dark Matte</button>
+                                <button type="button" class="ob-chip" data-bg="transparent">Alpha Cutout</button>
+                            </div>
+                        </div>
+                        <div class="sect-body">
+                            <div class="ob-preview-stage">
+                                <canvas id="op-preview-canvas" width="960" height="540"></canvas>
+                            </div>
+                            <div class="ob-preview-meta">
+                                <span id="op-preview-dims">1920×1080 • GPU Procedural Shader</span>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: OBS SCRIPT SETUP & API -->
+        <div id="op-pane-setup" hidden>
+            <div class="ob-grid">
+                <div class="ob-panel ob-panel-pad">
+                    <div class="ob-panel-head" style="margin:-1rem -1.15rem 0.9rem;">
+                        <div class="ob-panel-title">OBS Studio Setup (One-Time Script Install)</div>
+                    </div>
+                    <ol style="margin:0;padding-left:1.25rem;line-height:1.65;color:var(--text);font-size:0.86rem;">
+                        <li>Copy the canonical script path below (recommended so StreamPulse keeps it auto-updated).</li>
+                        <li>In OBS Studio, open <strong>Tools → Scripts</strong>, click <strong>+</strong>, and load <code>streampulse-patterns.lua</code>.</li>
+                        <li>Add a <strong>StreamPulse Pattern Background</strong> source in OBS (or click <strong>Add / Update in OBS</strong> in Tab 1).</li>
+                        <li>Edits in StreamPulse or <strong>Variable Settings</strong> sync straight into OBS automatically!</li>
+                    </ol>
+                    <div style="margin-top:1rem;display:flex;gap:0.5rem;flex-wrap:wrap;">
+                        <button type="button" class="btn primary" id="op-btn-copy-lua-path">Copy Canonical Script Path</button>
+                        <a class="btn" href="/api/obs-patterns/lua?download=1" download="streampulse-patterns.lua">Download Copy</a>
+                        <button type="button" class="btn" id="op-btn-reset-defaults">Reset Profiles &amp; Assignments</button>
+                    </div>
+                    <div style="margin-top:1rem;">
+                        <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:0.35rem;">Canonical Files on Disk</div>
+                        <div class="ob-code-box" id="op-file-paths">—</div>
+                    </div>
+                    <div style="margin-top:1rem;">
+                        <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:0.35rem;">Companion / HTTP Endpoints</div>
+                        <div class="ob-code-box">GET /api/obs-patterns/activate?profile=cyber-hex-grid
+GET /api/obs-patterns/activate?profile=topo-midnight&amp;target=StreamPulse%20Background
+GET /api/obs-patterns/status</div>
+                    </div>
+                </div>
+
+                <div class="ob-panel ob-panel-pad">
+                    <div class="ob-panel-head" style="margin:-1rem -1.15rem 0.9rem;">
+                        <div class="ob-panel-title">Live Resolved Manifest JSON</div>
+                        <button type="button" class="btn btn-sm" id="op-btn-refresh-manifest">Refresh</button>
+                    </div>
+                    <div class="ob-code-box" id="op-manifest-preview" style="max-height:520px;overflow-y:auto;">Loading…</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="ob-toast" id="op-toast" role="status" aria-live="polite"></div>
+    <script src="/js/obs-patterns/obs-patterns-studio.js"></script>
+</body>
+</html>

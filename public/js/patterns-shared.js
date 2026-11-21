@@ -1,7 +1,10 @@
 (function(root) {
     'use strict';
 
-    const PATTERNS = [
+    const SHARED_CAT = (root && root.StreamPulsePatternCatalog)
+        || (typeof require === 'function' ? (() => { try { return require('../../shared/pattern-catalog.cjs'); } catch { return null; } })() : null);
+
+    const PATTERNS = SHARED_CAT ? SHARED_CAT.PATTERNS : [
         'grid', 'geometry', 'orbits', 'hexagons', 'diamonds',
         'isometric', 'mesh', 'sunburst', 'triangles', 'chevrons',
         'checker', 'waves', 'rings', 'scales', 'topography',
@@ -10,7 +13,7 @@
         'snowflakes', 'pumpkins', 'hearts', 'fireworks'
     ];
 
-    const PATTERN_CAPABILITIES = {
+    const PATTERN_CAPABILITIES = SHARED_CAT ? SHARED_CAT.PATTERN_CAPABILITIES : {
         // Discrete element patterns: size variance + organic scatter + in-place animation + spin
         dots: { sizeVariance: true, scatter: true, inPlace: true, spin: false, fill: true, colorMode: true, label: 'Dots matrix' },
         diamonds: { sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, colorMode: true, label: 'Diamonds grid' },
@@ -44,7 +47,7 @@
         orbits: { sizeVariance: false, scatter: false, inPlace: true, spin: true, fill: false, colorMode: true, label: 'Orbits', hint: 'Planetary orbit arcs with subtle in-place orbital drift and color placement.' }
     };
 
-    const PATTERN_CATEGORIES = [
+    const PATTERN_CATEGORIES = SHARED_CAT ? SHARED_CAT.PATTERN_CATEGORIES : [
         {
             group: 'Geometric',
             options: [
@@ -95,7 +98,7 @@
         }
     ];
 
-    const PALETTES = {
+    const PALETTES = SHARED_CAT ? SHARED_CAT.PALETTES : {
         multicolor: ['#ef4444', '#10b981', '#f59e0b', '#3b82f6', '#a855f7', '#f97316', '#06b6d4'],
         christmas: ['#15803d', '#dc2626', '#facc15', '#ffffff', '#b91c1c', '#166534', '#eab308'],
         autumn: ['#dc2626', '#ea580c', '#eab308', '#65a30d', '#92400e', '#78350f', '#f97316'],
@@ -116,13 +119,15 @@
         royal: ['#580c1f', '#74121d', '#8b263e', '#c99700', '#f1e0ac', '#3d0c11'],
         sakura: ['#ffb7b2', '#ffdac1', '#b5e7a0', '#86af49', '#e2f0d9', '#ff9aa2'],
         coffee: ['#2c1810', '#4a2c1d', '#8c5835', '#c4a482', '#f5ede2', '#a07855'],
-        monochrome: ['#ffffff', '#e2e8f0', '#94a3b8', '#475569', '#1e293b', '#64748b', '#0f172a']
+        monochrome: ['#ffffff', '#e2e8f0', '#94a3b8', '#475569', '#1e293b', '#64748b', '#0f172a'],
+        'holiday-lights': ['#ef4444', '#22c55e', '#facc15', '#3b82f6']
     };
 
     function withAlpha(color, hexAlpha) {
         if (!color || typeof color !== 'string') return '#58a6ff' + hexAlpha;
         const c = color.trim();
         if (c.startsWith('#')) {
+            if (c.length === 9) return c.slice(0, 7) + hexAlpha;
             if (c.length === 7) return c + hexAlpha;
             if (c.length === 4) {
                 return '#' + c[1] + c[1] + c[2] + c[2] + c[3] + c[3] + hexAlpha;
@@ -132,6 +137,9 @@
     }
 
     function getPatternColor(palette, index, accent, secondary) {
+        if (palette && Array.isArray(palette) && palette.length > 0) {
+            return palette[Math.abs(index) % palette.length];
+        }
         if (palette && PALETTES[palette]) {
             const list = PALETTES[palette];
             return list[Math.abs(index) % list.length];
@@ -824,7 +832,10 @@
         const SPEED_SCALE = 0.35;
         const speed = rawSpeed * SPEED_SCALE;
         const baseColor = options.color || options.background || '';
-        const palette = options.palette || 'dual';
+        const rawPalette = options.palette || 'dual';
+        const palette = (rawPalette === 'custom' && Array.isArray(options.customColors) && options.customColors.length >= 2)
+            ? options.customColors
+            : rawPalette;
         const fillMode = options.fillMode || 'tinted';
         const rawFillOpacity = Number.isFinite(Number(options.fillOpacity))
             ? Number(options.fillOpacity)
@@ -838,6 +849,16 @@
             ? options.secondary
             : ((options.altColor && options.altColor !== 'transparent') ? options.altColor : accent);
         const customLineWidth = Number(options.lineWidth) || 0;
+        const dens = Math.max(0.25, Math.min(4, Number(options.density) || 1));
+        const dens2D = Math.sqrt(dens);
+        const spacingMult = Math.max(0.5, Math.min(3, (Number(options.spacing) || 100) / 100));
+        const wCols = Number(options._seamlessCols) || 0;
+        const wRows = Number(options._seamlessRows) || 0;
+        const isSeamless = Boolean(options.seamlessTile && wCols > 0 && wRows > 0);
+        const wrapRow = (r) => (wRows > 0 ? ((r % wRows) + wRows) % wRows : r);
+        const wrapCol = (c) => (wCols > 0 ? ((c % wCols) + wCols) % wCols : c);
+        const wrapColorX = (cx) => (isSeamless ? ((cx % fullWidth) + fullWidth) % fullWidth : cx);
+        const wrapColorY = (cy) => (isSeamless ? ((cy % fullHeight) + fullHeight) % fullHeight : cy);
 
         // Two forward-moving snapshots crossfade only during the last fifth of a
         // promo loop. Arbitrary speeds and non-integer local rotations then meet
@@ -1609,9 +1630,11 @@
                 }
             }
         } else if (pattern === 'confetti') {
-            const wrapW = Math.max(width * 1.5, fullWidth);
-            const wrapH = Math.max(height * 1.5, fullHeight);
-            for (let i = 0; i < 180; i++) {
+            const seamlessConfetti = Boolean(options.seamlessTile);
+            const wrapW = seamlessConfetti ? fullWidth : Math.max(width * 1.5, fullWidth);
+            const wrapH = seamlessConfetti ? fullHeight : Math.max(height * 1.5, fullHeight);
+            const confettiCount = Math.max(24, Math.min(720, Math.round(180 * dens)));
+            for (let i = 0; i < confettiCount; i++) {
                 const u = hash2D(i, 10);
                 const v = hash2D(i, 11);
                 const sizeHash = hash2D(i, 12);
@@ -1620,27 +1643,47 @@
                 const scatterY = (hash2D(i, 15) - 0.5) * (wrapH * 0.15) * scatterAmount;
                 const particleDy = fallDy * (0.8 + (i % 3) * 0.2);
 
-                const screenX = ((((u * wrapW + scatterX + fallSwayX * (0.5 + (i % 4) * 0.25) + motionTransX + wrapW * 1000) % wrapW)) - wrapW * 0.5) + width * 0.5;
-                const screenY = ((((v * wrapH + particleDy + scatterY + motionTransY + wrapH * 1000) % wrapH)) - wrapH * 0.5) + height * 0.5;
-                const x = screenX - motionTransX;
-                const y = screenY - motionTransY;
+                const screenX = seamlessConfetti
+                    ? (((u * wrapW + scatterX + wrapW * 1000) % wrapW))
+                    : (((((u * wrapW + scatterX + fallSwayX * (0.5 + (i % 4) * 0.25) + motionTransX + wrapW * 1000) % wrapW)) - wrapW * 0.5) + width * 0.5);
+                const screenY = seamlessConfetti
+                    ? (((v * wrapH + particleDy + scatterY + wrapH * 1000) % wrapH))
+                    : (((((v * wrapH + particleDy + scatterY + motionTransY + wrapH * 1000) % wrapH)) - wrapH * 0.5) + height * 0.5);
+                const x = seamlessConfetti ? screenX : (screenX - motionTransX);
+                const y = seamlessConfetti ? screenY : (screenY - motionTransY);
 
-                const size = Math.max(2, fullWidth / 180) * (sizeVarAmount > 0 ? (1 + (i % 3)) * sizeVarMult : 1.5);
+                const size = Math.max(2, fullWidth / (180 * dens2D)) * (sizeVarAmount > 0 ? (1 + (i % 3)) * sizeVarMult : 1.5);
                 const randomAngle = ((((i * 137) % 360) / 360) * Math.PI * 2) * rotVarAmount;
                 const confettiSpin = hasSpin ? (spinMode === 'sway' ? Math.sin(continuousSpinAngle + i) * 0.35 : continuousSpinAngle * ((i & 1) ? 1 : -0.8)) : 0;
                 const rot = i * 2.399 + randomAngle + confettiSpin + (hasInPlaceAnim ? Math.sin(inPlacePhase + i * 0.7) * 0.25 : 0);
                 const cIdx = getCellColorIndex(0, 0, screenX, screenY, i);
                 const color = getPatternColor(palette, cIdx, accent, secondary);
-                ctx.save();
-                ctx.translate(x, y);
-                ctx.rotate(rot);
-                ctx.fillStyle = withAlpha(color, hasFill ? fillHex : '95');
-                if (i % 3 === 0) {
-                    ctx.beginPath(); ctx.arc(0, 0, size / 2, 0, Math.PI * 2); ctx.fill();
-                } else {
-                    ctx.fillRect(-size / 2, -size / 4, size, size / 2);
+                const drawPiece = (px, py) => {
+                    ctx.save();
+                    ctx.translate(px, py);
+                    ctx.rotate(rot);
+                    ctx.fillStyle = withAlpha(color, hasFill ? fillHex : '95');
+                    ctx.strokeStyle = withAlpha(color, 'ff');
+                    ctx.lineWidth = getLineW(1);
+                    if (i % 3 === 0) {
+                        ctx.beginPath(); ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
+                        if (hasFill || fillMode !== 'outline') ctx.fill();
+                        if (fillMode === 'outline' || customLineWidth > 0) ctx.stroke();
+                    } else {
+                        if (hasFill || fillMode !== 'outline') ctx.fillRect(-size / 2, -size / 4, size, size / 2);
+                        if (fillMode === 'outline' || customLineWidth > 0) ctx.strokeRect(-size / 2, -size / 4, size, size / 2);
+                    }
+                    ctx.restore();
+                };
+                drawPiece(x, y);
+                if (seamlessConfetti) {
+                    const edgePad = size + getLineW(1) + 4;
+                    const wrapXs = x < edgePad ? [x + wrapW] : (x > wrapW - edgePad ? [x - wrapW] : []);
+                    const wrapYs = y < edgePad ? [y + wrapH] : (y > wrapH - edgePad ? [y - wrapH] : []);
+                    for (const wx of wrapXs) drawPiece(wx, y);
+                    for (const wy of wrapYs) drawPiece(x, wy);
+                    for (const wx of wrapXs) for (const wy of wrapYs) drawPiece(wx, wy);
                 }
-                ctx.restore();
             }
         } else if (pattern === 'circuit') {
             const step = Math.max(6, fullWidth / 16), baseNode = Math.max(1.5, fullWidth / 220);
@@ -1677,18 +1720,22 @@
             }
         } else if (pattern === 'leaves') {
             // Autumn botanical & maple leaves
-            const stepX = Math.max(24, fullWidth / 11);
-            const stepY = stepX * 0.86;
-            const leafR = stepX * 0.28;
+            const stepX = isSeamless ? (fullWidth / wCols) : (Math.max(18, fullWidth / (11 * dens2D)) * spacingMult);
+            const stepY = isSeamless ? (fullHeight / wRows) : (stepX * 0.86);
+            const leafR = (stepX / spacingMult) * 0.28;
             ctx.lineWidth = getLineW(1.15);
-            const rStart = Math.floor((minY - fallDy) / stepY) - 1, rEnd = Math.ceil((maxY - fallDy) / stepY) + 1;
-            const cStart = Math.floor(minX / stepX) - 1, cEnd = Math.ceil(maxX / stepX) + 1;
+            const rStart = isSeamless ? -1 : (Math.floor((minY - fallDy) / stepY) - 1);
+            const rEnd = isSeamless ? (wRows + 1) : (Math.ceil((maxY - fallDy) / stepY) + 1);
+            const cStart = isSeamless ? -1 : (Math.floor(minX / stepX) - 1);
+            const cEnd = isSeamless ? (wCols + 1) : (Math.ceil(maxX / stepX) + 1);
             const leafPalette = palette === 'dual' ? 'dual' : palette;
 
             for (let row = rStart; row <= rEnd; row++) {
-                const rowOffset = (((row % 2) + 2) % 2) * (stepX * 0.5);
+                const wRow = wrapRow(row);
+                const rowOffset = (((wRow % 2) + 2) % 2) * (stepX * 0.5);
                 for (let col = cStart; col <= cEnd; col++) {
-                    const idx = Math.abs(row * 17 + col * 31);
+                    const wCol = wrapCol(col);
+                    const idx = Math.abs(wRow * 17 + wCol * 31);
                     const jitterX = ((((idx * 37) % 100) / 100 - 0.5) * stepX * 0.45) * scatterAmount;
                     const jitterY = ((((idx * 53) % 100) / 100 - 0.5) * stepY * 0.45) * scatterAmount;
                     const cx = col * stepX + rowOffset + jitterX + fallSwayX;
@@ -1697,7 +1744,7 @@
                     const randomAngle = ((((idx * 137) % 360) / 360) * Math.PI * 2) * rotVarAmount;
                     const leafSpin = hasSpin ? (spinMode === 'sway' ? Math.sin(continuousSpinAngle + idx * 0.8) * 0.35 : continuousSpinAngle * ((idx & 1) ? 0.6 : -0.6)) : 0;
                     const flutter = hasInPlaceAnim ? Math.sin(inPlacePhase + idx * 0.9) * 0.18 : 0;
-                    const cIdx = getCellColorIndex(row, col, cx, cy, idx);
+                    const cIdx = getCellColorIndex(wRow, wCol, wrapColorX(cx), wrapColorY(cy), idx);
                     const leafColor = getPatternColor(leafPalette, cIdx, accent, secondary);
                     const sizeHash = (((idx * 7919 + 104729) % 1000) / 1000);
                     const sizeMult = (1 - sizeVarAmount * 0.45) + sizeHash * (sizeVarAmount * 0.95);
@@ -1726,16 +1773,20 @@
             }
         } else if (pattern === 'turkeys') {
             // Festive Thanksgiving turkeys with radiating tail fan, tipped plumage, folded wings, eyes, beak, wattle, and claw feet
-            const stepX = Math.max(38, fullWidth / 8.5);
-            const stepY = stepX * 0.94;
-            const baseR = stepX * 0.32;
+            const stepX = isSeamless ? (fullWidth / wCols) : (Math.max(26, fullWidth / (8.5 * dens2D)) * spacingMult);
+            const stepY = isSeamless ? (fullHeight / wRows) : (stepX * 0.94);
+            const baseR = (stepX / spacingMult) * 0.32;
             ctx.lineWidth = getLineW(1.2);
-            const rStart = Math.floor((minY - fallDy) / stepY) - 1, rEnd = Math.ceil((maxY - fallDy) / stepY) + 1;
-            const cStart = Math.floor(minX / stepX) - 1, cEnd = Math.ceil(maxX / stepX) + 1;
+            const rStart = isSeamless ? -1 : (Math.floor((minY - fallDy) / stepY) - 1);
+            const rEnd = isSeamless ? (wRows + 1) : (Math.ceil((maxY - fallDy) / stepY) + 1);
+            const cStart = isSeamless ? -1 : (Math.floor(minX / stepX) - 1);
+            const cEnd = isSeamless ? (wCols + 1) : (Math.ceil(maxX / stepX) + 1);
             for (let row = rStart; row <= rEnd; row++) {
-                const rowOffset = (((row % 2) + 2) % 2) * (stepX * 0.5);
+                const wRow = wrapRow(row);
+                const rowOffset = (((wRow % 2) + 2) % 2) * (stepX * 0.5);
                 for (let col = cStart; col <= cEnd; col++) {
-                    const idx = Math.abs(row * 13 + col * 29);
+                    const wCol = wrapCol(col);
+                    const idx = Math.abs(wRow * 13 + wCol * 29);
                     const sizeHash = (((idx * 7919 + 104729) % 1000) / 1000);
                     const sizeMult = (1 - sizeVarAmount * 0.4) + sizeHash * (sizeVarAmount * 0.8);
                     const r = baseR * sizeMult;
@@ -1747,7 +1798,7 @@
                     const turkeySpin = hasSpin ? (spinMode === 'sway' ? Math.sin(continuousSpinAngle + idx * 0.8) * 0.18 : (continuousSpinAngle * 0.3 * ((idx & 1) ? 1 : -1))) : 0;
                     const tilt = hasInPlaceAnim ? Math.sin(inPlacePhase + idx * 0.8) * 0.06 : 0;
 
-                    const cIdx = getCellColorIndex(row, col, cx, cy, 0);
+                    const cIdx = getCellColorIndex(wRow, wCol, wrapColorX(cx), wrapColorY(cy), 0);
                     const fCol = getPatternColor(palette, cIdx, accent, secondary);
                     const tipCol = getPatternColor(palette, cIdx + 1, accent, secondary);
                     const bodyCol = getPatternColor(palette, idx, accent, secondary);
@@ -1775,16 +1826,20 @@
             }
         } else if (pattern === 'pumpkins') {
             // Harvest ribbed pumpkins with curly vine tendrils
-            const stepX = Math.max(32, fullWidth / 10);
-            const stepY = stepX * 0.88;
-            const baseR = stepX * 0.28;
+            const stepX = isSeamless ? (fullWidth / wCols) : (Math.max(22, fullWidth / (10 * dens2D)) * spacingMult);
+            const stepY = isSeamless ? (fullHeight / wRows) : (stepX * 0.88);
+            const baseR = (stepX / spacingMult) * 0.28;
             ctx.lineWidth = getLineW(1.15);
-            const rStart = Math.floor((minY - fallDy) / stepY) - 1, rEnd = Math.ceil((maxY - fallDy) / stepY) + 1;
-            const cStart = Math.floor(minX / stepX) - 1, cEnd = Math.ceil(maxX / stepX) + 1;
+            const rStart = isSeamless ? -1 : (Math.floor((minY - fallDy) / stepY) - 1);
+            const rEnd = isSeamless ? (wRows + 1) : (Math.ceil((maxY - fallDy) / stepY) + 1);
+            const cStart = isSeamless ? -1 : (Math.floor(minX / stepX) - 1);
+            const cEnd = isSeamless ? (wCols + 1) : (Math.ceil(maxX / stepX) + 1);
             for (let row = rStart; row <= rEnd; row++) {
-                const rowOffset = (((row % 2) + 2) % 2) * (stepX * 0.5);
+                const wRow = wrapRow(row);
+                const rowOffset = (((wRow % 2) + 2) % 2) * (stepX * 0.5);
                 for (let col = cStart; col <= cEnd; col++) {
-                    const idx = Math.abs(row * 19 + col * 23);
+                    const wCol = wrapCol(col);
+                    const idx = Math.abs(wRow * 19 + wCol * 23);
                     const sizeHash = (((idx * 7919 + 104729) % 1000) / 1000);
                     const sizeMult = (1 - sizeVarAmount * 0.4) + sizeHash * (sizeVarAmount * 0.8);
                     const r = baseR * sizeMult;
@@ -1792,7 +1847,7 @@
                     const scatterY = ((((idx * 67) % 100) / 100 - 0.5) * stepY * 0.45) * scatterAmount;
                     const cx = col * stepX + rowOffset + scatterX + fallSwayX;
                     const cy = row * stepY + scatterY + fallDy;
-                    const cIdx = getCellColorIndex(row, col, cx, cy, idx);
+                    const cIdx = getCellColorIndex(wRow, wCol, wrapColorX(cx), wrapColorY(cy), idx);
                     const pColor = getPatternColor(palette, cIdx, accent, secondary);
                     const stemColor = getPatternColor(palette, cIdx + 1, accent, secondary);
                     const randomAngle = ((((idx * 137) % 360) / 360) * Math.PI * 2 - Math.PI) * 0.2 * rotVarAmount;
@@ -1821,16 +1876,20 @@
             }
         } else if (pattern === 'christmas-trees') {
             // Tiered evergreen pine trees with star toppers and twinkling ornaments
-            const stepX = Math.max(34, fullWidth / 10);
-            const stepY = stepX * 0.95;
-            const baseR = stepX * 0.33;
+            const stepX = isSeamless ? (fullWidth / wCols) : (Math.max(24, fullWidth / (10 * dens2D)) * spacingMult);
+            const stepY = isSeamless ? (fullHeight / wRows) : (stepX * 0.95);
+            const baseR = (stepX / spacingMult) * 0.33;
             ctx.lineWidth = getLineW(1.15);
-            const rStart = Math.floor((minY - fallDy) / stepY) - 1, rEnd = Math.ceil((maxY - fallDy) / stepY) + 1;
-            const cStart = Math.floor(minX / stepX) - 1, cEnd = Math.ceil(maxX / stepX) + 1;
+            const rStart = isSeamless ? -1 : (Math.floor((minY - fallDy) / stepY) - 1);
+            const rEnd = isSeamless ? (wRows + 1) : (Math.ceil((maxY - fallDy) / stepY) + 1);
+            const cStart = isSeamless ? -1 : (Math.floor(minX / stepX) - 1);
+            const cEnd = isSeamless ? (wCols + 1) : (Math.ceil(maxX / stepX) + 1);
             for (let row = rStart; row <= rEnd; row++) {
-                const rowOffset = (((row % 2) + 2) % 2) * (stepX * 0.5);
+                const wRow = wrapRow(row);
+                const rowOffset = (((wRow % 2) + 2) % 2) * (stepX * 0.5);
                 for (let col = cStart; col <= cEnd; col++) {
-                    const idx = Math.abs(row * 17 + col * 29);
+                    const wCol = wrapCol(col);
+                    const idx = Math.abs(wRow * 17 + wCol * 29);
                     const sizeHash = (((idx * 7919 + 104729) % 1000) / 1000);
                     const sizeMult = (1 - sizeVarAmount * 0.4) + sizeHash * (sizeVarAmount * 0.8);
                     const r = baseR * sizeMult;
@@ -1839,7 +1898,7 @@
                     const cx = col * stepX + rowOffset + scatterX + fallSwayX;
                     const cy = row * stepY + scatterY + fallDy;
                     const sway = hasInPlaceAnim ? Math.sin(inPlacePhase + idx * 0.7) * 0.05 : 0;
-                    const cIdx = getCellColorIndex(row, col, cx, cy, idx);
+                    const cIdx = getCellColorIndex(wRow, wCol, wrapColorX(cx), wrapColorY(cy), idx);
                     const treeColor = getPatternColor(palette, cIdx, accent, secondary);
                     const topperColor = getPatternColor(palette, cIdx + 1, accent, secondary);
 
@@ -1865,49 +1924,55 @@
             }
         } else if (pattern === 'christmas-lights') {
             // Draping catenary fairy-light garlands with glowing twinkling bulbs
-            const rowStep = Math.max(36, fullHeight / 6.5);
-            const bulbStep = Math.max(26, fullWidth / 18);
+            const rowStep = isSeamless ? (fullHeight / wRows) : (Math.max(26, fullHeight / (6.5 * dens2D)) * spacingMult);
+            const bulbStep = isSeamless ? (fullWidth / wCols) : (Math.max(18, fullWidth / (18 * dens2D)) * spacingMult);
             const sag = rowStep * 0.26;
-            const baseBulbR = Math.max(3.5, bulbStep * 0.17);
+            const baseBulbR = Math.max(3.5, (bulbStep / spacingMult) * 0.17);
             ctx.lineWidth = getLineW(1.2);
 
-            const rStart = Math.floor((minY - fallDy) / rowStep) - 1, rEnd = Math.ceil((maxY - fallDy) / rowStep) + 1;
-            const cStart = Math.floor(minX / bulbStep) - 2, cEnd = Math.ceil(maxX / bulbStep) + 2;
+            const rStart = isSeamless ? -1 : (Math.floor((minY - fallDy) / rowStep) - 1);
+            const rEnd = isSeamless ? (wRows + 1) : (Math.ceil((maxY - fallDy) / rowStep) + 1);
+            const cStart = isSeamless ? -2 : (Math.floor(minX / bulbStep) - 2);
+            const cEnd = isSeamless ? (wCols + 2) : (Math.ceil(maxX / bulbStep) + 2);
 
             for (let row = rStart; row <= rEnd; row++) {
+                const wRow = wrapRow(row);
                 const baseY = row * rowStep + fallDy;
-                const rowPhase = (((row % 2) + 2) % 2) * Math.PI;
+                const rowPhase = (((wRow % 2) + 2) % 2) * Math.PI;
 
                 // Draw continuous draping wire cord
                 ctx.strokeStyle = withAlpha(accent, '48');
                 ctx.beginPath();
-                const wireStep = Math.max(4, bulbStep / 6);
-                for (let x = minX; x <= maxX; x += wireStep) {
+                const wireStep = bulbStep / 6;
+                const xStart = isSeamless ? (-bulbStep * 2) : minX;
+                const xEnd = isSeamless ? (fullWidth + bulbStep * 2) : maxX;
+                for (let x = xStart; x <= xEnd + 0.01; x += wireStep) {
                     const wireWave = (x / (bulbStep * 3)) * Math.PI * 2 + rowPhase;
                     const y = baseY + Math.sin(wireWave) * sag;
-                    if (x === minX) ctx.moveTo(x + fallSwayX, y);
+                    if (x === xStart) ctx.moveTo(x + fallSwayX, y);
                     else ctx.lineTo(x + fallSwayX, y);
                 }
                 ctx.stroke();
 
                 // Draw hanging light sockets & glowing bulbs along the cord
-                const colOffset = (((row % 2) + 2) % 2) * (bulbStep * 0.5);
+                const colOffset = (((wRow % 2) + 2) % 2) * (bulbStep * 0.5);
                 for (let col = cStart; col <= cEnd; col++) {
+                    const wCol = wrapCol(col);
                     const bx = col * bulbStep + colOffset + fallSwayX;
                     const wireWave = ((bx - fallSwayX) / (bulbStep * 3)) * Math.PI * 2 + rowPhase;
                     const by = baseY + Math.sin(wireWave) * sag;
                     const slope = Math.cos(wireWave) * 0.24;
-                    const idx = Math.abs(row * 13 + col * 7);
+                    const idx = Math.abs(wRow * 13 + wCol * 7);
                     const sizeHash = (((idx * 7919 + 104729) % 1000) / 1000);
                     const sizeMult = (1 - sizeVarAmount * 0.3) + sizeHash * (sizeVarAmount * 0.6);
                     const bulbR = baseBulbR * sizeMult;
-                    const cIdx = getCellColorIndex(row, col, bx, by, idx);
+                    const cIdx = getCellColorIndex(wRow, wCol, wrapColorX(bx), wrapColorY(by), idx);
                     const bColor = getPatternColor(palette, cIdx, accent, secondary);
                     const glowPulse = hasInPlaceAnim ? (0.65 + 0.35 * Math.sin(inPlacePhase * 2.2 + idx * 1.3)) : 0.9;
 
                     ctx.save();
                     ctx.translate(bx, by);
-                    ctx.rotate(-slope * 0.5 + (hasInPlaceAnim ? Math.sin(inPlacePhase + col * 0.5) * 0.08 : 0));
+                    ctx.rotate(-slope * 0.5 + (hasInPlaceAnim ? Math.sin(inPlacePhase + wCol * 0.5) * 0.08 : 0));
 
                     // Outer soft bulb halo glow
                     ctx.fillStyle = withAlpha(bColor, glowPulse > 0.8 ? (hasFill ? '40' : '26') : '14');
@@ -1932,18 +1997,22 @@
             }
         } else if (pattern === 'snowflakes') {
             // Diverse 6-morphology crystalline snowflakes with size variance, organic scatter, and in-place rotation/shimmer
-            const stepX = Math.max(34, fullWidth / 10);
-            const stepY = stepX * 0.86;
-            const baseFlakeR = stepX * 0.27;
+            const stepX = isSeamless ? (fullWidth / wCols) : (Math.max(24, fullWidth / (10 * dens2D)) * spacingMult);
+            const stepY = isSeamless ? (fullHeight / wRows) : (stepX * 0.86);
+            const baseFlakeR = (stepX / spacingMult) * 0.27;
             ctx.lineWidth = getLineW(1.1);
-            const rStart = Math.floor((minY - fallDy) / stepY) - 1, rEnd = Math.ceil((maxY - fallDy) / stepY) + 1;
-            const cStart = Math.floor(minX / stepX) - 1, cEnd = Math.ceil(maxX / stepX) + 1;
+            const rStart = isSeamless ? -1 : (Math.floor((minY - fallDy) / stepY) - 1);
+            const rEnd = isSeamless ? (wRows + 1) : (Math.ceil((maxY - fallDy) / stepY) + 1);
+            const cStart = isSeamless ? -1 : (Math.floor(minX / stepX) - 1);
+            const cEnd = isSeamless ? (wCols + 1) : (Math.ceil(maxX / stepX) + 1);
             const snowflakeStyle = options.snowflakeStyle || 'all';
 
             for (let row = rStart; row <= rEnd; row++) {
-                const rowOffset = (((row % 2) + 2) % 2) * (stepX * 0.5);
+                const wRow = wrapRow(row);
+                const rowOffset = (((wRow % 2) + 2) % 2) * (stepX * 0.5);
                 for (let col = cStart; col <= cEnd; col++) {
-                    const idx = Math.abs(row * 19 + col * 31);
+                    const wCol = wrapCol(col);
+                    const idx = Math.abs(wRow * 19 + wCol * 31);
                     const sizeHash = (((idx * 7919 + 104729) % 1000) / 1000);
                     const sizeMult = (1 - sizeVarAmount * 0.45) + sizeHash * (sizeVarAmount * 0.95);
                     const r = baseFlakeR * (sizeVarAmount > 0 ? (0.80 + (idx % 3) * 0.12) * sizeMult : 1);
@@ -1960,7 +2029,7 @@
                     const inPlaceFlutter = hasInPlaceAnim ? Math.sin(inPlacePhase + idx * 0.7) * 0.08 : 0;
                     const rot = baseRot + flakeSpin + inPlaceFlutter;
 
-                    const cIdx = getCellColorIndex(row, col, cx, cy, idx);
+                    const cIdx = getCellColorIndex(wRow, wCol, wrapColorX(cx), wrapColorY(cy), idx);
                     const sColor = getPatternColor(palette, cIdx, accent, secondary);
                     const shimmer = hasInPlaceAnim ? (0.84 + 0.16 * Math.sin(inPlacePhase * 1.6 + idx)) : 1;
 
@@ -1997,24 +2066,28 @@
             }
         } else if (pattern === 'hearts') {
             // Smooth floating vector hearts
-            const stepX = Math.max(30, fullWidth / 11);
-            const stepY = stepX * 0.88;
-            const baseHeartR = stepX * 0.24;
+            const stepX = isSeamless ? (fullWidth / wCols) : (Math.max(22, fullWidth / (11 * dens2D)) * spacingMult);
+            const stepY = isSeamless ? (fullHeight / wRows) : (stepX * 0.88);
+            const baseHeartR = (stepX / spacingMult) * 0.24;
             ctx.lineWidth = getLineW(1.15);
-            const rStart = Math.floor((minY - fallDy) / stepY) - 1, rEnd = Math.ceil((maxY - fallDy) / stepY) + 1;
-            const cStart = Math.floor(minX / stepX) - 1, cEnd = Math.ceil(maxX / stepX) + 1;
+            const rStart = isSeamless ? -1 : (Math.floor((minY - fallDy) / stepY) - 1);
+            const rEnd = isSeamless ? (wRows + 1) : (Math.ceil((maxY - fallDy) / stepY) + 1);
+            const cStart = isSeamless ? -1 : (Math.floor(minX / stepX) - 1);
+            const cEnd = isSeamless ? (wCols + 1) : (Math.ceil(maxX / stepX) + 1);
 
             for (let row = rStart; row <= rEnd; row++) {
-                const rowOffset = (((row % 2) + 2) % 2) * (stepX * 0.5);
+                const wRow = wrapRow(row);
+                const rowOffset = (((wRow % 2) + 2) % 2) * (stepX * 0.5);
                 for (let col = cStart; col <= cEnd; col++) {
-                    const idx = Math.abs(row * 17 + col * 23);
+                    const wCol = wrapCol(col);
+                    const idx = Math.abs(wRow * 17 + wCol * 23);
                     const sizeHash = (((idx * 7919 + 104729) % 1000) / 1000);
                     const sizeMult = (1 - sizeVarAmount * 0.45) + sizeHash * (sizeVarAmount * 0.95);
                     const scatterX = ((((idx * 43) % 100) / 100 - 0.5) * stepX * 0.50) * scatterAmount;
                     const scatterY = ((((idx * 67) % 100) / 100 - 0.5) * stepY * 0.50) * scatterAmount;
                     const cx = col * stepX + rowOffset + scatterX + fallSwayX;
                     const cy = row * stepY + scatterY + fallDy;
-                    const cIdx = getCellColorIndex(row, col, cx, cy, idx);
+                    const cIdx = getCellColorIndex(wRow, wCol, wrapColorX(cx), wrapColorY(cy), idx);
                     const hColor = getPatternColor(palette, cIdx, accent, secondary);
                     const beat = hasInPlaceAnim ? (0.80 + 0.20 * Math.sin(inPlacePhase * 2 + idx)) : 1;
                     const r = baseHeartR * (sizeVarAmount > 0 ? (0.82 + (idx % 3) * 0.14) * sizeMult : 1);
@@ -2046,24 +2119,28 @@
             }
         } else if (pattern === 'fireworks') {
             // Celebration starburst fireworks with sparkle cores
-            const stepX = Math.max(44, fullWidth / 7.5);
-            const stepY = stepX * 0.88;
-            const baseBurstR = stepX * 0.34;
+            const stepX = isSeamless ? (fullWidth / wCols) : (Math.max(30, fullWidth / (7.5 * dens2D)) * spacingMult);
+            const stepY = isSeamless ? (fullHeight / wRows) : (stepX * 0.88);
+            const baseBurstR = (stepX / spacingMult) * 0.34;
             ctx.lineWidth = getLineW(1.15);
-            const rStart = Math.floor((minY - fallDy) / stepY) - 1, rEnd = Math.ceil((maxY - fallDy) / stepY) + 1;
-            const cStart = Math.floor(minX / stepX) - 1, cEnd = Math.ceil(maxX / stepX) + 1;
+            const rStart = isSeamless ? -1 : (Math.floor((minY - fallDy) / stepY) - 1);
+            const rEnd = isSeamless ? (wRows + 1) : (Math.ceil((maxY - fallDy) / stepY) + 1);
+            const cStart = isSeamless ? -1 : (Math.floor(minX / stepX) - 1);
+            const cEnd = isSeamless ? (wCols + 1) : (Math.ceil(maxX / stepX) + 1);
 
             for (let row = rStart; row <= rEnd; row++) {
-                const rowOffset = (((row % 2) + 2) % 2) * (stepX * 0.5);
+                const wRow = wrapRow(row);
+                const rowOffset = (((wRow % 2) + 2) % 2) * (stepX * 0.5);
                 for (let col = cStart; col <= cEnd; col++) {
-                    const idx = Math.abs(row * 13 + col * 29);
+                    const wCol = wrapCol(col);
+                    const idx = Math.abs(wRow * 13 + wCol * 29);
                     const sizeHash = (((idx * 7919 + 104729) % 1000) / 1000);
                     const sizeMult = (1 - sizeVarAmount * 0.45) + sizeHash * (sizeVarAmount * 0.95);
                     const scatterX = ((((idx * 43) % 100) / 100 - 0.5) * stepX * 0.45) * scatterAmount;
                     const scatterY = ((((idx * 67) % 100) / 100 - 0.5) * stepY * 0.45) * scatterAmount;
                     const cx = col * stepX + rowOffset + scatterX + fallSwayX;
                     const cy = row * stepY + scatterY + fallDy;
-                    const cIdx = getCellColorIndex(row, col, cx, cy, idx);
+                    const cIdx = getCellColorIndex(wRow, wCol, wrapColorX(cx), wrapColorY(cy), idx);
                     const mainCol = getPatternColor(palette, cIdx, accent, secondary);
                     const subCol = getPatternColor(palette, cIdx + 1, accent, secondary);
                     const bloom = hasInPlaceAnim ? (0.75 + 0.25 * Math.sin(inPlacePhase * 1.8 + idx * 1.1)) : 1;
