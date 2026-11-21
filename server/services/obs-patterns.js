@@ -771,11 +771,11 @@ float4 evalProceduralPattern(float2 px, float t) {
         float2 q = float2(f.x < 0.5 ? -1.0 : 1.0, f.y < 0.5 ? -1.0 : 1.0);
         mask = 0.0;
         cell_id = base_cell;
-        [unroll]
-        for (int dy = 0; dy <= 1; dy++) {
-            [unroll]
-            for (int dx = 0; dx <= 1; dx++) {
-                float2 off = float2((float)dx * q.x, (float)dy * q.y);
+        for (int dy4 = 0; dy4 <= 1; dy4++) {
+            float fdy4 = float(dy4);
+            for (int dx4 = 0; dx4 <= 1; dx4++) {
+                float fdx4 = float(dx4);
+                float2 off = float2(fdx4 * q.x, fdy4 * q.y);
                 float2 cid = base_cell + off;
                 float2 rnd = hash22(cid);
                 float2 lp = (f - off - 0.5) * step_px - (rnd - 0.5) * (proc_scatter / 100.0) * step_px * 0.4;
@@ -826,11 +826,11 @@ float4 evalProceduralPattern(float2 px, float t) {
         float2 q = float2(f.x < 0.5 ? -1.0 : 1.0, f.y < 0.5 ? -1.0 : 1.0);
         mask = 0.0;
         cell_id = base_cell;
-        [unroll]
-        for (int dy = 0; dy <= 1; dy++) {
-            [unroll]
-            for (int dx = 0; dx <= 1; dx++) {
-                float2 off = float2((float)dx * q.x, (float)dy * q.y);
+        for (int dy8 = 0; dy8 <= 1; dy8++) {
+            float fdy8 = float(dy8);
+            for (int dx8 = 0; dx8 <= 1; dx8++) {
+                float fdx8 = float(dx8);
+                float2 off = float2(fdx8 * q.x, fdy8 * q.y);
                 float2 cid = base_cell + off;
                 float2 rnd = hash22(cid);
                 float2 lp = (f - off - 0.5) * step_px - (rnd - 0.5) * (proc_scatter / 100.0) * step_px * 0.35;
@@ -908,11 +908,11 @@ float4 evalProceduralPattern(float2 px, float t) {
         float scatter_f = 0.25 + 0.45 * (proc_scatter / 100.0);
         mask = 0.0;
         cell_id = base_cell;
-        [unroll]
-        for (int dy = 0; dy <= 1; dy++) {
-            [unroll]
-            for (int dx = 0; dx <= 1; dx++) {
-                float2 off = float2((float)dx * q.x, (float)dy * q.y);
+        for (int dy15 = 0; dy15 <= 1; dy15++) {
+            float fdy15 = float(dy15);
+            for (int dx15 = 0; dx15 <= 1; dx15++) {
+                float fdx15 = float(dx15);
+                float2 off = float2(fdx15 * q.x, fdy15 * q.y);
                 float2 cid = base_cell + off;
                 float2 rnd = hash22(cid);
                 if (rnd.x >= 0.26) {
@@ -944,18 +944,18 @@ float4 evalProceduralPattern(float2 px, float t) {
         float2 q = float2(f.x < 0.5 ? -1.0 : 1.0, f.y < 0.5 ? -1.0 : 1.0);
         mask = 0.0;
         cell_id = base_cell;
-        [unroll]
-        for (int dy = 0; dy <= 1; dy++) {
-            [unroll]
-            for (int dx = 0; dx <= 1; dx++) {
-                float2 off = float2((float)dx * q.x, (float)dy * q.y);
+        for (int dy16 = 0; dy16 <= 1; dy16++) {
+            float fdy16 = float(dy16);
+            for (int dx16 = 0; dx16 <= 1; dx16++) {
+                float fdx16 = float(dx16);
+                float2 off = float2(fdx16 * q.x, fdy16 * q.y);
                 float2 cid = base_cell + off;
                 float2 rnd = hash22(cid);
                 if (rnd.y >= 0.32) {
                     float2 lp = (f - off - (0.24 + rnd * 0.52)) * step_px;
                     lp = rot2d(lp, spin_base + (rnd.x - 0.5) * (proc_rot_var / 100.0) * 1.8);
                     float sz = min(step_px * 0.42, (9.5 + rnd.x * 11.0 * (1.0 + proc_size_var / 100.0 * 0.6)) * elem_s);
-                    float tw = (proc_inplace_mode > 0.5) ? (0.35 + 0.65 * pow(0.5 + 0.5 * sin(t_ip * 3.0 + rnd.y * 10.0), 1.6)) : 1.0;
+                    float tw = (proc_inplace_mode > 0.5) ? (0.35 + 0.65 * pow(max(0.0, 0.5 + 0.5 * sin(t_ip * 3.0 + rnd.y * 10.0)), 1.6)) : 1.0;
                     float d = sdFourStar(lp, sz);
                     float m = evalShapeMask(d, max(1.0, lw * 0.75)) * tw;
                     if (m > mask) {
@@ -974,11 +974,11 @@ float4 evalProceduralPattern(float2 px, float t) {
         float2 q = float2(f.x < 0.5 ? -1.0 : 1.0, f.y < 0.5 ? -1.0 : 1.0);
         mask = 0.0;
         cell_id = base_cell;
-        [unroll]
-        for (int dy = 0; dy <= 1; dy++) {
-            [unroll]
-            for (int dx = 0; dx <= 1; dx++) {
-                float2 off = float2((float)dx * q.x, (float)dy * q.y);
+        for (int dy17 = 0; dy17 <= 1; dy17++) {
+            float fdy17 = float(dy17);
+            for (int dx17 = 0; dx17 <= 1; dx17++) {
+                float fdx17 = float(dx17);
+                float2 off = float2(fdx17 * q.x, fdy17 * q.y);
                 float2 cid = base_cell + off;
                 float2 rnd = hash22(cid);
                 float2 jitter = (rnd - 0.5) * (proc_scatter / 100.0) * step_px * 0.55;
@@ -1370,9 +1370,14 @@ float4 evalBakedProcedural(float2 px, float t) {
 
 float4 evalSceneSample(float2 uv, float2 px, float t) {
     float4 bg_pm = evalCanvasBackground(uv, px, t);
-    float4 fg_pm = (mode_code > 0.5)
-        ? evalPatternTiles(px, t)
-        : (has_stamp > 0.5 ? evalBakedProcedural(px, t) : evalProceduralPattern(px, t));
+    float4 fg_pm = float4(0.0, 0.0, 0.0, 0.0);
+    if (mode_code > 0.5) {
+        fg_pm = evalPatternTiles(px, t);
+    } else if (has_stamp > 0.5) {
+        fg_pm = evalBakedProcedural(px, t);
+    } else {
+        fg_pm = evalProceduralPattern(px, t);
+    }
     return fg_pm + bg_pm * (1.0 - fg_pm.a);
 }
 
@@ -1732,6 +1737,7 @@ local function free_stamp_texture(data)
     data.stamp_owns_tex = false
     if data.stamp_img_ex ~= nil and obs.gs_image_file_ex_free then
         pcall(obs.gs_image_file_ex_free, data.stamp_img_ex)
+        data.stamp_img_ex = nil
     end
     if data.stamp_img ~= nil and obs.gs_image_file_free then
         pcall(obs.gs_image_file_free, data.stamp_img)
@@ -1740,6 +1746,7 @@ local function free_stamp_texture(data)
     obs.obs_leave_graphics()
     data.stamp_cx = 512
     data.stamp_cy = 512
+    data.static_rendered_key = ""
 end
 
 local function ensure_stamp_texture(data, stamp_file, stamp_key)
@@ -1890,7 +1897,18 @@ source_def.create = function(settings, source)
     data.params = {}
 
     obs.obs_enter_graphics()
-    data.dummy_tex = obs.gs_texture_create(1, 1, obs.GS_RGBA, 1, nil, 0)
+    data.dummy_rt = obs.gs_texrender_create(obs.GS_RGBA, obs.GS_ZS_NONE)
+    if data.dummy_rt ~= nil then
+        if obs.gs_texrender_begin(data.dummy_rt, 1, 1) then
+            obs.gs_clear(obs.GS_CLEAR_COLOR, data._zero_v4, 0.0, 0)
+            obs.gs_texrender_end(data.dummy_rt)
+        end
+        data.dummy_tex = obs.gs_texrender_get_texture(data.dummy_rt)
+    end
+    if data.dummy_tex == nil and obs.gs_texture_create then
+        local ok_dt, dt = pcall(obs.gs_texture_create, 1, 1, obs.GS_RGBA, 1, nil, obs.GS_DYNAMIC or 0)
+        if ok_dt then data.dummy_tex = dt end
+    end
     data.effect = obs.gs_effect_create(EFFECT_SOURCE, "streampulse_pattern_effect", nil)
     if data.effect ~= nil then
         local names = {
@@ -1941,7 +1959,11 @@ source_def.destroy = function(data)
         obs.gs_texrender_destroy(data.blur_rt)
         data.blur_rt = nil
     end
-    if data.dummy_tex ~= nil then
+    if data.dummy_rt ~= nil then
+        obs.gs_texrender_destroy(data.dummy_rt)
+        data.dummy_rt = nil
+        data.dummy_tex = nil
+    elseif data.dummy_tex ~= nil then
         obs.gs_texture_destroy(data.dummy_tex)
         data.dummy_tex = nil
     end
@@ -2082,13 +2104,17 @@ local function upload_effect_uniforms(data, prof)
 
     local has_tex = 0.0
     local draw_tex = data.dummy_tex
-    local active_stamp_tex = data.stamp_tex or (data.stamp_img_ex ~= nil and data.stamp_img_ex.texture) or (data.stamp_img ~= nil and data.stamp_img.texture) or nil
+    local has_file = (data.loaded_stamp_file or "") ~= ""
+    local active_stamp_tex = has_file and (data.stamp_tex or (data.stamp_img_ex ~= nil and data.stamp_img_ex.texture) or (data.stamp_img ~= nil and data.stamp_img.texture)) or nil
     if active_stamp_tex ~= nil and p.stamp_tex ~= nil then
         obs.gs_effect_set_texture(p.stamp_tex, active_stamp_tex)
         draw_tex = active_stamp_tex
         has_tex = 1.0
     elseif data.dummy_tex ~= nil and p.stamp_tex ~= nil then
         obs.gs_effect_set_texture(p.stamp_tex, data.dummy_tex)
+    end
+    if data.dummy_tex ~= nil and p.scene_tex ~= nil then
+        obs.gs_effect_set_texture(p.scene_tex, data.dummy_tex)
     end
     obs.gs_effect_set_float(p.has_stamp, has_tex)
     return draw_tex
@@ -2193,7 +2219,7 @@ source_def.video_tick = function(data, seconds)
         local h = data.height or 1080
         local is_anim = is_profile_animated(prof)
         local static_key = (not is_anim) and (tostring(prof.id) .. ":" .. tostring(manifest_revision) .. ":" .. tostring(w) .. "x" .. tostring(h) .. ":" .. tostring(data.loaded_stamp_key or "")) or ""
-        if (not is_anim) and data.rt ~= nil and data.static_rendered_key == static_key then
+        if (not is_anim) and data.rt ~= nil and obs.gs_texrender_get_texture(data.rt) ~= nil and data.static_rendered_key == static_key then
             return
         end
         obs.obs_enter_graphics()
