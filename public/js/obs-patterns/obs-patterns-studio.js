@@ -952,6 +952,8 @@
         precision highp float;
         varying vec2 v_uv;
         uniform sampler2D stamp_tex;
+        uniform sampler2D scene_tex;
+        uniform vec2 scene_padding;
         uniform vec2 canvas_size;
         uniform vec2 stamp_size;
         uniform vec2 stamp_grid;
@@ -1686,8 +1688,19 @@
         }
         void main() {
             vec2 uv_top = vec2(v_uv.x, 1.0 - v_uv.y);
+#ifdef SP_SCENE_PASS
+            vec2 px = uv_top * (canvas_size + 2.0 * scene_padding) - scene_padding;
+            gl_FragColor = evalSceneSample(px / canvas_size, px, anim_time);
+#else
             vec2 px = uv_top * canvas_size;
+#ifdef SP_BLUR_PASS
+            vec2 dims = canvas_size + 2.0 * scene_padding;
+            vec2 coord = (px + scene_padding) / dims;
+            coord.y = 1.0 - coord.y;
+            vec4 res = texture2D(scene_tex, coord);
+#else
             vec4 res = evalSceneSample(uv_top, px, anim_time);
+#endif
             if (flt_blur > 0.25) {
                 float br = clamp(flt_blur, 0.25, 60.0);
                 vec2 inv_sz = 1.0 / max(canvas_size, vec2(1.0));
@@ -1699,7 +1712,11 @@
                     float b_rr = sqrt((fbi + 0.5) / 16.0);
                     float b_w = exp(-2.2 * b_rr * b_rr);
                     vec2 b_off = vec2(cos(b_ang), sin(b_ang)) * (b_rr * br);
+#ifdef SP_BLUR_PASS
+                    acc += texture2D(scene_tex, coord + vec2(b_off.x, -b_off.y) / dims) * b_w;
+#else
                     acc += evalSceneSample(uv_top + b_off * inv_sz, px + b_off, anim_time) * b_w;
+#endif
                     w_sum += b_w;
                 }
                 res = acc / w_sum;
@@ -1717,6 +1734,7 @@
                 res = vec4(res.rgb + chk * (1.0 - res.a), 1.0);
             }
             gl_FragColor = res;
+#endif
         }
     `;
 
@@ -1724,6 +1742,17 @@
     let glProg = null;
     let glTex = null;
     let glUniforms = null;
+    let glSceneProg = null;
+    let glBlurProg = null;
+    let glSceneUniforms = null;
+    let glBlurUniforms = null;
+    let glSceneTexture = null;
+    let glSceneFramebuffer = null;
+    let glSceneWidth = 0;
+    let glSceneHeight = 0;
+    let lastPreviewUsesBlur = false;
+    let initPreviewBlur = null;
+    const glPositions = new Map();
     let previewDirty = true;
     let lastAnimDrawMs = 0;
     let lastDimsText = '';
@@ -1745,6 +1774,7 @@
         img.onload = () => {
             if (!ensureWebGL(document.getElementById('op-preview-canvas'))) return;
             const gl = glCtx;
+            gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, glTex);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
             stampTexSize = [img.naturalWidth || img.width || 512, img.naturalHeight || img.height || 512];
@@ -1775,20 +1805,36 @@
             }
             return sh;
         };
-        const vs = compile(gl.VERTEX_SHADER, VERT_GLSL);
-        const fs = compile(gl.FRAGMENT_SHADER, FRAG_GLSL);
-        if (!vs || !fs) return false;
-        const prog = gl.createProgram();
-        gl.attachShader(prog, vs);
-        gl.attachShader(prog, fs);
-        gl.linkProgram(prog);
-        if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return false;
+        const makeProgram = define => {
+            const vs = compile(gl.VERTEX_SHADER, VERT_GLSL);
+            const fs = compile(gl.FRAGMENT_SHADER, `${define}${FRAG_GLSL}`);
+            if (!vs || !fs) {
+                if (vs) gl.deleteShader(vs);
+                if (fs) gl.deleteShader(fs);
+                return null;
+            }
+            const prog = gl.createProgram();
+            gl.attachShader(prog, vs);
+            gl.attachShader(prog, fs);
+            gl.linkProgram(prog);
+            gl.deleteShader(vs);
+            gl.deleteShader(fs);
+            if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+                console.error('[ObsPatterns WebGL]', gl.getProgramInfoLog(prog));
+                gl.deleteProgram(prog);
+                return null;
+            }
+            glPositions.set(prog, gl.getAttribLocation(prog, 'a_pos'));
+            return prog;
+        };
+        const prog = makeProgram('');
+        if (!prog) return false;
         gl.useProgram(prog);
 
         const buf = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, buf);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
-        const loc = gl.getAttribLocation(prog, 'a_pos');
+        const loc = glPositions.get(prog);
         gl.enableVertexAttribArray(loc);
         gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
 
@@ -1813,10 +1859,28 @@
             'tile_motion', 'tile_track_mode', 'tile_spin_dir', 'tile_scroll_rad', 'tile_speed', 'tile_spin_rad', 'tile_wave_amt',
             'tile_hue_mode', 'tile_hue_speed', 'tile_hue_jitter', 'tile_sat_jitter', 'tile_bright_jitter',
             'tile_scale_jitter', 'tile_rot_jitter', 'tile_pos_jitter', 'tile_twinkle', 'tile_twinkle_speed',
-            'tile_tint', 'has_stamp', 'show_checker'
+            'tile_tint', 'has_stamp', 'show_checker', 'scene_tex', 'scene_padding'
         ];
-        glUniforms = {};
-        names.forEach(n => { glUniforms[n] = gl.getUniformLocation(prog, n); });
+        const uniforms = program => {
+            const result = {};
+            if (program) names.forEach(n => { result[n] = gl.getUniformLocation(program, n); });
+            return result;
+        };
+        glUniforms = uniforms(prog);
+        initPreviewBlur = () => {
+            initPreviewBlur = null;
+            glSceneProg = makeProgram('#define SP_SCENE_PASS\n');
+            glBlurProg = makeProgram('#define SP_BLUR_PASS\n');
+            if (!glSceneProg || !glBlurProg) {
+                for (const program of [glSceneProg, glBlurProg]) {
+                    if (program) { glPositions.delete(program); gl.deleteProgram(program); }
+                }
+                glSceneProg = null;
+                glBlurProg = null;
+            }
+            glSceneUniforms = uniforms(glSceneProg);
+            glBlurUniforms = uniforms(glBlurProg);
+        };
 
         glTex = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, glTex);
@@ -1830,36 +1894,9 @@
         return true;
     }
 
-    function drawPreviewFrame(nowMs) {
-        const canvas = document.getElementById('op-preview-canvas');
-        if (!canvas || !workingProfile || !ensureWebGL(canvas)) return;
-        const gl = glCtx;
-        gl.useProgram(glProg);
-        const u = glUniforms;
-
-        if (!previewDirty) {
-            gl.uniform1f(u.anim_time, (nowMs - animStartMs) / 1000);
-            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-            return;
-        }
-        previewDirty = false;
-        const p = workingProfile;
+    function uploadPreviewUniforms(gl, u, p, w, h, nowMs) {
         const pr = p.procedural || {};
         const tl = p.tiles || {};
-        const w = Math.max(64, Number(p.width) || 1920);
-        const h = Math.max(64, Number(p.height) || 1080);
-
-        const nextDimsText = `${w}×${h} • ${p.mode === 'tiles' ? 'GPU Pattern Tile' : `GPU Procedural (${pr.preset || 'hexagons'})`}`;
-        if (nextDimsText !== lastDimsText) {
-            const el = document.getElementById('op-preview-dims');
-            if (el) el.textContent = nextDimsText;
-            lastDimsText = nextDimsText;
-        }
-
-        gl.viewport(0, 0, canvas.width, canvas.height);
-        gl.clearColor(0, 0, 0, 0);
-        gl.clear(gl.COLOR_BUFFER_BIT);
-
         const bgC = hexToRgbaFloats(resolveColor(p.bgColor, '#0B101BFF'));
         const bgC2 = hexToRgbaFloats(resolveColor(p.bgColor2, '#1E1B4BFF'));
         const bgC3 = hexToRgbaFloats(resolveColor(p.bgColor3, '#0F766EFF'));
@@ -1996,8 +2033,83 @@
         const activeStampFile = p.mode === 'tiles' ? tl.stampFile : (wantsProcBake ? pr.bakedStampFile : '');
         gl.uniform1f(u.has_stamp, (hasStampTexture && activeStampFile) ? 1 : 0);
         gl.uniform1f(u.show_checker, previewBg === 'transparent' ? 1 : 0);
+    }
 
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    function releasePreviewScene(gl) {
+        if (glSceneFramebuffer) gl.deleteFramebuffer(glSceneFramebuffer);
+        if (glSceneTexture) gl.deleteTexture(glSceneTexture);
+        glSceneFramebuffer = null;
+        glSceneTexture = null;
+        glSceneWidth = 0;
+        glSceneHeight = 0;
+    }
+
+    function ensurePreviewScene(gl, width, height) {
+        if (glSceneFramebuffer && width === glSceneWidth && height === glSceneHeight) return true;
+        releasePreviewScene(gl);
+        if (width > gl.getParameter(gl.MAX_TEXTURE_SIZE) || height > gl.getParameter(gl.MAX_TEXTURE_SIZE)) return false;
+        glSceneTexture = gl.createTexture();
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, glSceneTexture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        glSceneFramebuffer = gl.createFramebuffer();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, glSceneFramebuffer);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glSceneTexture, 0);
+        const ready = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.activeTexture(gl.TEXTURE0);
+        if (!ready) { releasePreviewScene(gl); return false; }
+        glSceneWidth = width;
+        glSceneHeight = height;
+        return true;
+    }
+
+    function drawPreviewFrame(nowMs) {
+        const canvas = document.getElementById('op-preview-canvas');
+        if (!canvas || !workingProfile || !ensureWebGL(canvas)) return;
+        const gl = glCtx;
+        const p = workingProfile;
+        const pr = p.procedural || {};
+        const w = Math.max(64, Number(p.width) || 1920);
+        const h = Math.max(64, Number(p.height) || 1080);
+        const blur = resolveNum(p.filters?.blur, 0, 0, 60);
+        if (blur > 0.25 && initPreviewBlur) initPreviewBlur();
+        const padX = Math.ceil(blur * canvas.width / w) + 1;
+        const padY = Math.ceil(blur * canvas.height / h) + 1;
+        const useBlur = blur > 0.25 && glSceneProg && glBlurProg
+            && ensurePreviewScene(gl, canvas.width + padX * 2, canvas.height + padY * 2);
+        if (Boolean(useBlur) !== lastPreviewUsesBlur) previewDirty = true;
+        lastPreviewUsesBlur = Boolean(useBlur);
+        if (!useBlur && blur <= 0.25 && glSceneFramebuffer) releasePreviewScene(gl);
+        const nextDimsText = `${w}×${h} • ${p.mode === 'tiles' ? 'GPU Pattern Tile' : `GPU Procedural (${pr.preset || 'hexagons'})`}`;
+        if (nextDimsText !== lastDimsText) {
+            const el = document.getElementById('op-preview-dims');
+            if (el) el.textContent = nextDimsText;
+            lastDimsText = nextDimsText;
+        }
+
+        const draw = (program, u, scene) => {
+            gl.useProgram(program);
+            const loc = glPositions.get(program);
+            gl.enableVertexAttribArray(loc);
+            gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+            if (previewDirty) uploadPreviewUniforms(gl, u, p, w, h, nowMs);
+            else gl.uniform1f(u.anim_time, (nowMs - animStartMs) / 1000);
+            if (useBlur) {
+                gl.uniform2f(u.scene_padding, padX * w / canvas.width, padY * h / canvas.height);
+                gl.uniform1i(u.scene_tex, 1);
+            }
+            gl.bindFramebuffer(gl.FRAMEBUFFER, scene ? glSceneFramebuffer : null);
+            gl.viewport(0, 0, scene ? glSceneWidth : canvas.width, scene ? glSceneHeight : canvas.height);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        };
+        if (useBlur) draw(glSceneProg, glSceneUniforms, true);
+        draw(useBlur ? glBlurProg : glProg, useBlur ? glBlurUniforms : glUniforms, false);
+        previewDirty = false;
     }
 
     function stopPreviewAnim() {
@@ -2363,7 +2475,10 @@
         document.getElementById('op-pane-setup').hidden = cleanTab !== 'setup';
 
         if (cleanTab === 'designer') schedulePreviewDraw();
-        else stopPreviewAnim();
+        else {
+            stopPreviewAnim();
+            if (glCtx) releasePreviewScene(glCtx);
+        }
 
         if (cleanTab === 'sources' && obsConnected && !hasSyncedObsOnce && studioState) {
             syncFromObsWebSocket({ quiet: true });
@@ -3024,10 +3139,16 @@
             if (t && t !== activeTab) switchTab(t, { updateHash: false });
         });
         document.addEventListener('visibilitychange', () => {
-            if (document.hidden) stopPreviewAnim();
+            if (document.hidden) {
+                stopPreviewAnim();
+                if (glCtx) releasePreviewScene(glCtx);
+            }
             else schedulePreviewDraw();
         });
-        window.addEventListener('pagehide', stopPreviewAnim);
+        window.addEventListener('pagehide', () => {
+            stopPreviewAnim();
+            if (glCtx) releasePreviewScene(glCtx);
+        });
         window.addEventListener('pageshow', schedulePreviewDraw);
     }
 

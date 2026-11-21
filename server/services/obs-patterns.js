@@ -413,6 +413,8 @@ local active_scene_name = ""
 local EFFECT_SOURCE = [[
 uniform float4x4 ViewProj;
 uniform texture2d stamp_tex;
+uniform texture2d scene_tex;
+uniform float2 scene_padding;
 
 uniform float2 canvas_size;
 uniform float2 stamp_size;
@@ -1327,6 +1329,41 @@ float4 applyGpuFilters(float4 res, float2 px, float t) {
     return float4(rgb * a, a);
 }
 
+float4 applyFinishingFilters(float4 res, float2 uv, float2 px) {
+    res = applyGpuFilters(res, px, anim_time);
+    if (vignette_amt > 0.005) {
+        float2 vp = (uv - 0.5) * 2.0;
+        float vr = length(vp);
+        float va = smoothstep(0.35, 1.42, vr) * vignette_amt * vignette_color.a;
+        res = float4(lerp(res.rgb, vignette_color.rgb * res.a, va), res.a);
+    }
+    return res * clamp(opacity, 0.0, 1.0);
+}
+
+float4 PSScene(VertDataOut v_in) : TARGET {
+    float2 px = v_in.uv * (canvas_size + 2.0 * scene_padding) - scene_padding;
+    return evalSceneSample(px / canvas_size, px, anim_time);
+}
+
+float4 PSBlur(VertDataOut v_in) : TARGET {
+    float2 px = v_in.uv * canvas_size;
+    float2 dims = canvas_size + 2.0 * scene_padding;
+    float2 coord = (px + scene_padding) / dims;
+    float4 acc = scene_tex.Sample(textureSampler, coord);
+    float w_sum = 1.0;
+    float br = clamp(flt_blur, 0.25, 60.0);
+    for (int bi = 0; bi < 16; bi++) {
+        float fbi = float(bi);
+        float b_ang = fbi * 2.3999632 + 0.41;
+        float b_rr = sqrt((fbi + 0.5) / 16.0);
+        float b_w = exp(-2.2 * b_rr * b_rr);
+        float2 b_off = float2(cos(b_ang), sin(b_ang)) * (b_rr * br);
+        acc += scene_tex.Sample(textureSampler, coord + b_off / dims) * b_w;
+        w_sum += b_w;
+    }
+    return applyFinishingFilters(acc / w_sum, v_in.uv, px);
+}
+
 float4 PSDefault(VertDataOut v_in) : TARGET {
     float2 px = v_in.uv * canvas_size;
     float4 res = evalSceneSample(v_in.uv, px, anim_time);
@@ -1348,22 +1385,25 @@ float4 PSDefault(VertDataOut v_in) : TARGET {
         res = acc / w_sum;
     }
 
-    res = applyGpuFilters(res, px, anim_time);
-
-    if (vignette_amt > 0.005) {
-        float2 vp = (v_in.uv - 0.5) * 2.0;
-        float vr = length(vp);
-        float va = smoothstep(0.35, 1.42, vr) * vignette_amt * vignette_color.a;
-        res = float4(lerp(res.rgb, vignette_color.rgb * res.a, va), res.a);
-    }
-
-    return res * clamp(opacity, 0.0, 1.0);
+    return applyFinishingFilters(res, v_in.uv, px);
 }
 
 technique Draw {
     pass {
         vertex_shader = VSDefault(v_in);
         pixel_shader  = PSDefault(v_in);
+    }
+}
+technique DrawScene {
+    pass {
+        vertex_shader = VSDefault(v_in);
+        pixel_shader = PSScene(v_in);
+    }
+}
+technique DrawBlur {
+    pass {
+        vertex_shader = VSDefault(v_in);
+        pixel_shader = PSBlur(v_in);
     }
 }
 ]]
@@ -1757,6 +1797,8 @@ source_def.create = function(settings, source)
     data.stamp_cx = 512
     data.stamp_cy = 512
     data.rt = nil
+    data.blur_rt = nil
+    data.blur_ready = false
     data.use_rt_fallback = false
     data._v2 = obs.vec2()
     data._v4 = obs.vec4()
@@ -1769,7 +1811,7 @@ source_def.create = function(settings, source)
     data.effect = obs.gs_effect_create(EFFECT_SOURCE, "streampulse_pattern_effect", nil)
     if data.effect ~= nil then
         local names = {
-            "stamp_tex", "canvas_size", "stamp_size", "stamp_grid", "mode_code", "anim_time", "opacity",
+            "stamp_tex", "scene_tex", "scene_padding", "canvas_size", "stamp_size", "stamp_grid", "mode_code", "anim_time", "opacity",
             "bg_type", "bg_color", "bg_color2", "bg_color3", "bg_use_mid",
             "bg_angle_rad", "bg_center", "bg_radius", "bg_motion", "bg_motion_speed",
             "vignette_amt", "vignette_color",
@@ -1811,6 +1853,10 @@ source_def.destroy = function(data)
     if data.rt ~= nil then
         obs.gs_texrender_destroy(data.rt)
         data.rt = nil
+    end
+    if data.blur_rt ~= nil then
+        obs.gs_texrender_destroy(data.blur_rt)
+        data.blur_rt = nil
     end
     if data.dummy_tex ~= nil then
         obs.gs_texture_destroy(data.dummy_tex)
@@ -1965,6 +2011,49 @@ local function upload_effect_uniforms(data, prof)
     return draw_tex
 end
 
+local function prepare_blur_texture(data, prof)
+    local radius = tonumber((prof.filters or {}).blur) or 0.0
+    if radius <= 0.25 then return false end
+    if data.blur_ready then return true end
+    local pad = math.ceil(math.min(radius, 60.0)) + 1
+    local w = (data.width or 1920) + pad * 2
+    local h = (data.height or 1080) + pad * 2
+    if data.blur_rt == nil then data.blur_rt = obs.gs_texrender_create(obs.GS_RGBA, obs.GS_ZS_NONE) end
+    if data.blur_rt == nil then return false end
+    obs.gs_texrender_reset(data.blur_rt)
+    if not obs.gs_texrender_begin(data.blur_rt, w, h) then return false end
+    obs.gs_viewport_push()
+    obs.gs_projection_push()
+    obs.gs_matrix_push()
+    obs.gs_matrix_identity()
+    obs.gs_ortho(0.0, w, 0.0, h, -100.0, 100.0)
+    obs.gs_set_viewport(0, 0, w, h)
+    obs.gs_clear(obs.GS_CLEAR_COLOR, data._zero_v4, 0.0, 0)
+    obs.gs_blend_state_push()
+    obs.gs_blend_function(obs.GS_BLEND_ONE, obs.GS_BLEND_ZERO)
+    local draw_tex = upload_effect_uniforms(data, prof)
+    set_vec2(data._v2, data.params.scene_padding, pad, pad)
+    while obs.gs_effect_loop(data.effect, "DrawScene") do
+        obs.gs_draw_sprite(draw_tex, 0, w, h)
+    end
+    obs.gs_blend_state_pop()
+    obs.gs_matrix_pop()
+    obs.gs_projection_pop()
+    obs.gs_viewport_pop()
+    obs.gs_texrender_end(data.blur_rt)
+    local texture = obs.gs_texrender_get_texture(data.blur_rt)
+    if texture == nil then return false end
+    data.blur_ready = true
+    return true
+end
+
+local function bind_blur_texture(data, prof)
+    local radius = tonumber((prof.filters or {}).blur) or 0.0
+    local pad = math.ceil(math.min(radius, 60.0)) + 1
+    set_vec2(data._v2, data.params.scene_padding, pad, pad)
+    obs.gs_effect_set_texture(data.params.scene_tex, obs.gs_texrender_get_texture(data.blur_rt))
+end
+
 source_def.get_width = function(data)
     return data.width or 1920
 end
@@ -1975,6 +2064,7 @@ end
 
 source_def.video_tick = function(data, seconds)
     data.anim_time = (data.anim_time or 0) + (seconds or 0.016)
+    data.blur_ready = false
     local prof = resolve_active_profile(data)
     data.active_prof = prof
     if prof ~= nil then
@@ -1985,10 +2075,20 @@ source_def.video_tick = function(data, seconds)
         end
     end
 
-    if data.use_rt_fallback and data.effect ~= nil and prof ~= nil then
+    if data.blur_rt ~= nil and (prof == nil or (tonumber((prof.filters or {}).blur) or 0.0) <= 0.25
+        or (obs.obs_source_showing and not obs.obs_source_showing(data.context))) then
+        obs.obs_enter_graphics()
+        obs.gs_texrender_destroy(data.blur_rt)
+        data.blur_rt = nil
+        obs.obs_leave_graphics()
+    end
+
+    if data.use_rt_fallback and data.effect ~= nil and prof ~= nil
+        and (not obs.obs_source_showing or obs.obs_source_showing(data.context)) then
         local w = data.width or 1920
         local h = data.height or 1080
         obs.obs_enter_graphics()
+        local use_blur = prepare_blur_texture(data, prof)
         if data.rt == nil then
             data.rt = obs.gs_texrender_create(obs.GS_RGBA, obs.GS_ZS_NONE)
         end
@@ -2005,7 +2105,8 @@ source_def.video_tick = function(data, seconds)
                 obs.gs_blend_state_push()
                 obs.gs_blend_function(obs.GS_BLEND_ONE, obs.GS_BLEND_ZERO)
                 local draw_tex = upload_effect_uniforms(data, prof)
-                while obs.gs_effect_loop(data.effect, "Draw") do
+                if use_blur then bind_blur_texture(data, prof) end
+                while obs.gs_effect_loop(data.effect, use_blur and "DrawBlur" or "Draw") do
                     obs.gs_draw_sprite(draw_tex, 0, w, h)
                 end
                 obs.gs_blend_state_pop()
@@ -2044,10 +2145,12 @@ source_def.video_render = function(data, effect)
         return
     end
 
+    local use_blur = prepare_blur_texture(data, prof)
     local draw_tex = upload_effect_uniforms(data, prof)
+    if use_blur then bind_blur_texture(data, prof) end
     obs.gs_blend_state_push()
     obs.gs_blend_function(obs.GS_BLEND_ONE, obs.GS_BLEND_INVSRCALPHA)
-    while obs.gs_effect_loop(data.effect, "Draw") do
+    while obs.gs_effect_loop(data.effect, use_blur and "DrawBlur" or "Draw") do
         obs.gs_draw_sprite(draw_tex, 0, w, h)
     end
     obs.gs_blend_state_pop()

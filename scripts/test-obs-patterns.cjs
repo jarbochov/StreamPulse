@@ -263,6 +263,192 @@ describe('OBS Pattern Studio (Beta / Advanced)', () => {
         }
     });
 
+    it('matches the original blur kernel using padded two-pass rendering', async () => {
+        const source = fs.readFileSync(path.join(__dirname, '../public/js/obs-patterns/obs-patterns-studio.js'), 'utf8');
+        const vertex = source.match(/const VERT_GLSL = `([\s\S]*?)`;/)[1];
+        const fragment = source.match(/const FRAG_GLSL = `([\s\S]*?)`;/)[1];
+        const browser = await require('puppeteer').launch({ headless: true, args: ['--no-sandbox'] });
+        try {
+            const page = await browser.newPage();
+            const results = await page.evaluate(({ vertex, fragment }) => {
+                const canvas = document.createElement('canvas');
+                canvas.width = 320; canvas.height = 180;
+                const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true, antialias: false });
+                function shader(type, text) {
+                    const s = gl.createShader(type);
+                    gl.shaderSource(s, text); gl.compileShader(s);
+                    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw Error(gl.getShaderInfoLog(s));
+                    return s;
+                }
+                function program(define) {
+                    const p = gl.createProgram();
+                    gl.attachShader(p, shader(gl.VERTEX_SHADER, vertex));
+                    gl.attachShader(p, shader(gl.FRAGMENT_SHADER, define + fragment));
+                    gl.linkProgram(p);
+                    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw Error(gl.getProgramInfoLog(p));
+                    return p;
+                }
+                const direct = program(''), scene = program('#define SP_SCENE_PASS\n'), blur = program('#define SP_BLUR_PASS\n');
+                gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, gl.createTexture());
+                const stamp = new Uint8Array(32 * 32 * 4);
+                for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
+                    const i = (y * 32 + x) * 4;
+                    stamp[i] = x * 8; stamp[i + 1] = y * 8; stamp[i + 2] = 180;
+                    stamp[i + 3] = (x - 16) ** 2 + (y - 16) ** 2 < 180 ? 220 : 0;
+                }
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 32, 32, 0, gl.RGBA, gl.UNSIGNED_BYTE, stamp);
+                for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+                gl.activeTexture(gl.TEXTURE1);
+                const tex = gl.createTexture();
+                gl.bindTexture(gl.TEXTURE_2D, tex);
+                for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+                const fb = gl.createFramebuffer();
+                function setup(p, mode, radius, pad) {
+                    gl.useProgram(p);
+                    const loc = gl.getAttribLocation(p, 'a_pos');
+                    gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+                    const f = (name, value) => gl.uniform1f(gl.getUniformLocation(p, name), value);
+                    const v2 = (name, x, y) => gl.uniform2f(gl.getUniformLocation(p, name), x, y);
+                    const v4 = (name, x, y, z, a) => gl.uniform4f(gl.getUniformLocation(p, name), x, y, z, a);
+                    gl.uniform1i(gl.getUniformLocation(p, 'stamp_tex'), 0);
+                    gl.uniform1i(gl.getUniformLocation(p, 'scene_tex'), 1);
+                    v2('canvas_size', 320, 180); v2('scene_padding', pad, pad); v2('stamp_size', 32, 32);
+                    v4('proc_accent', 0.2, 0.6, 1, 1); v4('proc_secondary', 1, 0.2, 0.7, 1);
+                    v4('bg_color', 0.02, 0.04, 0.07, 0.7); v4('tile_tint', 1, 1, 1, 1);
+                    for (const [name, value] of Object.entries({
+                        mode_code: mode, has_stamp: mode, proc_preset: 3, proc_scale: 30, proc_spacing: 100,
+                        proc_density: 1, proc_line_w: 2, opacity: 1, bg_type: 1, flt_blur: radius,
+                        flt_brightness: 100, flt_contrast: 100, flt_saturate: 100, tile_count: 1,
+                        tile_size: 38, tile_gap: 6, tile_motion: 4, tile_speed: 6.5, tile_hue_mode: 3,
+                        tile_hue_speed: 14, tile_opacity: 1, tile_alt_opacity: 0.65, tile_alt_scale: 1, anim_time: 4
+                    })) f(name, value);
+                }
+                const pixels = () => {
+                    const result = new Uint8Array(canvas.width * canvas.height * 4);
+                    gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, result);
+                    return result;
+                };
+                const comparisons = [];
+                for (const mode of [0, 1]) for (const radius of [1, 15, 60]) {
+                    const pad = Math.ceil(radius) + 1, width = canvas.width + pad * 2, height = canvas.height + pad * 2;
+                    gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height);
+                    setup(direct, mode, radius, pad); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+                    const original = pixels();
+                    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, tex);
+                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+                    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+                    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+                    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw Error('Incomplete framebuffer');
+                    gl.viewport(0, 0, width, height);
+                    setup(scene, mode, radius, pad); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+                    gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height);
+                    setup(blur, mode, radius, pad); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+                    const actual = pixels();
+                    let delta = 0, visible = 0, edgeDelta = 0;
+                    for (let i = 0; i < original.length; i++) {
+                        const difference = Math.abs(original[i] - actual[i]);
+                        delta += difference;
+                        if (i < canvas.width * 4 || i >= original.length - canvas.width * 4) edgeDelta += difference;
+                        if (i % 4 === 3 && original[i]) visible++;
+                    }
+                    comparisons.push({ mode, radius, mean: delta / original.length, edge: edgeDelta / (canvas.width * 8), visible });
+                }
+                return { comparisons, error: gl.getError() };
+            }, { vertex, fragment });
+            assert.equal(results.error, 0);
+            for (const result of results.comparisons) {
+                assert.ok(result.visible > 100, JSON.stringify(result));
+                assert.ok(result.mean < 2 && result.edge < 2, JSON.stringify(result));
+            }
+        } finally {
+            await browser.close();
+        }
+    });
+
+    it('uses the two-pass blur in the real studio preview and returns to a single pass when disabled', async () => {
+        const state = JSON.parse(JSON.stringify(service.getState()));
+        const profile = state.profiles.find(p => p.id === state.activeProfileId);
+        profile.filters.blur = 15;
+        profile.procedural.motion = 'none';
+        profile.procedural.colorAnim = 'none';
+        profile.procedural.inPlace = 'none';
+        profile.procedural.spin = 'none';
+        const root = path.resolve(__dirname, '../public');
+        const app = http.createServer((req, res) => {
+            const pathname = new URL(req.url, 'http://localhost').pathname;
+            if (pathname === '/api/obs-patterns') {
+                res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(state)); return;
+            }
+            if (pathname === '/api/variables') {
+                res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"values":{}}'); return;
+            }
+            if (pathname === '/api/obs-patterns/obs-status') {
+                res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"connected":false}'); return;
+            }
+            const file = path.resolve(root, `.${pathname}`);
+            if (!file.startsWith(`${root}${path.sep}`)) { res.writeHead(404); res.end(); return; }
+            fs.readFile(file, (err, data) => {
+                if (err) { res.writeHead(404); res.end(); return; }
+                const ext = path.extname(file);
+                res.writeHead(200, { 'Content-Type': ext === '.js' ? 'text/javascript' : ext === '.css' ? 'text/css' : ext === '.html' ? 'text/html' : 'application/octet-stream' });
+                res.end(data);
+            });
+        });
+        await new Promise(resolve => app.listen(0, '127.0.0.1', resolve));
+        const browser = await require('puppeteer').launch({ headless: true, args: ['--no-sandbox'] });
+        try {
+            const page = await browser.newPage();
+            const errors = [];
+            page.on('pageerror', err => errors.push(err.message));
+            await page.evaluateOnNewDocument(() => {
+                window.__patternPasses = { scene: 0, output: 0, visible: false };
+                const original = window.WebGLRenderingContext.prototype.drawArrays;
+                const deleteFramebuffer = window.WebGLRenderingContext.prototype.deleteFramebuffer;
+                window.__deletedPatternFrames = 0;
+                window.WebGLRenderingContext.prototype.deleteFramebuffer = function (framebuffer) {
+                    if (this.canvas.id === 'op-preview-canvas' && framebuffer) window.__deletedPatternFrames++;
+                    return deleteFramebuffer.call(this, framebuffer);
+                };
+                window.WebGLRenderingContext.prototype.drawArrays = function (...args) {
+                    original.apply(this, args);
+                    if (this.canvas.id !== 'op-preview-canvas') return;
+                    if (this.getParameter(this.FRAMEBUFFER_BINDING)) window.__patternPasses.scene++;
+                    else {
+                        window.__patternPasses.output++;
+                        const pixel = new Uint8Array(4);
+                        this.readPixels(10, 10, 1, 1, this.RGBA, this.UNSIGNED_BYTE, pixel);
+                        window.__patternPasses.visible ||= pixel[3] > 0;
+                    }
+                };
+            });
+            await page.goto(`http://127.0.0.1:${app.address().port}/tools/obs-patterns.html#designer`);
+            await page.waitForFunction(() => window.__patternPasses.scene > 0 && window.__patternPasses.output > 0);
+            assert.equal(await page.evaluate(() => window.__patternPasses.visible), true);
+            await page.click('[data-op-tab="sources"]');
+            await page.waitForFunction(() => window.__deletedPatternFrames > 0);
+            await page.evaluate(() => { window.__patternPasses = { scene: 0, output: 0, visible: false }; });
+            await page.click('[data-op-tab="designer"]');
+            await page.waitForFunction(() => window.__patternPasses.scene > 0 && window.__patternPasses.output > 0);
+            const deletedBeforeDisable = await page.evaluate(() => window.__deletedPatternFrames);
+            await page.evaluate(() => {
+                window.__patternPasses = { scene: 0, output: 0, visible: false };
+                const input = document.getElementById('op-flt-blur');
+                input.value = '0';
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+            await page.waitForFunction(() => window.__patternPasses.output > 0);
+            assert.equal(await page.evaluate(() => window.__patternPasses.scene), 0);
+            assert.ok(await page.evaluate(() => window.__deletedPatternFrames) > deletedBeforeDisable);
+            assert.deepEqual(errors, []);
+        } finally {
+            await browser.close();
+            await new Promise(resolve => app.close(resolve));
+        }
+    });
+
     it('creates default profiles, manifest.json, and Metal-safe Lua input source script', () => {
         assert.equal(PATTERNS.length, 28);
         const state = service.getState();
