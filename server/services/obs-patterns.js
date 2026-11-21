@@ -758,7 +758,7 @@ float4 evalProceduralPattern(float2 px, float t) {
         float2 a = frac(p / r) * r - h;
         float2 b = frac((p - h) / r) * r - h;
         float2 gv = (dot(a, a) < dot(b, b)) ? a : b;
-        cell_id = floor((p - gv) / h);
+        cell_id = floor((p - gv) / h + 0.5);
         float sv = 1.0 + (hash21(cell_id) - 0.5) * (proc_size_var / 100.0) * 0.35;
         float2 rgv = rot2d(gv, spin_base * ((fmod(abs(cell_id.x + cell_id.y), 2.0) > 0.5) ? 1.0 : -1.0));
         float d = sdHex(rgv, hex_r * 0.86 * sv);
@@ -1011,7 +1011,7 @@ float4 evalProceduralPattern(float2 px, float t) {
         float2 a = frac(p / r) * r - h;
         float2 b = frac((p - h) / r) * r - h;
         float2 gv = (dot(a, a) < dot(b, b)) ? a : b;
-        cell_id = floor((p - gv) / h);
+        cell_id = floor((p - gv) / h + 0.5);
         float d_outer = sdHex(gv, outer_r);
         float wall_m = 1.0 - smoothstep(max(0.0, lw * 0.65 - 0.55), lw * 0.65 + 0.55, abs(d_outer));
         float inside = 1.0 - smoothstep(-0.65, 0.65, d_outer);
