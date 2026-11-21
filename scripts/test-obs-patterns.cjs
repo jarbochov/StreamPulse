@@ -190,7 +190,7 @@ describe('OBS Pattern Studio (Beta / Advanced)', () => {
         }
     });
 
-    it('renders continuous weave across phase boundaries for the New Test settings', async () => {
+    it('renders continuous weave across phase boundaries with varied tiles', async () => {
         const source = fs.readFileSync(path.join(__dirname, '../public/js/obs-patterns/obs-patterns-studio.js'), 'utf8');
         const vertex = source.match(/const VERT_GLSL = `([\s\S]*?)`;/)[1];
         const fragment = source.match(/const FRAG_GLSL = `([\s\S]*?)`;/)[1];
@@ -243,21 +243,34 @@ describe('OBS Pattern Studio (Beta / Advanced)', () => {
                 };
                 const deltas = [];
                 let visiblePixels = 0;
-                for (const track of [0, 7, 8]) {
-                    f('tile_track_mode', track);
-                    for (const cycle of [0.5, 1, 2, 6, 7]) {
-                        const t = cycle / 0.12;
-                        const a = draw(t - 0.0001), b = draw(t + 0.0001);
-                        let delta = 0;
-                        for (let i = 0; i < a.length; i++) delta += Math.abs(a[i] - b[i]);
-                        if (!visiblePixels) for (let i = 3; i < a.length; i += 4) if (a[i] > 0) visiblePixels++;
-                        deltas.push(delta / a.length);
+                for (const fixture of ['original', 'three-slots', 'jitter']) {
+                    if (fixture === 'three-slots') {
+                        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 2, 2, 0, gl.RGBA, gl.UNSIGNED_BYTE,
+                            new Uint8Array([255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255]));
+                        f('tile_count', 3);
+                    } else {
+                        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
+                            new Uint8Array(fixture === 'jitter' ? [180, 90, 30, 255] : [180, 180, 180, 255]));
+                        f('tile_count', 1);
+                    }
+                    f('tile_hue_jitter', fixture === 'jitter' ? 120 : 0);
+                    for (const track of [0, 7, 8]) {
+                        f('tile_track_mode', track);
+                        for (const cycle of [0.25, 0.5, 1, 1.25, 1.5, 2, 2.25, 6, 6.25, 7, 419.25, 419.5, 420]) {
+                            const t = cycle / 0.12;
+                            const epsilon = cycle >= 419 ? 0.005 : 0.0001;
+                            const a = draw(t - epsilon), b = draw(t + epsilon);
+                            let delta = 0;
+                            for (let i = 0; i < a.length; i++) delta += Math.abs(a[i] - b[i]);
+                            if (!visiblePixels) for (let i = 3; i < a.length; i += 4) if (a[i] > 0) visiblePixels++;
+                            deltas.push({ fixture, track, cycle, value: delta / a.length });
+                        }
                     }
                 }
                 return { deltas, visiblePixels };
             }, { vertex, fragment });
             assert.ok(result.visiblePixels > 100, 'fixture must render visible tiles');
-            assert.ok(result.deltas.every(delta => delta < 1), `Weave jumped at a phase boundary: ${result.deltas}`);
+            assert.deepEqual(result.deltas.filter(delta => delta.value >= (delta.cycle === 419.25 ? 4 : 1)), [], 'Weave jumped at a phase boundary');
         } finally {
             await browser.close();
         }

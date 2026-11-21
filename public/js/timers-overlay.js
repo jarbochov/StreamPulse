@@ -29,6 +29,8 @@
     let timerSettings = { sound_enabled: false, sound_volume: 0.35 };
     let prevCompletionState = false;
     let animationStarted = false;
+    let tickRaf = 0;
+    let tickTimer = 0;
 
     applyTheme();
     // URL parameters win over the saved theme, so reapply them once the theme has loaded.
@@ -56,9 +58,6 @@
         showPlaceholder('Add ?timer=your-stopwatch-id to the URL');
     }
 
-    let tickRaf = 0;
-    let tickTimer = 0;
-
     function cancelScheduledTick() {
         if (tickRaf) { cancelAnimationFrame(tickRaf); tickRaf = 0; }
         if (tickTimer) { clearTimeout(tickTimer); tickTimer = 0; }
@@ -66,6 +65,8 @@
 
     function isTimerActivelyTicking() {
         if (document.hidden || !timerState || timerState.visible === false) return false;
+        if (!namedTimerId && timerState.direction !== 'up'
+            && Date.now() - timerState.startedAt >= timerState.startingRemainingMs) return false;
         return timerState.state === 'running';
     }
 
@@ -85,8 +86,7 @@
     }
 
     function tick() {
-        tickRaf = 0;
-        tickTimer = 0;
+        cancelScheduledTick();
         render();
         scheduleNextTick();
     }

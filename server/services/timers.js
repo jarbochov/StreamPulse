@@ -411,6 +411,7 @@ function createTimerService({
                 timerStore.timers[id] = timer;
             }
             console.log(`[Timers] Loaded ${Object.keys(timerStore.timers).length} timers`);
+            startTimerTicker();
         } catch (err) {
             console.warn(`[Timers] Failed to load timers: ${err.message}`);
             timerStore = { settings: cloneJson(DEFAULT_TIMER_SETTINGS), timers: {} };

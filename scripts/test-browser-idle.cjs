@@ -75,7 +75,11 @@ function installFixture() {
     };
     window.fetch = (url, options = {}) => {
         state.requests.push(String(url));
-        const body = String(url).includes('/tournament') ? { tournament: clone(state.tournament) } : {};
+        const body = String(url).includes('/tournament') ? { tournament: clone(state.tournament) }
+            : String(url) === '/api/timers' ? { timers: { fictional: {
+                id: 'fictional', kind: 'countdown', state: 'running', visible: true,
+                startedAt: state.now, startingRemainingMs: 60000, remainingMs: 60000
+            } } } : {};
         return new Promise((resolve, reject) => {
             const release = () => resolve(new window.Response(JSON.stringify(body)));
             options.signal?.addEventListener('abort', () => reject(new window.DOMException('Fixture abort', 'AbortError')), { once: true });
@@ -121,7 +125,8 @@ function fixtureServer() {
         const url = new URL(req.url, 'http://fixture.local');
         if (url.pathname.startsWith('/fixture/')) {
             const file = url.pathname === '/fixture/polls' ? 'tools/polls.html'
-                : url.pathname === '/fixture/poll-tournament' ? 'overlays/poll-tournament.html' : 'overlays/tournament.html';
+                : url.pathname === '/fixture/poll-tournament' ? 'overlays/poll-tournament.html'
+                    : url.pathname === '/fixture/countdown' ? 'overlays/countdown.html' : 'overlays/tournament.html';
             const html = fs.readFileSync(path.join(rootDir, 'public', file), 'utf8');
             res.writeHead(200, { 'Content-Type': 'text/html' });
             res.end(html.replace('<head>', `<head><script>(${installFixture.toString()})();</script>`));
@@ -285,6 +290,31 @@ if (process.argv.includes('--safari-fixture')) {
             inactiveRetained: true, retiredRemoved: true, currentRetained: true,
             currentSlideRequests: 0, retiredSlideRequests: 1, lateTextRemoved: true, lateSlideRequests: 1
         }, 'full-model reconciliation keeps active/hidden-page sources, evicts retired selections, and ignores late retired cache loads');
+
+        const standalone = await open('countdown?seconds=2&showonend=message');
+        assert.equal(await standalone.$eval('#seconds', el => el.textContent), '02');
+        assert.deepEqual(await standalone.evaluate(async () => {
+            const f = window.idleFixture;
+            await f.advance(2100);
+            return [document.getElementById('complete-message').textContent, f.timers.size];
+        }), ["Time's Up!", 0], 'completed standalone countdowns must render and stop ticking');
+
+        for (const milliseconds of [false, true]) {
+            const countdown = await open(`countdown?timer=fictional&milliseconds=${milliseconds}`);
+            assert.deepEqual(await countdown.evaluate(async () => {
+                const f = window.idleFixture;
+                const timer = { id: 'fictional', kind: 'countdown', state: 'running', visible: true,
+                    startedAt: f.now, startingRemainingMs: 60000, remainingMs: 60000 };
+                const before = f.timers.size;
+                for (let i = 0; i < 3; i++) f.broadcast('timer-update', { timer });
+                const afterUpdates = f.timers.size;
+                await f.advance(250);
+                const afterTicks = f.timers.size;
+                f.broadcast('timer-update', { timer: { ...timer, state: 'paused' } });
+                return [before, afterUpdates, afterTicks, f.timers.size];
+            }), [1, 1, 1, 0], 'live updates must keep one timer loop and cancel it on pause');
+            await countdown.close();
+        }
         assert.deepEqual(errors, []);
     });
 }

@@ -1144,16 +1144,15 @@ float4 evalPatternTiles(float2 px, float t) {
         float ph = frac(cyc);
         float q = ph < 0.5 ? ph * 2.0 : (ph - 0.5) * 2.0;
         float eased = q < 0.5 ? 4.0 * q * q * q : 1.0 - pow(-2.0 * q + 2.0, 3.0) * 0.5;
-        float span = 2.0 * step_px * eased;
-        if (ph < 0.5) {
-            float ro = fmod(abs(floor(grid_p.y / step_px)), 2.0);
-            float rx_dir = (tile_track_mode >= 6.5) ? (ro < 0.5 ? 1.0 : 0.0) : (ro > 0.5 ? -1.0 : 1.0);
-            grid_p.x += span * rx_dir;
-        } else {
-            float co = fmod(abs(floor(grid_p.x / step_px)), 2.0);
-            float cy_dir = (tile_track_mode >= 6.5) ? (co > 0.5 ? 1.0 : 0.0) : (co > 0.5 ? -1.0 : 1.0);
-            grid_p.y += span * cy_dir;
-        }
+        float turns = fmod(floor(cyc), 420.0);
+        float x_progress = turns + (ph < 0.5 ? eased : 1.0);
+        float y_progress = turns + (ph < 0.5 ? 0.0 : eased);
+        float ro = fmod(abs(floor(grid_p.y / step_px)), 2.0);
+        float rx_dir = (tile_track_mode >= 6.5) ? (ro < 0.5 ? 1.0 : 0.0) : (ro > 0.5 ? -1.0 : 1.0);
+        grid_p.x += 2.0 * step_px * x_progress * rx_dir;
+        float co = fmod(abs(floor(grid_p.x / step_px)), 2.0);
+        float cy_dir = (tile_track_mode >= 6.5) ? (co > 0.5 ? 1.0 : 0.0) : (co > 0.5 ? -1.0 : 1.0);
+        grid_p.y += 2.0 * step_px * y_progress * cy_dir;
     }
 
     float row = floor(grid_p.y / step_px);
@@ -1167,6 +1166,10 @@ float4 evalPatternTiles(float2 px, float t) {
     }
     float col_idx = floor(grid_p.x / step_px);
     float2 cell_id = float2(col_idx, row);
+    if (tile_motion >= 3.5 && tile_motion < 4.5) {
+        // Match the 840-cell motion wrap; divisible by 2, 3 and 4 for parity and tile slots.
+        cell_id -= 840.0 * floor((cell_id + 420.0) / 840.0);
+    }
     float2 rnd = hash22(cell_id);
 
     float2 lp = (frac(grid_p / step_px) - 0.5) * step_px;

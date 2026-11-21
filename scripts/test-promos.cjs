@@ -15,6 +15,7 @@ const { createPromoRoutes } = require('../server/routes/promos');
 const { createOverlayRoutes } = require('../server/routes/overlays');
 const { createStaticRouter } = require('../server/static-router');
 const { createBackupService } = require('../server/services/backup');
+const { PATTERNS } = require('../shared/pattern-catalog.cjs');
 
 test('promo model preserves independent layouts and validates export-safe images and Twitch destinations', () => {
     const elements = clone(model.DEFAULT_ELEMENTS);
@@ -58,7 +59,7 @@ test('promo model preserves independent layouts and validates export-safe images
     assert.equal(model.background({ vignette: 140 }).vignette, 100);
     assert.equal(model.background({ motion: 'sweep' }).motion, 'sweep');
     assert.equal(model.background({ motion: 'unexpected' }).motion, 'none');
-    assert.equal(model.PATTERNS.length, 28, 'the model publishes the expanded pattern library');
+    assert.deepEqual(new Set(model.PATTERNS), new Set(PATTERNS), 'the model publishes the shared pattern library');
     assert.equal(model.normalize().background.vignette, 18, 'new promos start with a subtle vignette');
     assert.equal(model.normalize({ background: { mode: 'pattern', pattern: 'hexagons' } }).background.vignette, 0, 'existing layouts do not gain a vignette during migration');
     const fresh = model.normalize(), overlaps = (a, b) => a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
@@ -206,7 +207,9 @@ test('promo persistence, image references and actual studio export work without 
     await page.keyboard.press('ArrowRight');
     assert.equal(await page.$eval('#appearance-panel', el => el.hidden), false);
     await setField('#style-fields [data-path="background.mode"]', 'pattern');
-    assert.deepEqual(await page.$$eval('#style-fields [data-path="background.pattern"] option', options => options.map(option => option.value)), model.PATTERNS, 'every model pattern is available in the editor');
+    const patternOptions = await page.$$eval('#style-fields [data-path="background.pattern"] option', options => options.map(option => option.value));
+    assert.equal(patternOptions.length, model.PATTERNS.length, 'the editor has no duplicate patterns');
+    assert.deepEqual(new Set(patternOptions), new Set(model.PATTERNS), 'every model pattern is available in the editor');
     assert.equal(await page.$('#theme-gallery'), null);
     await page.focus('#tab-square');
     await page.keyboard.press('ArrowRight');

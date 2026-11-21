@@ -15,6 +15,35 @@ const { createAlertEngine } = require('../server/services/alerts.js');
 const { createCrmService } = require('../server/services/crm.js');
 const { createOverlayService } = require('../server/services/overlays.js');
 const { createOperatorService } = require('../server/services/operator.js');
+const { createTimerService } = require('../server/services/timers.js');
+
+test('reloading a running countdown restarts completion processing', async t => {
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-timer-restore-'));
+    const events = [];
+    const broadcasts = [];
+    const service = createTimerService({
+        dataDir,
+        onTimerEvent: event => events.push(event),
+        broadcastToOverlays: (type, data) => broadcasts.push({ type, data })
+    });
+    t.after(() => {
+        service.stopTimerTicker();
+        fs.rmSync(dataDir, { recursive: true, force: true });
+    });
+    service.startTimerTicker();
+    fs.writeFileSync(path.join(dataDir, 'timers.json'), JSON.stringify({
+        timers: { restored: {
+            id: 'restored', kind: 'countdown', state: 'running',
+            startedAt: Date.now() - 1000, remainingMs: 100, startingRemainingMs: 100
+        } }
+    }));
+    service.loadTimers();
+    await new Promise(resolve => setTimeout(resolve, 350));
+    assert.equal(service.getTimer('restored').state, 'completed');
+    assert.equal(events.length, 1);
+    assert.equal(events[0].timerId, 'restored');
+    assert.ok(broadcasts.some(message => message.type === 'timer-update' && message.data.timer.state === 'completed'));
+});
 
 test('Backup coverage includes all feature data files and reloads in-memory services upon restore', () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-backup-coverage-'));
