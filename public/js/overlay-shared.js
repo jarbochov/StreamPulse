@@ -7962,6 +7962,9 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
   function fitSpeakerBadge(node) {
     const card = node.querySelector(":scope > .sp-sb-card");
     if (!node.isConnected || !card || card.classList.contains("layout-avatar-only") || !card.clientHeight || !card.clientWidth) return;
+    const fitKey = `${card.clientWidth}x${card.clientHeight}:${card._speakerRenderKey || ""}`;
+    if (card._lastFitKey === fitKey) return;
+    card._lastFitKey = fitKey;
     const base = card._speakerBaseFontSize;
     const meta = card.querySelector(".sp-sb-meta");
     const content = [...card.querySelectorAll(".sp-sb-meta, .sp-sb-name, .sp-sb-row, .sp-sb-handle, .sp-sb-avatar-wrap, .sp-sb-eq-bars, .cspan-header-bar")];
@@ -8026,6 +8029,18 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     const hasHighlight = re.highlightBorder !== false;
     const hasPop = re.motionPop !== false;
     const hasDim = Boolean(re.dimWhenIdle);
+    if (layout === "avatar-only" && node._fitObserver) {
+      node._fitObserver.disconnect();
+      delete node._fitObserver;
+    }
+    const renderKey = JSON.stringify([b, s, Boolean(options.preview)]);
+    if (card._speakerRenderKey === renderKey && card.childElementCount > 0) {
+      card.classList.toggle("is-speaking", speaking);
+      card.classList.toggle("is-idle", !speaking);
+      return;
+    }
+    card._speakerRenderKey = renderKey;
+    card._lastFitKey = "";
     card.className = `sp-sb-card layout-${layout} ${speaking ? "is-speaking" : "is-idle"}${b.autoSize !== false ? " is-auto-size" : ""}${hasHighlight ? " has-highlight" : ""}${hasPop ? " has-pop" : ""}${hasDim ? " has-dim" : ""}`;
     card.style.setProperty("--sb-active-color", activeColor);
     card.style.setProperty("--sb-glow-spread", `${glowSpread}px`);

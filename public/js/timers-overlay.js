@@ -56,16 +56,49 @@
         showPlaceholder('Add ?timer=your-stopwatch-id to the URL');
     }
 
+    let tickRaf = 0;
+    let tickTimer = 0;
+
+    function cancelScheduledTick() {
+        if (tickRaf) { cancelAnimationFrame(tickRaf); tickRaf = 0; }
+        if (tickTimer) { clearTimeout(tickTimer); tickTimer = 0; }
+    }
+
+    function isTimerActivelyTicking() {
+        if (document.hidden || !timerState || timerState.visible === false) return false;
+        return timerState.state === 'running';
+    }
+
+    function scheduleNextTick() {
+        cancelScheduledTick();
+        if (!isTimerActivelyTicking()) return;
+        if (showMilliseconds) {
+            tickRaf = requestAnimationFrame(tick);
+        } else {
+            tickTimer = setTimeout(tick, 200);
+        }
+    }
+
     function startAnimation() {
-        if (animationStarted) return;
         animationStarted = true;
-        requestAnimationFrame(tick);
+        tick();
     }
 
     function tick() {
+        tickRaf = 0;
+        tickTimer = 0;
         render();
-        requestAnimationFrame(tick);
+        scheduleNextTick();
     }
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            cancelScheduledTick();
+        } else if (animationStarted) {
+            tick();
+        }
+    });
+    window.addEventListener('pagehide', cancelScheduledTick);
 
     function showPlaceholder(text) {
         overlay.classList.remove('hidden');
@@ -118,13 +151,18 @@
                 timerSettings = msg.data?.settings || timerSettings;
                 const next = msg.data?.timers?.[namedTimerId];
                 if (next) timerState = next;
+                if (animationStarted) tick();
             } else if (msg.type === 'timer-settings') {
                 timerSettings = msg.data || timerSettings;
             } else if (msg.type === 'timer-update') {
                 const next = msg.data?.timer;
-                if (next?.id === namedTimerId) timerState = next;
+                if (next?.id === namedTimerId) {
+                    timerState = next;
+                    if (animationStarted) tick();
+                }
             } else if (msg.type === 'timer-delete' && msg.data?.id === namedTimerId) {
                 timerState = null;
+                cancelScheduledTick();
                 showPlaceholder(`Timer "${namedTimerId}" was deleted`);
                 return;
             }
@@ -436,14 +474,24 @@
         } else if (mode === 'ring') {
             if (rebuild) {
                 altNode.innerHTML = `<svg class="ring-svg" viewBox="0 0 100 100"><circle class="ring-track" cx="50" cy="50" r="44"/><circle class="ring-fill" cx="50" cy="50" r="44" pathLength="100"/></svg><div class="ring-center"><div class="ring-time"></div><div class="ring-caption"></div></div>`;
+                altNode._ringChars = '';
+                altNode._ringOffset = '';
             }
             const text = visible.map((u, i) => (i === 0 && u === 'days' ? parts.values[u] : pad2(parts.values[u]))).join(':');
             setText(altNode.querySelector('.ring-time'), frac ? `${text}.${frac}` : text);
-            altNode.style.setProperty('--ring-chars', String((frac ? text.length + 3 : text.length)));
+            const nextChars = String((frac ? text.length + 3 : text.length));
+            if (altNode._ringChars !== nextChars) {
+                altNode._ringChars = nextChars;
+                altNode.style.setProperty('--ring-chars', nextChars);
+            }
             setText(altNode.querySelector('.ring-caption'), visible.map(u => u[0]).join(' : ').toUpperCase());
             const fill = altNode.querySelector('.ring-fill');
-            fill.style.strokeDasharray = '100 100';
-            fill.style.strokeDashoffset = String(100 - altFraction(live) * 100);
+            if (fill.style.strokeDasharray !== '100 100') fill.style.strokeDasharray = '100 100';
+            const nextOffset = String(100 - altFraction(live) * 100);
+            if (altNode._ringOffset !== nextOffset) {
+                altNode._ringOffset = nextOffset;
+                fill.style.strokeDashoffset = nextOffset;
+            }
         } else if (mode === 'flip') {
             if (rebuild) {
                 flipPrev = {};

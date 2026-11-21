@@ -86,7 +86,7 @@ function stepHistory(direction) {
     syncFields();
 }
 const changed = () => {
-    dirty = true; updateDirty(); syncThemeSelection();
+    dirty = true; updateDirty(); syncThemeSelection(); requestBackdrop();
     clearTimeout(histTimer); histTimer = setTimeout(pushHistory, 350);
 };
 
@@ -232,18 +232,23 @@ for (const [button, factor] of [['zoom-in', 1.25], ['zoom-out', .8]]) $(button).
 $('zoom-fit').addEventListener('click', () => { zoom = 1; applyScale(); });
 
 // The backdrop is cached on the canvas and redrawn only when it changes (or per frame when animated).
-let backdropKey = '', backdropBusy = false, backdropRaf = 0, hiddenIdleTimer = 0;
+let backdropKey = '', backdropBusy = false, backdropDirty = false, backdropRaf = 0, hiddenIdleTimer = 0;
 const startedAt = performance.now();
+function requestBackdrop() {
+    if (document.hidden) return;
+    if (backdropBusy) { backdropDirty = true; return; }
+    if (!backdropRaf) backdropRaf = requestAnimationFrame(backdropFrame);
+}
 async function backdropFrame(now) {
     backdropRaf = 0;
     if (document.hidden) return;
-    backdropRaf = requestAnimationFrame(backdropFrame);
-    if (backdropBusy) return;
+    if (backdropBusy) { backdropDirty = true; return; }
     const bg = design.background;
     const animate = (bg.mode === 'pattern' || (bg.mode === 'gradient' && bg.motion === 'rotate')) && bg.motion !== 'none' && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (animate) backdropRaf = requestAnimationFrame(backdropFrame);
     const key = JSON.stringify([ratio, bg, design.theme, design.colors]);
     if (!animate && key === backdropKey) return;
-    backdropBusy = true; backdropKey = key;
+    backdropBusy = true; backdropDirty = false; backdropKey = key;
     try {
         const canvas = await makeBackdrop(design, ratio, animate ? (now - startedAt) / 1000 : 0);
         const target = $('preview');
@@ -251,9 +256,14 @@ async function backdropFrame(now) {
         target.getContext('2d').drawImage(canvas, 0, 0);
     } catch (error) { status(error.message, true); }
     backdropBusy = false;
+    if (backdropDirty && !backdropRaf && !document.hidden) {
+        backdropDirty = false;
+        backdropRaf = requestAnimationFrame(backdropFrame);
+    }
 }
 document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
+        if (backdropRaf) { cancelAnimationFrame(backdropRaf); backdropRaf = 0; }
         clearTimeout(hiddenIdleTimer);
         hiddenIdleTimer = setTimeout(() => {
             if (!document.hidden) return;
@@ -267,10 +277,10 @@ document.addEventListener('visibilitychange', () => {
     } else {
         clearTimeout(hiddenIdleTimer);
         hiddenIdleTimer = 0;
-        if (!backdropRaf) backdropRaf = requestAnimationFrame(backdropFrame);
+        requestBackdrop();
     }
 });
-backdropRaf = requestAnimationFrame(backdropFrame);
+requestBackdrop();
 
 // ---- Layers ----
 function renderLayers() {
@@ -596,7 +606,7 @@ function syncFields() {
     }
     renderStyle(); renderLayers(); renderProps(); applyScale();
     nodes.forEach(node => node.remove()); nodes.clear(); renderEls();
-    updateDirty(); syncThemeSelection();
+    updateDirty(); syncThemeSelection(); requestBackdrop();
 }
 $('template').closest('label').querySelector('span').textContent = 'Starting composition';
 document.addEventListener('keydown', event => {

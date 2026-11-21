@@ -32,12 +32,16 @@ function createMusicService({ dataDir, getConfig, broadcastToOverlays }) {
     }
 
     // --- Apple Music (macOS only, via osascript) ---
+    let applePollInFlight = false;
+
     function runOsascript(lines, cb) {
         const args = lines.map(l => `-e '${l.replace(/'/g, "'\\''")}'`).join(' ');
-        exec(`osascript ${args}`, cb);
+        exec(`osascript ${args}`, { timeout: 4000 }, cb);
     }
 
     function pollAppleMusic() {
+        if (applePollInFlight) return;
+        applePollInFlight = true;
         runOsascript([
             'if application "Music" is running then',
             '  tell application "Music"',
@@ -60,6 +64,7 @@ function createMusicService({ dataDir, getConfig, broadcastToOverlays }) {
         ], (err, stdout) => {
             musicPolledAt = Date.now();
             if (err) {
+                applePollInFlight = false;
                 if (musicState.state !== 'stopped') {
                     resetState();
                 }
@@ -79,6 +84,7 @@ function createMusicService({ dataDir, getConfig, broadcastToOverlays }) {
             };
 
             if (newState.state === 'stopped') {
+                applePollInFlight = false;
                 if (musicState.state !== 'stopped') {
                     musicState = newState;
                     if (typeof broadcastToOverlays === 'function') broadcastToOverlays('music', musicState);
@@ -101,17 +107,20 @@ function createMusicService({ dataDir, getConfig, broadcastToOverlays }) {
                     'write artData to fRef',
                     'close access fRef'
                 ], (artErr) => {
+                    applePollInFlight = false;
                     newState.artworkUrl = artErr ? '' : '/api/music/artwork?t=' + Date.now();
                     musicState = newState;
                     if (typeof broadcastToOverlays === 'function') broadcastToOverlays('music', musicState);
                     console.log(`[Music] Now playing: ${musicState.track} — ${musicState.artist}`);
                 });
             } else if (stateChanged) {
+                applePollInFlight = false;
                 newState.artworkUrl = musicState.artworkUrl;
                 musicState = newState;
                 if (typeof broadcastToOverlays === 'function') broadcastToOverlays('music', musicState);
                 console.log(`[Music] State: ${musicState.state}`);
             } else {
+                applePollInFlight = false;
                 // Update position/duration silently (for progress bar)
                 musicState.position = newState.position;
                 musicState.duration = newState.duration;
@@ -224,6 +233,7 @@ function createMusicService({ dataDir, getConfig, broadcastToOverlays }) {
             insecureHTTPParser: true
         }, (res) => {
             if (res.statusCode !== 200) {
+                res.resume();
                 cb('');
                 return;
             }
@@ -277,17 +287,19 @@ function createMusicService({ dataDir, getConfig, broadcastToOverlays }) {
     function handleConfigChange(prevMusicConfig, nextMusicConfig) {
         const prevEnabled = !!prevMusicConfig?.enabled;
         const prevSource = prevMusicConfig?.source || 'apple_music';
+        const prevInterval = prevMusicConfig?.poll_seconds || 5;
         const nextEnabled = !!nextMusicConfig?.enabled;
         const nextSource = nextMusicConfig?.source || 'apple_music';
+        const nextInterval = nextMusicConfig?.poll_seconds || 5;
 
         if (nextEnabled && !prevEnabled) {
             startMusicPolling();
         } else if (!nextEnabled && prevEnabled) {
             stopMusicPolling();
             resetState();
-        } else if (nextEnabled && nextSource !== prevSource) {
+        } else if (nextEnabled && (nextSource !== prevSource || nextInterval !== prevInterval)) {
             stopMusicPolling();
-            resetState();
+            if (nextSource !== prevSource) resetState();
             startMusicPolling();
         }
     }

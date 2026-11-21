@@ -454,6 +454,7 @@ function createTimerService({
         const timer = buildTimerRecord(input);
         timerStore.timers[timer.id] = timer;
         saveTimers();
+        if (timer.kind === 'countdown' && timer.state === 'running') startTimerTicker();
         broadcastToOverlays('timer-update', { timer: buildTimerSnapshot(timer), settings: timerStore.settings });
         return timer;
     }
@@ -588,21 +589,30 @@ function createTimerService({
 
         markTimerUpdated(timer);
         saveTimers();
+        if (timer.kind === 'countdown' && timer.state === 'running') startTimerTicker();
         const snapshot = buildTimerSnapshot(timer);
         broadcastToOverlays('timer-update', { timer: snapshot, settings: timerStore.settings });
         if (eventType.value) fireTimerHttpAction(eventType.value, timer);
         return snapshot;
     }
 
+    function hasRunningCountdown() {
+        return Object.values(timerStore.timers).some(t => t.kind === 'countdown' && t.state === 'running');
+    }
+
     function startTimerTicker() {
-        if (timerTickHandle) return;
+        if (timerTickHandle || !hasRunningCountdown()) return;
         timerTickHandle = setInterval(() => {
             const now = Date.now();
             let changed = false;
+            let anyRunning = false;
             for (const timer of Object.values(timerStore.timers)) {
                 if (timer.kind !== 'countdown' || timer.state !== 'running') continue;
                 const remainingMs = computeCountdownRemaining(timer, now);
-                if (remainingMs > 0) continue;
+                if (remainingMs > 0) {
+                    anyRunning = true;
+                    continue;
+                }
                 timer.state = 'completed';
                 timer.startedAt = null;
                 timer.remainingMs = 0;
@@ -617,6 +627,7 @@ function createTimerService({
                 changed = true;
             }
             if (changed) saveTimers();
+            if (!anyRunning) stopTimerTicker();
         }, 250);
     }
 

@@ -805,6 +805,7 @@
             } else if (element.type === 'random-text') {
                 setRandomText(existingNode, element);
                 const interval = Math.max(1, Number(element.random?.intervalSeconds) || 5) * 1000;
+                clearInterval(randomTimers.get(element.id));
                 randomTimers.set(element.id, setInterval(() => {
                     if (!document.hidden) setRandomText(existingNode, element);
                 }, interval));
@@ -978,6 +979,7 @@
             } else if (element.type === 'random-text') {
                 setRandomText(node, element);
                 const interval = Math.max(1, Number(element.random?.intervalSeconds) || 5) * 1000;
+                clearInterval(randomTimers.get(element.id));
                 randomTimers.set(element.id, setInterval(() => {
                     if (!document.hidden) setRandomText(node, element);
                 }, interval));
@@ -1685,19 +1687,25 @@
                 }
             } catch {}
         });
-        socket.addEventListener('close', () => { if (!closing) setTimeout(connect, 2000); });
+        socket.addEventListener('close', () => {
+            if (!closing) {
+                clearTimeout(reconnectTimer);
+                reconnectTimer = setTimeout(connect, 2000);
+            }
+        });
     }
 
+    let reconnectTimer = 0;
     load().catch(error => {
         root.textContent = error.message;
         root.style.color = '#f85149';
     });
-    setInterval(async () => {
+    const textSourceTimer = setInterval(async () => {
         if (document.hidden) return;
         if (currentOverlay && await shared.refreshTextSources(currentOverlay.elements)) render(currentOverlay);
     }, 3000);
-    setInterval(refreshStatus, 5000);
-    setInterval(tickPlaceholders, 1000);
+    const statusPollTimer = setInterval(refreshStatus, 5000);
+    const placeholderTickTimer = setInterval(tickPlaceholders, 1000);
 
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
@@ -1717,8 +1725,6 @@
                     playVideoElement(v);
                 }
             });
-            tickPlaceholders();
-            refreshStatus();
             if (currentOverlay && shared.refreshTextSources) {
                 shared.refreshTextSources(currentOverlay.elements).then(changed => {
                     if (changed && currentOverlay) render(currentOverlay);
@@ -1895,7 +1901,17 @@
     // Tear everything down on close so Safari doesn't unload live videos, iframes and timers all at once.
     addEventListener('pagehide', () => {
         closing = true;
+        clearTimeout(reconnectTimer);
+        clearInterval(textSourceTimer);
+        clearInterval(statusPollTimer);
+        clearInterval(placeholderTickTimer);
+        clearTimeout(pageSwitchTimer);
+        for (const timer of randomTimers.values()) clearInterval(timer);
+        randomTimers.clear();
+        clearVarRotTimers();
+        stopSlideshows();
         stopAlerts();
+        for (const node of elementNodes.values()) shared.cleanupNode(node);
         try { liveSocket?.close(); } catch {}
         root.querySelectorAll('video, audio').forEach(media => { try { media.pause(); media.removeAttribute('src'); media.load(); } catch {} });
         root.querySelectorAll('iframe').forEach(frame => { frame.src = 'about:blank'; });

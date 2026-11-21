@@ -1256,12 +1256,27 @@
                 mask = evalShapeMask(sdHex(rgv, hex_r * 0.86 * sv), lw);
             } else if (proc_preset < 4.5) {
                 float step_px = 58.0 * elem_s * sp;
-                cell_id = floor(p / step_px);
-                vec2 rnd = hash22(cell_id);
-                vec2 lp = (fract(p / step_px) - 0.5) * step_px - (rnd - 0.5) * (proc_scatter / 100.0) * step_px * 0.4;
-                lp = rot2d(lp, spin_base + (rnd.y - 0.5) * (proc_rot_var / 100.0) * 1.5);
-                float sz = (58.0 * elem_s) * (0.34 + (rnd.x - 0.5) * (proc_size_var / 100.0) * 0.22);
-                mask = evalShapeMask((abs(lp.x) + abs(lp.y)) * 0.7071 - sz, lw);
+                vec2 gf = p / step_px;
+                vec2 base_cell = floor(gf);
+                vec2 f = fract(gf);
+                vec2 q = vec2(f.x < 0.5 ? -1.0 : 1.0, f.y < 0.5 ? -1.0 : 1.0);
+                mask = 0.0;
+                cell_id = base_cell;
+                for (int dy = 0; dy <= 1; dy++) {
+                    for (int dx = 0; dx <= 1; dx++) {
+                        vec2 off = vec2(float(dx) * q.x, float(dy) * q.y);
+                        vec2 cid = base_cell + off;
+                        vec2 rnd = hash22(cid);
+                        vec2 lp = (f - off - 0.5) * step_px - (rnd - 0.5) * (proc_scatter / 100.0) * step_px * 0.4;
+                        lp = rot2d(lp, spin_base + (rnd.y - 0.5) * (proc_rot_var / 100.0) * 1.5);
+                        float sz = (58.0 * elem_s) * (0.28 + (rnd.x - 0.5) * (proc_size_var / 100.0) * 0.18);
+                        float m = evalShapeMask((abs(lp.x) + abs(lp.y)) * 0.7071 - sz, lw);
+                        if (m > mask) {
+                            mask = m;
+                            cell_id = cid;
+                        }
+                    }
+                }
             } else if (proc_preset < 5.5) {
                 float step_px = 64.0 * elem_s * sp;
                 cell_id = floor(p / step_px);
@@ -1286,13 +1301,28 @@
                 mask = 1.0 - smoothstep(max(0.0, lw * 0.8 - 0.55), lw * 0.8 + 0.55, abs(sector - 0.5) * (length(cp) * 6.2831853 / rays));
             } else if (proc_preset < 8.5) {
                 float step_px = 68.0 * elem_s * sp;
-                cell_id = floor(p / step_px);
-                vec2 rnd = hash22(cell_id);
-                vec2 lp = (fract(p / step_px) - 0.5) * step_px - (rnd - 0.5) * (proc_scatter / 100.0) * step_px * 0.35;
-                float flip = mod(abs(cell_id.x + cell_id.y), 2.0) * 2.0 - 1.0;
-                lp = rot2d(lp, spin_base * flip + (rnd.y - 0.5) * (proc_rot_var / 100.0) * 1.2);
-                float sv = 1.0 + (rnd.x - 0.5) * (proc_size_var / 100.0) * 0.4;
-                mask = evalShapeMask(sdTri(lp * vec2(1.0, flip), (68.0 * elem_s) * 0.34 * sv), lw);
+                vec2 gf = p / step_px;
+                vec2 base_cell = floor(gf);
+                vec2 f = fract(gf);
+                vec2 q = vec2(f.x < 0.5 ? -1.0 : 1.0, f.y < 0.5 ? -1.0 : 1.0);
+                mask = 0.0;
+                cell_id = base_cell;
+                for (int dy = 0; dy <= 1; dy++) {
+                    for (int dx = 0; dx <= 1; dx++) {
+                        vec2 off = vec2(float(dx) * q.x, float(dy) * q.y);
+                        vec2 cid = base_cell + off;
+                        vec2 rnd = hash22(cid);
+                        vec2 lp = (f - off - 0.5) * step_px - (rnd - 0.5) * (proc_scatter / 100.0) * step_px * 0.35;
+                        float flip = mod(abs(cid.x + cid.y), 2.0) * 2.0 - 1.0;
+                        lp = rot2d(lp, spin_base * flip + (rnd.y - 0.5) * (proc_rot_var / 100.0) * 1.2);
+                        float sv = 1.0 + (rnd.x - 0.5) * (proc_size_var / 100.0) * 0.4;
+                        float m = evalShapeMask(sdTri(lp * vec2(1.0, flip), (68.0 * elem_s) * 0.30 * sv), lw);
+                        if (m > mask) {
+                            mask = m;
+                            cell_id = cid;
+                        }
+                    }
+                }
             } else if (proc_preset < 9.5) {
                 float step_px = 52.0 * s * sp / dens;
                 float zig = abs(fract(p.x / (step_px * 1.5)) - 0.5) * step_px;
@@ -1336,32 +1366,84 @@
                 mask = 1.0 - smoothstep(max(0.0, lw * 0.5 - 0.55), lw * 0.5 + 0.55, abs(fract(band) - 0.5) / bands * 140.0);
             } else if (proc_preset < 15.5) {
                 float step_px = 58.0 * elem_s * sp;
-                cell_id = floor(p / step_px);
-                vec2 rnd = hash22(cell_id);
-                float scatter_f = 0.25 + 0.5 * (proc_scatter / 100.0);
-                vec2 lp = (fract(p / step_px) - mix(vec2(0.5), rnd, scatter_f)) * step_px;
-                vec2 rlp = rot2d(lp, spin_base * ((rnd.y > 0.5) ? 1.0 : -1.0) + (rnd.x - 0.5) * (proc_rot_var / 100.0) * 1.5);
-                float sz_mul = 1.0 + (rnd.y - 0.5) * (proc_size_var / 100.0) * 0.85;
-                float tw = (proc_inplace_mode > 0.5) ? (0.45 + 0.55 * sin(t_ip * (2.0 + rnd.y * 4.0) + rnd.x * 12.0)) : 1.0;
-                float m_star = evalShapeMask(sdFourStar(rlp, (5.5 + rnd.x * 7.5) * s * sz_mul), max(0.8, lw * 0.65));
-                float m_dot = evalShapeMask(length(lp) - (1.8 + rnd.x * 1.4) * s * sz_mul, max(0.8, lw * 0.6));
-                mask = (rnd.x > 0.68 ? m_star : m_dot) * tw * step(0.26, rnd.x);
+                vec2 gf = p / step_px;
+                vec2 base_cell = floor(gf);
+                vec2 f = fract(gf);
+                vec2 q = vec2(f.x < 0.5 ? -1.0 : 1.0, f.y < 0.5 ? -1.0 : 1.0);
+                float scatter_f = 0.25 + 0.45 * (proc_scatter / 100.0);
+                mask = 0.0;
+                cell_id = base_cell;
+                for (int dy = 0; dy <= 1; dy++) {
+                    for (int dx = 0; dx <= 1; dx++) {
+                        vec2 off = vec2(float(dx) * q.x, float(dy) * q.y);
+                        vec2 cid = base_cell + off;
+                        vec2 rnd = hash22(cid);
+                        if (rnd.x < 0.26) continue;
+                        vec2 lp = (f - off - mix(vec2(0.5), rnd, scatter_f)) * step_px;
+                        float sz_mul = 1.0 + (rnd.y - 0.5) * (proc_size_var / 100.0) * 0.85;
+                        float tw = (proc_inplace_mode > 0.5) ? (0.45 + 0.55 * sin(t_ip * (2.0 + rnd.y * 4.0) + rnd.x * 12.0)) : 1.0;
+                        float m = 0.0;
+                        if (rnd.x > 0.68) {
+                            vec2 rlp = rot2d(lp, spin_base * ((rnd.y > 0.5) ? 1.0 : -1.0) + (rnd.x - 0.5) * (proc_rot_var / 100.0) * 1.5);
+                            float star_r = min(step_px * 0.42, (5.5 + rnd.x * 7.5) * elem_s * sz_mul);
+                            m = evalShapeMask(sdFourStar(rlp, star_r), max(0.8, lw * 0.65)) * tw;
+                        } else {
+                            float dot_r = min(step_px * 0.35, (1.8 + rnd.x * 1.4) * elem_s * sz_mul);
+                            m = evalShapeMask(length(lp) - dot_r, max(0.8, lw * 0.6)) * tw;
+                        }
+                        if (m > mask) {
+                            mask = m;
+                            cell_id = cid;
+                        }
+                    }
+                }
             } else if (proc_preset < 16.5) {
                 float step_px = 76.0 * elem_s * sp;
-                cell_id = floor(p / step_px);
-                vec2 rnd = hash22(cell_id);
-                vec2 lp = (fract(p / step_px) - (0.24 + rnd * 0.52)) * step_px;
-                lp = rot2d(lp, spin_base + (rnd.x - 0.5) * (proc_rot_var / 100.0) * 1.8);
-                float sz = (9.5 + rnd.x * 11.0 * (1.0 + proc_size_var / 100.0 * 0.6)) * s;
-                float tw = (proc_inplace_mode > 0.5) ? (0.35 + 0.65 * pow(0.5 + 0.5 * sin(t_ip * 3.0 + rnd.y * 10.0), 1.6)) : 1.0;
-                mask = evalShapeMask(sdFourStar(lp, sz), max(1.0, lw * 0.75)) * tw * step(0.32, rnd.y);
+                vec2 gf = p / step_px;
+                vec2 base_cell = floor(gf);
+                vec2 f = fract(gf);
+                vec2 q = vec2(f.x < 0.5 ? -1.0 : 1.0, f.y < 0.5 ? -1.0 : 1.0);
+                mask = 0.0;
+                cell_id = base_cell;
+                for (int dy = 0; dy <= 1; dy++) {
+                    for (int dx = 0; dx <= 1; dx++) {
+                        vec2 off = vec2(float(dx) * q.x, float(dy) * q.y);
+                        vec2 cid = base_cell + off;
+                        vec2 rnd = hash22(cid);
+                        if (rnd.y < 0.32) continue;
+                        vec2 lp = (f - off - (0.24 + rnd * 0.52)) * step_px;
+                        lp = rot2d(lp, spin_base + (rnd.x - 0.5) * (proc_rot_var / 100.0) * 1.8);
+                        float sz = min(step_px * 0.42, (9.5 + rnd.x * 11.0 * (1.0 + proc_size_var / 100.0 * 0.6)) * elem_s);
+                        float tw = (proc_inplace_mode > 0.5) ? (0.35 + 0.65 * pow(0.5 + 0.5 * sin(t_ip * 3.0 + rnd.y * 10.0), 1.6)) : 1.0;
+                        float m = evalShapeMask(sdFourStar(lp, sz), max(1.0, lw * 0.75)) * tw;
+                        if (m > mask) {
+                            mask = m;
+                            cell_id = cid;
+                        }
+                    }
+                }
             } else if (proc_preset < 17.5) {
                 float step_px = 42.0 * elem_s * sp;
-                cell_id = floor(p / step_px);
-                vec2 rnd = hash22(cell_id);
-                vec2 lp = (fract(p / step_px) - 0.5) * step_px - (rnd - 0.5) * (proc_scatter / 100.0) * step_px * 0.55;
-                float rad = (5.5 + (rnd.x - 0.5) * (proc_size_var / 100.0) * 6.0) * elem_s;
-                mask = evalShapeMask(length(lp) - rad, lw);
+                vec2 gf = p / step_px;
+                vec2 base_cell = floor(gf);
+                vec2 f = fract(gf);
+                vec2 q = vec2(f.x < 0.5 ? -1.0 : 1.0, f.y < 0.5 ? -1.0 : 1.0);
+                mask = 0.0;
+                cell_id = base_cell;
+                for (int dy = 0; dy <= 1; dy++) {
+                    for (int dx = 0; dx <= 1; dx++) {
+                        vec2 off = vec2(float(dx) * q.x, float(dy) * q.y);
+                        vec2 cid = base_cell + off;
+                        vec2 rnd = hash22(cid);
+                        vec2 lp = (f - off - 0.5) * step_px - (rnd - 0.5) * (proc_scatter / 100.0) * step_px * 0.55;
+                        float rad = min(step_px * 0.42, (5.5 + (rnd.x - 0.5) * (proc_size_var / 100.0) * 6.0) * elem_s);
+                        float m = evalShapeMask(length(lp) - rad, lw);
+                        if (m > mask) {
+                            mask = m;
+                            cell_id = cid;
+                        }
+                    }
+                }
             } else if (proc_preset >= 18.5 && proc_preset < 19.5) {
                 float step_px = 72.0 * elem_s * sp;
                 cell_id = floor(p / step_px);
