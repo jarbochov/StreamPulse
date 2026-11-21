@@ -6,13 +6,16 @@
         const spMult = Math.max(0.5, Math.min(3, (Number(spacing) || 100) / 100));
         const d2 = Math.sqrt(dens);
         if (preset === 'confetti') return { width: 1024, height: 1024, cols: 0, rows: 0 };
+        if (preset === 'football-field') {
+            const cols = Math.max(4, Math.round((20 * d2) / spMult));
+            return { width: 1920, height: 1080, cols: cols % 2 === 0 ? cols : cols + 1, rows: 1 };
+        }
         const map = {
             leaves: { baseCols: 11, aspect: 0.86 },
             turkeys: { baseCols: 8.5, aspect: 0.94 },
             pumpkins: { baseCols: 10, aspect: 0.88 },
             'christmas-trees': { baseCols: 10, aspect: 0.95 },
             evergreens: { baseCols: 10, aspect: 0.92 },
-            'football-field': { baseCols: 10, aspect: 0.85, multipleOf: 2 },
             'christmas-lights': { baseCols: 18, aspect: 0.96, multipleOf: 3 },
             snowflakes: { baseCols: 10, aspect: 0.86 },
             hearts: { baseCols: 11, aspect: 0.88 },

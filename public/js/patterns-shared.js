@@ -2492,10 +2492,11 @@
                 }
             }
         } else if (pattern === 'football-field') {
-            // Gridiron football field: alternating 5-yard turf stripes, yard lines, hash marks, yard numbers & directional arrows
-            const stripeCols = isSeamless ? Math.max(2, wCols) : Math.max(6, Math.round(10 * dens2D));
-            const stripeW = isSeamless ? (fullWidth / stripeCols) : (Math.max(48, fullWidth / (10 * dens2D)) * spacingMult);
-            const pitchH = isSeamless ? fullHeight : (Math.max(240, fullHeight / Math.max(0.5, dens2D * 0.85)) * spacingMult);
+            // Gridiron football field: full 100-yard (20 x 5-yard) field fitted to 1920x1080 and stretched vertically
+            const rawCols = isSeamless ? Math.max(4, wCols) : Math.max(4, Math.round((20 * dens2D) / spacingMult));
+            const stripeCols = rawCols % 2 === 0 ? rawCols : rawCols + 1;
+            const stripeW = fullWidth / stripeCols;
+            const pitchH = fullHeight;
             const cStart = isSeamless ? -1 : (Math.floor(minX / stripeW) - 1);
             const cEnd = isSeamless ? (stripeCols + 1) : (Math.ceil(maxX / stripeW) + 1);
             const rStart = isSeamless ? 0 : (Math.floor((minY - fallDy) / pitchH) - 1);
@@ -2517,31 +2518,31 @@
             for (let row = rStart; row <= rEnd; row++) {
                 const topY = row * pitchH + fallDy;
                 const botY = topY + pitchH;
-                const sidePad = pitchH * 0.05;
+                const sidePad = Math.max(2, baseLineW * 0.8);
                 const fieldTop = topY + sidePad;
                 const fieldBot = botY - sidePad;
                 const fieldH = Math.max(40, fieldBot - fieldTop);
                 const hashUpperY = fieldTop + fieldH * 0.36;
                 const hashLowerY = fieldTop + fieldH * 0.64;
-                const numUpperY = fieldTop + fieldH * 0.17;
-                const numLowerY = fieldTop + fieldH * 0.83;
+                const numUpperY = fieldTop + fieldH * 0.15;
+                const numLowerY = fieldTop + fieldH * 0.85;
                 const pulse = hasInPlaceAnim ? (0.84 + 0.16 * Math.sin(inPlacePhase * 1.4 + row * 0.5)) : 1;
 
                 for (let col = cStart; col <= cEnd; col++) {
-                    const wCol = ((col % 10) + 10) % 10;
+                    const wCol = ((col % 20) + 20) % 20;
                     const x0 = col * stripeW + fallSwayX;
                     const x1 = x0 + stripeW;
                     const cIdx = getCellColorIndex(row, wCol, x0 + stripeW * 0.5, topY + pitchH * 0.5, wCol);
                     const turfCol = getPatternColor(palette, cIdx, accent, secondary);
                     const lineCol = toChalkLineColor(getPatternColor(palette, cIdx + 1, secondary, accent));
 
-                    // 1. Alternating 5-yard mowed turf bands
+                    // 1. Alternating 5-yard mowed turf bands stretched across the full vertical height
                     if (options.fillMode !== 'outline') {
                         const baseFill = hasFill ? Number.parseInt(fillHex, 16) : 0x38;
                         const bandMult = (Math.abs(col) % 2 === 0) ? 0.85 : 0.42;
                         const bandAlpha = Math.max(10, Math.min(240, Math.round(baseFill * bandMult * pulse))).toString(16).padStart(2, '0');
                         ctx.fillStyle = withAlpha(turfCol, bandAlpha);
-                        ctx.fillRect(x0, fieldTop, stripeW + 0.5, fieldH);
+                        ctx.fillRect(x0, topY, stripeW + 0.5, pitchH);
                     }
 
                     // 2. Vertical 5-yard line at x0 (every even column is a 10-yard numbered line)
