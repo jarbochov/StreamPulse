@@ -1490,9 +1490,9 @@
             return vec4(clamp(col.rgb * shade_mul, 0.0, 1.0) * out_a, out_a);
         }
         vec4 sampleTileStamp(vec2 uv, float slot_idx) {
-            if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return vec4(0.0);
+            if (uv.x < -0.0001 || uv.x > 1.0001 || uv.y < -0.0001 || uv.y > 1.0001) return vec4(0.0);
             if (has_stamp > 0.5) {
-                vec2 suv = uv;
+                vec2 suv = clamp(uv, 0.0, 1.0);
                 if (tile_count > 1.5) {
                     float n = clamp(tile_count, 1.0, 4.0);
                     float si = floor(mod(abs(slot_idx), n));
@@ -2693,7 +2693,8 @@
 
     async function drawSlotIntoCell(ctx, slot, ox, oy, cellSize) {
         const sc = Math.max(0.25, Math.min(2.0, (Number(slot.scale ?? 100) || 100) / 100));
-        const inner = (cellSize - 16) * sc;
+        const pad = Math.round(cellSize * (16 / 256));
+        const inner = (cellSize - pad) * sc;
         const cx = ox + cellSize / 2;
         const cy = oy + cellSize / 2;
 
@@ -2705,10 +2706,27 @@
                 i.onerror = reject;
                 i.src = slot.src;
             });
-            const s = Math.min(inner / Math.max(1, img.width), inner / Math.max(1, img.height));
-            const dw = img.width * s;
-            const dh = img.height * s;
+            const iw = Math.max(1, img.naturalWidth || img.width || 1);
+            const ih = Math.max(1, img.naturalHeight || img.height || 1);
+            const target = cellSize * sc;
+            let dw;
+            let dh;
+            if (Math.abs(iw - ih) <= Math.max(2, Math.round(Math.max(iw, ih) * 0.015))) {
+                dw = target;
+                dh = target;
+            } else {
+                const s = Math.min(target / iw, target / ih);
+                dw = iw * s;
+                dh = ih * s;
+            }
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(ox, oy, cellSize, cellSize);
+            ctx.clip();
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
             ctx.drawImage(img, cx - dw / 2, cy - dh / 2, dw, dh);
+            ctx.restore();
             return;
         }
 
@@ -2781,12 +2799,12 @@
         try {
             const isAtlas = slots.length > 1;
             const c = document.createElement('canvas');
-            c.width = isAtlas ? 512 : 256;
-            c.height = isAtlas ? 512 : 256;
+            c.width = 512;
+            c.height = 512;
             const ctx = c.getContext('2d');
             ctx.clearRect(0, 0, c.width, c.height);
             if (!isAtlas) {
-                await drawSlotIntoCell(ctx, slots[0], 0, 0, 256);
+                await drawSlotIntoCell(ctx, slots[0], 0, 0, 512);
             } else {
                 for (let i = 0; i < Math.min(4, slots.length); i++) {
                     const qx = (i % 2) * 256;

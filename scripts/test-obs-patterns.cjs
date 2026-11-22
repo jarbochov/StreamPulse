@@ -831,4 +831,103 @@ describe('OBS Pattern Studio (Beta / Advanced)', () => {
         assert.ok(!lua.includes('max(0.3, tile_speed'), 'Tile pong shader must not enforce a 0.3 minimum speed floor');
         assert.ok(!lua.includes('max(0.12, tile_speed'), 'Tile carousel shader must not enforce a 0.12 minimum speed floor');
     });
+
+    it('bakes uploaded near-square image tiles edge-to-edge with zero gap when tile gap is 0', async () => {
+        const source = fs.readFileSync(path.join(__dirname, '../public/js/obs-patterns/obs-patterns-studio.js'), 'utf8');
+        const vertex = source.match(/const VERT_GLSL = `([\s\S]*?)`;/)[1];
+        const fragment = source.match(/const FRAG_GLSL = `([\s\S]*?)`;/)[1];
+        const drawSlotMatch = source.match(/async function drawSlotIntoCell\(ctx, slot, ox, oy, cellSize\) \{[\s\S]*?\n    \}/);
+        assert.ok(drawSlotMatch, 'drawSlotIntoCell helper must exist in obs-patterns-studio.js');
+        const browser = await require('puppeteer').launch({ headless: true, args: ['--no-sandbox'] });
+        try {
+            const page = await browser.newPage();
+            const result = await page.evaluate(async ({ vertex, fragment, drawSlotCode }) => {
+                const drawSlotIntoCell = new Function(`return (${drawSlotCode});`)();
+
+                // Near-square 200x201 solid crimson PNG source (mirrors 1000x1001 uploads)
+                const srcCanvas = document.createElement('canvas');
+                srcCanvas.width = 200;
+                srcCanvas.height = 201;
+                const sctx = srcCanvas.getContext('2d');
+                sctx.fillStyle = '#cc1122';
+                sctx.fillRect(0, 0, 200, 201);
+                const nearSquareUrl = srcCanvas.toDataURL('image/png');
+
+                // 1) Single-slot 512x512 stamp must fill all edges at scale=100 (min alpha === 255)
+                const stampCanvas = document.createElement('canvas');
+                stampCanvas.width = 512;
+                stampCanvas.height = 512;
+                const ctx = stampCanvas.getContext('2d');
+                await drawSlotIntoCell(ctx, { sourceType: 'image', src: nearSquareUrl, scale: 100 }, 0, 0, 512);
+                const stampPixels = ctx.getImageData(0, 0, 512, 512).data;
+                let minEdgeAlpha = 255;
+                for (let i = 0; i < 512; i++) {
+                    minEdgeAlpha = Math.min(
+                        minEdgeAlpha,
+                        stampPixels[(0 * 512 + i) * 4 + 3],
+                        stampPixels[(511 * 512 + i) * 4 + 3],
+                        stampPixels[(i * 512 + 0) * 4 + 3],
+                        stampPixels[(i * 512 + 511) * 4 + 3]
+                    );
+                }
+
+                // 2) Render WebGL shader with bg=#00ff00, tileGap=0, tileSize=500 -> zero green background should bleed through
+                const glCanvas = document.createElement('canvas');
+                glCanvas.width = 320;
+                glCanvas.height = 180;
+                const gl = glCanvas.getContext('webgl', { preserveDrawingBuffer: true });
+                const compile = (type, src) => {
+                    const sh = gl.createShader(type);
+                    gl.shaderSource(sh, src);
+                    gl.compileShader(sh);
+                    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
+                    return sh;
+                };
+                const prog = gl.createProgram();
+                gl.attachShader(prog, compile(gl.VERTEX_SHADER, vertex));
+                gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, fragment));
+                gl.linkProgram(prog);
+                gl.useProgram(prog);
+                const buf = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+                const pos = gl.getAttribLocation(prog, 'a_pos');
+                gl.enableVertexAttribArray(pos);
+                gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
+
+                const tex = gl.createTexture();
+                gl.bindTexture(gl.TEXTURE_2D, tex);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, stampCanvas);
+
+                const u1f = (n, v) => gl.uniform1f(gl.getUniformLocation(prog, n), v);
+                gl.uniform2f(gl.getUniformLocation(prog, 'canvas_size'), 1920, 1080);
+                gl.uniform2f(gl.getUniformLocation(prog, 'stamp_size'), 512, 512);
+                gl.uniform4f(gl.getUniformLocation(prog, 'bg_color'), 0, 1, 0, 1);
+                gl.uniform4f(gl.getUniformLocation(prog, 'tile_tint'), 1, 1, 1, 1);
+                for (const [k, v] of Object.entries({
+                    mode_code: 1, bg_type: 1, opacity: 1, has_stamp: 1,
+                    tile_count: 1, tile_size: 500, tile_gap: 0,
+                    tile_opacity: 1, tile_alt_opacity: 1, tile_alt_scale: 1,
+                    flt_brightness: 100, flt_contrast: 100, flt_saturate: 100
+                })) u1f(k, v);
+
+                gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+                const out = new Uint8Array(glCanvas.width * glCanvas.height * 4);
+                gl.readPixels(0, 0, glCanvas.width, glCanvas.height, gl.RGBA, gl.UNSIGNED_BYTE, out);
+                let greenGapPixels = 0;
+                for (let i = 0; i < out.length; i += 4) {
+                    if (out[i + 1] > 40 || out[i] < 160) greenGapPixels++;
+                }
+                return { minEdgeAlpha, greenGapPixels, totalPixels: glCanvas.width * glCanvas.height };
+            }, { vertex, fragment, drawSlotCode: drawSlotMatch[0] });
+            assert.equal(result.minEdgeAlpha, 255, 'Single-slot uploaded image must fill 512x512 stamp edge-to-edge without transparent borders');
+            assert.equal(result.greenGapPixels, 0, 'WebGL shader with gap=0 must render zero background gap pixels between tiles');
+        } finally {
+            await browser.close();
+        }
+    });
 });

@@ -1052,9 +1052,9 @@ float4 evalProceduralPattern(float2 px, float t) {
 }
 
 float4 sampleTileStamp(float2 uv, float slot_idx) {
-    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return float4(0.0, 0.0, 0.0, 0.0);
+    if (uv.x < -0.0001 || uv.x > 1.0001 || uv.y < -0.0001 || uv.y > 1.0001) return float4(0.0, 0.0, 0.0, 0.0);
     if (has_stamp > 0.5) {
-        float2 suv = uv;
+        float2 suv = clamp(uv, 0.0, 1.0);
         if (tile_count > 1.5) {
             float n = clamp(tile_count, 1.0, 4.0);
             float si = floor(fmod(abs(slot_idx), n));
