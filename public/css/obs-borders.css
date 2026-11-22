@@ -648,7 +648,8 @@
     margin-bottom: 0.65rem;
 }
 
-.op-pal-bar-row #op-palette-bar {
+.op-pal-bar-row #op-palette-bar,
+.op-pal-bar-row #op-tile-palette-bar {
     flex: 1;
     margin-bottom: 0 !important;
 }

@@ -17,6 +17,8 @@
     const TILE_SYMMETRY_MODES = Array.isArray(CAT.TILE_SYMMETRY_MODES) ? CAT.TILE_SYMMETRY_MODES : [];
     const TILE_MOTIONS = Array.isArray(CAT.TILE_MOTIONS) ? CAT.TILE_MOTIONS : [];
     const TILE_HUE_MODES = Array.isArray(CAT.TILE_HUE_MODES) ? CAT.TILE_HUE_MODES : [];
+    const TILE_PALETTE_STYLES = Array.isArray(CAT.TILE_PALETTE_STYLES) ? CAT.TILE_PALETTE_STYLES : [];
+    const TILE_PALETTE_BLENDS = Array.isArray(CAT.TILE_PALETTE_BLENDS) ? CAT.TILE_PALETTE_BLENDS : [];
     const TILE_DISTRIBUTIONS = Array.isArray(CAT.TILE_DISTRIBUTIONS) ? CAT.TILE_DISTRIBUTIONS : [];
     const TILE_ALTERNATE_FLIPS = Array.isArray(CAT.TILE_ALTERNATE_FLIPS) ? CAT.TILE_ALTERNATE_FLIPS : [];
     const TILE_TRACK_MODES = Array.isArray(CAT.TILE_TRACK_MODES) ? CAT.TILE_TRACK_MODES : [];
@@ -38,6 +40,9 @@
     const TILE_SYMMETRY_CODE_MAP = CAT.TILE_SYMMETRY_CODE_MAP || { none: 0, quad: 1, radial: 2 };
     const TILE_MOTION_CODE_MAP = CAT.TILE_MOTION_CODE_MAP || { none: 0, scroll: 1 };
     const TILE_HUE_CODE_MAP = CAT.TILE_HUE_CODE_MAP || { none: 0, cycle: 1 };
+    const TILE_COLOR_SOURCE_CODE_MAP = CAT.TILE_COLOR_SOURCE_CODE_MAP || { hue: 0, palette: 1 };
+    const TILE_PALETTE_STYLE_CODE_MAP = CAT.TILE_PALETTE_STYLE_CODE_MAP || { 'per-tile': 0, gradient: 1 };
+    const TILE_PALETTE_BLEND_CODE_MAP = CAT.TILE_PALETTE_BLEND_CODE_MAP || { multiply: 0, recolor: 1 };
     const TILE_DIST_CODE_MAP = CAT.TILE_DIST_CODE_MAP || { diagonal: 0, row: 1, col: 2, grid: 3, random: 4 };
     const TILE_ALT_FLIP_CODE_MAP = CAT.TILE_ALT_FLIP_CODE_MAP || { tilt: 0, h: 1, v: 2, both: 3, none: 4 };
     const TILE_TRACK_CODE_MAP = CAT.TILE_TRACK_CODE_MAP || { uniform: 0 };
@@ -176,19 +181,20 @@
                 `<optgroup label="${escapeHtml(g.group)}">${g.options.map(([id, lbl]) => `<option value="${escapeHtml(id)}">${escapeHtml(lbl)}</option>`).join('')}</optgroup>`
             ).join('');
         }
-        const palSel = document.getElementById('op-proc-palette');
-        if (palSel) {
-            palSel.innerHTML = PALETTE_OPTIONS.map(([id, lbl]) =>
-                `<option value="${escapeHtml(id)}">${escapeHtml(lbl)}</option>`
-            ).join('');
+        const paletteOptsHtml = PALETTE_OPTIONS.map(([id, lbl]) =>
+            `<option value="${escapeHtml(id)}">${escapeHtml(lbl)}</option>`
+        ).join('');
+        const importPresetHtml = '<option value="">Copy Preset…</option>' + PALETTE_OPTIONS
+            .filter(([id]) => id !== 'dual' && id !== 'custom' && Array.isArray(PALETTES[id]))
+            .map(([id, lbl]) => `<option value="${escapeHtml(id)}">${escapeHtml(lbl)}</option>`)
+            .join('');
+        for (const id of ['op-proc-palette', 'op-tile-palette']) {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = paletteOptsHtml;
         }
-        const impSel = document.getElementById('op-custom-pal-import');
-        if (impSel) {
-            const presetOpts = PALETTE_OPTIONS
-                .filter(([id]) => id !== 'dual' && id !== 'custom' && Array.isArray(PALETTES[id]))
-                .map(([id, lbl]) => `<option value="${escapeHtml(id)}">${escapeHtml(lbl)}</option>`)
-                .join('');
-            impSel.innerHTML = `<option value="">Copy Preset…</option>${presetOpts}`;
+        for (const id of ['op-custom-pal-import', 'op-tile-custom-pal-import']) {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = importPresetHtml;
         }
         const snowSel = document.getElementById('op-proc-snow-style');
         if (snowSel) {
@@ -224,6 +230,10 @@
         fillOpts('op-tile-track-mode', TILE_TRACK_MODES);
         fillOpts('op-tile-spin-dir', TILE_SPIN_DIRECTIONS);
         fillOpts('op-tile-hue-mode', TILE_HUE_MODES);
+        fillOpts('op-tile-cmode', PROCEDURAL_COLOR_MODES);
+        fillOpts('op-tile-canim', PROCEDURAL_COLOR_ANIMS);
+        fillOpts('op-tile-pal-style', TILE_PALETTE_STYLES);
+        fillOpts('op-tile-pal-blend', TILE_PALETTE_BLENDS);
         const fltSel = document.getElementById('op-flt-preset');
         if (fltSel) {
             fltSel.innerHTML = `<option value="">Custom / Manual</option>` + GPU_FILTER_PRESETS.map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.label)}</option>`).join('');
@@ -292,8 +302,58 @@
         ];
     }
 
-    function renderPaletteBar(prOrName, accentHex, secondaryHex) {
-        const bar = document.getElementById('op-palette-bar');
+    const PALETTE_UI = {
+        procedural: {
+            selectId: 'op-proc-palette',
+            barId: 'op-palette-bar',
+            dualWrapId: 'op-proc-dual-colors',
+            editorId: 'op-custom-palette-editor',
+            customizeBtnId: 'op-pal-customize-btn',
+            stopsId: 'op-custom-pal-stops',
+            addBtnId: 'op-custom-pal-add',
+            reverseBtnId: 'op-custom-pal-reverse',
+            shuffleBtnId: 'op-custom-pal-shuffle',
+            importSelId: 'op-custom-pal-import',
+            saveNameId: 'op-custom-pal-name',
+            saveBtnId: 'op-custom-pal-save-btn',
+            savedRowId: 'op-saved-palettes-row',
+            accentId: 'op-proc-accent',
+            accentPickId: 'op-proc-accent-pick',
+            secondaryId: 'op-proc-secondary',
+            secondaryPickId: 'op-proc-secondary-pick',
+            rebake: () => scheduleProceduralRebake()
+        },
+        tiles: {
+            selectId: 'op-tile-palette',
+            barId: 'op-tile-palette-bar',
+            dualWrapId: 'op-tile-dual-colors',
+            editorId: 'op-tile-custom-palette-editor',
+            customizeBtnId: 'op-tile-pal-customize-btn',
+            stopsId: 'op-tile-custom-pal-stops',
+            addBtnId: 'op-tile-custom-pal-add',
+            reverseBtnId: 'op-tile-custom-pal-reverse',
+            shuffleBtnId: 'op-tile-custom-pal-shuffle',
+            importSelId: 'op-tile-custom-pal-import',
+            saveNameId: 'op-tile-custom-pal-name',
+            saveBtnId: 'op-tile-custom-pal-save-btn',
+            savedRowId: 'op-tile-saved-palettes-row',
+            accentId: 'op-tile-accent',
+            accentPickId: 'op-tile-accent-pick',
+            secondaryId: 'op-tile-secondary',
+            secondaryPickId: 'op-tile-secondary-pick',
+            rebake: () => {}
+        }
+    };
+
+    function getPaletteTarget(scope = 'procedural') {
+        if (!workingProfile) return null;
+        return scope === 'tiles'
+            ? (workingProfile.tiles = workingProfile.tiles || {})
+            : (workingProfile.procedural = workingProfile.procedural || {});
+    }
+
+    function renderPaletteBar(prOrName, accentHex, secondaryHex, barId = 'op-palette-bar') {
+        const bar = document.getElementById(barId);
         if (!bar) return;
         let colors;
         if (prOrName && typeof prOrName === 'object') {
@@ -306,11 +366,12 @@
         bar.innerHTML = colors.map(c => `<span style="flex:1;background:${escapeHtml(c)};height:100%;"></span>`).join('');
     }
 
-    function renderCustomPaletteStops() {
-        const container = document.getElementById('op-custom-pal-stops');
-        if (!container || !workingProfile) return;
-        const pr = workingProfile.procedural = workingProfile.procedural || {};
-        const colors = ensureCustomColors(pr);
+    function renderCustomPaletteStops(scope = 'procedural') {
+        const ui = PALETTE_UI[scope] || PALETTE_UI.procedural;
+        const container = document.getElementById(ui.stopsId);
+        const target = getPaletteTarget(scope);
+        if (!container || !target) return;
+        const colors = ensureCustomColors(target);
         container.innerHTML = colors.map((col, idx) => {
             const hex7 = resolveColor(col, '#58A6FF').slice(0, 7);
             const canDel = colors.length > 2;
@@ -328,38 +389,39 @@
             const del = row.querySelector('.op-pal-stop-del');
             pick?.addEventListener('input', () => {
                 const v = pick.value.toUpperCase() + 'FF';
-                pr.customColors[idx] = v;
+                target.customColors[idx] = v;
                 if (hex) hex.value = v;
-                renderPaletteBar(pr);
+                renderPaletteBar(target, null, null, ui.barId);
                 schedulePreviewDraw();
-                scheduleProceduralRebake();
+                ui.rebake();
             });
             hex?.addEventListener('input', () => {
                 const raw = hex.value.trim();
-                pr.customColors[idx] = raw;
+                target.customColors[idx] = raw;
                 const resolved = resolveColor(raw, '#58A6FF');
                 if (pick && /^#[0-9A-Fa-f]{6}/.test(resolved)) pick.value = resolved.slice(0, 7);
-                renderPaletteBar(pr);
+                renderPaletteBar(target, null, null, ui.barId);
                 schedulePreviewDraw();
-                scheduleProceduralRebake();
+                ui.rebake();
             });
             del?.addEventListener('click', () => {
-                if (pr.customColors.length <= 2) return;
-                pr.customColors.splice(idx, 1);
-                renderCustomPaletteStops();
-                renderPaletteBar(pr);
+                if (target.customColors.length <= 2) return;
+                target.customColors.splice(idx, 1);
+                renderCustomPaletteStops(scope);
+                renderPaletteBar(target, null, null, ui.barId);
                 schedulePreviewDraw();
-                scheduleProceduralRebake();
+                ui.rebake();
             });
         });
 
-        const addBtn = document.getElementById('op-custom-pal-add');
+        const addBtn = document.getElementById(ui.addBtnId);
         if (addBtn) addBtn.disabled = colors.length >= 7;
-        renderSavedPalettesRow();
+        renderSavedPalettesRow(scope);
     }
 
-    function renderSavedPalettesRow() {
-        const row = document.getElementById('op-saved-palettes-row');
+    function renderSavedPalettesRow(scope = 'procedural') {
+        const ui = PALETTE_UI[scope] || PALETTE_UI.procedural;
+        const row = document.getElementById(ui.savedRowId);
         if (!row) return;
         const list = Array.isArray(studioState?.customPalettes) ? studioState.customPalettes : [];
         row.hidden = list.length === 0;
@@ -383,13 +445,13 @@
             chip.addEventListener('click', (e) => {
                 if (e.target.closest('[data-del-pal]')) return;
                 const found = list.find(x => x.id === pid);
-                if (!found || !workingProfile) return;
-                workingProfile.procedural = workingProfile.procedural || {};
-                workingProfile.procedural.palette = 'custom';
-                workingProfile.procedural.customColors = [...found.colors];
-                const palSel = document.getElementById('op-proc-palette');
+                const target = getPaletteTarget(scope);
+                if (!found || !target) return;
+                target.palette = 'custom';
+                target.customColors = [...found.colors];
+                const palSel = document.getElementById(ui.selectId);
                 if (palSel) palSel.value = 'custom';
-                renderCustomPaletteStops();
+                renderCustomPaletteStops(scope);
                 syncWorkingProfileFromDom();
             });
         });
@@ -402,7 +464,8 @@
                     const data = await res.json();
                     if (res.ok && data.state) {
                         studioState = data.state;
-                        renderSavedPalettesRow();
+                        renderSavedPalettesRow('procedural');
+                        renderSavedPalettesRow('tiles');
                         showToast('Deleted saved palette');
                     }
                 } catch {}
@@ -458,6 +521,8 @@
         const tl = workingProfile?.tiles || {};
         const slots = Array.isArray(tl.slots) ? tl.slots : [];
         const isRadial = tl.symmetry === 'radial';
+        const isPal = tl.colorSource === 'palette';
+        const pal = tl.palette || 'dual';
         const setHidden = (id, hid) => {
             const el = document.getElementById(id);
             if (el) el.hidden = Boolean(hid);
@@ -465,12 +530,27 @@
         setHidden('op-tile-dist-wrap', slots.length <= 1);
         setHidden('op-tile-kaleido-wrap', !isRadial);
         setHidden('op-tile-kaleido-morph-wrap', !isRadial);
+        setHidden('op-tile-hue-panel', isPal);
+        setHidden('op-tile-palette-panel', !isPal);
+        setHidden('op-tile-dual-colors', pal !== 'dual');
+        setHidden('op-tile-custom-palette-editor', pal !== 'custom');
+        setHidden('op-tile-pal-customize-btn', pal === 'custom');
+        document.querySelectorAll('#op-tile-color-source-seg button').forEach(btn => {
+            btn.setAttribute('aria-pressed', String((btn.dataset.cs === 'palette') === isPal));
+        });
         const hueSpeedEl = document.getElementById('op-tile-hue-speed');
         if (hueSpeedEl) {
-            const hueOff = (tl.hueShift || 'none') === 'none';
+            const hueOff = isPal || (tl.hueShift || 'none') === 'none';
             hueSpeedEl.disabled = hueOff;
             hueSpeedEl.style.opacity = hueOff ? '0.5' : '';
         }
+        const cSpeedEl = document.getElementById('op-tile-cspeed');
+        if (cSpeedEl) {
+            const cOff = !isPal || (tl.colorAnim || 'none') === 'none';
+            cSpeedEl.disabled = cOff;
+            cSpeedEl.style.opacity = cOff ? '0.5' : '';
+        }
+        if (isPal) renderPaletteBar(tl, null, null, 'op-tile-palette-bar');
         const addBtn = document.getElementById('op-tile-add-slot');
         if (addBtn) addBtn.disabled = slots.length >= 4;
     }
@@ -726,6 +806,20 @@
             document.getElementById('op-tile-hue-mode').value = tl.hueShift || 'none';
             document.getElementById('op-tile-hue-speed').value = tl.hueSpeed ?? 14;
             document.getElementById('op-tile-hue-jitter').value = tl.hueJitter ?? 0;
+            tl.colorSource = tl.colorSource === 'palette' ? 'palette' : 'hue';
+            document.getElementById('op-tile-palette').value = tl.palette || 'dual';
+            ensureCustomColors(tl);
+            renderCustomPaletteStops('tiles');
+            setControlValue('op-tile-accent', tl.accent, '#58A6FFFF', { isColor: true });
+            syncColorPicker('op-tile-accent', 'op-tile-accent-pick');
+            setControlValue('op-tile-secondary', tl.secondary, '#A855F7FF', { isColor: true });
+            syncColorPicker('op-tile-secondary', 'op-tile-secondary-pick');
+            document.getElementById('op-tile-cmode').value = tl.colorMode || 'mosaic';
+            document.getElementById('op-tile-canim').value = tl.colorAnim || 'none';
+            document.getElementById('op-tile-cspeed').value = tl.colorSpeed ?? 1;
+            document.getElementById('op-tile-pal-style').value = tl.paletteStyle || 'per-tile';
+            document.getElementById('op-tile-pal-blend').value = tl.paletteBlend || 'recolor';
+            setControlValue('op-tile-pal-strength', tl.paletteStrength, 100);
             document.getElementById('op-tile-sat-jitter').value = tl.saturationJitter ?? 0;
             document.getElementById('op-tile-bright-jitter').value = tl.brightnessJitter ?? 0;
             document.getElementById('op-tile-scale-jitter').value = tl.scaleJitter ?? 0;
@@ -865,6 +959,16 @@
         p.tiles.hueShift = document.getElementById('op-tile-hue-mode')?.value || 'none';
         p.tiles.hueSpeed = Number(document.getElementById('op-tile-hue-speed')?.value) || 14;
         p.tiles.hueJitter = Number(document.getElementById('op-tile-hue-jitter')?.value ?? 0);
+        p.tiles.colorSource = p.tiles.colorSource === 'palette' ? 'palette' : 'hue';
+        p.tiles.palette = document.getElementById('op-tile-palette')?.value || 'dual';
+        p.tiles.accent = getFieldRawValue('op-tile-accent', '#58A6FFFF');
+        p.tiles.secondary = getFieldRawValue('op-tile-secondary', '#A855F7FF');
+        p.tiles.colorMode = document.getElementById('op-tile-cmode')?.value || 'mosaic';
+        p.tiles.colorAnim = document.getElementById('op-tile-canim')?.value || 'none';
+        p.tiles.colorSpeed = Number(document.getElementById('op-tile-cspeed')?.value ?? 1);
+        p.tiles.paletteStyle = document.getElementById('op-tile-pal-style')?.value || 'per-tile';
+        p.tiles.paletteBlend = document.getElementById('op-tile-pal-blend')?.value || 'recolor';
+        p.tiles.paletteStrength = getFieldRawValue('op-tile-pal-strength', 100);
         p.tiles.saturationJitter = Number(document.getElementById('op-tile-sat-jitter')?.value ?? 0);
         p.tiles.brightnessJitter = Number(document.getElementById('op-tile-bright-jitter')?.value ?? 0);
         p.tiles.scaleJitter = Number(document.getElementById('op-tile-scale-jitter')?.value ?? 0);
@@ -936,6 +1040,9 @@
             { id: 'op-tile-size', kind: 'number', label: 'Tile Size', defaultFallback: '96' },
             { id: 'op-tile-gap', kind: 'number', label: 'Tile Gap', defaultFallback: '18' },
             { id: 'op-tile-tint', kind: 'color', label: 'Tile Tint', pairColorId: 'op-tile-tint-pick', defaultFallback: '#FFFFFFFF' },
+            { id: 'op-tile-accent', kind: 'color', label: 'Tile Palette Accent', pairColorId: 'op-tile-accent-pick', defaultFallback: '#58A6FFFF' },
+            { id: 'op-tile-secondary', kind: 'color', label: 'Tile Palette Secondary', pairColorId: 'op-tile-secondary-pick', defaultFallback: '#A855F7FF' },
+            { id: 'op-tile-pal-strength', kind: 'number', label: 'Tile Palette Strength', defaultFallback: '100' },
             { id: 'op-tile-speed', kind: 'number', label: 'Tile Speed', defaultFallback: '16' },
             { id: 'op-flt-brightness', kind: 'number', label: 'Filter Brightness', defaultFallback: '100' },
             { id: 'op-flt-contrast', kind: 'number', label: 'Filter Contrast', defaultFallback: '100' },
@@ -1076,6 +1183,13 @@
         uniform float tile_twinkle;
         uniform float tile_twinkle_speed;
         uniform vec4 tile_tint;
+        uniform float tile_color_source;
+        uniform float tile_pal_cmode;
+        uniform float tile_pal_canim;
+        uniform float tile_pal_cspeed;
+        uniform float tile_pal_style;
+        uniform float tile_pal_blend;
+        uniform float tile_pal_strength;
         uniform float has_stamp;
         uniform float show_checker;
 
@@ -1499,14 +1613,63 @@
                     vec2 qoff = vec2(mod(si, 2.0), floor(si * 0.5)) * 0.5;
                     suv = qoff + 0.006 + clamp(uv, 0.004, 0.996) * 0.488;
                 }
-                vec4 tex = texture2D(stamp_tex, suv) * tile_tint;
+                vec4 tex = texture2D(stamp_tex, suv);
+                if (tile_color_source < 0.5) tex *= tile_tint;
                 return vec4(tex.rgb * tex.a, tex.a);
             }
             vec2 q = (uv - 0.5) * 2.0;
             float d_dia = (abs(q.x) + abs(q.y)) * 0.7071 - 0.58;
             float d_ring = abs(d_dia + 0.14) - 0.06;
-            float a = max((1.0 - smoothstep(-0.04, 0.04, d_dia)) * 0.28, 1.0 - smoothstep(-0.03, 0.03, d_ring)) * tile_tint.a;
-            return vec4(tile_tint.rgb * a, a);
+            vec4 base_tint = (tile_color_source < 0.5) ? tile_tint : vec4(1.0);
+            float a = max((1.0 - smoothstep(-0.04, 0.04, d_dia)) * 0.28, 1.0 - smoothstep(-0.03, 0.03, d_ring)) * base_tint.a;
+            return vec4(base_tint.rgb * a, a);
+        }
+        vec4 evalTilePaletteColor(vec2 cell_id, vec2 tile_screen_center, vec2 screen_p, vec2 grid_p, float step_px, float t) {
+            float n = max(2.0, pal_count);
+            float g_scale = max(48.0, step_px);
+            float h = hash21(cell_id);
+            float idx = 0.0;
+            if (tile_pal_style < 0.5) {
+                if (tile_pal_cmode < 0.5) idx = floor(h * n);
+                else if (tile_pal_cmode < 1.5) idx = floor(length(tile_screen_center) / max(32.0, g_scale * 0.85));
+                else if (tile_pal_cmode < 2.5) idx = floor(abs(cell_id.y));
+                else if (tile_pal_cmode < 3.5) idx = floor(abs(cell_id.x));
+                else if (tile_pal_cmode < 4.5) idx = floor(abs(cell_id.x + cell_id.y));
+                else if (tile_pal_cmode < 5.5) {
+                    float ang = (atan(tile_screen_center.y, tile_screen_center.x) + 3.1415926) / 6.2831853;
+                    idx = floor(length(tile_screen_center) / max(32.0, g_scale * 0.85) + ang * n);
+                } else idx = mod(abs(cell_id.x + cell_id.y), 2.0) * (n > 2.5 ? 2.0 : 1.0);
+            } else {
+                if (tile_pal_cmode < 0.5) {
+                    vec2 mg = grid_p / g_scale;
+                    vec2 mi = floor(mg);
+                    vec2 mf = smoothstep(0.0, 1.0, fract(mg));
+                    float v00 = hash21(mi) * n;
+                    float v10 = hash21(mi + vec2(1.0, 0.0)) * n;
+                    float v01 = hash21(mi + vec2(0.0, 1.0)) * n;
+                    float v11 = hash21(mi + vec2(1.0, 1.0)) * n;
+                    idx = mix(mix(v00, v10, mf.x), mix(v01, v11, mf.x), mf.y);
+                } else if (tile_pal_cmode < 1.5) idx = length(screen_p) / max(32.0, g_scale * 0.85);
+                else if (tile_pal_cmode < 2.5) idx = 4200.0 + (screen_p.y / g_scale);
+                else if (tile_pal_cmode < 3.5) idx = 4200.0 + (screen_p.x / g_scale);
+                else if (tile_pal_cmode < 4.5) idx = 4200.0 + ((screen_p.x + screen_p.y) / (g_scale * 1.4142));
+                else if (tile_pal_cmode < 5.5) {
+                    float ang = (atan(screen_p.y, screen_p.x) + 3.1415926) / 6.2831853;
+                    idx = length(screen_p) / max(32.0, g_scale * 0.85) + ang * n;
+                } else {
+                    float cw = 0.5 + 0.5 * cos((grid_p.x / g_scale) * 3.1415926) * cos((grid_p.y / g_scale) * 3.1415926);
+                    idx = cw * (n > 2.5 ? 2.0 : 1.0);
+                }
+            }
+            float h_seed = (tile_pal_style < 0.5) ? h : 0.0;
+            float shift = 0.0;
+            if (tile_pal_canim > 0.5 && tile_pal_canim < 1.5) shift = t * tile_pal_cspeed * 1.4;
+            else if (tile_pal_canim >= 1.5) shift = (0.5 + 0.5 * sin(t * tile_pal_cspeed * 2.0 + h_seed * 1.8)) * max(1.0, n - 0.5);
+            float fidx = max(0.0, idx + shift);
+            float i0 = floor(fidx);
+            vec4 c = mix(getPaletteStop(i0), getPaletteStop(i0 + 1.0), fract(fidx));
+            if (tile_pal_canim >= 1.5) c.a *= 0.65 + 0.35 * sin(t * tile_pal_cspeed * 2.2 + h_seed * 6.28318);
+            return c;
         }
         vec4 evalPatternTiles(vec2 px, float t) {
             vec2 p = px - canvas_size * 0.5;
@@ -1595,7 +1758,9 @@
                 cell_id -= 840.0 * floor((cell_id + 420.0) / 840.0);
             }
             vec2 rnd = hash22(cell_id);
-            vec2 lp = (fract(grid_p / step_px) - 0.5) * step_px - (rnd - 0.5) * (tile_pos_jitter / 100.0) * (step_px * 0.35);
+            vec2 lp_raw = (fract(grid_p / step_px) - 0.5) * step_px;
+            vec2 tile_screen_center = p - lp_raw;
+            vec2 lp = lp_raw - (rnd - 0.5) * (tile_pos_jitter / 100.0) * (step_px * 0.35);
 
             float sc_wave = 1.0;
             float rot_extra = 0.0;
@@ -1642,14 +1807,25 @@
             vec4 tex = sampleTileStamp(uv, slot_idx);
             if (tex.a <= 0.001) return vec4(0.0);
 
-            float hue_a = (rnd.x - 0.5) * (tile_hue_jitter / 180.0) * 6.2831853;
-            if (tile_hue_mode > 0.5 && tile_hue_mode < 1.5) hue_a += t * tile_hue_speed * 0.08;
-            else if (tile_hue_mode >= 1.5 && tile_hue_mode < 2.5) hue_a += px.x * 0.004 - t * tile_hue_speed * 0.1;
-            else if (tile_hue_mode >= 2.5) hue_a += px.y * 0.004 - t * tile_hue_speed * 0.1;
-            float has_hue_fx = (tile_hue_mode > 0.5 || abs(hue_a) > 0.001) ? 1.0 : 0.0;
-            if (has_hue_fx > 0.5 || tile_sat_jitter > 0.5 || tile_bright_jitter > 0.5) {
-                vec3 unpm = tex.rgb / max(tex.a, 0.001);
-                if (has_hue_fx > 0.5) {
+            vec3 unpm = tex.rgb / max(tex.a, 0.001);
+            if (tile_color_source >= 0.5) {
+                vec4 pal = evalTilePaletteColor(cell_id, tile_screen_center, p, grid_p, step_px, t);
+                vec3 colored = unpm * pal.rgb;
+                if (tile_pal_blend >= 0.5) {
+                    float lum = dot(unpm, vec3(0.299, 0.587, 0.114));
+                    float mx = max(unpm.r, max(unpm.g, unpm.b));
+                    float luma = clamp(mix(lum, mx, 0.52), 0.0, 1.0);
+                    colored = pal.rgb * luma;
+                }
+                float st = clamp(tile_pal_strength, 0.0, 1.0);
+                unpm = clamp(mix(unpm, colored, st), 0.0, 1.0);
+                tex.a *= mix(1.0, pal.a, st);
+            } else {
+                float hue_a = (rnd.x - 0.5) * (tile_hue_jitter / 180.0) * 6.2831853;
+                if (tile_hue_mode > 0.5 && tile_hue_mode < 1.5) hue_a += t * tile_hue_speed * 0.08;
+                else if (tile_hue_mode >= 1.5 && tile_hue_mode < 2.5) hue_a += px.x * 0.004 - t * tile_hue_speed * 0.1;
+                else if (tile_hue_mode >= 2.5) hue_a += px.y * 0.004 - t * tile_hue_speed * 0.1;
+                if (tile_hue_mode > 0.5 || abs(hue_a) > 0.001) {
                     float mx = max(unpm.r, max(unpm.g, unpm.b));
                     float mn = min(unpm.r, min(unpm.g, unpm.b));
                     float chroma = mx - mn;
@@ -1659,15 +1835,15 @@
                     vec3 col_rgb = hueShiftRgb(unpm, hue_a);
                     unpm = clamp(mix(col_rgb, mono_rgb, mono_w), 0.0, 1.0);
                 }
-                if (tile_sat_jitter > 0.5) {
-                    float lum = dot(unpm, vec3(0.299, 0.587, 0.114));
-                    unpm = clamp(mix(vec3(lum), unpm, 1.0 + (rnd.y - 0.5) * (tile_sat_jitter / 50.0)), 0.0, 1.0);
-                }
-                if (tile_bright_jitter > 0.5) {
-                    unpm = clamp(unpm * (1.0 + (rnd.x - 0.5) * (tile_bright_jitter / 50.0)), 0.0, 1.0);
-                }
-                tex.rgb = unpm * tex.a;
             }
+            if (tile_sat_jitter > 0.5) {
+                float lum = dot(unpm, vec3(0.299, 0.587, 0.114));
+                unpm = clamp(mix(vec3(lum), unpm, 1.0 + (rnd.y - 0.5) * (tile_sat_jitter / 50.0)), 0.0, 1.0);
+            }
+            if (tile_bright_jitter > 0.5) {
+                unpm = clamp(unpm * (1.0 + (rnd.x - 0.5) * (tile_bright_jitter / 50.0)), 0.0, 1.0);
+            }
+            tex.rgb = unpm * tex.a;
             float cell_alpha = tile_opacity * ((is_alt > 0.5) ? tile_alt_opacity : 1.0);
             if (tile_twinkle > 0.5) cell_alpha *= 1.0 - (tile_twinkle / 100.0) * (0.5 + 0.5 * sin(t * max(0.5, tile_twinkle_speed) + rnd.y * 12.0));
             return tex * cell_alpha;
@@ -1972,7 +2148,9 @@
             'tile_motion', 'tile_track_mode', 'tile_spin_dir', 'tile_scroll_rad', 'tile_speed', 'tile_spin_rad', 'tile_wave_amt',
             'tile_hue_mode', 'tile_hue_speed', 'tile_hue_jitter', 'tile_sat_jitter', 'tile_bright_jitter',
             'tile_scale_jitter', 'tile_rot_jitter', 'tile_pos_jitter', 'tile_twinkle', 'tile_twinkle_speed',
-            'tile_tint', 'has_stamp', 'show_checker', 'scene_tex', 'scene_padding'
+            'tile_tint', 'tile_color_source', 'tile_pal_cmode', 'tile_pal_canim', 'tile_pal_cspeed',
+            'tile_pal_style', 'tile_pal_blend', 'tile_pal_strength',
+            'has_stamp', 'show_checker', 'scene_tex', 'scene_padding'
         ];
         const uniforms = program => {
             const result = {};
@@ -2018,14 +2196,17 @@
         const secC = hexToRgbaFloats(resolveColor(pr.secondary, '#A855F7FF'));
         const tintC = hexToRgbaFloats(resolveColor(tl.tintColor, '#FFFFFFFF'));
 
+        const palSrc = p.mode === 'tiles' ? tl : pr;
+        const palAccC = p.mode === 'tiles' ? hexToRgbaFloats(resolveColor(tl.accent, '#58A6FFFF')) : accC;
+        const palSecC = p.mode === 'tiles' ? hexToRgbaFloats(resolveColor(tl.secondary, '#A855F7FF')) : secC;
         let palHexList = null;
-        if (pr.palette === 'custom' && Array.isArray(pr.customColors) && pr.customColors.length >= 2) {
-            palHexList = pr.customColors.slice(0, 7).map(c => hexToRgbaFloats(resolveColor(c, '#58A6FFFF')));
-        } else if (pr.palette && pr.palette !== 'dual' && Array.isArray(PALETTES[pr.palette])) {
-            palHexList = PALETTES[pr.palette].slice(0, 7).map(c => hexToRgbaFloats(c));
+        if (palSrc.palette === 'custom' && Array.isArray(palSrc.customColors) && palSrc.customColors.length >= 2) {
+            palHexList = palSrc.customColors.slice(0, 7).map(c => hexToRgbaFloats(resolveColor(c, '#58A6FFFF')));
+        } else if (palSrc.palette && palSrc.palette !== 'dual' && Array.isArray(PALETTES[palSrc.palette])) {
+            palHexList = PALETTES[palSrc.palette].slice(0, 7).map(c => hexToRgbaFloats(c));
         }
         const palCount = palHexList ? palHexList.length : 2;
-        const stops = palHexList || [accC, secC];
+        const stops = palHexList || [palAccC, palSecC];
 
         gl.uniform1i(u.stamp_tex, 0);
         gl.uniform2f(u.canvas_size, w, h);
@@ -2142,6 +2323,13 @@
         gl.uniform1f(u.tile_twinkle, Number(tl.twinkle ?? 0));
         gl.uniform1f(u.tile_twinkle_speed, Number(tl.twinkleSpeed ?? 4));
         gl.uniform4f(u.tile_tint, tintC[0], tintC[1], tintC[2], tintC[3]);
+        gl.uniform1f(u.tile_color_source, TILE_COLOR_SOURCE_CODE_MAP[tl.colorSource] ?? 0);
+        gl.uniform1f(u.tile_pal_cmode, PROC_CMODE_CODE_MAP[tl.colorMode] ?? 0);
+        gl.uniform1f(u.tile_pal_canim, PROC_CANIM_CODE_MAP[tl.colorAnim] ?? 0);
+        gl.uniform1f(u.tile_pal_cspeed, resolveNum(tl.colorSpeed, 1, 0, 5));
+        gl.uniform1f(u.tile_pal_style, TILE_PALETTE_STYLE_CODE_MAP[tl.paletteStyle] ?? 0);
+        gl.uniform1f(u.tile_pal_blend, TILE_PALETTE_BLEND_CODE_MAP[tl.paletteBlend] ?? 1);
+        gl.uniform1f(u.tile_pal_strength, resolveNum(tl.paletteStrength, 100, 0, 100) / 100);
         const wantsProcBake = p.mode !== 'tiles' && !ANALYTIC_GPU_SET.has(pr.preset);
         const activeStampFile = p.mode === 'tiles' ? tl.stampFile : (wantsProcBake ? pr.bakedStampFile : '');
         gl.uniform1f(u.has_stamp, (hasStampTexture && activeStampFile) ? 1 : 0);
@@ -2883,6 +3071,8 @@
         bindColorPair('op-proc-accent', 'op-proc-accent-pick');
         bindColorPair('op-proc-secondary', 'op-proc-secondary-pick');
         bindColorPair('op-tile-tint', 'op-tile-tint-pick');
+        bindColorPair('op-tile-accent', 'op-tile-accent-pick');
+        bindColorPair('op-tile-secondary', 'op-tile-secondary-pick');
         bindColorPair('op-flt-duo-dark', 'op-flt-duo-dark-pick');
         bindColorPair('op-flt-duo-light', 'op-flt-duo-light-pick');
         bindColorPair('op-flt-tint-color', 'op-flt-tint-color-pick');
@@ -2904,104 +3094,122 @@
             });
         });
 
-        document.getElementById('op-proc-palette')?.addEventListener('change', (e) => {
-            if (!workingProfile) return;
-            const palName = e.target.value || 'dual';
-            workingProfile.procedural = workingProfile.procedural || {};
-            workingProfile.procedural.palette = palName;
-            const pal = PALETTES[palName];
-            if (pal) {
-                const c1 = (pal[0] || '#58a6ff').toUpperCase() + 'FF';
-                const c2 = (pal[1] || pal[0] || '#a855f7').toUpperCase() + 'FF';
-                setControlValue('op-proc-accent', c1, c1, { isColor: true });
-                syncColorPicker('op-proc-accent', 'op-proc-accent-pick');
-                setControlValue('op-proc-secondary', c2, c2, { isColor: true });
-                syncColorPicker('op-proc-secondary', 'op-proc-secondary-pick');
-            }
-            if (palName === 'custom') {
-                ensureCustomColors(workingProfile.procedural);
-                renderCustomPaletteStops();
-            }
-            syncWorkingProfileFromDom();
+        document.querySelectorAll('#op-tile-color-source-seg button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (!workingProfile) return;
+                workingProfile.tiles = workingProfile.tiles || {};
+                workingProfile.tiles.colorSource = btn.dataset.cs === 'palette' ? 'palette' : 'hue';
+                updateTileControlVisibility();
+                schedulePreviewDraw();
+            });
         });
 
-        document.getElementById('op-pal-customize-btn')?.addEventListener('click', () => {
-            if (!workingProfile) return;
-            const pr = workingProfile.procedural = workingProfile.procedural || {};
-            const curHexList = getActivePaletteHexList(pr);
-            pr.customColors = curHexList.slice(0, 7).map(c => c.length === 7 ? c.toUpperCase() + 'FF' : c.toUpperCase());
-            ensureCustomColors(pr);
-            pr.palette = 'custom';
-            const palSel = document.getElementById('op-proc-palette');
-            if (palSel) palSel.value = 'custom';
-            renderCustomPaletteStops();
-            syncWorkingProfileFromDom();
-        });
+        const bindPaletteScopeEvents = (scope) => {
+            const ui = PALETTE_UI[scope];
+            document.getElementById(ui.selectId)?.addEventListener('change', (e) => {
+                const target = getPaletteTarget(scope);
+                if (!target) return;
+                const palName = e.target.value || 'dual';
+                target.palette = palName;
+                const pal = PALETTES[palName];
+                if (pal) {
+                    const c1 = (pal[0] || '#58a6ff').toUpperCase() + 'FF';
+                    const c2 = (pal[1] || pal[0] || '#a855f7').toUpperCase() + 'FF';
+                    setControlValue(ui.accentId, c1, c1, { isColor: true });
+                    syncColorPicker(ui.accentId, ui.accentPickId);
+                    setControlValue(ui.secondaryId, c2, c2, { isColor: true });
+                    syncColorPicker(ui.secondaryId, ui.secondaryPickId);
+                }
+                if (palName === 'custom') {
+                    ensureCustomColors(target);
+                    renderCustomPaletteStops(scope);
+                }
+                syncWorkingProfileFromDom();
+            });
 
-        document.getElementById('op-custom-pal-add')?.addEventListener('click', () => {
-            if (!workingProfile) return;
-            const pr = workingProfile.procedural = workingProfile.procedural || {};
-            const colors = ensureCustomColors(pr);
-            if (colors.length >= 7) return;
-            const extras = ['#F43F5EFF', '#06B6D4FF', '#A855F7FF', '#F97316FF', '#10B981FF'];
-            colors.push(extras[colors.length % extras.length]);
-            renderCustomPaletteStops();
-            syncWorkingProfileFromDom();
-        });
+            document.getElementById(ui.customizeBtnId)?.addEventListener('click', () => {
+                const target = getPaletteTarget(scope);
+                if (!target) return;
+                const curHexList = getActivePaletteHexList(target);
+                target.customColors = curHexList.slice(0, 7).map(c => c.length === 7 ? c.toUpperCase() + 'FF' : c.toUpperCase());
+                ensureCustomColors(target);
+                target.palette = 'custom';
+                const palSel = document.getElementById(ui.selectId);
+                if (palSel) palSel.value = 'custom';
+                renderCustomPaletteStops(scope);
+                syncWorkingProfileFromDom();
+            });
 
-        document.getElementById('op-custom-pal-reverse')?.addEventListener('click', () => {
-            if (!workingProfile) return;
-            const pr = workingProfile.procedural = workingProfile.procedural || {};
-            ensureCustomColors(pr).reverse();
-            renderCustomPaletteStops();
-            syncWorkingProfileFromDom();
-        });
+            document.getElementById(ui.addBtnId)?.addEventListener('click', () => {
+                const target = getPaletteTarget(scope);
+                if (!target) return;
+                const colors = ensureCustomColors(target);
+                if (colors.length >= 7) return;
+                const extras = ['#F43F5EFF', '#06B6D4FF', '#A855F7FF', '#F97316FF', '#10B981FF'];
+                colors.push(extras[colors.length % extras.length]);
+                renderCustomPaletteStops(scope);
+                syncWorkingProfileFromDom();
+            });
 
-        document.getElementById('op-custom-pal-shuffle')?.addEventListener('click', () => {
-            if (!workingProfile) return;
-            const pr = workingProfile.procedural = workingProfile.procedural || {};
-            const colors = ensureCustomColors(pr);
-            for (let i = colors.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [colors[i], colors[j]] = [colors[j], colors[i]];
-            }
-            renderCustomPaletteStops();
-            syncWorkingProfileFromDom();
-        });
+            document.getElementById(ui.reverseBtnId)?.addEventListener('click', () => {
+                const target = getPaletteTarget(scope);
+                if (!target) return;
+                ensureCustomColors(target).reverse();
+                renderCustomPaletteStops(scope);
+                syncWorkingProfileFromDom();
+            });
 
-        document.getElementById('op-custom-pal-import')?.addEventListener('change', (e) => {
-            const presetId = e.target.value;
-            e.target.value = '';
-            if (!presetId || !workingProfile || !Array.isArray(PALETTES[presetId])) return;
-            const pr = workingProfile.procedural = workingProfile.procedural || {};
-            pr.palette = 'custom';
-            pr.customColors = PALETTES[presetId].slice(0, 7).map(c => c.toUpperCase() + (c.length === 7 ? 'FF' : ''));
-            ensureCustomColors(pr);
-            renderCustomPaletteStops();
-            syncWorkingProfileFromDom();
-        });
+            document.getElementById(ui.shuffleBtnId)?.addEventListener('click', () => {
+                const target = getPaletteTarget(scope);
+                if (!target) return;
+                const colors = ensureCustomColors(target);
+                for (let i = colors.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [colors[i], colors[j]] = [colors[j], colors[i]];
+                }
+                renderCustomPaletteStops(scope);
+                syncWorkingProfileFromDom();
+            });
 
-        document.getElementById('op-custom-pal-save-btn')?.addEventListener('click', async () => {
-            if (!workingProfile) return;
-            const nameInput = document.getElementById('op-custom-pal-name');
-            const name = (nameInput?.value || '').trim() || 'Custom Palette';
-            const colors = ensureCustomColors(workingProfile.procedural);
-            try {
-                const res = await fetch('/api/obs-patterns/palette', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, colors })
-                });
-                const data = await res.json();
-                if (!res.ok) { showToast(data.error || 'Failed to save palette'); return; }
-                if (data.state) studioState = data.state;
-                if (nameInput) nameInput.value = '';
-                renderSavedPalettesRow();
-                showToast(`Saved custom palette "${data.palette?.name || name}"`);
-            } catch {
-                showToast('Failed to save palette');
-            }
-        });
+            document.getElementById(ui.importSelId)?.addEventListener('change', (e) => {
+                const presetId = e.target.value;
+                e.target.value = '';
+                const target = getPaletteTarget(scope);
+                if (!presetId || !target || !Array.isArray(PALETTES[presetId])) return;
+                target.palette = 'custom';
+                target.customColors = PALETTES[presetId].slice(0, 7).map(c => c.toUpperCase() + (c.length === 7 ? 'FF' : ''));
+                ensureCustomColors(target);
+                renderCustomPaletteStops(scope);
+                syncWorkingProfileFromDom();
+            });
+
+            document.getElementById(ui.saveBtnId)?.addEventListener('click', async () => {
+                const target = getPaletteTarget(scope);
+                if (!target) return;
+                const nameInput = document.getElementById(ui.saveNameId);
+                const name = (nameInput?.value || '').trim() || 'Custom Palette';
+                const colors = ensureCustomColors(target);
+                try {
+                    const res = await fetch('/api/obs-patterns/palette', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, colors })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) { showToast(data.error || 'Failed to save palette'); return; }
+                    if (data.state) studioState = data.state;
+                    if (nameInput) nameInput.value = '';
+                    renderSavedPalettesRow('procedural');
+                    renderSavedPalettesRow('tiles');
+                    showToast(`Saved custom palette "${data.palette?.name || name}"`);
+                } catch {
+                    showToast('Failed to save palette');
+                }
+            });
+        };
+
+        bindPaletteScopeEvents('procedural');
+        bindPaletteScopeEvents('tiles');
 
         [
             'op-name', 'op-id', 'op-width', 'op-height',
@@ -3020,6 +3228,7 @@
             'op-tile-motion', 'op-tile-track-mode', 'op-tile-speed', 'op-tile-scroll-angle',
             'op-tile-spin', 'op-tile-spin-dir', 'op-tile-wave-amt',
             'op-tile-hue-mode', 'op-tile-hue-speed', 'op-tile-hue-jitter',
+            'op-tile-cmode', 'op-tile-canim', 'op-tile-cspeed', 'op-tile-pal-style', 'op-tile-pal-blend', 'op-tile-pal-strength',
             'op-tile-sat-jitter', 'op-tile-bright-jitter', 'op-tile-scale-jitter',
             'op-tile-rot-jitter', 'op-tile-pos-jitter', 'op-tile-twinkle', 'op-tile-twinkle-speed',
             'op-flt-brightness', 'op-flt-contrast', 'op-flt-saturate', 'op-flt-grayscale', 'op-flt-hue', 'op-flt-blur',

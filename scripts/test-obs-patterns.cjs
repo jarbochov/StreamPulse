@@ -930,4 +930,136 @@ describe('OBS Pattern Studio (Beta / Advanced)', () => {
             await browser.close();
         }
     });
+
+    it('supports mutually exclusive Pattern Tile Palette Sets, placements, styles, blends, and Lua animation flags', async () => {
+        const palProf = service.upsertProfile({
+            id: 'tile-pal-test',
+            name: 'Tile Palette Test',
+            mode: 'tiles',
+            tiles: {
+                colorSource: 'palette',
+                hueShift: 'cycle',
+                palette: 'custom',
+                customColors: ['#FF0000FF', '#00FF00FF', '#0000FFFF'],
+                colorMode: 'spiral',
+                colorAnim: 'cycle',
+                colorSpeed: 1.5,
+                paletteStyle: 'gradient',
+                paletteBlend: 'multiply',
+                paletteStrength: 85
+            }
+        });
+        assert.equal(palProf.tiles.colorSource, 'palette');
+        assert.equal(palProf.tiles.palette, 'custom');
+        assert.equal(palProf.tiles.paletteStyle, 'gradient');
+        assert.equal(palProf.tiles.paletteBlend, 'multiply');
+        assert.equal(palProf.tiles.paletteStrength, 85);
+
+        const manifest = service.syncResolvedManifest();
+        const rTile = manifest.profiles.find(p => p.id === 'tile-pal-test').tiles;
+        assert.equal(rTile.colorSourceCode, 1);
+        assert.equal(rTile.colorModeCode, 5); // spiral
+        assert.equal(rTile.colorAnimCode, 1); // cycle
+        assert.equal(rTile.paletteStyleCode, 1); // gradient
+        assert.equal(rTile.paletteBlendCode, 0); // multiply
+        assert.equal(rTile.palCount, 3);
+        assert.deepEqual(rTile.pal0, [1, 0, 0, 1]);
+        assert.deepEqual(rTile.pal1, [0, 1, 0, 1]);
+        assert.deepEqual(rTile.pal2, [0, 0, 1, 1]);
+
+        const lua = fs.readFileSync(service.getState().luaScriptPath, 'utf8');
+        assert.ok(lua.includes('evalTilePaletteColor'), 'Lua HLSL shader must include evalTilePaletteColor');
+        assert.ok(lua.includes('tile_pal_strength'), 'Lua HLSL must expose tile_pal_strength uniform');
+        assert.ok(lua.includes('(tl.colorSourceCode or 0) > 0.5'), 'Lua is_profile_animated must handle palette colorSource');
+
+        // Verify WebGL compiles & renders distinct outputs across per-tile vs smooth gradient, placements, and blends
+        const source = fs.readFileSync(path.join(__dirname, '../public/js/obs-patterns/obs-patterns-studio.js'), 'utf8');
+        const vertex = source.match(/const VERT_GLSL = `([\s\S]*?)`;/)[1];
+        const fragment = source.match(/const FRAG_GLSL = `([\s\S]*?)`;/)[1];
+        const browser = await require('puppeteer').launch({ headless: true, args: ['--no-sandbox'] });
+        try {
+            const page = await browser.newPage();
+            const stats = await page.evaluate(({ vertex, fragment }) => {
+                const canvas = document.createElement('canvas');
+                canvas.width = 160;
+                canvas.height = 90;
+                const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true });
+                const compile = (type, src) => {
+                    const sh = gl.createShader(type);
+                    gl.shaderSource(sh, src);
+                    gl.compileShader(sh);
+                    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
+                    return sh;
+                };
+                const prog = gl.createProgram();
+                gl.attachShader(prog, compile(gl.VERTEX_SHADER, vertex));
+                gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, fragment));
+                gl.linkProgram(prog);
+                if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+                gl.useProgram(prog);
+                const buf = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+                const pos = gl.getAttribLocation(prog, 'a_pos');
+                gl.enableVertexAttribArray(pos);
+                gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
+
+                // Warm red-orange test tile so multiply vs recolor differ clearly
+                const tex = gl.createTexture();
+                gl.bindTexture(gl.TEXTURE_2D, tex);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([220, 60, 40, 255]));
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+                const u1f = (n, v) => gl.uniform1f(gl.getUniformLocation(prog, n), v);
+                gl.uniform2f(gl.getUniformLocation(prog, 'canvas_size'), 1920, 1080);
+                gl.uniform2f(gl.getUniformLocation(prog, 'stamp_size'), 1, 1);
+                gl.uniform4f(gl.getUniformLocation(prog, 'tile_tint'), 1, 1, 1, 1);
+                gl.uniform4f(gl.getUniformLocation(prog, 'pal_c0'), 0, 1, 0.9, 1);
+                gl.uniform4f(gl.getUniformLocation(prog, 'pal_c1'), 1, 0.2, 0.8, 1);
+                gl.uniform4f(gl.getUniformLocation(prog, 'pal_c2'), 0.2, 0.4, 1, 1);
+                u1f('pal_count', 3);
+                for (const [k, v] of Object.entries({
+                    mode_code: 1, opacity: 1, has_stamp: 1, tile_count: 1, tile_size: 180, tile_gap: 0,
+                    tile_opacity: 1, tile_alt_opacity: 1, tile_alt_scale: 1, tile_color_source: 1,
+                    tile_pal_strength: 1, tile_pal_cspeed: 1.5, flt_brightness: 100, flt_contrast: 100, flt_saturate: 100
+                })) u1f(k, v);
+
+                const capture = (overrides) => {
+                    for (const [k, v] of Object.entries(overrides)) u1f(k, v);
+                    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+                    const p = new Uint8Array(canvas.width * canvas.height * 4);
+                    gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, p);
+                    let h = 2166136261;
+                    for (let i = 0; i < p.length; i += 8) h = ((h ^ p[i]) * 16777619) >>> 0;
+                    return { hash: h, sample: [p[0], p[1], p[2], p[3]] };
+                };
+
+                const digests = [];
+                for (const cmode of [0, 1, 2, 3, 4, 5, 6]) {
+                    for (const style of [0, 1]) {
+                        for (const blend of [0, 1]) {
+                            digests.push(capture({ tile_pal_cmode: cmode, tile_pal_style: style, tile_pal_blend: blend, tile_pal_canim: 0, anim_time: 0 }).hash);
+                        }
+                    }
+                }
+                const animT0 = capture({ tile_pal_cmode: 5, tile_pal_style: 1, tile_pal_blend: 1, tile_pal_canim: 1, anim_time: 0 }).hash;
+                const animT1 = capture({ tile_pal_cmode: 5, tile_pal_style: 1, tile_pal_blend: 1, tile_pal_canim: 1, anim_time: 1.2 }).hash;
+                const hueIgnoredA = capture({ tile_color_source: 1, tile_hue_mode: 0, tile_pal_cmode: 2, tile_pal_style: 0, tile_pal_blend: 1, tile_pal_canim: 0, anim_time: 0.7 }).hash;
+                const hueIgnoredB = capture({ tile_color_source: 1, tile_hue_mode: 2, tile_pal_cmode: 2, tile_pal_style: 0, tile_pal_blend: 1, tile_pal_canim: 0, anim_time: 0.7 }).hash;
+                return {
+                    uniqueModes: new Set(digests).size,
+                    totalTested: digests.length,
+                    animChanged: animT0 !== animT1,
+                    hueMutuallyExclusive: hueIgnoredA === hueIgnoredB
+                };
+            }, { vertex, fragment });
+            assert.equal(stats.totalTested, 28);
+            assert.ok(stats.uniqueModes >= 20, `Expected distinct renders across placements/styles/blends, got ${stats.uniqueModes}`);
+            assert.equal(stats.animChanged, true, 'Palette cycle animation must advance tiles over time');
+            assert.equal(stats.hueMutuallyExclusive, true, 'Hue shift uniform must not affect Palette Set output');
+        } finally {
+            await browser.close();
+        }
+    });
 });

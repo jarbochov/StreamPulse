@@ -189,6 +189,24 @@ const TILE_HUE_MODES = [
 ];
 const TILE_HUE_CODE_MAP = { none: 0, cycle: 1, 'wave-x': 2, 'wave-y': 3 };
 
+const TILE_COLOR_SOURCES = [
+    { id: 'hue', label: 'Master Tint & Hue Shift', code: 0 },
+    { id: 'palette', label: 'Color Palette Set', code: 1 }
+];
+const TILE_COLOR_SOURCE_CODE_MAP = { hue: 0, palette: 1 };
+
+const TILE_PALETTE_STYLES = [
+    { id: 'per-tile', label: 'Per Tile (solid cell tint)', code: 0 },
+    { id: 'gradient', label: 'Smooth Gradient (across tiles)', code: 1 }
+];
+const TILE_PALETTE_STYLE_CODE_MAP = { 'per-tile': 0, gradient: 1 };
+
+const TILE_PALETTE_BLENDS = [
+    { id: 'recolor', label: 'Luminance Recolor (works on any artwork)', code: 1 },
+    { id: 'multiply', label: 'Multiply Tint (preserves artwork colors/darks)', code: 0 }
+];
+const TILE_PALETTE_BLEND_CODE_MAP = { multiply: 0, recolor: 1 };
+
 const TILE_DISTRIBUTIONS = [
     { id: 'diagonal', label: 'Diagonal weave (A → B → C)', code: 0 },
     { id: 'row', label: 'Alternating rows', code: 1 },
@@ -391,6 +409,12 @@ module.exports = {
     TILE_MOTION_CODE_MAP,
     TILE_HUE_MODES,
     TILE_HUE_CODE_MAP,
+    TILE_COLOR_SOURCES,
+    TILE_COLOR_SOURCE_CODE_MAP,
+    TILE_PALETTE_STYLES,
+    TILE_PALETTE_STYLE_CODE_MAP,
+    TILE_PALETTE_BLENDS,
+    TILE_PALETTE_BLEND_CODE_MAP,
     PROCEDURAL_MOTIONS,
     PROCEDURAL_MOTION_CODE_MAP,
     PROCEDURAL_COLOR_MODES,

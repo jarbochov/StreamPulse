@@ -20,6 +20,9 @@ const TILE_LAYOUT_CODE_MAP = catalog.TILE_LAYOUT_CODE_MAP;
 const TILE_SYMMETRY_CODE_MAP = catalog.TILE_SYMMETRY_CODE_MAP;
 const TILE_MOTION_CODE_MAP = catalog.TILE_MOTION_CODE_MAP;
 const TILE_HUE_CODE_MAP = catalog.TILE_HUE_CODE_MAP;
+const TILE_COLOR_SOURCE_CODE_MAP = catalog.TILE_COLOR_SOURCE_CODE_MAP || { hue: 0, palette: 1 };
+const TILE_PALETTE_STYLE_CODE_MAP = catalog.TILE_PALETTE_STYLE_CODE_MAP || { 'per-tile': 0, gradient: 1 };
+const TILE_PALETTE_BLEND_CODE_MAP = catalog.TILE_PALETTE_BLEND_CODE_MAP || { multiply: 0, recolor: 1 };
 const TILE_DIST_CODE_MAP = catalog.TILE_DIST_CODE_MAP;
 const TILE_ALT_FLIP_CODE_MAP = catalog.TILE_ALT_FLIP_CODE_MAP;
 const TILE_TRACK_CODE_MAP = catalog.TILE_TRACK_CODE_MAP;
@@ -128,20 +131,34 @@ function normalizeTileSlot(slot = {}, idx = 0) {
     };
 }
 
+function normalizePaletteFields(srcIn = {}) {
+    const palette = (srcIn.palette === 'dual' || srcIn.palette === 'custom' || PALETTES[srcIn.palette]) ? srcIn.palette : 'dual';
+    const rawCustomColors = Array.isArray(srcIn.customColors) && srcIn.customColors.length >= 2
+        ? srcIn.customColors.slice(0, 7)
+        : ['#EF4444FF', '#22C55EFF', '#FACC15FF', '#3B82F6FF'];
+    return {
+        palette,
+        accent: normalizeColor(srcIn.accent, '#58A6FFFF'),
+        secondary: normalizeColor(srcIn.secondary, '#A855F7FF'),
+        customColors: rawCustomColors.map((c, idx) => normalizeColor(c, idx === 0 ? '#EF4444FF' : '#3B82F6FF')),
+        colorMode: PROCEDURAL_COLOR_MODE_CODE_MAP[srcIn.colorMode] !== undefined ? srcIn.colorMode : 'mosaic',
+        colorAnim: PROCEDURAL_COLOR_ANIM_CODE_MAP[srcIn.colorAnim] !== undefined ? srcIn.colorAnim : 'none'
+    };
+}
+
 function normalizeProfile(raw = {}, index = 0) {
     const mode = raw.mode === 'tiles' ? 'tiles' : 'procedural';
     const procIn = raw.procedural && typeof raw.procedural === 'object' ? raw.procedural : {};
     const tilesIn = raw.tiles && typeof raw.tiles === 'object' ? raw.tiles : {};
 
     const preset = PATTERNS.includes(procIn.preset) ? procIn.preset : 'hexagons';
-    const palette = (procIn.palette === 'dual' || procIn.palette === 'custom' || PALETTES[procIn.palette]) ? procIn.palette : 'dual';
-    const rawCustomColors = Array.isArray(procIn.customColors) && procIn.customColors.length >= 2
-        ? procIn.customColors.slice(0, 7)
-        : ['#EF4444FF', '#22C55EFF', '#FACC15FF', '#3B82F6FF'];
-    const customColors = rawCustomColors.map((c, idx) => normalizeColor(c, idx === 0 ? '#EF4444FF' : '#3B82F6FF'));
+    const procPal = normalizePaletteFields(procIn);
+    const tilePal = normalizePaletteFields(tilesIn);
+    const palette = procPal.palette;
+    const customColors = procPal.customColors;
     const procMotion = PROCEDURAL_MOTION_CODE_MAP[procIn.motion] !== undefined ? procIn.motion : 'pan';
-    const procColorMode = PROCEDURAL_COLOR_MODE_CODE_MAP[procIn.colorMode] !== undefined ? procIn.colorMode : 'mosaic';
-    const procColorAnim = PROCEDURAL_COLOR_ANIM_CODE_MAP[procIn.colorAnim] !== undefined ? procIn.colorAnim : 'none';
+    const procColorMode = procPal.colorMode;
+    const procColorAnim = procPal.colorAnim;
     const procInPlace = PROCEDURAL_IN_PLACE_CODE_MAP[procIn.inPlace] !== undefined ? procIn.inPlace : (procMotion !== 'none' ? 'auto' : 'none');
     const procFillMode = PROCEDURAL_FILL_MODE_CODE_MAP[procIn.fillMode] !== undefined ? procIn.fillMode : 'tinted';
     const panDirection = procIn.panDirection === 'oscillate' ? 'oscillate' : 'continuous';
@@ -152,6 +169,9 @@ function normalizeProfile(raw = {}, index = 0) {
     const symmetry = TILE_SYMMETRY_CODE_MAP[tilesIn.symmetry] !== undefined ? tilesIn.symmetry : 'none';
     const tileMotion = TILE_MOTION_CODE_MAP[tilesIn.motion] !== undefined ? tilesIn.motion : 'scroll';
     const hueShift = TILE_HUE_CODE_MAP[tilesIn.hueShift] !== undefined ? tilesIn.hueShift : 'none';
+    const colorSource = TILE_COLOR_SOURCE_CODE_MAP[tilesIn.colorSource] !== undefined ? tilesIn.colorSource : 'hue';
+    const paletteStyle = TILE_PALETTE_STYLE_CODE_MAP[tilesIn.paletteStyle] !== undefined ? tilesIn.paletteStyle : 'per-tile';
+    const paletteBlend = TILE_PALETTE_BLEND_CODE_MAP[tilesIn.paletteBlend] !== undefined ? tilesIn.paletteBlend : 'recolor';
     const tileDistribution = TILE_DIST_CODE_MAP[tilesIn.tileDistribution] !== undefined ? tilesIn.tileDistribution : 'diagonal';
     const alternateFlip = TILE_ALT_FLIP_CODE_MAP[tilesIn.alternateFlip] !== undefined ? tilesIn.alternateFlip : 'tilt';
     const trackMode = TILE_TRACK_CODE_MAP[tilesIn.trackMode] !== undefined ? tilesIn.trackMode : 'uniform';
@@ -285,6 +305,17 @@ function normalizeProfile(raw = {}, index = 0) {
             twinkle: normalizeNumOrToken(tilesIn.twinkle, 0, 0, 100),
             twinkleSpeed: normalizeNumOrToken(tilesIn.twinkleSpeed, 4, 0.5, 30),
             tintColor: normalizeColor(tilesIn.tintColor, '#FFFFFFFF'),
+            colorSource,
+            palette: tilePal.palette,
+            accent: tilePal.accent,
+            secondary: tilePal.secondary,
+            customColors: tilePal.customColors,
+            colorMode: tilePal.colorMode,
+            colorAnim: tilePal.colorAnim,
+            colorSpeed: normalizeNumOrToken(tilesIn.colorSpeed, 1, 0, 5),
+            paletteStyle,
+            paletteBlend,
+            paletteStrength: normalizeNumOrToken(tilesIn.paletteStrength, 100, 0, 100),
             slots: rawSlots,
             stampFile: cleanStampFile
         }
@@ -520,6 +551,13 @@ uniform float tile_pos_jitter;
 uniform float tile_twinkle;
 uniform float tile_twinkle_speed;
 uniform float4 tile_tint;
+uniform float tile_color_source;
+uniform float tile_pal_cmode;
+uniform float tile_pal_canim;
+uniform float tile_pal_cspeed;
+uniform float tile_pal_style;
+uniform float tile_pal_blend;
+uniform float tile_pal_strength;
 uniform float has_stamp;
 
 sampler_state textureSampler {
@@ -1061,7 +1099,8 @@ float4 sampleTileStamp(float2 uv, float slot_idx) {
             float2 qoff = float2(fmod(si, 2.0), floor(si * 0.5)) * 0.5;
             suv = qoff + 0.006 + clamp(uv, 0.004, 0.996) * 0.488;
         }
-        float4 tex = stamp_tex.Sample(textureSampler, suv) * tile_tint;
+        float4 tex = stamp_tex.Sample(textureSampler, suv);
+        if (tile_color_source < 0.5) tex *= tile_tint;
         return float4(tex.rgb * tex.a, tex.a);
     }
     // Built-in crisp fallback geometric diamond/star badge when no image stamp is loaded yet
@@ -1070,8 +1109,74 @@ float4 sampleTileStamp(float2 uv, float slot_idx) {
     float d_ring = abs(d_dia + 0.14) - 0.06;
     float fill_m = (1.0 - smoothstep(-0.04, 0.04, d_dia)) * 0.28;
     float stroke_m = 1.0 - smoothstep(-0.03, 0.03, d_ring);
-    float a = max(fill_m, stroke_m) * tile_tint.a;
-    return float4(tile_tint.rgb * a, a);
+    float4 base_tint = (tile_color_source < 0.5) ? tile_tint : float4(1.0, 1.0, 1.0, 1.0);
+    float a = max(fill_m, stroke_m) * base_tint.a;
+    return float4(base_tint.rgb * a, a);
+}
+
+float4 evalTilePaletteColor(float2 cell_id, float2 tile_screen_center, float2 screen_p, float2 grid_p, float step_px, float t) {
+    float n = max(2.0, pal_count);
+    float g_scale = max(48.0, step_px);
+    float h = hash21(cell_id);
+    float idx = 0.0;
+    if (tile_pal_style < 0.5) {
+        if (tile_pal_cmode < 0.5) {
+            idx = floor(h * n);
+        } else if (tile_pal_cmode < 1.5) {
+            idx = floor(length(tile_screen_center) / max(32.0, g_scale * 0.85));
+        } else if (tile_pal_cmode < 2.5) {
+            idx = floor(abs(cell_id.y));
+        } else if (tile_pal_cmode < 3.5) {
+            idx = floor(abs(cell_id.x));
+        } else if (tile_pal_cmode < 4.5) {
+            idx = floor(abs(cell_id.x + cell_id.y));
+        } else if (tile_pal_cmode < 5.5) {
+            float ang = (atan2(tile_screen_center.y, tile_screen_center.x) + 3.1415926) / 6.2831853;
+            idx = floor(length(tile_screen_center) / max(32.0, g_scale * 0.85) + ang * n);
+        } else {
+            idx = fmod(abs(cell_id.x + cell_id.y), 2.0) * (n > 2.5 ? 2.0 : 1.0);
+        }
+    } else {
+        if (tile_pal_cmode < 0.5) {
+            float2 mg = grid_p / g_scale;
+            float2 mi = floor(mg);
+            float2 mf = smoothstep(0.0, 1.0, frac(mg));
+            float v00 = hash21(mi) * n;
+            float v10 = hash21(mi + float2(1.0, 0.0)) * n;
+            float v01 = hash21(mi + float2(0.0, 1.0)) * n;
+            float v11 = hash21(mi + float2(1.0, 1.0)) * n;
+            idx = lerp(lerp(v00, v10, mf.x), lerp(v01, v11, mf.x), mf.y);
+        } else if (tile_pal_cmode < 1.5) {
+            idx = length(screen_p) / max(32.0, g_scale * 0.85);
+        } else if (tile_pal_cmode < 2.5) {
+            idx = 4200.0 + (screen_p.y / g_scale);
+        } else if (tile_pal_cmode < 3.5) {
+            idx = 4200.0 + (screen_p.x / g_scale);
+        } else if (tile_pal_cmode < 4.5) {
+            idx = 4200.0 + ((screen_p.x + screen_p.y) / (g_scale * 1.4142));
+        } else if (tile_pal_cmode < 5.5) {
+            float ang = (atan2(screen_p.y, screen_p.x) + 3.1415926) / 6.2831853;
+            idx = length(screen_p) / max(32.0, g_scale * 0.85) + ang * n;
+        } else {
+            float cw = 0.5 + 0.5 * cos((grid_p.x / g_scale) * 3.1415926) * cos((grid_p.y / g_scale) * 3.1415926);
+            idx = cw * (n > 2.5 ? 2.0 : 1.0);
+        }
+    }
+
+    float h_seed = (tile_pal_style < 0.5) ? h : 0.0;
+    float shift = 0.0;
+    if (tile_pal_canim > 0.5 && tile_pal_canim < 1.5) {
+        shift = t * tile_pal_cspeed * 1.4;
+    } else if (tile_pal_canim >= 1.5) {
+        shift = (0.5 + 0.5 * sin(t * tile_pal_cspeed * 2.0 + h_seed * 1.8)) * max(1.0, n - 0.5);
+    }
+    float fidx = max(0.0, idx + shift);
+    float i0 = floor(fidx);
+    float4 c = lerp(getPaletteStop(i0), getPaletteStop(i0 + 1.0), frac(fidx));
+    if (tile_pal_canim >= 1.5) {
+        c.a *= 0.65 + 0.35 * sin(t * tile_pal_cspeed * 2.2 + h_seed * 6.28318);
+    }
+    return c;
 }
 
 float4 evalPatternTiles(float2 px, float t) {
@@ -1172,8 +1277,9 @@ float4 evalPatternTiles(float2 px, float t) {
     }
     float2 rnd = hash22(cell_id);
 
-    float2 lp = (frac(grid_p / step_px) - 0.5) * step_px;
-    lp -= (rnd - 0.5) * (tile_pos_jitter / 100.0) * (step_px * 0.35);
+    float2 lp_raw = (frac(grid_p / step_px) - 0.5) * step_px;
+    float2 tile_screen_center = p - lp_raw;
+    float2 lp = lp_raw - (rnd - 0.5) * (tile_pos_jitter / 100.0) * (step_px * 0.35);
 
     // 8:wave, 9:float per-tile displacement & scale
     float sc_wave = 1.0;
@@ -1227,18 +1333,29 @@ float4 evalPatternTiles(float2 px, float t) {
     float4 tex = sampleTileStamp(uv, slot_idx);
     if (tex.a <= 0.001) return float4(0.0, 0.0, 0.0, 0.0);
 
-    float hue_a = (rnd.x - 0.5) * (tile_hue_jitter / 180.0) * 6.2831853;
-    if (tile_hue_mode > 0.5 && tile_hue_mode < 1.5) {
-        hue_a += t * tile_hue_speed * 0.08;
-    } else if (tile_hue_mode >= 1.5 && tile_hue_mode < 2.5) {
-        hue_a += px.x * 0.004 - t * tile_hue_speed * 0.1;
-    } else if (tile_hue_mode >= 2.5) {
-        hue_a += px.y * 0.004 - t * tile_hue_speed * 0.1;
-    }
-    float has_hue_fx = (tile_hue_mode > 0.5 || abs(hue_a) > 0.001) ? 1.0 : 0.0;
-    if (has_hue_fx > 0.5 || tile_sat_jitter > 0.5 || tile_bright_jitter > 0.5) {
-        float3 unpm = tex.rgb / max(tex.a, 0.001);
-        if (has_hue_fx > 0.5) {
+    float3 unpm = tex.rgb / max(tex.a, 0.001);
+    if (tile_color_source >= 0.5) {
+        float4 pal = evalTilePaletteColor(cell_id, tile_screen_center, p, grid_p, step_px, t);
+        float3 colored = unpm * pal.rgb;
+        if (tile_pal_blend >= 0.5) {
+            float lum = dot(unpm, float3(0.299, 0.587, 0.114));
+            float mx = max(unpm.r, max(unpm.g, unpm.b));
+            float luma = clamp(lerp(lum, mx, 0.52), 0.0, 1.0);
+            colored = pal.rgb * luma;
+        }
+        float st = clamp(tile_pal_strength, 0.0, 1.0);
+        unpm = clamp(lerp(unpm, colored, st), 0.0, 1.0);
+        tex.a *= lerp(1.0, pal.a, st);
+    } else {
+        float hue_a = (rnd.x - 0.5) * (tile_hue_jitter / 180.0) * 6.2831853;
+        if (tile_hue_mode > 0.5 && tile_hue_mode < 1.5) {
+            hue_a += t * tile_hue_speed * 0.08;
+        } else if (tile_hue_mode >= 1.5 && tile_hue_mode < 2.5) {
+            hue_a += px.x * 0.004 - t * tile_hue_speed * 0.1;
+        } else if (tile_hue_mode >= 2.5) {
+            hue_a += px.y * 0.004 - t * tile_hue_speed * 0.1;
+        }
+        if (tile_hue_mode > 0.5 || abs(hue_a) > 0.001) {
             float mx = max(unpm.r, max(unpm.g, unpm.b));
             float mn = min(unpm.r, min(unpm.g, unpm.b));
             float chroma = mx - mn;
@@ -1248,16 +1365,16 @@ float4 evalPatternTiles(float2 px, float t) {
             float3 col_rgb = hueShiftRgb(unpm, hue_a);
             unpm = clamp(lerp(col_rgb, mono_rgb, mono_w), 0.0, 1.0);
         }
-        if (tile_sat_jitter > 0.5) {
-            float lum = dot(unpm, float3(0.299, 0.587, 0.114));
-            float sf = 1.0 + (rnd.y - 0.5) * (tile_sat_jitter / 50.0);
-            unpm = clamp(lerp(float3(lum, lum, lum), unpm, sf), 0.0, 1.0);
-        }
-        if (tile_bright_jitter > 0.5) {
-            unpm = clamp(unpm * (1.0 + (rnd.x - 0.5) * (tile_bright_jitter / 50.0)), 0.0, 1.0);
-        }
-        tex.rgb = unpm * tex.a;
     }
+    if (tile_sat_jitter > 0.5) {
+        float lum = dot(unpm, float3(0.299, 0.587, 0.114));
+        float sf = 1.0 + (rnd.y - 0.5) * (tile_sat_jitter / 50.0);
+        unpm = clamp(lerp(float3(lum, lum, lum), unpm, sf), 0.0, 1.0);
+    }
+    if (tile_bright_jitter > 0.5) {
+        unpm = clamp(unpm * (1.0 + (rnd.x - 0.5) * (tile_bright_jitter / 50.0)), 0.0, 1.0);
+    }
+    tex.rgb = unpm * tex.a;
 
     float cell_alpha = tile_opacity * ((is_alt > 0.5) ? tile_alt_opacity : 1.0);
     if (tile_twinkle > 0.5) {
@@ -1672,6 +1789,21 @@ local function parse_profile_block(block)
             hueModeCode = extract_number(tiles_raw, "hueModeCode", 0),
             hueSpeed = extract_number(tiles_raw, "hueSpeed", 14),
             hueJitter = extract_number(tiles_raw, "hueJitter", 0),
+            colorSourceCode = extract_number(tiles_raw, "colorSourceCode", 0),
+            colorModeCode = extract_number(tiles_raw, "colorModeCode", 0),
+            colorAnimCode = extract_number(tiles_raw, "colorAnimCode", 0),
+            colorSpeed = extract_number(tiles_raw, "colorSpeed", 1),
+            paletteStyleCode = extract_number(tiles_raw, "paletteStyleCode", 0),
+            paletteBlendCode = extract_number(tiles_raw, "paletteBlendCode", 1),
+            paletteStrength = extract_number(tiles_raw, "paletteStrength", 100),
+            pal0 = parse_number_array(extract_array_raw(tiles_raw, "pal0") or "[0.35,0.65,1,1]"),
+            pal1 = parse_number_array(extract_array_raw(tiles_raw, "pal1") or "[0.66,0.33,0.97,1]"),
+            pal2 = parse_number_array(extract_array_raw(tiles_raw, "pal2") or "[0.35,0.65,1,1]"),
+            pal3 = parse_number_array(extract_array_raw(tiles_raw, "pal3") or "[0.66,0.33,0.97,1]"),
+            pal4 = parse_number_array(extract_array_raw(tiles_raw, "pal4") or "[0.35,0.65,1,1]"),
+            pal5 = parse_number_array(extract_array_raw(tiles_raw, "pal5") or "[0.66,0.33,0.97,1]"),
+            pal6 = parse_number_array(extract_array_raw(tiles_raw, "pal6") or "[0.35,0.65,1,1]"),
+            palCount = extract_number(tiles_raw, "palCount", 2),
             saturationJitter = extract_number(tiles_raw, "saturationJitter", 0),
             brightnessJitter = extract_number(tiles_raw, "brightnessJitter", 0),
             scaleJitter = extract_number(tiles_raw, "scaleJitter", 0),
@@ -1958,7 +2090,8 @@ source_def.create = function(settings, source)
             "tile_motion", "tile_track_mode", "tile_spin_dir", "tile_scroll_rad", "tile_speed", "tile_spin_rad", "tile_wave_amt",
             "tile_hue_mode", "tile_hue_speed", "tile_hue_jitter", "tile_sat_jitter", "tile_bright_jitter",
             "tile_scale_jitter", "tile_rot_jitter", "tile_pos_jitter", "tile_twinkle", "tile_twinkle_speed",
-            "tile_tint", "has_stamp"
+            "tile_tint", "tile_color_source", "tile_pal_cmode", "tile_pal_canim", "tile_pal_cspeed",
+            "tile_pal_style", "tile_pal_blend", "tile_pal_strength", "has_stamp"
         }
         for _, n in ipairs(names) do
             data.params[n] = obs.gs_effect_get_param_by_name(data.effect, n)
@@ -2039,19 +2172,21 @@ local function upload_effect_uniforms(data, prof)
     set_vec4(v4, p.vignette_color, prof.vignetteColorRgba)
 
     local pr = prof.procedural or {}
+    local tl = prof.tiles or {}
+    local pal_src = ((prof.modeCode or 0) > 0.5) and tl or pr
     obs.gs_effect_set_float(p.proc_preset, pr.presetCode or 3.0)
     obs.gs_effect_set_float(p.proc_scale, pr.scale or 100.0)
     obs.gs_effect_set_float(p.proc_line_w, pr.lineWidth or 2.0)
     set_vec4(v4, p.proc_accent, pr.accentRgba)
     set_vec4(v4, p.proc_secondary, pr.secondaryRgba)
-    set_vec4(v4, p.pal_c0, pr.pal0)
-    set_vec4(v4, p.pal_c1, pr.pal1)
-    set_vec4(v4, p.pal_c2, pr.pal2)
-    set_vec4(v4, p.pal_c3, pr.pal3)
-    set_vec4(v4, p.pal_c4, pr.pal4)
-    set_vec4(v4, p.pal_c5, pr.pal5)
-    set_vec4(v4, p.pal_c6, pr.pal6)
-    obs.gs_effect_set_float(p.pal_count, pr.palCount or 2.0)
+    set_vec4(v4, p.pal_c0, pal_src.pal0)
+    set_vec4(v4, p.pal_c1, pal_src.pal1)
+    set_vec4(v4, p.pal_c2, pal_src.pal2)
+    set_vec4(v4, p.pal_c3, pal_src.pal3)
+    set_vec4(v4, p.pal_c4, pal_src.pal4)
+    set_vec4(v4, p.pal_c5, pal_src.pal5)
+    set_vec4(v4, p.pal_c6, pal_src.pal6)
+    obs.gs_effect_set_float(p.pal_count, pal_src.palCount or 2.0)
     obs.gs_effect_set_float(p.proc_fill_mode, pr.fillModeCode or 0.0)
     obs.gs_effect_set_float(p.proc_fill_opacity, pr.fillOpacity or 35.0)
     obs.gs_effect_set_float(p.proc_color_mode, pr.colorModeCode or 0.0)
@@ -2089,7 +2224,6 @@ local function upload_effect_uniforms(data, prof)
     obs.gs_effect_set_float(p.flt_grain_size, fl.grainSize or 150.0)
     obs.gs_effect_set_float(p.flt_grain_anim, fl.grainAnim or 1.0)
 
-    local tl = prof.tiles or {}
     obs.gs_effect_set_float(p.tile_count, tl.tileCount or 1.0)
     obs.gs_effect_set_float(p.tile_dist, tl.tileDistCode or 0.0)
     obs.gs_effect_set_float(p.tile_layout, tl.layoutCode or 1.0)
@@ -2127,6 +2261,13 @@ local function upload_effect_uniforms(data, prof)
     obs.gs_effect_set_float(p.tile_twinkle, tl.twinkle or 0.0)
     obs.gs_effect_set_float(p.tile_twinkle_speed, tl.twinkleSpeed or 4.0)
     set_vec4(v4, p.tile_tint, tl.tintColorRgba)
+    obs.gs_effect_set_float(p.tile_color_source, tl.colorSourceCode or 0.0)
+    obs.gs_effect_set_float(p.tile_pal_cmode, tl.colorModeCode or 0.0)
+    obs.gs_effect_set_float(p.tile_pal_canim, tl.colorAnimCode or 0.0)
+    obs.gs_effect_set_float(p.tile_pal_cspeed, tl.colorSpeed or 1.0)
+    obs.gs_effect_set_float(p.tile_pal_style, tl.paletteStyleCode or 0.0)
+    obs.gs_effect_set_float(p.tile_pal_blend, tl.paletteBlendCode or 1.0)
+    obs.gs_effect_set_float(p.tile_pal_strength, (tl.paletteStrength or 100.0) / 100.0)
 
     local has_tex = 0.0
     local draw_tex = data.dummy_tex
@@ -2205,7 +2346,11 @@ local function is_profile_animated(prof)
     if (prof.modeCode or 0) > 0.5 then
         local tl = prof.tiles or {}
         if (tl.motionCode or 0) > 0.5 then return true end
-        if (tl.hueModeCode or 0) > 0.5 then return true end
+        if (tl.colorSourceCode or 0) > 0.5 then
+            if (tl.colorAnimCode or 0) > 0.5 and (tl.colorSpeed or 0) > 0.0 then return true end
+        elseif (tl.hueModeCode or 0) > 0.5 then
+            return true
+        end
         if (tl.symmetryCode or 0) >= 2 and (tl.kaleidoMorph or 0) > 0.5 then return true end
         if (tl.twinkle or 0) > 0.5 then return true end
         return false
@@ -2503,6 +2648,14 @@ function createObsPatternsService({
         const bgHex3 = resolveColorToken(p.bgColor3, '#0F766EFF', varValues, allowVars);
         const vigHex = resolveColorToken(p.vignetteColor, '#000000FF', varValues, allowVars);
         const tintHex = resolveColorToken(tl.tintColor, '#FFFFFFFF', varValues, allowVars);
+        const tileAccentHex = resolveColorToken(tl.accent, '#58A6FFFF', varValues, allowVars);
+        const tileSecondaryHex = resolveColorToken(tl.secondary, '#A855F7FF', varValues, allowVars);
+        const tileAccentRgba = hexToRgbaArray(tileAccentHex, [0.35, 0.65, 1, 1]);
+        const tileSecondaryRgba = hexToRgbaArray(tileSecondaryHex, [0.66, 0.33, 0.97, 1]);
+        const tileCustomResolved = Array.isArray(tl.customColors)
+            ? tl.customColors.slice(0, 7).map((c, ci) => resolveColorToken(c, ci === 0 ? '#EF4444FF' : '#3B82F6FF', varValues, allowVars))
+            : [];
+        const tilePalStops = resolvePaletteStops(tl.palette, tileAccentRgba, tileSecondaryRgba, tileCustomResolved, varValues, allowVars);
         const spinModeCode = pr.spin === 'cw' ? 1 : (pr.spin === 'ccw' ? 2 : (pr.spin === 'sway' ? 3 : 0));
         const fl = p.filters || {};
         const flDuo = fl.duotone || {};
@@ -2648,6 +2801,25 @@ function createObsPatternsService({
                 twinkleSpeed: resolveNumToken(tl.twinkleSpeed, 4, 0.5, 30, varValues, allowVars),
                 tintColor: tintHex,
                 tintColorRgba: hexToRgbaArray(tintHex, [1, 1, 1, 1]),
+                colorSource: tl.colorSource || 'hue',
+                colorSourceCode: TILE_COLOR_SOURCE_CODE_MAP[tl.colorSource] ?? 0,
+                palette: tl.palette || 'dual',
+                accent: tileAccentHex,
+                accentRgba: tileAccentRgba,
+                secondary: tileSecondaryHex,
+                secondaryRgba: tileSecondaryRgba,
+                customColors: tileCustomResolved,
+                ...tilePalStops,
+                colorMode: tl.colorMode || 'mosaic',
+                colorModeCode: PROCEDURAL_COLOR_MODE_CODE_MAP[tl.colorMode] ?? 0,
+                colorAnim: tl.colorAnim || 'none',
+                colorAnimCode: PROCEDURAL_COLOR_ANIM_CODE_MAP[tl.colorAnim] ?? 0,
+                colorSpeed: resolveNumToken(tl.colorSpeed, 1, 0, 5, varValues, allowVars),
+                paletteStyle: tl.paletteStyle || 'per-tile',
+                paletteStyleCode: TILE_PALETTE_STYLE_CODE_MAP[tl.paletteStyle] ?? 0,
+                paletteBlend: tl.paletteBlend || 'recolor',
+                paletteBlendCode: TILE_PALETTE_BLEND_CODE_MAP[tl.paletteBlend] ?? 1,
+                paletteStrength: resolveNumToken(tl.paletteStrength, 100, 0, 100, varValues, allowVars),
                 stampFile: tl.stampFile || ''
             }
         };

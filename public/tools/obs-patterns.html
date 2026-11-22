@@ -607,14 +607,6 @@
                                 </div>
                             </div>
 
-                            <div class="field">
-                                <label for="op-tile-tint">Master Tint Color</label>
-                                <div class="ob-color-row">
-                                    <input type="color" id="op-tile-tint-pick" value="#ffffff">
-                                    <input type="text" id="op-tile-tint" placeholder="#FFFFFFFF" data-var-kind="color" data-var-label="Tile Tint">
-                                </div>
-                            </div>
-
                             <div class="grid3">
                                 <div class="field">
                                     <label for="op-tile-motion">Motion</label>
@@ -651,7 +643,7 @@
                                 </div>
                             </div>
 
-                            <div class="grid3">
+                            <div class="grid2">
                                 <div class="field">
                                     <label for="op-tile-wave-amt">Wave / Float (%)</label>
                                     <div class="ob-input-row">
@@ -659,24 +651,133 @@
                                     </div>
                                 </div>
                                 <div class="field">
-                                    <label for="op-tile-hue-mode">Hue Shift</label>
-                                    <select id="op-tile-hue-mode"></select>
+                                    <span>Color Effect Mode</span>
+                                    <span class="seg" id="op-tile-color-source-seg" role="group" aria-label="Tile Color Effect Mode">
+                                        <button type="button" data-cs="hue" aria-pressed="true">Tint &amp; Hue Shift</button>
+                                        <button type="button" data-cs="palette" aria-pressed="false">Palette Set &amp; Gradients</button>
+                                    </span>
                                 </div>
-                                <div class="field">
-                                    <label for="op-tile-hue-speed">Hue Speed</label>
-                                    <div class="ob-input-row">
-                                        <input type="number" id="op-tile-hue-speed" min="0.5" max="120" step="2">
+                            </div>
+
+                            <div id="op-tile-hue-panel">
+                                <div class="grid2">
+                                    <div class="field">
+                                        <label for="op-tile-tint">Master Tint Color</label>
+                                        <div class="ob-color-row">
+                                            <input type="color" id="op-tile-tint-pick" value="#ffffff">
+                                            <input type="text" id="op-tile-tint" placeholder="#FFFFFFFF" data-var-kind="color" data-var-label="Tile Tint">
+                                        </div>
+                                    </div>
+                                    <div class="field">
+                                        <label for="op-tile-hue-mode">Hue Shift</label>
+                                        <select id="op-tile-hue-mode"></select>
+                                    </div>
+                                </div>
+                                <div class="grid2">
+                                    <div class="field">
+                                        <label for="op-tile-hue-speed">Hue Speed</label>
+                                        <div class="ob-input-row">
+                                            <input type="number" id="op-tile-hue-speed" min="0.5" max="120" step="2">
+                                        </div>
+                                    </div>
+                                    <div class="field">
+                                        <label for="op-tile-hue-jitter">Hue Jitter (deg)</label>
+                                        <div class="ob-input-row">
+                                            <input type="number" id="op-tile-hue-jitter" min="0" max="180" step="5">
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="grid3">
-                                <div class="field">
-                                    <label for="op-tile-hue-jitter">Hue Jitter (deg)</label>
-                                    <div class="ob-input-row">
-                                        <input type="number" id="op-tile-hue-jitter" min="0" max="180" step="5">
+                            <div id="op-tile-palette-panel" hidden>
+                                <div class="grid2">
+                                    <div class="field">
+                                        <label for="op-tile-palette">Color Palette</label>
+                                        <select id="op-tile-palette"></select>
+                                    </div>
+                                    <div class="field">
+                                        <label for="op-tile-pal-style">Coloring Style</label>
+                                        <select id="op-tile-pal-style"></select>
                                     </div>
                                 </div>
+
+                                <div class="op-pal-bar-row">
+                                    <div id="op-tile-palette-bar" style="display:flex;gap:4px;height:14px;border-radius:4px;overflow:hidden;border:1px solid var(--border);" aria-label="Active tile palette swatches"></div>
+                                    <button type="button" class="btn sm" id="op-tile-pal-customize-btn" title="Copy these colors into the Custom Palette Editor" style="white-space:nowrap;">
+                                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:3px;"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+                                        Customize
+                                    </button>
+                                </div>
+
+                                <div id="op-tile-custom-palette-editor" class="op-custom-pal-card" hidden>
+                                    <div class="op-custom-pal-head">
+                                        <span class="op-custom-pal-title">Custom Palette Stops (2–7 Colors)</span>
+                                        <div class="op-custom-pal-actions">
+                                            <select id="op-tile-custom-pal-import" title="Copy colors from a built-in palette" aria-label="Copy colors from a built-in palette">
+                                                <option value="">Copy Preset…</option>
+                                            </select>
+                                            <button type="button" class="btn sm" id="op-tile-custom-pal-add">+ Add Color</button>
+                                            <button type="button" class="btn sm" id="op-tile-custom-pal-reverse" title="Reverse color order">Reverse</button>
+                                            <button type="button" class="btn sm" id="op-tile-custom-pal-shuffle" title="Shuffle color stops">Shuffle</button>
+                                        </div>
+                                    </div>
+                                    <div id="op-tile-custom-pal-stops" class="op-custom-pal-stops"></div>
+                                    <div class="op-custom-pal-save">
+                                        <input type="text" id="op-tile-custom-pal-name" placeholder="Name this palette to reuse (e.g. Cozy Holiday)">
+                                        <button type="button" class="btn sm primary" id="op-tile-custom-pal-save-btn">Save Palette</button>
+                                    </div>
+                                    <div id="op-tile-saved-palettes-row" class="op-saved-pal-list" hidden></div>
+                                </div>
+
+                                <div class="grid2" id="op-tile-dual-colors">
+                                    <div class="field">
+                                        <label for="op-tile-accent">Accent Color</label>
+                                        <div class="ob-color-row">
+                                            <input type="color" id="op-tile-accent-pick" value="#58a6ff">
+                                            <input type="text" id="op-tile-accent" placeholder="#58A6FFFF" data-var-kind="color" data-var-label="Tile Palette Accent">
+                                        </div>
+                                    </div>
+                                    <div class="field">
+                                        <label for="op-tile-secondary">Secondary Color</label>
+                                        <div class="ob-color-row">
+                                            <input type="color" id="op-tile-secondary-pick" value="#a855f7">
+                                            <input type="text" id="op-tile-secondary" placeholder="#A855F7FF" data-var-kind="color" data-var-label="Tile Palette Secondary">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="grid3">
+                                    <div class="field">
+                                        <label for="op-tile-cmode">Color Placement</label>
+                                        <select id="op-tile-cmode"></select>
+                                    </div>
+                                    <div class="field">
+                                        <label for="op-tile-canim">Color Animation</label>
+                                        <select id="op-tile-canim"></select>
+                                    </div>
+                                    <div class="field">
+                                        <label for="op-tile-cspeed">Color Speed</label>
+                                        <div class="ob-input-row">
+                                            <input type="number" id="op-tile-cspeed" min="0" max="5" step="0.1">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="grid2">
+                                    <div class="field">
+                                        <label for="op-tile-pal-blend">Colorize Mode</label>
+                                        <select id="op-tile-pal-blend"></select>
+                                    </div>
+                                    <div class="field">
+                                        <label for="op-tile-pal-strength">Tint Strength (%)</label>
+                                        <div class="ob-input-row">
+                                            <input type="number" id="op-tile-pal-strength" min="0" max="100" step="5" data-var-kind="number" data-var-label="Tile Palette Strength">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid2">
                                 <div class="field">
                                     <label for="op-tile-sat-jitter">Sat Jitter (%)</label>
                                     <div class="ob-input-row">
