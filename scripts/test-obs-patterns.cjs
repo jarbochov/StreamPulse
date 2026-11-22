@@ -1093,6 +1093,31 @@ describe('OBS Pattern Studio (Beta / Advanced)', () => {
             assert.equal(stats.distinctDiagonalSteps, 3, 'Per-tile diagonal must not mirror colors across center');
             assert.equal(stats.animChanged, true, 'Palette cycle animation must advance tiles over time');
             assert.equal(stats.hueMutuallyExclusive, true, 'Hue shift uniform must not affect Palette Set output');
+
+            // Verify Config Editor Modules card for OBS Pattern Studio sizes its icon identically (16x16)
+            const configHtml = fs.readFileSync(path.join(__dirname, '../public/system/config-editor.html'), 'utf8');
+            assert.ok(configHtml.includes('data-module="obs-patterns"'), 'Config Editor must include data-module="obs-patterns"');
+            assert.equal(configHtml.includes('class="module-title"'), false, 'Config Editor must use .module-card-title, not .module-title');
+            await page.setContent(configHtml, { waitUntil: 'domcontentloaded' });
+            const cardIcons = await page.evaluate(() => {
+                document.getElementById('pane-modules').hidden = false;
+                return [...document.querySelectorAll('#pane-modules .module-card')].map(card => {
+                    const svg = card.querySelector('.module-card-head svg');
+                    const rect = svg ? svg.getBoundingClientRect() : { width: 0, height: 0 };
+                    return {
+                        module: card.dataset.module || null,
+                        hasTitleClass: Boolean(card.querySelector('.module-card-title')),
+                        width: Math.round(rect.width),
+                        height: Math.round(rect.height)
+                    };
+                });
+            });
+            const obsPatternsCard = cardIcons.find(c => c.module === 'obs-patterns');
+            assert.ok(obsPatternsCard && obsPatternsCard.hasTitleClass, 'OBS Pattern Studio card must use .module-card-title');
+            for (const c of cardIcons) {
+                assert.equal(c.width, 16, `Module card ${c.module} icon width should be 16px`);
+                assert.equal(c.height, 16, `Module card ${c.module} icon height should be 16px`);
+            }
         } finally {
             await browser.close();
         }
