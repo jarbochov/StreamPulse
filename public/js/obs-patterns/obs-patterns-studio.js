@@ -2,6 +2,8 @@
     'use strict';
 
     const TAB_STORAGE_KEY = 'streampulse:obs-patterns:tab';
+    const INSPECTOR_TAB_KEY = 'streampulse:obs-patterns:inspector-tab';
+    const ADV_STORAGE_KEY = 'streampulse:obs-patterns:adv-open';
     const BG_STORAGE_KEY = 'streampulse:obs-patterns:bg';
     const VIEW_STORAGE_KEY = 'streampulse:obs-patterns:view';
 
@@ -71,13 +73,16 @@
     let obsConnected = false;
     let currentProgramScene = '';
     let activeTab = parseTabFromHash() || localStorage.getItem(TAB_STORAGE_KEY) || 'sources';
+    let activeInspectorTab = localStorage.getItem(INSPECTOR_TAB_KEY) || 'canvas';
     let previewBg = localStorage.getItem(BG_STORAGE_KEY) || 'dark';
     let listViewMode = localStorage.getItem(VIEW_STORAGE_KEY) || 'sources';
     const expandedGroups = new Set();
     let isPopulating = false;
     let varBinderMounted = false;
     let animFrameId = null;
-    const animStartMs = performance.now();
+    let animOriginMs = performance.now();
+    let previewPaused = false;
+    let pausedElapsedMs = 0;
 
     function showToast(msg) {
         const el = document.getElementById('op-toast');
@@ -261,6 +266,7 @@
         const isTransparent = bt === 'transparent';
         const isGrad = bt === 'linear' || bt === 'radial' || bt === 'conic';
         const isOrigin = bt === 'radial' || bt === 'conic';
+        const hasVig = VAR_TOKEN_RE.test(String(p.vignette ?? '')) || resolveNum(p.vignette, 0, 0, 100) > 0;
         const setHidden = (id, h) => { const el = document.getElementById(id); if (el) el.hidden = Boolean(h); };
         setHidden('op-bg-colors-wrap', isTransparent);
         setHidden('op-bg-c2-wrap', !isGrad);
@@ -269,6 +275,8 @@
         setHidden('op-bg-origin-wrap', !isOrigin);
         setHidden('op-bg-radius-wrap', bt !== 'radial');
         setHidden('op-bg-angle-wrap', bt === 'radial');
+        setHidden('op-bg-motion-speed-wrap', !isGrad || (p.bgMotion || 'none') === 'none');
+        setHidden('op-vignette-color-wrap', !hasVig);
         const c1Lbl = document.getElementById('op-bg-c1-label');
         if (c1Lbl) c1Lbl.textContent = isGrad ? 'Gradient Start Color' : 'Background Color';
         renderBgGradientBar(p);
@@ -487,15 +495,25 @@
         setHidden('op-custom-palette-editor', !isCustom);
         setHidden('op-pal-customize-btn', isCustom);
         setHidden('op-proc-fill-wrap', caps.fill === false);
+        setHidden('op-proc-fill-opacity-wrap', caps.fill === false || (pr.fillMode || 'tinted') === 'outline');
         setHidden('op-proc-spin-wrap', !caps.spin);
+        setHidden('op-proc-spin-speed-wrap', !caps.spin || (pr.spin || 'none') === 'none');
+        setHidden('op-proc-rotvar-wrap', !caps.spin);
         setHidden('op-proc-density-wrap', caps.density === false);
         setHidden('op-proc-spacing-wrap', caps.spacing === false);
+        setHidden('op-proc-density-head', caps.density === false && caps.spacing === false);
         setHidden('op-proc-scatter-wrap', caps.scatter === false);
         setHidden('op-proc-sizevar-wrap', caps.sizeVariance === false);
+        setHidden('op-proc-detail-wrap', caps.scatter === false && caps.sizeVariance === false);
+        setHidden('op-proc-variation-details', !caps.spin && caps.scatter === false && caps.sizeVariance === false);
         setHidden('op-proc-snow-wrap', pr.preset !== 'snowflakes');
         const isPan = pr.motion === 'pan';
+        setHidden('op-proc-pan-opts-wrap', !isPan);
         setHidden('op-proc-pan-dir-wrap', !isPan);
         setHidden('op-proc-angle-wrap', !isPan);
+        setHidden('op-proc-speed-wrap', (pr.motion || 'drift') === 'none');
+        setHidden('op-proc-inplace-speed-wrap', (pr.inPlace || 'auto') === 'none');
+        setHidden('op-proc-cspeed-wrap', (pr.colorAnim || 'none') === 'none');
 
         const hintEl = document.getElementById('op-proc-cap-hint');
         if (hintEl) {
@@ -523,6 +541,7 @@
         const isRadial = tl.symmetry === 'radial';
         const isPal = tl.colorSource === 'palette';
         const pal = tl.palette || 'dual';
+        const motionNone = (tl.motion || 'scroll') === 'none';
         const setHidden = (id, hid) => {
             const el = document.getElementById(id);
             if (el) el.hidden = Boolean(hid);
@@ -530,12 +549,18 @@
         setHidden('op-tile-dist-wrap', slots.length <= 1);
         setHidden('op-tile-kaleido-wrap', !isRadial);
         setHidden('op-tile-kaleido-morph-wrap', !isRadial);
+        setHidden('op-tile-kaleido-speed-wrap', !isRadial || tl.kaleidoMorph === false);
+        setHidden('op-tile-speed-wrap', motionNone);
+        setHidden('op-tile-motion-details', motionNone);
         setHidden('op-tile-hue-panel', isPal);
         setHidden('op-tile-palette-panel', !isPal);
         setHidden('op-tile-dual-colors', pal !== 'dual');
         setHidden('op-tile-custom-palette-editor', pal !== 'custom');
         setHidden('op-tile-pal-customize-btn', pal === 'custom');
         setHidden('op-tile-pal-angle-wrap', (tl.paletteStyle || 'per-tile') !== 'gradient');
+        setHidden('op-tile-hue-speed-wrap', isPal || (tl.hueShift || 'none') === 'none');
+        setHidden('op-tile-cspeed-wrap', !isPal || (tl.colorAnim || 'none') === 'none');
+        setHidden('op-tile-twinkle-speed-wrap', Number(tl.twinkle || 0) <= 0);
         document.querySelectorAll('#op-tile-color-source-seg button').forEach(btn => {
             btn.setAttribute('aria-pressed', String((btn.dataset.cs === 'palette') === isPal));
         });
@@ -554,6 +579,54 @@
         if (isPal) renderPaletteBar(tl, null, null, 'op-tile-palette-bar');
         const addBtn = document.getElementById('op-tile-add-slot');
         if (addBtn) addBtn.disabled = slots.length >= 4;
+    }
+
+    function switchInspectorTab(tab) {
+        const valid = ['canvas', 'pattern', 'motion', 'filters'];
+        const clean = valid.includes(tab) ? tab : 'canvas';
+        activeInspectorTab = clean;
+        try { localStorage.setItem(INSPECTOR_TAB_KEY, clean); } catch {}
+        document.querySelectorAll('#op-inspector-tabs [data-op-inspector]').forEach(btn => {
+            const on = btn.dataset.opInspector === clean;
+            btn.classList.toggle('active', on);
+            btn.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        valid.forEach(k => {
+            const pane = document.getElementById(`op-inspector-${k}`);
+            if (pane) pane.hidden = k !== clean;
+        });
+    }
+
+    function isWorkingProfileDirty() {
+        if (!workingProfile || !studioState?.profiles) return false;
+        const saved = studioState.profiles.find(p => p.id === selectedProfileId);
+        if (!saved) return true;
+        return JSON.stringify(workingProfile) !== JSON.stringify(saved);
+    }
+
+    function updateDirtyIndicators() {
+        const dirty = isWorkingProfileDirty();
+        const topPill = document.getElementById('op-dirty-pill');
+        const prevPill = document.getElementById('op-preview-sync-pill');
+        if (topPill) {
+            topPill.textContent = dirty ? 'Unsaved Changes' : 'Synced';
+            topPill.classList.toggle('is-dirty', dirty);
+            topPill.classList.toggle('is-synced', !dirty);
+        }
+        if (prevPill) {
+            prevPill.textContent = dirty ? 'Unsaved edits' : 'Synced with OBS';
+            prevPill.classList.toggle('is-dirty', dirty);
+            prevPill.classList.toggle('is-synced', !dirty);
+        }
+    }
+
+    function updatePreviewPauseButtonUI() {
+        const btn = document.getElementById('op-btn-preview-pause');
+        if (!btn) return;
+        btn.classList.toggle('active', previewPaused);
+        btn.innerHTML = previewPaused
+            ? '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="6 4 20 12 6 20 6 4"/></svg><span>Resume</span>'
+            : '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg><span>Pause</span>';
     }
 
     function ensureTileSlots(tl) {
@@ -706,8 +779,13 @@
 
     function updateModeVisibility(mode) {
         const isTiles = mode === 'tiles';
-        document.getElementById('op-sect-procedural').hidden = isTiles;
-        document.getElementById('op-sect-tiles').hidden = !isTiles;
+        const setHid = (id, h) => { const el = document.getElementById(id); if (el) el.hidden = Boolean(h); };
+        setHid('op-proc-pattern-block', isTiles);
+        setHid('op-proc-motion-block', isTiles);
+        setHid('op-tile-pattern-block', !isTiles);
+        setHid('op-tile-motion-block', !isTiles);
+        const patLbl = document.getElementById('op-tab-pattern-label');
+        if (patLbl) patLbl.textContent = isTiles ? 'Tile Layout' : 'Pattern Setup';
         document.querySelectorAll('#op-mode-seg button').forEach(btn => {
             btn.setAttribute('aria-pressed', btn.dataset.mode === mode ? 'true' : 'false');
         });
@@ -876,6 +954,7 @@
                     : '';
                 loadStampPreviewImage(activeStamp || '');
             }
+            updateDirtyIndicators();
             schedulePreviewDraw();
         } finally {
             isPopulating = false;
@@ -1022,6 +1101,7 @@
                 scheduleProceduralRebake();
             }
         }
+        updateDirtyIndicators();
         schedulePreviewDraw();
     }
 
@@ -2223,7 +2303,8 @@
         gl.uniform2f(u.canvas_size, w, h);
         gl.uniform2f(u.stamp_size, stampTexSize[0], stampTexSize[1]);
         gl.uniform1f(u.mode_code, p.mode === 'tiles' ? 1 : 0);
-        gl.uniform1f(u.anim_time, (nowMs - animStartMs) / 1000);
+        const elapsedMs = previewPaused ? pausedElapsedMs : Math.max(0, nowMs - animOriginMs);
+        gl.uniform1f(u.anim_time, elapsedMs / 1000);
         gl.uniform1f(u.opacity, resolveNum(p.opacity, 100, 0, 100) / 100);
         gl.uniform1f(u.bg_type, BG_TYPE_CODE_MAP[p.bgType || 'solid'] ?? 1);
         gl.uniform4f(u.bg_color, bgC[0], bgC[1], bgC[2], bgC[3]);
@@ -2412,7 +2493,10 @@
             gl.enableVertexAttribArray(loc);
             gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
             if (previewDirty) uploadPreviewUniforms(gl, u, p, w, h, nowMs);
-            else gl.uniform1f(u.anim_time, (nowMs - animStartMs) / 1000);
+            else {
+                const elapsedMs = previewPaused ? pausedElapsedMs : Math.max(0, nowMs - animOriginMs);
+                gl.uniform1f(u.anim_time, elapsedMs / 1000);
+            }
             if (useBlur) {
                 if (!scene) {
                     gl.activeTexture(gl.TEXTURE1);
@@ -2444,14 +2528,14 @@
         if (activeTab !== 'designer' || document.hidden || !workingProfile) return;
         const p = workingProfile;
         const bgAnim = p.bgType && p.bgType !== 'solid' && p.bgType !== 'transparent' && p.bgMotion && p.bgMotion !== 'none';
-        const isAnimated = bgAnim || (p.filters?.grain?.enabled && p.filters.grain.animate !== false && Number(p.filters.grain.amount ?? 18) > 0) || (p.mode === 'tiles'
-            ? (p.tiles?.motion !== 'none' || p.tiles?.hueShift !== 'none' || (p.tiles?.symmetry === 'radial' && p.tiles?.kaleidoMorph !== false) || Number(p.tiles?.twinkle || 0) > 0)
-            : (p.procedural?.motion !== 'none' || p.procedural?.colorAnim !== 'none' || (p.procedural?.inPlace && p.procedural?.inPlace !== 'none') || (p.procedural?.spin && p.procedural?.spin !== 'none')));
+        const isAnimated = !previewPaused && (bgAnim || (p.filters?.grain?.enabled && p.filters.grain.animate !== false && Number(p.filters.grain.amount ?? 18) > 0) || (p.mode === 'tiles'
+            ? (p.tiles?.motion !== 'none' || (p.tiles?.colorSource === 'palette' ? p.tiles?.colorAnim !== 'none' : p.tiles?.hueShift !== 'none') || (p.tiles?.symmetry === 'radial' && p.tiles?.kaleidoMorph !== false) || Number(p.tiles?.twinkle || 0) > 0)
+            : (p.procedural?.motion !== 'none' || p.procedural?.colorAnim !== 'none' || (p.procedural?.inPlace && p.procedural?.inPlace !== 'none') || (p.procedural?.spin && p.procedural?.spin !== 'none'))));
 
         if (isAnimated) {
             lastAnimDrawMs = 0;
             const tick = (now) => {
-                if (activeTab !== 'designer' || document.hidden) {
+                if (activeTab !== 'designer' || document.hidden || previewPaused) {
                     animFrameId = null;
                     return;
                 }
@@ -3095,6 +3179,7 @@
                 if (!workingProfile) return;
                 workingProfile.mode = btn.dataset.mode === 'tiles' ? 'tiles' : 'procedural';
                 updateModeVisibility(workingProfile.mode);
+                updateDirtyIndicators();
                 const pr = workingProfile.procedural || {};
                 const tl = workingProfile.tiles || {};
                 const activeStamp = workingProfile.mode === 'tiles' ? tl.stampFile : (!ANALYTIC_GPU_SET.has(pr.preset) ? pr.bakedStampFile : '');
@@ -3113,6 +3198,7 @@
                 workingProfile.tiles = workingProfile.tiles || {};
                 workingProfile.tiles.colorSource = btn.dataset.cs === 'palette' ? 'palette' : 'hue';
                 updateTileControlVisibility();
+                updateDirtyIndicators();
                 schedulePreviewDraw();
             });
         });
@@ -3381,7 +3467,46 @@
             showToast('Saved & synced pattern to OBS');
         };
         document.getElementById('op-btn-save')?.addEventListener('click', () => saveProfile(false));
+        document.getElementById('op-btn-preview-save')?.addEventListener('click', () => saveProfile(false));
         document.getElementById('op-btn-activate')?.addEventListener('click', () => saveProfile(true));
+
+        document.getElementById('op-btn-preview-pause')?.addEventListener('click', () => {
+            const now = performance.now();
+            if (!previewPaused) {
+                pausedElapsedMs = Math.max(0, now - animOriginMs);
+                previewPaused = true;
+            } else {
+                animOriginMs = now - pausedElapsedMs;
+                previewPaused = false;
+            }
+            updatePreviewPauseButtonUI();
+            schedulePreviewDraw();
+        });
+
+        document.getElementById('op-btn-preview-restart')?.addEventListener('click', () => {
+            pausedElapsedMs = 0;
+            animOriginMs = performance.now();
+            schedulePreviewDraw();
+        });
+
+        document.querySelectorAll('#op-inspector-tabs [data-op-inspector]').forEach(btn => {
+            btn.addEventListener('click', () => switchInspectorTab(btn.dataset.opInspector));
+        });
+
+        try {
+            const savedAdv = JSON.parse(localStorage.getItem(ADV_STORAGE_KEY) || '{}');
+            document.querySelectorAll('#op-pane-designer details.ob-adv-details[data-adv-key]').forEach(det => {
+                const k = det.dataset.advKey;
+                if (typeof savedAdv[k] === 'boolean') det.open = savedAdv[k];
+                det.addEventListener('toggle', () => {
+                    try {
+                        const cur = JSON.parse(localStorage.getItem(ADV_STORAGE_KEY) || '{}');
+                        cur[k] = det.open;
+                        localStorage.setItem(ADV_STORAGE_KEY, JSON.stringify(cur));
+                    } catch {}
+                });
+            });
+        } catch {}
 
         document.getElementById('op-btn-new')?.addEventListener('click', () => {
             const base = cloneProfile(studioState.profiles[0] || workingProfile);
@@ -3513,6 +3638,8 @@
     document.addEventListener('DOMContentLoaded', () => {
         populateSelects();
         bindEvents();
+        switchInspectorTab(activeInspectorTab);
+        updatePreviewPauseButtonUI();
         switchTab(activeTab);
         loadStudioData();
         watchBakeStatus().catch(err => console.error('[ObsPatterns] Status connection failed:', err));

@@ -356,4 +356,19 @@ describe('OBS Border Studio (Beta / Advanced)', () => {
             await new Promise(resolve => mockServer.close(resolve));
         }
     });
+
+    it('organizes Border Designer into Hybrid Inspector tabs, collapsible advanced calibration, and preview quickbar', () => {
+        const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'tools', 'obs-borders.html'), 'utf8');
+        const js = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'obs-borders', 'obs-borders-studio.js'), 'utf8');
+        for (const token of [
+            'id="ob-inspector-tabs"', 'data-ob-inspector="geometry"', 'data-ob-inspector="layers"',
+            'data-ob-inspector="fx"', 'data-ob-inspector="standby"', 'class="ob-adv-details"',
+            'id="ob-btn-preview-pause"', 'id="ob-btn-preview-restart"', 'id="ob-dirty-pill"', 'id="ob-preview-sync-pill"'
+        ]) {
+            assert.ok(html.includes(token), `obs-borders.html missing ${token}`);
+        }
+        for (const fn of ['updateBorderDesignerVisibility', 'switchInspectorTab', 'updateDirtyIndicators']) {
+            assert.ok(js.includes(fn), `obs-borders-studio.js missing ${fn}`);
+        }
+    });
 });

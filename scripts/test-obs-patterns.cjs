@@ -455,6 +455,16 @@ describe('OBS Pattern Studio (Beta / Advanced)', () => {
             await page.waitForFunction(() => window.__patternPasses.output > 0);
             assert.equal(await page.evaluate(() => window.__patternPasses.scene), 0);
             assert.ok(await page.evaluate(() => window.__deletedPatternFrames) > deletedBeforeDisable);
+
+            // Verify Hybrid Inspector tabs, auto-collapse dirty badge, and Preview Clock Pause/Restart
+            await page.click('[data-op-inspector="motion"]');
+            assert.equal(await page.$eval('#op-inspector-motion', el => el.hidden), false);
+            assert.equal(await page.$eval('#op-inspector-canvas', el => el.hidden), true);
+            await page.click('#op-btn-preview-pause');
+            assert.match(await page.$eval('#op-btn-preview-pause', el => el.textContent), /Resume/);
+            await page.click('#op-btn-preview-pause');
+            assert.match(await page.$eval('#op-btn-preview-pause', el => el.textContent), /Pause/);
+            assert.equal(await page.$eval('#op-dirty-pill', el => el.textContent.trim()), 'Unsaved Changes');
             assert.deepEqual(errors, []);
         } finally {
             await browser.close();

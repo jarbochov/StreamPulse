@@ -120,6 +120,7 @@
                     </button>
                 </div>
                 <div class="ob-toolbar-right">
+                    <span class="ob-dirty-pill is-synced" id="ob-dirty-pill">Synced</span>
                     <span class="pill" id="ob-active-pill" style="margin-right:0.25rem;">Default: —</span>
                     <button type="button" class="btn primary" id="ob-btn-save">
                         <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
@@ -130,402 +131,462 @@
 
             <div class="ob-grid">
                 <div>
-                    <!-- Section 1: Geometry & Border Placement -->
-                    <section class="sect">
-                        <div class="sect-head">
-                            <span class="sect-title">Border Geometry &amp; Placement</span>
-                        </div>
-                        <div class="sect-body">
-                            <div class="grid2">
+                    <div class="ob-inspector-tabs" id="ob-inspector-tabs" role="tablist" aria-label="Border Inspector Sections">
+                        <button type="button" class="ob-inspector-tab active" data-ob-inspector="geometry" role="tab" aria-selected="true">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M9 3v18"/></svg>
+                            <span>Shape &amp; Fit</span>
+                        </button>
+                        <button type="button" class="ob-inspector-tab" data-ob-inspector="layers" role="tab" aria-selected="false">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><rect x="7" y="7" width="10" height="10" rx="2"/></svg>
+                            <span>Border Layers</span>
+                        </button>
+                        <button type="button" class="ob-inspector-tab" data-ob-inspector="fx" role="tab" aria-selected="false">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                            <span>Glow &amp; Motion</span>
+                        </button>
+                        <button type="button" class="ob-inspector-tab" data-ob-inspector="standby" role="tab" aria-selected="false">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><circle cx="12" cy="11" r="3"/><path d="M7 18c1.2-2.2 3-3 5-3s3.8.8 5 3"/></svg>
+                            <span>Standby Fill</span>
+                        </button>
+                    </div>
+
+                    <!-- INSPECTOR PANE 1: SHAPE & PLACEMENT -->
+                    <div class="ob-inspector-pane" id="ob-inspector-geometry">
+                        <section class="sect">
+                            <div class="sect-head">
+                                <span class="sect-title">Identity &amp; Border Placement</span>
+                            </div>
+                            <div class="sect-body">
                                 <div class="field">
                                     <label for="ob-name">Profile Name</label>
                                     <input type="text" id="ob-name" maxlength="80">
                                 </div>
+
+                                <div class="ob-micro-head"><span>Border Placement</span></div>
                                 <div class="field">
-                                    <label for="ob-id">Profile ID (Slug)</label>
-                                    <input type="text" id="ob-id" maxlength="64">
+                                    <span class="seg" id="ob-placement-seg" role="group" aria-label="Border Placement">
+                                        <button type="button" data-placement="outside" aria-pressed="true">Outside</button>
+                                        <button type="button" data-placement="center" aria-pressed="false">Middle (Center)</button>
+                                        <button type="button" data-placement="inside" aria-pressed="false">Inside</button>
+                                    </span>
+                                    <span class="hint" id="ob-placement-hint">Expands the OBS canvas evenly outward so borders sit outside your 16:9 video cleanly.</span>
                                 </div>
+
+                                <div class="ob-micro-head"><span>Canvas Expansion &amp; Scaling</span></div>
+                                <div class="grid2" style="gap:0.55rem 0.75rem;">
+                                    <label class="ob-check" id="ob-auto-pad-row">
+                                        <input type="checkbox" id="ob-auto-pad" checked>
+                                        <span>Auto-expand padding <span class="ob-pill" id="ob-auto-pad-pill" style="margin-left:0.25rem;">Auto: 0px</span></span>
+                                    </label>
+                                    <label class="ob-check" title="Checked: shrinks borders proportionally on smaller sources/scene items. Unchecked: keeps consistent visual px on canvas regardless of OBS scaling.">
+                                        <input type="checkbox" id="ob-auto-scale" checked>
+                                        <span>Auto-scale smaller sources <span style="color:var(--text-muted);font-weight:400;">(uncheck = fixed px)</span></span>
+                                    </label>
+                                </div>
+
+                                <div class="grid2">
+                                    <div class="field" id="ob-pad-auto-wrap">
+                                        <label for="ob-extra-pad">Extra Bleed Margin (px)</label>
+                                        <div class="ob-input-row">
+                                            <input type="number" id="ob-extra-pad" min="0" max="200" step="1" data-var-kind="number" data-var-label="Extra Bleed Margin">
+                                        </div>
+                                    </div>
+                                    <div class="field" id="ob-pad-manual-wrap" hidden>
+                                        <label for="ob-pad">Manual Bleed Padding (px)</label>
+                                        <div class="ob-input-row">
+                                            <input type="number" id="ob-pad" min="0" max="400" step="1" data-var-kind="number" data-var-label="Outer Bleed Padding">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <details class="ob-adv-details" data-adv-key="ob-geo-cal">
+                                    <summary class="ob-adv-summary">
+                                        <span class="ob-adv-summary-left">
+                                            <svg class="ob-adv-chevron" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 18 15 12 9 6"/></svg>
+                                            <span>Profile ID &amp; Reference Calibration</span>
+                                        </span>
+                                        <span class="ob-adv-hint">Slug, reference W/H, seam</span>
+                                    </summary>
+                                    <div class="ob-adv-body">
+                                        <div class="grid2">
+                                            <div class="field">
+                                                <label for="ob-id">Profile ID (Slug)</label>
+                                                <input type="text" id="ob-id" maxlength="64">
+                                            </div>
+                                            <div class="field">
+                                                <label for="ob-seam">Corner Seam Overlap (px)</label>
+                                                <div class="ob-input-row">
+                                                    <input type="number" id="ob-seam" min="0" max="10" step="0.5">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="grid2">
+                                            <div class="field">
+                                                <label for="ob-base-w">Reference Width (px)</label>
+                                                <input type="number" id="ob-base-w" min="64" max="7680" step="1">
+                                            </div>
+                                            <div class="field">
+                                                <label for="ob-base-h">Reference Height (px)</label>
+                                                <input type="number" id="ob-base-h" min="64" max="4320" step="1">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </details>
                             </div>
+                        </section>
 
-                            <div class="field">
-                                <span>Border Placement</span>
-                                <span class="seg" id="ob-placement-seg" role="group" aria-label="Border Placement">
-                                    <button type="button" data-placement="outside" aria-pressed="true">Outside</button>
-                                    <button type="button" data-placement="center" aria-pressed="false">Middle (Center)</button>
-                                    <button type="button" data-placement="inside" aria-pressed="false">Inside</button>
-                                </span>
-                                <span class="hint" id="ob-placement-hint">Expands the OBS canvas evenly outward so borders sit outside your 16:9 video cleanly.</span>
-                            </div>
-
-                            <div class="grid2" style="gap:0.55rem 0.75rem;">
-                                <label class="ob-check" id="ob-auto-pad-row">
-                                    <input type="checkbox" id="ob-auto-pad" checked>
-                                    <span>Auto-expand padding <span class="ob-pill" id="ob-auto-pad-pill" style="margin-left:0.25rem;">Auto: 0px</span></span>
-                                </label>
-                                <label class="ob-check" title="Checked: shrinks borders proportionally on smaller sources/scene items. Unchecked: keeps consistent visual px on canvas regardless of OBS scaling.">
-                                    <input type="checkbox" id="ob-auto-scale" checked>
-                                    <span>Auto-scale to smaller sources <span style="color:var(--text-muted);font-weight:400;">(uncheck = fixed px)</span></span>
-                                </label>
-                            </div>
-
-                            <div class="grid2">
-                                <div class="field" id="ob-pad-auto-wrap">
-                                    <label for="ob-extra-pad">Extra Bleed Margin (px)</label>
-                                    <div class="ob-input-row">
-                                        <input type="number" id="ob-extra-pad" min="0" max="200" step="1" data-var-kind="number" data-var-label="Extra Bleed Margin">
-                                    </div>
-                                </div>
-                                <div class="field" id="ob-pad-manual-wrap" hidden>
-                                    <label for="ob-pad">Manual Bleed Padding (px)</label>
-                                    <div class="ob-input-row">
-                                        <input type="number" id="ob-pad" min="0" max="400" step="1" data-var-kind="number" data-var-label="Outer Bleed Padding">
-                                    </div>
-                                </div>
-                                <div class="field">
-                                    <label for="ob-seam">Corner Seam Overlap (px)</label>
-                                    <div class="ob-input-row">
-                                        <input type="number" id="ob-seam" min="0" max="10" step="0.5">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="grid2">
-                                <div class="field">
-                                    <label for="ob-base-w">Reference / Source Width (px)</label>
-                                    <input type="number" id="ob-base-w" min="64" max="7680" step="1">
-                                </div>
-                                <div class="field">
-                                    <label for="ob-base-h">Reference / Source Height (px)</label>
-                                    <input type="number" id="ob-base-h" min="64" max="4320" step="1">
-                                </div>
-                            </div>
-
-                            <label class="ob-check">
-                                <input type="checkbox" id="ob-per-corner">
-                                <span>Independent per-corner radius (TL / TR / BR / BL)</span>
-                            </label>
-
-                            <div class="grid2" id="ob-radius-uniform-wrap">
-                                <div class="field">
-                                    <label for="ob-radius">Corner Radius (px)</label>
-                                    <div class="ob-input-row">
-                                        <input type="number" id="ob-radius" min="0" max="500" step="1" data-var-kind="number" data-var-label="Corner Radius">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="grid2" id="ob-radius-percorner-wrap" hidden>
-                                <div class="field">
-                                    <label for="ob-r-tl">Top-Left Radius (px)</label>
-                                    <div class="ob-input-row">
-                                        <input type="number" id="ob-r-tl" min="0" max="500" step="1" data-var-kind="number" data-var-label="Top-Left Radius">
-                                    </div>
-                                </div>
-                                <div class="field">
-                                    <label for="ob-r-tr">Top-Right Radius (px)</label>
-                                    <div class="ob-input-row">
-                                        <input type="number" id="ob-r-tr" min="0" max="500" step="1" data-var-kind="number" data-var-label="Top-Right Radius">
-                                    </div>
-                                </div>
-                                <div class="field">
-                                    <label for="ob-r-bl">Bottom-Left Radius (px)</label>
-                                    <div class="ob-input-row">
-                                        <input type="number" id="ob-r-bl" min="0" max="500" step="1" data-var-kind="number" data-var-label="Bottom-Left Radius">
-                                    </div>
-                                </div>
-                                <div class="field">
-                                    <label for="ob-r-br">Bottom-Right Radius (px)</label>
-                                    <div class="ob-input-row">
-                                        <input type="number" id="ob-r-br" min="0" max="500" step="1" data-var-kind="number" data-var-label="Bottom-Right Radius">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- Section 2: Primary Border Layer -->
-                    <section class="sect">
-                        <div class="sect-head">
-                            <span class="sect-title">Primary Border (31 Custom Overlay Styles)</span>
-                            <label class="ob-check">
-                                <input type="checkbox" id="ob-inner-enabled" checked>
-                                <span>Enabled</span>
-                            </label>
-                        </div>
-                        <div class="sect-body">
-                            <div class="grid2">
-                                <div class="field">
-                                    <label for="ob-inner-style">Border Style</label>
-                                    <select id="ob-inner-style" class="ob-style-select"></select>
-                                </div>
-                                <div class="field">
-                                    <label for="ob-inner-thickness">Border Width (px)</label>
-                                    <div class="ob-input-row">
-                                        <input type="number" id="ob-inner-thickness" min="0" max="200" step="1" data-var-kind="number" data-var-label="Primary Border Width">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <label class="ob-check">
-                                <input type="checkbox" id="ob-inner-grad">
-                                <span>Gradient border fill (Color 1 → Color 2)</span>
-                            </label>
-
-                            <div class="grid2">
-                                <div class="field">
-                                    <label for="ob-inner-c1">Color 1</label>
-                                    <div class="ob-color-row">
-                                        <input type="color" id="ob-inner-c1-pick" value="#ffffff">
-                                        <input type="text" id="ob-inner-c1" placeholder="#FFFFFFFF" data-var-kind="color" data-var-label="Primary Color 1">
-                                    </div>
-                                </div>
-                                <div class="field">
-                                    <label for="ob-inner-c2">Color 2 (Gradient / Bevel Shadow)</label>
-                                    <div class="ob-color-row">
-                                        <input type="color" id="ob-inner-c2-pick" value="#999999">
-                                        <input type="text" id="ob-inner-c2" placeholder="#999999FF" data-var-kind="color" data-var-label="Primary Color 2">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="grid2">
-                                <div class="field">
-                                    <label for="ob-inner-angle">Gradient Angle (deg)</label>
-                                    <div class="ob-input-row">
-                                        <input type="number" id="ob-inner-angle" min="-360" max="360" step="15" data-var-kind="number" data-var-label="Primary Gradient Angle">
-                                    </div>
-                                </div>
-                                <div class="field">
-                                    <label for="ob-inner-gap">Inner Offset Gap (px)</label>
-                                    <div class="ob-input-row">
-                                        <input type="number" id="ob-inner-gap" min="0" max="100" step="1" data-var-kind="number" data-var-label="Inner Gap">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- Section 3: Secondary Outer Accent Ring -->
-                    <section class="sect">
-                        <div class="sect-head">
-                            <span class="sect-title">Secondary Outer Ring (Optional)</span>
-                            <label class="ob-check">
-                                <input type="checkbox" id="ob-outer-enabled">
-                                <span>Enabled</span>
-                            </label>
-                        </div>
-                        <div class="sect-body">
-                            <div class="grid2">
-                                <div class="field">
-                                    <label for="ob-outer-style">Border Style</label>
-                                    <select id="ob-outer-style" class="ob-style-select"></select>
-                                </div>
-                                <div class="field">
-                                    <label for="ob-outer-thickness">Ring Width (px)</label>
-                                    <div class="ob-input-row">
-                                        <input type="number" id="ob-outer-thickness" min="0" max="200" step="1" data-var-kind="number" data-var-label="Outer Ring Width">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <label class="ob-check">
-                                <input type="checkbox" id="ob-outer-grad">
-                                <span>Gradient outer ring (Color 1 → Color 2)</span>
-                            </label>
-
-                            <div class="grid2">
-                                <div class="field">
-                                    <label for="ob-outer-c1">Color 1</label>
-                                    <div class="ob-color-row">
-                                        <input type="color" id="ob-outer-c1-pick" value="#99a443">
-                                        <input type="text" id="ob-outer-c1" placeholder="#99A443FF" data-var-kind="color" data-var-label="Outer Ring Color 1">
-                                    </div>
-                                </div>
-                                <div class="field">
-                                    <label for="ob-outer-c2">Color 2</label>
-                                    <div class="ob-color-row">
-                                        <input type="color" id="ob-outer-c2-pick" value="#026e54">
-                                        <input type="text" id="ob-outer-c2" placeholder="#026E54FF" data-var-kind="color" data-var-label="Outer Ring Color 2">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="grid2">
-                                <div class="field">
-                                    <label for="ob-outer-angle">Gradient Angle (deg)</label>
-                                    <div class="ob-input-row">
-                                        <input type="number" id="ob-outer-angle" min="-360" max="360" step="15" data-var-kind="number" data-var-label="Outer Gradient Angle">
-                                    </div>
-                                </div>
-                                <div class="field">
-                                    <label for="ob-outer-gap">Gap Outside Primary Ring (px)</label>
-                                    <div class="ob-input-row">
-                                        <input type="number" id="ob-outer-gap" min="0" max="100" step="1" data-var-kind="number" data-var-label="Outer Ring Gap">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- Section 4: Border Glow & Animation (Matches Custom Overlay Editor) -->
-                    <section class="sect">
-                        <div class="sect-head">
-                            <span class="sect-title">Border Glow &amp; Animation</span>
-                            <label class="ob-check">
-                                <input type="checkbox" id="ob-glow-enabled">
-                                <span>Border Glow</span>
-                            </label>
-                        </div>
-                        <div class="sect-body">
-                            <div class="grid2">
-                                <div class="field">
-                                    <label for="ob-glow-color">Glow Color</label>
-                                    <div class="ob-color-row">
-                                        <input type="color" id="ob-glow-color-pick" value="#38bdf8">
-                                        <input type="text" id="ob-glow-color" placeholder="#38BDF8FF" data-var-kind="color" data-var-label="Glow Color">
-                                    </div>
-                                </div>
-                                <div class="field">
-                                    <label for="ob-glow-blur">Glow Blur (px)</label>
-                                    <div class="ob-input-row">
-                                        <input type="number" id="ob-glow-blur" min="0" max="120" step="1" data-var-kind="number" data-var-label="Glow Blur">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="grid2">
+                        <section class="sect">
+                            <div class="sect-head">
+                                <span class="sect-title">Corner Rounding</span>
                                 <label class="ob-check">
-                                    <input type="checkbox" id="ob-glow-neon">
-                                    <span>Neon core mode</span>
+                                    <input type="checkbox" id="ob-per-corner">
+                                    <span>Per-corner (TL / TR / BR / BL)</span>
                                 </label>
+                            </div>
+                            <div class="sect-body">
+                                <div class="grid2" id="ob-radius-uniform-wrap">
+                                    <div class="field">
+                                        <label for="ob-radius">Corner Radius (px)</label>
+                                        <div class="ob-input-row">
+                                            <input type="number" id="ob-radius" min="0" max="500" step="1" data-var-kind="number" data-var-label="Corner Radius">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="grid2" id="ob-radius-percorner-wrap" hidden>
+                                    <div class="field">
+                                        <label for="ob-r-tl">Top-Left Radius (px)</label>
+                                        <div class="ob-input-row">
+                                            <input type="number" id="ob-r-tl" min="0" max="500" step="1" data-var-kind="number" data-var-label="Top-Left Radius">
+                                        </div>
+                                    </div>
+                                    <div class="field">
+                                        <label for="ob-r-tr">Top-Right Radius (px)</label>
+                                        <div class="ob-input-row">
+                                            <input type="number" id="ob-r-tr" min="0" max="500" step="1" data-var-kind="number" data-var-label="Top-Right Radius">
+                                        </div>
+                                    </div>
+                                    <div class="field">
+                                        <label for="ob-r-bl">Bottom-Left Radius (px)</label>
+                                        <div class="ob-input-row">
+                                            <input type="number" id="ob-r-bl" min="0" max="500" step="1" data-var-kind="number" data-var-label="Bottom-Left Radius">
+                                        </div>
+                                    </div>
+                                    <div class="field">
+                                        <label for="ob-r-br">Bottom-Right Radius (px)</label>
+                                        <div class="ob-input-row">
+                                            <input type="number" id="ob-r-br" min="0" max="500" step="1" data-var-kind="number" data-var-label="Bottom-Right Radius">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- INSPECTOR PANE 2: BORDER LAYERS -->
+                    <div class="ob-inspector-pane" id="ob-inspector-layers" hidden>
+                        <section class="sect" id="ob-sect-inner">
+                            <div class="sect-head">
+                                <span class="sect-title">Primary Border (31 Styles)</span>
                                 <label class="ob-check">
-                                    <input type="checkbox" id="ob-glow-inner">
-                                    <span>Inner glow</span>
+                                    <input type="checkbox" id="ob-inner-enabled" checked>
+                                    <span>Enabled</span>
                                 </label>
                             </div>
-
-                            <div style="border-top:1px solid var(--border);padding-top:0.75rem;"></div>
-
-                            <div class="grid2">
-                                <div class="field">
-                                    <label for="ob-anim-type">Border Animation (Synced with Overlay Editor)</label>
-                                    <select id="ob-anim-type"></select>
-                                </div>
-                                <div class="field">
-                                    <label for="ob-anim-speed">Speed (seconds)</label>
-                                    <div class="ob-input-row">
-                                        <input type="number" id="ob-anim-speed" min="0.25" max="60" step="0.5" data-var-kind="number" data-var-label="Animation Speed">
+                            <div class="sect-body" id="ob-inner-body">
+                                <div class="ob-micro-head"><span>Style &amp; Sizing</span></div>
+                                <div class="grid-select-num">
+                                    <div class="field">
+                                        <label for="ob-inner-style">Border Style</label>
+                                        <select id="ob-inner-style" class="ob-style-select"></select>
+                                    </div>
+                                    <div class="field">
+                                        <label for="ob-inner-thickness">Width (px)</label>
+                                        <div class="ob-input-row">
+                                            <input type="number" id="ob-inner-thickness" min="0" max="200" step="1" data-var-kind="number" data-var-label="Primary Border Width">
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div class="grid2">
-                                <div class="field">
-                                    <label for="ob-anim-c2">Beam / Accent Color</label>
-                                    <div class="ob-color-row">
-                                        <input type="color" id="ob-anim-c2-pick" value="#ffffff">
-                                        <input type="text" id="ob-anim-c2" placeholder="#FFFFFFFF" data-var-kind="color" data-var-label="Beam Color">
+                                <div class="ob-micro-head"><span>Fill &amp; Gradient</span></div>
+                                <div class="grid2" style="align-items:center;">
+                                    <label class="ob-check">
+                                        <input type="checkbox" id="ob-inner-grad">
+                                        <span>Gradient fill (Color 1 → Color 2)</span>
+                                    </label>
+                                    <div class="field">
+                                        <label for="ob-inner-gap">Inner Offset Gap (px)</label>
+                                        <div class="ob-input-row">
+                                            <input type="number" id="ob-inner-gap" min="0" max="100" step="1" data-var-kind="number" data-var-label="Inner Gap">
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="field">
-                                    <label for="ob-anim-size">Beam Arc (%)</label>
-                                    <div class="ob-input-row">
-                                        <input type="number" id="ob-anim-size" min="5" max="100" step="5" data-var-kind="number" data-var-label="Beam Arc">
-                                    </div>
-                                </div>
-                            </div>
 
-                            <div class="field">
-                                <span>Direction</span>
-                                <span class="seg" id="ob-anim-dir-seg" role="group" aria-label="Animation Direction">
-                                    <button type="button" data-dir="cw" aria-pressed="true">Clockwise</button>
-                                    <button type="button" data-dir="ccw" aria-pressed="false">Counter-clockwise</button>
-                                    <button type="button" data-dir="alternate" aria-pressed="false">Alternate</button>
-                                </span>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- Section 5: Source Background & Placeholder Fill -->
-                    <section class="sect">
-                        <div class="sect-head">
-                            <span class="sect-title">Source Background &amp; Placeholder Fill</span>
-                            <label class="ob-check" title="Replace source video with placeholder fill (for BRB / Camera Off)">
-                                <input type="checkbox" id="ob-bg-standby">
-                                <span>Standby / Offline Override</span>
-                            </label>
-                        </div>
-                        <div class="sect-body">
-                            <div class="grid2">
-                                <div class="field">
-                                    <label for="ob-bg-mode">Background Fill Mode</label>
-                                    <select id="ob-bg-mode">
-                                        <option value="none">None (Transparent)</option>
-                                        <option value="person">Person Silhouette Icon</option>
-                                        <option value="solid">Solid Color</option>
-                                        <option value="gradient">Linear Gradient</option>
-                                        <option value="tv-static">TV Static &amp; Snow (Retro FX)</option>
-                                    </select>
-                                </div>
-                                <div class="field" id="ob-bg-icon-wrap" hidden>
-                                    <label for="ob-bg-icon-color">Person Icon Tint</label>
-                                    <div class="ob-color-row">
-                                        <input type="color" id="ob-bg-icon-color-pick" value="#64748b">
-                                        <input type="text" id="ob-bg-icon-color" placeholder="#64748BFF" data-var-kind="color" data-var-label="Placeholder Person Color">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="grid2" id="ob-bg-colors-wrap" hidden>
-                                <div class="field">
-                                    <label for="ob-bg-c1">Background Color 1</label>
-                                    <div class="ob-color-row">
-                                        <input type="color" id="ob-bg-c1-pick" value="#16202f">
-                                        <input type="text" id="ob-bg-c1" placeholder="#16202FFF" data-var-kind="color" data-var-label="Background Color 1">
-                                    </div>
-                                </div>
-                                <div class="field" id="ob-bg-c2-wrap">
-                                    <label for="ob-bg-c2">Background Color 2</label>
-                                    <div class="ob-color-row">
-                                        <input type="color" id="ob-bg-c2-pick" value="#0b101b">
-                                        <input type="text" id="ob-bg-c2" placeholder="#0B101BFF" data-var-kind="color" data-var-label="Background Color 2">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="grid2" id="ob-bg-angle-wrap" hidden>
-                                <div class="field">
-                                    <label for="ob-bg-angle">Backdrop Gradient Angle (deg)</label>
-                                    <input type="number" id="ob-bg-angle" min="-360" max="360" step="15">
-                                </div>
-                            </div>
-
-                            <div id="ob-bg-static-wrap" hidden style="display:flex;flex-direction:column;gap:0.75rem;">
                                 <div class="grid2">
                                     <div class="field">
-                                        <label for="ob-bg-static-noise">TV Snow Intensity (%)</label>
-                                        <input type="number" id="ob-bg-static-noise" min="0" max="100" step="5">
+                                        <label for="ob-inner-c1">Color 1</label>
+                                        <div class="ob-color-row">
+                                            <input type="color" id="ob-inner-c1-pick" value="#ffffff">
+                                            <input type="text" id="ob-inner-c1" placeholder="#FFFFFFFF" data-var-kind="color" data-var-label="Primary Color 1">
+                                        </div>
                                     </div>
                                     <div class="field">
-                                        <label for="ob-bg-static-scale">Noise Dot Scale (px)</label>
-                                        <input type="number" id="ob-bg-static-scale" min="1" max="128" step="1">
-                                    </div>
-                                    <div class="field">
-                                        <label for="ob-bg-static-speed">Snow Refresh Speed (fps)</label>
-                                        <input type="number" id="ob-bg-static-speed" min="4" max="30" step="1">
-                                    </div>
-                                    <div class="field">
-                                        <label for="ob-bg-static-glitch">Glitch Tear Slices (%)</label>
-                                        <input type="number" id="ob-bg-static-glitch" min="0" max="100" step="5">
+                                        <label for="ob-inner-c2">Color 2 (Gradient / Bevel)</label>
+                                        <div class="ob-color-row">
+                                            <input type="color" id="ob-inner-c2-pick" value="#999999">
+                                            <input type="text" id="ob-inner-c2" placeholder="#999999FF" data-var-kind="color" data-var-label="Primary Color 2">
+                                        </div>
                                     </div>
                                 </div>
+
+                                <div class="grid2" id="ob-inner-angle-wrap" hidden>
+                                    <div class="field">
+                                        <label for="ob-inner-angle">Gradient Angle (deg)</label>
+                                        <div class="ob-input-row">
+                                            <input type="number" id="ob-inner-angle" min="-360" max="360" step="15" data-var-kind="number" data-var-label="Primary Gradient Angle">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="sect" id="ob-sect-outer">
+                            <div class="sect-head">
+                                <span class="sect-title">Secondary Outer Ring</span>
                                 <label class="ob-check">
-                                    <input type="checkbox" id="ob-bg-static-color">
-                                    <span>RGB color static (uncheck for monochrome snow)</span>
+                                    <input type="checkbox" id="ob-outer-enabled">
+                                    <span>Enabled</span>
                                 </label>
                             </div>
-                        </div>
-                    </section>
+                            <div class="sect-body" id="ob-outer-body">
+                                <div class="ob-micro-head"><span>Style &amp; Sizing</span></div>
+                                <div class="grid-select-num">
+                                    <div class="field">
+                                        <label for="ob-outer-style">Border Style</label>
+                                        <select id="ob-outer-style" class="ob-style-select"></select>
+                                    </div>
+                                    <div class="field">
+                                        <label for="ob-outer-thickness">Width (px)</label>
+                                        <div class="ob-input-row">
+                                            <input type="number" id="ob-outer-thickness" min="0" max="200" step="1" data-var-kind="number" data-var-label="Outer Ring Width">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="ob-micro-head"><span>Fill &amp; Gradient</span></div>
+                                <div class="grid2" style="align-items:center;">
+                                    <label class="ob-check">
+                                        <input type="checkbox" id="ob-outer-grad">
+                                        <span>Gradient outer ring (Color 1 → Color 2)</span>
+                                    </label>
+                                    <div class="field">
+                                        <label for="ob-outer-gap">Gap Outside Primary Ring (px)</label>
+                                        <div class="ob-input-row">
+                                            <input type="number" id="ob-outer-gap" min="0" max="100" step="1" data-var-kind="number" data-var-label="Outer Ring Gap">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="grid2">
+                                    <div class="field">
+                                        <label for="ob-outer-c1">Color 1</label>
+                                        <div class="ob-color-row">
+                                            <input type="color" id="ob-outer-c1-pick" value="#99a443">
+                                            <input type="text" id="ob-outer-c1" placeholder="#99A443FF" data-var-kind="color" data-var-label="Outer Ring Color 1">
+                                        </div>
+                                    </div>
+                                    <div class="field">
+                                        <label for="ob-outer-c2">Color 2</label>
+                                        <div class="ob-color-row">
+                                            <input type="color" id="ob-outer-c2-pick" value="#026e54">
+                                            <input type="text" id="ob-outer-c2" placeholder="#026E54FF" data-var-kind="color" data-var-label="Outer Ring Color 2">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="grid2" id="ob-outer-angle-wrap" hidden>
+                                    <div class="field">
+                                        <label for="ob-outer-angle">Gradient Angle (deg)</label>
+                                        <div class="ob-input-row">
+                                            <input type="number" id="ob-outer-angle" min="-360" max="360" step="15" data-var-kind="number" data-var-label="Outer Gradient Angle">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- INSPECTOR PANE 3: GLOW & MOTION -->
+                    <div class="ob-inspector-pane" id="ob-inspector-fx" hidden>
+                        <section class="sect" id="ob-sect-glow">
+                            <div class="sect-head">
+                                <span class="sect-title">Border Glow</span>
+                                <label class="ob-check">
+                                    <input type="checkbox" id="ob-glow-enabled">
+                                    <span>Enabled</span>
+                                </label>
+                            </div>
+                            <div class="sect-body" id="ob-glow-body">
+                                <div class="grid2">
+                                    <div class="field">
+                                        <label for="ob-glow-color">Glow Color</label>
+                                        <div class="ob-color-row">
+                                            <input type="color" id="ob-glow-color-pick" value="#38bdf8">
+                                            <input type="text" id="ob-glow-color" placeholder="#38BDF8FF" data-var-kind="color" data-var-label="Glow Color">
+                                        </div>
+                                    </div>
+                                    <div class="field">
+                                        <label for="ob-glow-blur">Glow Blur (px)</label>
+                                        <div class="ob-input-row">
+                                            <input type="number" id="ob-glow-blur" min="0" max="120" step="1" data-var-kind="number" data-var-label="Glow Blur">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="grid2">
+                                    <label class="ob-check">
+                                        <input type="checkbox" id="ob-glow-neon">
+                                        <span>Neon core mode</span>
+                                    </label>
+                                    <label class="ob-check">
+                                        <input type="checkbox" id="ob-glow-inner">
+                                        <span>Inner glow</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="sect" id="ob-sect-anim">
+                            <div class="sect-head">
+                                <span class="sect-title">Border Animation (Synced with Overlay Editor)</span>
+                            </div>
+                            <div class="sect-body">
+                                <div class="grid-select-num">
+                                    <div class="field">
+                                        <label for="ob-anim-type">Animation Style</label>
+                                        <select id="ob-anim-type"></select>
+                                    </div>
+                                    <div class="field" id="ob-anim-speed-wrap">
+                                        <label for="ob-anim-speed">Speed (seconds)</label>
+                                        <div class="ob-input-row">
+                                            <input type="number" id="ob-anim-speed" min="0.25" max="60" step="0.5" data-var-kind="number" data-var-label="Animation Speed">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div id="ob-anim-params-wrap" style="display:flex;flex-direction:column;gap:0.75rem;">
+                                    <div class="grid2">
+                                        <div class="field">
+                                            <label for="ob-anim-c2">Beam / Accent Color</label>
+                                            <div class="ob-color-row">
+                                                <input type="color" id="ob-anim-c2-pick" value="#ffffff">
+                                                <input type="text" id="ob-anim-c2" placeholder="#FFFFFFFF" data-var-kind="color" data-var-label="Beam Color">
+                                            </div>
+                                        </div>
+                                        <div class="field">
+                                            <label for="ob-anim-size">Beam Arc (%)</label>
+                                            <div class="ob-input-row">
+                                                <input type="number" id="ob-anim-size" min="5" max="100" step="5" data-var-kind="number" data-var-label="Beam Arc">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="field">
+                                        <span>Direction</span>
+                                        <span class="seg" id="ob-anim-dir-seg" role="group" aria-label="Animation Direction">
+                                            <button type="button" data-dir="cw" aria-pressed="true">Clockwise</button>
+                                            <button type="button" data-dir="ccw" aria-pressed="false">Counter-clockwise</button>
+                                            <button type="button" data-dir="alternate" aria-pressed="false">Alternate</button>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- INSPECTOR PANE 4: STANDBY FILL -->
+                    <div class="ob-inspector-pane" id="ob-inspector-standby" hidden>
+                        <section class="sect" id="ob-sect-bg">
+                            <div class="sect-head">
+                                <span class="sect-title">Source Background &amp; Placeholder Fill</span>
+                                <label class="ob-check" title="Replace source video with placeholder fill (for BRB / Camera Off)">
+                                    <input type="checkbox" id="ob-bg-standby">
+                                    <span>Standby / Offline Override</span>
+                                </label>
+                            </div>
+                            <div class="sect-body">
+                                <div class="grid2">
+                                    <div class="field">
+                                        <label for="ob-bg-mode">Background Fill Mode</label>
+                                        <select id="ob-bg-mode">
+                                            <option value="none">None (Transparent)</option>
+                                            <option value="person">Person Silhouette Icon</option>
+                                            <option value="solid">Solid Color</option>
+                                            <option value="gradient">Linear Gradient</option>
+                                            <option value="tv-static">TV Static &amp; Snow (Retro FX)</option>
+                                        </select>
+                                    </div>
+                                    <div class="field" id="ob-bg-icon-wrap" hidden>
+                                        <label for="ob-bg-icon-color">Person Icon Tint</label>
+                                        <div class="ob-color-row">
+                                            <input type="color" id="ob-bg-icon-color-pick" value="#64748b">
+                                            <input type="text" id="ob-bg-icon-color" placeholder="#64748BFF" data-var-kind="color" data-var-label="Placeholder Person Color">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="grid2" id="ob-bg-colors-wrap" hidden>
+                                    <div class="field">
+                                        <label for="ob-bg-c1">Background Color 1</label>
+                                        <div class="ob-color-row">
+                                            <input type="color" id="ob-bg-c1-pick" value="#16202f">
+                                            <input type="text" id="ob-bg-c1" placeholder="#16202FFF" data-var-kind="color" data-var-label="Background Color 1">
+                                        </div>
+                                    </div>
+                                    <div class="field" id="ob-bg-c2-wrap">
+                                        <label for="ob-bg-c2">Background Color 2</label>
+                                        <div class="ob-color-row">
+                                            <input type="color" id="ob-bg-c2-pick" value="#0b101b">
+                                            <input type="text" id="ob-bg-c2" placeholder="#0B101BFF" data-var-kind="color" data-var-label="Background Color 2">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="grid2" id="ob-bg-angle-wrap" hidden>
+                                    <div class="field">
+                                        <label for="ob-bg-angle">Backdrop Gradient Angle (deg)</label>
+                                        <input type="number" id="ob-bg-angle" min="-360" max="360" step="15">
+                                    </div>
+                                </div>
+
+                                <div id="ob-bg-static-wrap" hidden style="display:flex;flex-direction:column;gap:0.75rem;">
+                                    <div class="ob-micro-head"><span>Retro TV Static Parameters</span></div>
+                                    <div class="grid2">
+                                        <div class="field">
+                                            <label for="ob-bg-static-noise">TV Snow Intensity (%)</label>
+                                            <input type="number" id="ob-bg-static-noise" min="0" max="100" step="5">
+                                        </div>
+                                        <div class="field">
+                                            <label for="ob-bg-static-scale">Noise Dot Scale (px)</label>
+                                            <input type="number" id="ob-bg-static-scale" min="1" max="128" step="1">
+                                        </div>
+                                        <div class="field">
+                                            <label for="ob-bg-static-speed">Snow Refresh Speed (fps)</label>
+                                            <input type="number" id="ob-bg-static-speed" min="4" max="30" step="1">
+                                        </div>
+                                        <div class="field">
+                                            <label for="ob-bg-static-glitch">Glitch Tear Slices (%)</label>
+                                            <input type="number" id="ob-bg-static-glitch" min="0" max="100" step="5">
+                                        </div>
+                                    </div>
+                                    <label class="ob-check">
+                                        <input type="checkbox" id="ob-bg-static-color">
+                                        <span>RGB color static (uncheck for monochrome snow)</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
                 </div>
 
                 <!-- Sticky Right Live WebGL Shader Preview -->
@@ -563,6 +624,25 @@
                                         <input type="checkbox" id="ob-preview-guides" checked>
                                         <span>Show source edge guide</span>
                                     </label>
+                                </div>
+                            </div>
+                            <div class="ob-preview-quickbar">
+                                <div class="ob-preview-quick-left">
+                                    <button type="button" class="ob-btn-compact" id="ob-btn-preview-pause" title="Pause or resume preview animation clock">
+                                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                                        <span>Pause</span>
+                                    </button>
+                                    <button type="button" class="ob-btn-compact" id="ob-btn-preview-restart" title="Restart preview animation clock from t=0s">
+                                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                                        <span>Restart</span>
+                                    </button>
+                                </div>
+                                <div class="ob-preview-quick-right">
+                                    <span class="ob-dirty-pill is-synced" id="ob-preview-sync-pill">Synced with OBS</span>
+                                    <button type="button" class="ob-btn-compact primary-soft" id="ob-btn-preview-save">
+                                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/></svg>
+                                        <span>Save &amp; Sync</span>
+                                    </button>
                                 </div>
                             </div>
                         </div>

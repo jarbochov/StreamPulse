@@ -2,6 +2,8 @@
     'use strict';
 
     const TAB_STORAGE_KEY = 'streampulse:obs-borders:tab';
+    const INSPECTOR_TAB_KEY = 'streampulse:obs-borders:inspector-tab';
+    const ADV_STORAGE_KEY = 'streampulse:obs-borders:adv-open';
     const BG_STORAGE_KEY = 'streampulse:obs-borders:bg';
     const VIEW_STORAGE_KEY = 'streampulse:obs-borders:view';
     const FILTER_STORAGE_KEY = 'streampulse:obs-borders:filter';
@@ -43,6 +45,7 @@
     let currentProgramScene = '';
     let obsConnected = false;
     let activeTab = parseTabFromHash() || localStorage.getItem(TAB_STORAGE_KEY) || 'sources';
+    let activeInspectorTab = localStorage.getItem(INSPECTOR_TAB_KEY) || 'geometry';
     let sourceViewMode = localStorage.getItem(VIEW_STORAGE_KEY) || 'sources';
     let sourceFilter = localStorage.getItem(FILTER_STORAGE_KEY) || 'all';
     const expandedDrawers = new Set();
@@ -50,7 +53,9 @@
     let previewBg = localStorage.getItem(BG_STORAGE_KEY) || 'cam';
     let showGuides = true;
     let animFrameId = null;
-    const animStartMs = performance.now();
+    let animOriginMs = performance.now();
+    let previewPaused = false;
+    let pausedElapsedMs = 0;
     let varBinderMounted = false;
     let isPopulating = false;
 
@@ -147,6 +152,83 @@
         if (autoRow) autoRow.style.opacity = isInside ? '0.45' : '1';
         if (autoWrap) autoWrap.hidden = isInside || !autoPad;
         if (manualWrap) manualWrap.hidden = isInside || autoPad;
+    }
+
+    function updateBorderDesignerVisibility(profile) {
+        const p = profile || workingProfile;
+        if (!p) return;
+        const innerOn = Boolean(p.inner?.enabled);
+        const outerOn = Boolean(p.outer?.enabled);
+        const glowOn = Boolean(p.glow?.enabled);
+        const animOn = normalizeAnimAlias(p.animation?.type || 'none') !== 'none';
+
+        const toggleSect = (sectId, bodyId, on) => {
+            const sect = document.getElementById(sectId);
+            const body = document.getElementById(bodyId);
+            if (sect) sect.classList.toggle('is-disabled', !on);
+            if (body) body.hidden = !on;
+        };
+        toggleSect('ob-sect-inner', 'ob-inner-body', innerOn);
+        toggleSect('ob-sect-outer', 'ob-outer-body', outerOn);
+        toggleSect('ob-sect-glow', 'ob-glow-body', glowOn);
+
+        const innerAng = document.getElementById('ob-inner-angle-wrap');
+        if (innerAng) innerAng.hidden = !p.inner?.gradient;
+        const outerAng = document.getElementById('ob-outer-angle-wrap');
+        if (outerAng) outerAng.hidden = !p.outer?.gradient;
+
+        const animSpeed = document.getElementById('ob-anim-speed-wrap');
+        const animParams = document.getElementById('ob-anim-params-wrap');
+        if (animSpeed) animSpeed.hidden = !animOn;
+        if (animParams) animParams.hidden = !animOn;
+    }
+
+    function isWorkingProfileDirty() {
+        if (!workingProfile || !studioState?.profiles) return false;
+        const saved = studioState.profiles.find(p => p.id === selectedProfileId);
+        if (!saved) return true;
+        return JSON.stringify(workingProfile) !== JSON.stringify(saved);
+    }
+
+    function updateDirtyIndicators() {
+        const dirty = isWorkingProfileDirty();
+        const topPill = document.getElementById('ob-dirty-pill');
+        const prevPill = document.getElementById('ob-preview-sync-pill');
+        if (topPill) {
+            topPill.textContent = dirty ? 'Unsaved Changes' : 'Synced';
+            topPill.classList.toggle('is-dirty', dirty);
+            topPill.classList.toggle('is-synced', !dirty);
+        }
+        if (prevPill) {
+            prevPill.textContent = dirty ? 'Unsaved edits' : 'Synced with OBS';
+            prevPill.classList.toggle('is-dirty', dirty);
+            prevPill.classList.toggle('is-synced', !dirty);
+        }
+    }
+
+    function switchInspectorTab(tab) {
+        const valid = ['geometry', 'layers', 'fx', 'standby'];
+        const clean = valid.includes(tab) ? tab : 'geometry';
+        activeInspectorTab = clean;
+        try { localStorage.setItem(INSPECTOR_TAB_KEY, clean); } catch {}
+        document.querySelectorAll('#ob-inspector-tabs [data-ob-inspector]').forEach(btn => {
+            const on = btn.dataset.obInspector === clean;
+            btn.classList.toggle('active', on);
+            btn.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        valid.forEach(k => {
+            const pane = document.getElementById(`ob-inspector-${k}`);
+            if (pane) pane.hidden = k !== clean;
+        });
+    }
+
+    function updatePreviewPauseButtonUI() {
+        const btn = document.getElementById('ob-btn-preview-pause');
+        if (!btn) return;
+        btn.classList.toggle('active', previewPaused);
+        btn.innerHTML = previewPaused
+            ? '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="6 4 20 12 6 20 6 4"/></svg><span>Resume</span>'
+            : '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg><span>Pause</span>';
     }
 
     function resolveToken(raw, fallback) {
@@ -307,6 +389,8 @@
 
         updatePadFieldVisibility(p.placement, p.autoPad);
         updateBgFieldVisibility(p.background.mode);
+        updateBorderDesignerVisibility(p);
+        updateDirtyIndicators();
         schedulePreviewDraw();
     }
 
@@ -435,11 +519,13 @@
         setControlValue('ob-bg-static-glitch', bg.staticGlitch ?? 35, 35);
         setControlValue('ob-bg-static-color', Boolean(bg.staticColor), false);
         updateBgFieldVisibility(bgMode);
+        updateBorderDesignerVisibility(p);
 
         if (window.WizardVariableBinder) {
             window.WizardVariableBinder.refreshAllBoundControlsUI();
         }
         isPopulating = false;
+        updateDirtyIndicators();
         schedulePreviewDraw();
     }
 
@@ -1853,7 +1939,8 @@
         const u = glUniforms;
 
         if (!needFullUpload) {
-            gl.uniform1f(u.anim_time, (nowMs - animStartMs) / 1000);
+            const elapsedMs = previewPaused ? pausedElapsedMs : Math.max(0, nowMs - animOriginMs);
+            gl.uniform1f(u.anim_time, elapsedMs / 1000);
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
             return;
         }
@@ -2003,7 +2090,8 @@
         gl.uniform1f(u.glow_inner, p.glow?.inner ? 1 : 0);
 
         gl.uniform1f(u.anim_type, ANIM_CODE_MAP[animType] ?? 0);
-        gl.uniform1f(u.anim_time, (nowMs - animStartMs) / 1000);
+        const elapsedMs = previewPaused ? pausedElapsedMs : Math.max(0, nowMs - animOriginMs);
+        gl.uniform1f(u.anim_time, elapsedMs / 1000);
         gl.uniform1f(u.anim_speed, resolveNum(p.animation?.speed, 4, 0.25, 60));
         gl.uniform1f(u.anim_size, resolveNum(p.animation?.size, 35, 5, 100));
         gl.uniform1f(u.anim_dir, animDir);
@@ -2042,14 +2130,14 @@
         previewDirty = true;
         stopPreviewAnim();
         if (activeTab !== 'designer' || document.hidden) return;
-        const needsLoop = workingProfile && (
+        const needsLoop = !previewPaused && workingProfile && (
             normalizeAnimAlias(workingProfile.animation?.type) !== 'none'
             || workingProfile.background?.mode === 'tv-static'
         );
         if (needsLoop) {
             lastAnimDrawMs = 0;
             const tick = (now) => {
-                if (activeTab !== 'designer' || document.hidden) {
+                if (activeTab !== 'designer' || document.hidden || previewPaused) {
                     animFrameId = null;
                     return;
                 }
@@ -2283,6 +2371,7 @@
             const hintEl = document.getElementById('ob-placement-hint');
             if (hintEl) hintEl.textContent = PLACEMENT_HINTS[val] || '';
             updatePadFieldVisibility(val, workingProfile.autoPad !== false);
+            updateDirtyIndicators();
             schedulePreviewDraw();
         });
 
@@ -2292,6 +2381,7 @@
             const val = btn.dataset.dir;
             workingProfile.animation.direction = val;
             setSegPressed('ob-anim-dir-seg', 'data-dir', val);
+            updateDirtyIndicators();
             schedulePreviewDraw();
         });
 
@@ -2476,6 +2566,46 @@
             btn.addEventListener('click', () => switchTab(btn.dataset.obTab));
         });
 
+        document.querySelectorAll('#ob-inspector-tabs [data-ob-inspector]').forEach(btn => {
+            btn.addEventListener('click', () => switchInspectorTab(btn.dataset.obInspector));
+        });
+
+        try {
+            const savedAdv = JSON.parse(localStorage.getItem(ADV_STORAGE_KEY) || '{}');
+            document.querySelectorAll('#ob-pane-designer details.ob-adv-details[data-adv-key]').forEach(det => {
+                const k = det.dataset.advKey;
+                if (typeof savedAdv[k] === 'boolean') det.open = savedAdv[k];
+                det.addEventListener('toggle', () => {
+                    try {
+                        const cur = JSON.parse(localStorage.getItem(ADV_STORAGE_KEY) || '{}');
+                        cur[k] = det.open;
+                        localStorage.setItem(ADV_STORAGE_KEY, JSON.stringify(cur));
+                    } catch {}
+                });
+            });
+        } catch {}
+
+        document.getElementById('ob-btn-preview-pause')?.addEventListener('click', () => {
+            const now = performance.now();
+            if (!previewPaused) {
+                pausedElapsedMs = Math.max(0, now - animOriginMs);
+                previewPaused = true;
+            } else {
+                animOriginMs = now - pausedElapsedMs;
+                previewPaused = false;
+            }
+            updatePreviewPauseButtonUI();
+            schedulePreviewDraw();
+        });
+
+        document.getElementById('ob-btn-preview-restart')?.addEventListener('click', () => {
+            pausedElapsedMs = 0;
+            animOriginMs = performance.now();
+            schedulePreviewDraw();
+        });
+
+        document.getElementById('ob-btn-preview-save')?.addEventListener('click', () => saveWorkingProfile());
+
         document.querySelectorAll('#ob-preview-bg-chips .ob-chip').forEach(chip => {
             chip.classList.toggle('active', chip.dataset.bg === previewBg);
             chip.addEventListener('click', () => {
@@ -2506,6 +2636,8 @@
     document.addEventListener('DOMContentLoaded', () => {
         populateStyleSelects();
         bindFormListeners();
+        switchInspectorTab(activeInspectorTab);
+        updatePreviewPauseButtonUI();
         switchTab(activeTab);
         loadStudioData();
     });
