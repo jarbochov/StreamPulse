@@ -1536,14 +1536,14 @@
             if (is_scroll > 0.5 && tile_track_mode < 0.5) {
                 grid_p += scroll_dir * tile_speed * t;
             } else if (tile_motion >= 4.5 && tile_motion < 5.5) {
-                float sw_ph = t * max(0.5, tile_speed * 0.12);
+                float sw_ph = t * max(0.0, tile_speed * 0.12);
                 grid_p += vec2(sin(sw_ph) * step_px * wave_f * 1.4, cos(sw_ph * 0.5) * step_px * wave_f * 0.8);
             } else if ((tile_motion >= 1.5 && tile_motion < 2.5) || (is_scroll > 0.5 && ((tile_track_mode > 0.5 && tile_track_mode < 2.5) || tile_track_mode >= 4.5))) {
                 float sx_dir = (is_scroll > 0.5 && abs(scroll_dir.x) > 0.1) ? sign(scroll_dir.x) : 1.0;
                 float r_idx = floor(grid_p.y / step_px);
                 float r_odd = mod(abs(r_idx), 2.0) > 0.5 ? 1.0 : 0.0;
                 if (tile_track_mode >= 5.5 && tile_track_mode < 6.5) {
-                    float s_off = sin(t * max(0.3, tile_speed * 0.12)) * step_px * 1.6 * sx_dir;
+                    float s_off = sin(t * max(0.0, tile_speed * 0.12)) * step_px * 1.6 * sx_dir;
                     grid_p.x += (r_odd > 0.5 ? -s_off : s_off);
                 } else if ((tile_track_mode >= 1.5 && tile_track_mode < 2.5) || (tile_track_mode >= 6.5 && tile_track_mode < 7.5)) {
                     grid_p.x += sx_dir * tile_speed * t * (r_odd > 0.5 ? 2.0 : 1.0);
@@ -1557,7 +1557,7 @@
                 float c_idx = floor(grid_p.x / step_px);
                 float c_odd = mod(abs(c_idx), 2.0) > 0.5 ? 1.0 : 0.0;
                 if (tile_track_mode >= 5.5 && tile_track_mode < 6.5) {
-                    float s_off = sin(t * max(0.3, tile_speed * 0.12)) * step_px * 1.6 * sy_dir;
+                    float s_off = sin(t * max(0.0, tile_speed * 0.12)) * step_px * 1.6 * sy_dir;
                     grid_p.y += (c_odd > 0.5 ? -s_off : s_off);
                 } else if ((tile_track_mode >= 3.5 && tile_track_mode < 4.5) || (tile_track_mode >= 6.5 && tile_track_mode < 7.5)) {
                     grid_p.y += sy_dir * tile_speed * t * (c_odd > 0.5 ? 2.0 : 1.0);
@@ -1567,7 +1567,7 @@
                     grid_p.y += sy_dir * tile_speed * t * (c_odd > 0.5 ? -1.0 : 1.0);
                 }
             } else if (tile_motion >= 3.5 && tile_motion < 4.5) {
-                float cyc = t * max(0.12, tile_speed * 0.015);
+                float cyc = t * max(0.0, tile_speed * 0.015);
                 float ph = fract(cyc);
                 float q = ph < 0.5 ? ph * 2.0 : (ph - 0.5) * 2.0;
                 float eased = q < 0.5 ? 4.0 * q * q * q : 1.0 - pow(-2.0 * q + 2.0, 3.0) * 0.5;
@@ -1600,17 +1600,17 @@
             float sc_wave = 1.0;
             float rot_extra = 0.0;
             if (tile_motion >= 7.5 && tile_motion < 8.5) {
-                float wph = (cell_id.x * 0.55 + cell_id.y * 0.45) - t * max(0.5, tile_speed * 0.15);
+                float wph = (cell_id.x * 0.55 + cell_id.y * 0.45) - t * max(0.0, tile_speed * 0.15);
                 lp.y -= cos(wph) * tile_size * wave_f * 0.16;
                 sc_wave = max(0.1, 1.0 + sin(wph) * wave_f * 0.45);
                 rot_extra = sin(wph) * wave_f * 0.35;
             } else if (tile_motion >= 8.5) {
-                float fph = t * max(0.4, tile_speed * 0.12);
+                float fph = t * max(0.0, tile_speed * 0.12);
                 lp -= vec2(sin(fph + rnd.x * 6.283) * step_px * wave_f * 0.25, cos(fph * 0.85 + rnd.y * 6.283) * step_px * wave_f * 0.25);
                 sc_wave = max(0.1, 1.0 + sin(fph + rnd.x * 6.283) * wave_f * 0.18);
                 rot_extra = cos(fph + rnd.y * 6.283) * wave_f * 0.35;
             } else if (tile_motion >= 4.5 && tile_motion < 5.5) {
-                float sw_ph = t * max(0.5, tile_speed * 0.12);
+                float sw_ph = t * max(0.0, tile_speed * 0.12);
                 float sw_dir = (mod(abs(cell_id.x + cell_id.y), 2.0) > 0.5) ? -1.0 : 1.0;
                 rot_extra = sw_dir * sin(sw_ph + (cell_id.x + cell_id.y) * 0.4) * (wave_f * 0.65);
             }

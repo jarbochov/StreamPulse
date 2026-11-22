@@ -257,7 +257,7 @@ describe('OBS Pattern Studio (Beta / Advanced)', () => {
                     for (const track of [0, 7, 8]) {
                         f('tile_track_mode', track);
                         for (const cycle of [0.25, 0.5, 1, 1.25, 1.5, 2, 2.25, 6, 6.25, 7, 419.25, 419.5, 420]) {
-                            const t = cycle / 0.12;
+                            const t = cycle / (6.5 * 0.015);
                             const epsilon = cycle >= 419 ? 0.005 : 0.0001;
                             const a = draw(t - epsilon), b = draw(t + epsilon);
                             let delta = 0;
@@ -797,5 +797,38 @@ describe('OBS Pattern Studio (Beta / Advanced)', () => {
         assert.ok(lua.includes('static_rendered_key'), 'Expected static_rendered_key cache in OBS Lua');
         assert.ok(lua.includes('smoothstep(0.02, 0.16, chroma)'), 'Expected smooth monochrome blend for tile hue shift');
         assert.ok(lua.includes('4096.0 * nslots'), 'Expected non-negative modulo for multi-slot tile distribution');
+    });
+
+    it('allows fine/slow Move Speed values down to 0 without 0.5 clamping in profile or shader', () => {
+        const saved = service.upsertProfile({
+            id: 'slow-move-test',
+            name: 'Slow Move Test',
+            mode: 'tiles',
+            procedural: { preset: 'topography', motion: 'drift', speed: 0.05 },
+            tiles: { motion: 'wave', speed: 0.1 }
+        });
+        assert.equal(saved.procedural.speed, 0.05);
+        assert.equal(saved.tiles.speed, 0.1);
+
+        const resolvedZero = service.upsertProfile({
+            id: 'zero-move-test',
+            name: 'Zero Move Test',
+            mode: 'tiles',
+            procedural: { preset: 'topography', motion: 'drift', speed: 0 },
+            tiles: { motion: 'sway', speed: 0 }
+        });
+        assert.equal(resolvedZero.tiles.speed, 0);
+
+        const manifest = service.syncResolvedManifest();
+        const slowManifest = manifest.profiles.find(p => p.id === 'slow-move-test');
+        const zeroManifest = manifest.profiles.find(p => p.id === 'zero-move-test');
+        assert.equal(slowManifest.tiles.speed, 0.1);
+        assert.equal(slowManifest.procedural.speed, 0.05);
+        assert.equal(zeroManifest.tiles.speed, 0);
+
+        const lua = fs.readFileSync(service.getState().luaScriptPath, 'utf8');
+        assert.ok(!lua.includes('max(0.5, tile_speed'), 'Tile shader must not enforce a 0.5 minimum speed floor');
+        assert.ok(!lua.includes('max(0.3, tile_speed'), 'Tile pong shader must not enforce a 0.3 minimum speed floor');
+        assert.ok(!lua.includes('max(0.12, tile_speed'), 'Tile carousel shader must not enforce a 0.12 minimum speed floor');
     });
 });
