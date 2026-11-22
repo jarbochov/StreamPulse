@@ -5,7 +5,14 @@
     const TYPE_NAMES = { text: 'Text', image: 'Image', qr: 'QR code', shape: 'Shape', icon: 'Icon' };
     const ELEMENT_ROLES = ['photo', 'artwork', 'badge', 'title', 'subtitle', 'url', 'qr'];
     const PATTERNS = ['grid', 'geometry', 'orbits', 'hexagons', 'diamonds', 'isometric', 'mesh', 'sunburst', 'triangles', 'chevrons', 'checker', 'waves', 'rings', 'scales', 'topography', 'starfield', 'sparkles', 'dots', 'confetti', 'circuit', 'leaves', 'turkeys', 'pumpkins', 'christmas-trees', 'christmas-lights', 'snowflakes', 'hearts', 'fireworks', 'honeycomb', 'evergreens', 'football-field'];
-    const MOTIONS = ['none', 'drift', 'pulse', 'sweep', 'aurora', 'flow', 'sway', 'orbit', 'pan', 'rotate'];
+    const MOTIONS = ['none', 'drift', 'fall', 'pulse', 'sweep', 'aurora', 'flow', 'sway', 'orbit', 'pan', 'rotate'];
+    const FILL_MODES = ['tinted', 'solid', 'outline'];
+    const PATTERN_COLOR_MODES = ['mosaic', 'radial', 'rows', 'columns', 'diagonal', 'spiral', 'checker'];
+    const PATTERN_COLOR_ANIMS = ['none', 'cycle', 'breathe'];
+    const IN_PLACE_MODES = ['auto', 'pulse', 'gentle', 'sparkle', 'none'];
+    const SPIN_MODES = ['auto', 'reverse', 'sway', 'none'];
+    const PAN_DIRECTIONS = ['oscillate', 'continuous'];
+    const SNOWFLAKE_STYLES = ['all', 'dendrite', 'plate', 'fern', 'rosette', 'cross', 'needle'];
     const FONT_WEIGHTS = [300, 400, 500, 600, 700, 800, 900];
     const THEMES = {
         studio: { background: '#f0eee8', panel: '#ffffff', accent: '#4338ca', text: '#141725', muted: '#51576b' },
@@ -53,8 +60,46 @@
         return `/custom-overlay-assets/${encodeURIComponent(filename)}`;
     }
 
+    function blurFill(input) {
+        const b = obj(input);
+        return {
+            blur: number(b.blur, 24, 0, 80),
+            dim: number(b.dim, 30, 0, 85),
+            zoom: number(b.zoom, 112, 100, 200),
+            shadow: number(b.shadow, 45, 0, 100)
+        };
+    }
+
+    function mediaFilter(input) {
+        const f = obj(input), t = obj(f.tint), d = obj(f.duotone), g = obj(f.grain);
+        return {
+            brightness: number(f.brightness, 100, 0, 200),
+            contrast: number(f.contrast, 100, 0, 200),
+            saturate: number(f.saturate, 100, 0, 300),
+            grayscale: number(f.grayscale, 0, 0, 100),
+            blur: number(f.blur, 0, 0, 60),
+            tint: {
+                enabled: t.enabled === true,
+                color: hex(t.color, '#000000'),
+                opacity: number(t.opacity, 0.4, 0, 1)
+            },
+            duotone: {
+                enabled: d.enabled === true,
+                dark: hex(d.dark, '#1b1464'),
+                light: hex(d.light, '#ff9de2')
+            },
+            grain: {
+                enabled: g.enabled === true,
+                amount: number(g.amount, 0.25, 0, 1),
+                size: number(g.size, 1, 0.5, 4),
+                animate: g.animate !== false
+            }
+        };
+    }
+
     function background(input = {}, fallbackTheme = 'midnight', fallbackVignette = 0) {
         if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Invalid promo background.');
+        const hasDensity = input.density !== null && input.density !== undefined && input.density !== '';
         return {
             mode: ['theme', 'solid', 'gradient', 'transparent', 'image', 'pattern'].includes(input.mode) ? input.mode : 'theme',
             theme: Object.hasOwn(THEMES, input.theme) ? input.theme : fallbackTheme,
@@ -64,11 +109,32 @@
             pattern: PATTERNS.includes(input.pattern) ? input.pattern : 'orbits',
             motion: MOTIONS.includes(input.motion) ? input.motion : 'none',
             scale: number(input.scale, 100, 2, 800),
+            palette: typeof input.palette === 'string' && /^[a-z0-9-]{1,32}$/i.test(input.palette) ? input.palette : 'dual',
+            accent: hex(input.accent, ''), secondary: hex(input.secondary, ''),
+            fillMode: FILL_MODES.includes(input.fillMode) ? input.fillMode : 'tinted',
+            fillOpacity: number(input.fillOpacity, 30, 0, 100),
+            lineWidth: number(input.lineWidth, 0, 0, 20),
+            density: hasDensity ? number(input.density, 1, 0.25, 6000) : null,
+            spacing: number(input.spacing, 100, 50, 300),
+            sizeVariance: number(input.sizeVariance, 0, 0, 100),
+            scatter: number(input.scatter, 0, 0, 100),
+            rotationVariance: number(input.rotationVariance, 0, 0, 100),
+            colorMode: PATTERN_COLOR_MODES.includes(input.colorMode) ? input.colorMode : 'mosaic',
+            colorAnim: PATTERN_COLOR_ANIMS.includes(input.colorAnim) ? input.colorAnim : 'none',
+            colorSpeed: number(input.colorSpeed, 1, 0.2, 3),
+            inPlace: IN_PLACE_MODES.includes(input.inPlace) ? input.inPlace : 'auto',
+            inPlaceSpeed: number(input.inPlaceSpeed, 1, 0.2, 5),
+            spin: SPIN_MODES.includes(input.spin) ? input.spin : 'auto',
+            spinSpeed: number(input.spinSpeed, 1, 0.1, 5),
+            panDirection: PAN_DIRECTIONS.includes(input.panDirection) ? input.panDirection : 'oscillate',
+            snowflakeStyle: SNOWFLAKE_STYLES.includes(input.snowflakeStyle) ? input.snowflakeStyle : 'all',
             bar: ['theme', 'custom', 'none'].includes(input.bar) ? input.bar : 'theme', barColor: hex(input.barColor, '#ffffff'), barEndColor: hex(input.barEndColor, '#ffffff'),
             vignette: number(input.vignette, fallbackVignette, 0, 100),
-            image: assetUrl(input.image), fit: input.fit === 'contain' ? 'contain' : 'cover',
+            image: assetUrl(input.image), fit: pick(input.fit, ['cover', 'contain', 'contain-blur'], 'cover'),
+            blurFill: blurFill(input.blurFill),
             focusX: number(input.focusX, 50, 0, 100), focusY: number(input.focusY, 50, 0, 100),
-            shade: number(input.shade, 35, 0, 100)
+            shade: number(input.shade, 35, 0, 100),
+            mediaFilter: mediaFilter(input.mediaFilter)
         };
     }
 
@@ -126,7 +192,8 @@
         }
         if (type === 'image') {
             return {
-                objectFit: pick(s.objectFit, ['cover', 'contain'], role === 'photo' ? 'cover' : 'contain'),
+                objectFit: pick(s.objectFit, ['cover', 'contain', 'contain-blur'], role === 'photo' ? 'cover' : 'contain'),
+                blurFill: blurFill(s.blurFill),
                 focusX: number(s.focusX, 50, 0, 100), focusY: number(s.focusY, 50, 0, 100),
                 shape: pick(s.shape, ['rectangle', 'rounded', 'circle'], 'rounded'), borderRadius: number(s.borderRadius, 24, 0, 300),
                 borderWidth: number(s.borderWidth, 0, 0, 40), borderColor: color(s.borderColor, '#ffffff'),
@@ -159,6 +226,9 @@
             source, src: input.type === 'image' ? assetUrl(input.src) : '', locked: input.locked === true,
             style: normalizeStyle(input.type, role, input.style)
         };
+        if (input.type === 'image') {
+            element.mediaFilter = mediaFilter(input.mediaFilter);
+        }
         if (input.type === 'qr') {
             element.qr = {
                 fg: hex(input.qr?.fg, '#000000'), bg: hex(input.qr?.bg, '#ffffff'),
@@ -293,7 +363,7 @@
         };
     }
 
-    const api = { normalizeStyle,  SIZES, ELEMENT_TYPES, TYPE_NAMES, ELEMENT_ROLES, PATTERNS, MOTIONS, FONT_WEIGHTS, THEMES, DEFAULT_ELEMENTS, arrangement, createElement, normalize, normalizeElement, twitchUrl, assetUrl, background, appearance, normalizeTheme };
+    const api = { normalizeStyle, SIZES, ELEMENT_TYPES, TYPE_NAMES, ELEMENT_ROLES, PATTERNS, MOTIONS, FILL_MODES, FONT_WEIGHTS, THEMES, DEFAULT_ELEMENTS, arrangement, createElement, normalize, normalizeElement, twitchUrl, assetUrl, blurFill, mediaFilter, background, appearance, normalizeTheme };
     if (typeof module === 'object' && module.exports) module.exports = api;
     else root.PromoModel = api;
 })(typeof window !== 'undefined' ? window : globalThis);

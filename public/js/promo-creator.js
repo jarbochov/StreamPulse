@@ -3,7 +3,7 @@ import { exportAnimation, exportPromos, supportsMp4 } from './promo-export.js';
 import { fontAssets, promoFont } from './promo-fonts.js';
 import { alignmentOffset, snapAxis } from './editor-geometry.js';
 import { F, bindFields } from './editor/editor-form.js';
-import { ICON, TYPE_META, esc } from './editor/editor-state.js';
+import { ICON, TYPE_META, esc, prefs } from './editor/editor-state.js';
 
 const M = window.PromoModel, $ = id => document.getElementById(id);
 const LABELS = { photo: 'Screenshot / photo', artwork: 'Artwork / logo', badge: 'Status label', title: 'Headline', subtitle: 'Subtitle', url: 'Twitch URL', qr: 'QR code' };
@@ -129,7 +129,7 @@ function paint(node, item, p) {
     const border = () => {
         if (!(s.borderWidth > 0)) return;
         const ring = document.createElement('i'); ring.className = 'pbo';
-        ring.style.cssText = `border-radius:${radius}px;box-shadow:inset 0 0 0 ${s.borderWidth}px ${s.borderColor}`;
+        ring.style.cssText = `z-index:3;border-radius:${radius}px;box-shadow:inset 0 0 0 ${s.borderWidth}px ${s.borderColor}`;
         pb.append(ring);
     };
     if (item.type === 'image') {
@@ -138,9 +138,31 @@ function paint(node, item, p) {
         if (item.src) {
             const img = document.createElement('img');
             img.src = item.src; img.draggable = false;
-            img.style.cssText = `object-fit:${s.objectFit};object-position:${s.focusX}% ${s.focusY}%`;
             pb.append(img);
+            pb._fxSig = '';
+            const f = M.mediaFilter(item.mediaFilter);
+            const hasFx = f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0 || f.blur > 0 || f.tint.enabled || f.duotone.enabled || f.grain.enabled;
+            if (window.OverlayShared?.syncBlurFillMedia) {
+                window.OverlayShared.syncBlurFillMedia(pb, {
+                    media: img,
+                    kind: 'img',
+                    src: item.src,
+                    fit: s.objectFit,
+                    focusX: s.focusX,
+                    focusY: s.focusY,
+                    blurFill: s.blurFill,
+                    skipShadowOnMedia: hasFx
+                });
+            } else {
+                img.style.cssText = `object-fit:${s.objectFit === 'contain-blur' ? 'contain' : s.objectFit};object-position:${s.focusX}% ${s.focusY}%`;
+            }
+            if (hasFx && window.OverlayFilters?.applyMediaFilter) {
+                window.OverlayFilters.applyMediaFilter(pb, { ...item, width: box.w, height: box.h, mediaFilter: f });
+            } else if (window.OverlayFilters?.cleanupFilters) {
+                window.OverlayFilters.cleanupFilters(pb);
+            }
         } else {
+            if (window.OverlayFilters?.cleanupFilters) window.OverlayFilters.cleanupFilters(pb);
             const hint = document.createElement('div'); hint.className = 'pt';
             hint.style.cssText = `inset:24px;width:auto;height:auto;display:flex;align-items:center;font:400 28px/1.12 ${cssFont()};color:${colors.muted}`;
             hint.textContent = item.role === 'photo' ? 'Add your screenshot' : item.role === 'artwork' ? 'Add artwork' : 'Add image';
@@ -148,6 +170,7 @@ function paint(node, item, p) {
         }
         if (item.role === 'photo' && design.layouts[ratio].template === 'spotlight') {
             const shade = document.createElement('i'); shade.className = 'pbo';
+            shade.style.zIndex = '2';
             shade.style.background = ratio === 'landscape' ? `linear-gradient(90deg,${colors.background}f0,${colors.background}35)` : `linear-gradient(180deg,${colors.background}00,${colors.background}ff)`;
             pb.append(shade);
         }
@@ -209,7 +232,10 @@ function updateSel() {
 function renderEls(only) {
     const layout = design.layouts[ratio], host = $('els');
     const wanted = layout.order.filter(key => element(key) && layout.placements[key]?.visible);
-    for (const [key, node] of nodes) if (!wanted.includes(key)) { node.remove(); nodes.delete(key); }
+    for (const [key, node] of nodes) if (!wanted.includes(key)) {
+        if (node.firstChild && window.OverlayFilters?.cleanupFilters) window.OverlayFilters.cleanupFilters(node.firstChild);
+        node.remove(); nodes.delete(key);
+    }
     for (const key of wanted) {
         let node = nodes.get(key);
         if (!node) { node = document.createElement('div'); node.dataset.id = key; nodes.set(key, node); }
@@ -244,7 +270,7 @@ async function backdropFrame(now) {
     if (document.hidden) return;
     if (backdropBusy) { backdropDirty = true; return; }
     const bg = design.background;
-    const animate = (bg.mode === 'pattern' || (bg.mode === 'gradient' && bg.motion === 'rotate')) && bg.motion !== 'none' && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const animate = ((bg.mode === 'pattern' && (bg.motion !== 'none' || bg.colorAnim !== 'none')) || (bg.mode === 'gradient' && bg.motion === 'rotate')) && !matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (animate) backdropRaf = requestAnimationFrame(backdropFrame);
     const key = JSON.stringify([ratio, bg, design.theme, design.colors]);
     if (!animate && key === backdropKey) return;
@@ -361,10 +387,218 @@ function duplicateElement() {
 
 // ---- Properties (shared form helpers from the overlay editor) ----
 function targetOf(item) {
-    const p = placementOf(item.id), target = { style: item.style, qr: item.qr };
+    const p = placementOf(item.id);
+    if (item.type === 'image' && !item.mediaFilter) item.mediaFilter = M.mediaFilter();
+    const target = { style: item.style, qr: item.qr, mediaFilter: item.mediaFilter };
     for (const key of ['x', 'y', 'width', 'height', 'visible']) Object.defineProperty(target, key, { get: () => p[key], set: value => { p[key] = value; }, enumerable: true });
     for (const key of ['name', 'content', 'source']) Object.defineProperty(target, key, { get: () => item[key], set: value => { item[key] = value; }, enumerable: true });
     return target;
+}
+
+const PALETTE_OPTIONS = [
+    ['dual', 'Custom Two-Tone (Accent & Secondary)'],
+    ['multicolor', 'Festive Multicolor (7 Jewel Tones)'],
+    ['christmas', 'Holiday Classic (Emerald, Ruby, Gold)'],
+    ['autumn', 'Autumn Harvest (Crimson, Orange, Gold, Chestnut)'],
+    ['halloween', 'Spooky Halloween (Pumpkin, Witch Violet, Slime)'],
+    ['winter', 'Winter Frost (Ice Blue, Periwinkle, Snow)'],
+    ['valentines', 'Romance (Crimson, Rose, Blush Pink)'],
+    ['neon', 'Cyber Neon (Electric Cyan, Hot Pink, Lime)'],
+    ['warm', 'Warm Hearth (Amber, Crimson, Gold)'],
+    ['cool', 'Cool Breeze (Sky, Mint, Ocean Teal)'],
+    ['pastel', 'Soft Pastel (Coral, Peach, Mint, Lavender)'],
+    ['forest', 'Forest & Moss (Deep Pine, Sage, Earth)'],
+    ['sunset', 'Dusk & Sunset (Twilight Violet, Coral, Gold)'],
+    ['synthwave', 'Synthwave (Neon Magenta, Deep Violet, Electric Cyan)'],
+    ['galaxy', 'Cosmic Galaxy (Deep Void, Royal Purple, Bright Teal, Lavender)'],
+    ['terracotta', 'Terracotta & Clay (Burnt Sienna, Rust, Sage, Ochre)'],
+    ['vaporwave', 'Vaporwave (Hot Pink, Cyan, Mint, Lilac, Pastel Yellow)'],
+    ['ocean', 'Deep Ocean (Deep Teal, Emerald, Coral, Gold)'],
+    ['royal', 'Imperial Royal (Velvet Crimson, Burgundy, Antique Gold)'],
+    ['sakura', 'Cherry Blossom Sakura (Blush Pink, Sage, Tender Green)'],
+    ['coffee', 'Warm Coffee & Mocha (Espresso, Warm Caramel, Cream, Chestnut)'],
+    ['monochrome', 'Sleek Monochrome (White, Silver, Slate)']
+];
+
+function subDetails(id, title, badge, body, openByDefault = false) {
+    return `<details class="sub-details" data-sect="${id}" ${(prefs.sections[id] ?? openByDefault) ? 'open' : ''}><summary><span>${title}</span><span class="spacer"></span>${badge}</summary>${body}</details>`;
+}
+
+function effectsSubDrawers(rawFilter, prefix, { key, allowAnimate = true } = {}) {
+    const f = M.mediaFilter(rawFilter);
+    const hasExposure = f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0 || f.blur > 0;
+    const exposureBadge = `<span class="badge-pill${hasExposure ? '' : ' is-muted'}" data-fx-badge="${key}-exposure">${hasExposure ? 'Adjusted' : 'Clean'}</span>`;
+    const activeFx = [];
+    if (f.tint.enabled) activeFx.push('Tint');
+    if (f.duotone.enabled) activeFx.push('Duotone');
+    if (f.grain.enabled) activeFx.push('Grain');
+    const fxBadge = `<span class="badge-pill${activeFx.length ? '' : ' is-muted'}" data-fx-badge="${key}-fx">${activeFx.length ? activeFx.join(' + ') : 'Off'}</span>`;
+
+    const exposureBody = `
+        ${F.range(`${prefix}.brightness`, 'Brightness', f.brightness, { min: 0, max: 200, step: 1, editable: true, reset: 100, unit: '%' })}
+        ${F.range(`${prefix}.contrast`, 'Contrast', f.contrast, { min: 0, max: 200, step: 1, editable: true, reset: 100, unit: '%' })}
+        ${F.range(`${prefix}.saturate`, 'Saturation', f.saturate, { min: 0, max: 300, step: 1, editable: true, reset: 100, unit: '%' })}
+        ${F.range(`${prefix}.grayscale`, 'Grayscale', f.grayscale, { min: 0, max: 100, step: 1, editable: true, reset: 0, unit: '%' })}
+        ${F.range(`${prefix}.blur`, 'Blur', f.blur, { min: 0, max: 60, step: 0.5, editable: true, reset: 0, unit: 'px' })}
+    `;
+
+    const fxBody = `
+        ${F.check(`${prefix}.tint.enabled`, 'Color tint overlay', f.tint.enabled)}
+        ${f.tint.enabled ? `${F.color(`${prefix}.tint.color`, 'Tint color', f.tint.color)}${F.range(`${prefix}.tint.opacity`, 'Tint opacity', f.tint.opacity, { min: 0, max: 100, scale: 0.01, step: 5, editable: true, reset: 40, unit: '%' })}` : ''}
+        ${F.check(`${prefix}.duotone.enabled`, 'Duotone color grade', f.duotone.enabled)}
+        ${f.duotone.enabled ? `${F.color(`${prefix}.duotone.dark`, 'Dark tone', f.duotone.dark)}${F.color(`${prefix}.duotone.light`, 'Light tone', f.duotone.light)}` : ''}
+        ${F.check(`${prefix}.grain.enabled`, 'Film grain', f.grain.enabled)}
+        ${f.grain.enabled ? `${F.range(`${prefix}.grain.amount`, 'Grain intensity', f.grain.amount, { min: 0, max: 100, scale: 0.01, step: 5, editable: true, reset: 25, unit: '%' })}${F.range(`${prefix}.grain.size`, 'Grain size', f.grain.size, { min: 0.5, max: 4, step: 0.25, editable: true, reset: 1, unit: 'x' })}${allowAnimate ? F.check(`${prefix}.grain.animate`, 'Animate grain in MP4 export', f.grain.animate) : ''}` : ''}
+    `;
+
+    return subDetails(`promo-${key}-exposure`, 'Color &amp; Exposure', exposureBadge, exposureBody, hasExposure)
+        + subDetails(`promo-${key}-fx`, 'Tint, Duotone &amp; Grain', fxBadge, fxBody, activeFx.length > 0);
+}
+
+function updateEffectBadge(key, rawFilter) {
+    const f = M.mediaFilter(rawFilter);
+    const hasExposure = f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0 || f.blur > 0;
+    const expEl = document.querySelector(`[data-fx-badge="${key}-exposure"]`);
+    if (expEl) {
+        expEl.textContent = hasExposure ? 'Adjusted' : 'Clean';
+        expEl.classList.toggle('is-muted', !hasExposure);
+    }
+    const activeFx = [];
+    if (f.tint.enabled) activeFx.push('Tint');
+    if (f.duotone.enabled) activeFx.push('Duotone');
+    if (f.grain.enabled) activeFx.push('Grain');
+    const fxEl = document.querySelector(`[data-fx-badge="${key}-fx"]`);
+    if (fxEl) {
+        fxEl.textContent = activeFx.length ? activeFx.join(' + ') : 'Off';
+        fxEl.classList.toggle('is-muted', activeFx.length === 0);
+    }
+}
+
+function patternStyleDrawers(bg) {
+    const caps = (window.StreamPulsePatterns?.PATTERN_CAPABILITIES?.[bg.pattern]) || { sizeVariance: true, scatter: true, inPlace: true, fill: true, density: true, spacing: true, colorMode: true };
+    const palettesDict = window.StreamPulsePatterns?.PALETTES || {};
+    const palette = bg.palette || 'dual';
+    const fillMode = bg.fillMode || 'tinted';
+    const fillBadgeText = caps.fill === false ? 'Lines' : fillMode === 'outline' ? 'Outline' : fillMode === 'solid' ? 'Solid' : `Tint ${bg.fillOpacity ?? 30}%`;
+    const fillBadge = `<span class="badge-pill${fillMode === 'tinted' && palette === 'dual' ? ' is-muted' : ''}">${esc(fillBadgeText)}</span>`;
+
+    let colorFields = F.select('background.palette', 'Color palette', palette, PALETTE_OPTIONS);
+    const accentInputs = F.color('background.accent', 'Primary accent', bg.accent || design.colors.accent, { clear: true, clearValue: '', clearLabel: 'Theme' })
+        + F.color('background.secondary', 'Secondary accent', bg.secondary || design.colors.secondary || design.colors.accent, { clear: true, clearValue: '', clearLabel: 'Theme' });
+    if (palette !== 'dual' && palettesDict[palette]) {
+        const swatches = palettesDict[palette].map(c => `<span style="flex:1;background:${c};height:100%;"></span>`).join('');
+        colorFields += `<div class="pattern-palette-bar" style="display:flex;height:8px;border-radius:4px;overflow:hidden;margin:2px 0 6px;" title="Palette swatches">${swatches}</div>`
+            + subDetails('promo-pat-fallback', 'Custom fallback colors', '<span class="badge-pill is-muted">Theme</span>', accentInputs, false);
+    } else {
+        colorFields += accentInputs;
+    }
+
+    let fillFields = '';
+    if (caps.fill !== false) {
+        fillFields += F.select('background.fillMode', 'Fill style', fillMode, [
+            ['tinted', 'Translucent Tint (Glass / Ambient)'],
+            ['solid', 'Solid Color (Vibrant Opaque)'],
+            ['outline', 'Wireframe Outlines Only']
+        ]);
+        if (fillMode !== 'outline') {
+            const defaultOp = fillMode === 'solid' ? 100 : 30;
+            fillFields += F.range('background.fillOpacity', 'Fill opacity', bg.fillOpacity ?? defaultOp, { min: 0, max: 100, step: 5, editable: true, reset: defaultOp, unit: '%' });
+        } else {
+            fillFields += '<p class="hint">Shapes render as crisp vector outlines with hollow interiors.</p>';
+        }
+    } else {
+        fillFields += '<p class="hint">Line-based vector pattern. Use Palette and Line width below to style strokes.</p>';
+    }
+
+    if (bg.pattern === 'snowflakes') {
+        fillFields += F.select('background.snowflakeStyle', 'Snowflake variety', bg.snowflakeStyle || 'all', [
+            ['all', 'All varieties (mixed blizzard)'],
+            ['dendrite', 'Stellar dendrites (feathery lace)'],
+            ['plate', 'Crystal plates (faceted hexagons)'],
+            ['fern', 'Fernlike lace (triple-tiered)'],
+            ['rosette', 'Jewel rosettes (scalloped)'],
+            ['cross', 'Scandinavian cross stars'],
+            ['needle', 'Minimalist needle stars']
+        ]);
+    }
+
+    if (caps.colorMode !== false) {
+        fillFields += F.select('background.colorMode', 'Color layout', bg.colorMode || 'mosaic', [
+            ['mosaic', 'Mosaic scatter'],
+            ['radial', 'Concentric radial'],
+            ['rows', 'Horizontal rows'],
+            ['columns', 'Vertical columns'],
+            ['diagonal', 'Diagonal waves'],
+            ['spiral', 'Spiral vortex'],
+            ['checker', 'Checkerboard']
+        ]) + F.select('background.colorAnim', 'Color animation', bg.colorAnim || 'none', [
+            ['none', 'Static'],
+            ['cycle', 'Color wave cycle'],
+            ['breathe', 'Breathing pulse']
+        ]);
+        if (bg.colorAnim && bg.colorAnim !== 'none') {
+            fillFields += F.range('background.colorSpeed', 'Color wave speed', bg.colorSpeed ?? 1, { min: 0.2, max: 3, step: 0.1, editable: true, reset: 1, unit: 'x' });
+        }
+    }
+
+    const customGeo = bg.scale !== 100 || (bg.lineWidth || 0) > 0 || (bg.spacing ?? 100) !== 100 || (bg.sizeVariance || 0) > 0 || (bg.scatter || 0) > 0 || bg.density != null;
+    const geoBadge = `<span class="badge-pill${customGeo ? '' : ' is-muted'}">${customGeo ? 'Custom' : `${bg.scale}%`}</span>`;
+    let geoFields = `
+        ${F.range('background.scale', 'Pattern scale', bg.scale, { min: 2, max: 800, step: 1, editable: true, reset: 100, unit: '%' })}
+        ${F.range('background.lineWidth', 'Line width (0 = auto)', bg.lineWidth ?? 0, { min: 0, max: 20, step: 0.5, editable: true, reset: 0, unit: 'px' })}
+    `;
+    if (caps.spacing) geoFields += F.range('background.spacing', 'Pattern spacing', bg.spacing ?? 100, { min: 50, max: 300, step: 5, editable: true, reset: 100, unit: '%' });
+    if (caps.sizeVariance) geoFields += F.range('background.sizeVariance', 'Size variance', bg.sizeVariance ?? 0, { min: 0, max: 100, step: 5, editable: true, reset: 0, unit: '%' });
+    if (caps.scatter) geoFields += F.range('background.scatter', 'Organic scatter', bg.scatter ?? 0, { min: 0, max: 100, step: 5, editable: true, reset: 0, unit: '%' });
+    if (caps.density) {
+        if (bg.pattern === 'starfield') geoFields += F.range('background.density', 'Star count', bg.density ?? 600, { min: 50, max: 6000, step: 50, editable: true, reset: 600 });
+        else if (bg.pattern === 'sunburst') geoFields += F.range('background.density', 'Ray count', bg.density ?? 28, { min: 6, max: 120, step: 2, editable: true, reset: 28 });
+        else if (bg.pattern === 'sparkles') geoFields += F.range('background.density', 'Sparkle count', bg.density ?? 75, { min: 10, max: 500, step: 5, editable: true, reset: 75 });
+        else geoFields += F.range('background.density', 'Density multiplier', bg.density ?? 1, { min: 0.25, max: 4, step: 0.25, editable: true, reset: 1, unit: 'x' });
+    }
+
+    const activeMotion = bg.motion !== 'none' || bg.inPlace !== 'auto' || (caps.spin && bg.spin !== 'auto');
+    const motionBadge = `<span class="badge-pill${bg.motion === 'none' ? ' is-muted' : ''}">${bg.motion === 'none' ? 'Still' : esc(bg.motion)}</span>`;
+    let motionFields = `
+        ${F.select('background.motion', 'Canvas movement', bg.motion, [
+            ['none', 'Still'],
+            ['drift', 'Slow drift'],
+            ['fall', 'Falling cascade'],
+            ['pulse', 'Soft pulse'],
+            ['sweep', 'Light sweep'],
+            ['aurora', 'Aurora ribbons'],
+            ['flow', 'Sweeping gradient'],
+            ['sway', 'Sway and zoom'],
+            ['orbit', 'Orbit'],
+            ['pan', 'Pan glide']
+        ])}
+        ${bg.motion === 'none' ? '' : F.range('background.speed', 'Loops per 6 s', bg.speed, { min: 1, max: 4, editable: true, reset: 1, unit: 'x' })}
+        ${bg.motion === 'pan' ? `${F.select('background.panDirection', 'Pan direction style', bg.panDirection || 'oscillate', [['oscillate', 'Smooth back-and-forth'], ['continuous', 'Continuous unidirectional glide']])}${F.range('background.angle', 'Pan direction', bg.angle, { min: 0, max: 360, step: 5, editable: true, reset: 135, unit: '°' })}` : ''}
+        ${['aurora', 'flow'].includes(bg.motion) ? `${F.color('background.endColor', 'Third ribbon color', bg.endColor)}<p class="hint">Ribbons use the palette accent and secondary colors and loop seamlessly over 6 s.</p>` : ''}
+        ${F.select('background.inPlace', 'In-place shimmer', bg.inPlace || 'auto', [
+            ['auto', 'Auto shimmer & pulse'],
+            ['pulse', 'Vivid pulse'],
+            ['gentle', 'Gentle shimmer'],
+            ['sparkle', 'Fast twinkle'],
+            ['none', 'Frozen']
+        ])}
+        ${(bg.inPlace || 'auto') !== 'none' ? F.range('background.inPlaceSpeed', 'In-place speed', bg.inPlaceSpeed ?? 1, { min: 0.2, max: 5, step: 0.1, editable: true, reset: 1, unit: 'x' }) : ''}
+    `;
+    if (caps.spin) {
+        const spin = bg.spin || 'auto';
+        motionFields += F.select('background.spin', 'Element spin', spin, [
+            ['auto', 'Clockwise spin'],
+            ['reverse', 'Counter-clockwise'],
+            ['sway', 'Pendulum sway'],
+            ['none', 'Static angle']
+        ]);
+        if (spin !== 'none') motionFields += F.range('background.spinSpeed', 'Spin speed', bg.spinSpeed ?? 1, { min: 0.1, max: 5, step: 0.1, editable: true, reset: 1, unit: 'x' });
+        motionFields += F.range('background.rotationVariance', 'Rotation variance', bg.rotationVariance ?? 0, { min: 0, max: 100, step: 5, editable: true, reset: 0, unit: '%' });
+    }
+
+    return subDetails('promo-pat-style', 'Fill Style &amp; Colors', fillBadge, colorFields + fillFields, true)
+        + subDetails('promo-pat-geo', 'Scale, Width &amp; Density', geoBadge, geoFields, customGeo)
+        + subDetails('promo-pat-motion', 'Motion &amp; Loop', motionBadge, motionFields, activeMotion && bg.motion !== 'none');
 }
 const structural = event => { const t = event?.target; return !t || t.tagName === 'SELECT' || t.type === 'checkbox' || t.type === 'radio' || t.tagName === 'BUTTON' || (event.type === 'change' && !['number', 'text', 'range', 'color'].includes(t.type) && t.tagName !== 'TEXTAREA'); };
 const seg2 = (path, label, value, options) => F.seg(path, label, value, options);
@@ -389,6 +623,16 @@ function boxBorder(s, padding = false) {
         ${padding ? F.number('style.padding', 'Padding (px)', s.padding, { min: 0, max: 200 }) : ''}
         <div class="grid2">${F.number('style.shadow.blur', 'Shadow (px)', s.shadow.blur, { min: 0, max: 100 })}${s.shadow.blur > 0 ? F.color('style.shadow.color', 'Shadow color', s.shadow.color) : '<span></span>'}</div>`;
 }
+function blurFillControls(prefix, rawBf, key) {
+    const bf = M.blurFill(rawBf);
+    const badge = `<span class="badge-pill" data-bf-badge="${key}">${bf.blur}px</span>`;
+    return subDetails(`promo-${key}-blurfill`, 'Blurred Backdrop Settings', badge, `
+        ${F.range(`${prefix}.blur`, 'Backdrop blur', bf.blur, { min: 0, max: 80, step: 1, editable: true, reset: 24, unit: 'px' })}
+        ${F.range(`${prefix}.dim`, 'Backdrop dim', bf.dim, { min: 0, max: 85, step: 5, editable: true, reset: 30, unit: '%' })}
+        ${F.range(`${prefix}.zoom`, 'Backdrop zoom', bf.zoom, { min: 100, max: 200, step: 2, editable: true, reset: 112, unit: '%' })}
+        ${F.range(`${prefix}.shadow`, 'Foreground shadow', bf.shadow, { min: 0, max: 100, step: 5, editable: true, reset: 45, unit: '%' })}
+    `, true);
+}
 function renderProps() {
     const item = element(), host = $('properties');
     if (!item) { host.innerHTML = '<div class="sect-body"><p class="hint">Select or add an element.</p></div>'; return; }
@@ -408,10 +652,12 @@ function renderProps() {
     let specific = '';
     if (item.type === 'text') specific = textSections(item);
     else if (item.type === 'image') {
-        const focus = s.objectFit === 'cover' && item.src ? `<div class="field focus-field"><span>Focus point</span><div class="focus-pick" data-focus-pick><img src="${esc(item.src)}" draggable="false"><i class="focus-dot" style="left:${s.focusX}%;top:${s.focusY}%"></i></div></div>` : '';
-        specific = F.section('p-image', 'Image', `${F.select('style.objectFit', 'Fit', s.objectFit, [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (letterbox)']])}${focus}${F.select('style.shape', 'Shape', s.shape, [['rounded', 'Rounded corners'], ['rectangle', 'Rectangle'], ['circle', 'Circle']])}${s.shape === 'rounded' ? F.number('style.borderRadius', 'Corner radius', s.borderRadius, { min: 0, max: 300 }) : ''}
+        const showFocus = s.objectFit === 'cover' || s.objectFit === 'contain-blur';
+        const focus = showFocus && item.src ? `<div class="field focus-field"><span>Focus point</span><div class="focus-pick" data-focus-pick><img src="${esc(item.src)}" draggable="false"><i class="focus-dot" style="left:${s.focusX}%;top:${s.focusY}%"></i></div></div>` : '';
+        specific = F.section('p-image', 'Image', `${F.select('style.objectFit', 'Fit', s.objectFit, [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (letterbox)'], ['contain-blur', 'Contain + Blurred Fill (uncropped)']])}${s.objectFit === 'contain-blur' ? blurFillControls('style.blurFill', s.blurFill, 'el') : ''}${focus}${F.select('style.shape', 'Shape', s.shape, [['rounded', 'Rounded corners'], ['rectangle', 'Rectangle'], ['circle', 'Circle']])}${s.shape === 'rounded' ? F.number('style.borderRadius', 'Corner radius', s.borderRadius, { min: 0, max: 300 }) : ''}
             <div class="grid2">${F.number('style.borderWidth', 'Border width', s.borderWidth, { min: 0, max: 40 })}${s.borderWidth > 0 ? F.color('style.borderColor', 'Border color', s.borderColor) : '<span></span>'}</div>
-            <div class="grid2">${F.number('style.shadow.blur', 'Shadow (px)', s.shadow.blur, { min: 0, max: 100 })}${s.shadow.blur > 0 ? F.color('style.shadow.color', 'Shadow color', s.shadow.color) : '<span></span>'}</div>`);
+            <div class="grid2">${F.number('style.shadow.blur', 'Shadow (px)', s.shadow.blur, { min: 0, max: 100 })}${s.shadow.blur > 0 ? F.color('style.shadow.color', 'Shadow color', s.shadow.color) : '<span></span>'}</div>`)
+            + F.section('p-image-fx', 'Image Effects', effectsSubDrawers(item.mediaFilter, 'mediaFilter', { key: 'el', allowAnimate: false }), false);
     } else if (item.type === 'shape') {
         specific = F.section('p-shape', 'Shape', `${F.select('style.shape', 'Form', s.shape, [['rounded', 'Rounded box'], ['rectangle', 'Box'], ['pill', 'Pill'], ['circle', 'Circle']])}${F.color('style.background', 'Fill', s.background)}
             ${s.shape === 'rounded' ? F.range('style.borderRadius', 'Corner radius', s.borderRadius, { min: 0, max: 300, editable: true, reset: 24, unit: 'px' }) : ''}
@@ -436,6 +682,15 @@ bindFields($('properties'), () => { const item = element(); return item ? [targe
     const [w, h] = size();
     p.width = Math.max(1, Math.min(w, p.width)); p.height = Math.max(1, Math.min(h, p.height));
     p.x = Math.max(0, Math.min(w - p.width, p.x)); p.y = Math.max(0, Math.min(h - p.height, p.y));
+    if (item.type === 'image' && path.startsWith('mediaFilter')) {
+        item.mediaFilter = M.mediaFilter(item.mediaFilter);
+        updateEffectBadge('el', item.mediaFilter);
+    }
+    if (item.type === 'image' && path.startsWith('style.blurFill')) {
+        item.style.blurFill = M.blurFill(item.style.blurFill);
+        const bfEl = document.querySelector('[data-bf-badge="el"]');
+        if (bfEl) bfEl.textContent = `${item.style.blurFill.blur}px`;
+    }
     changed(); renderEls([selected]); updateSel();
     if (path === 'content' && item.role && $(item.role)) $(item.role).value = item.content;
     if (['name', 'visible'].includes(path)) renderLayers();
@@ -481,34 +736,40 @@ $('properties').addEventListener('pointerdown', event => {
 // ---- Style tab (theme-level look, shared form helpers) ----
 function renderStyle() {
     const bg = design.background, m = bg.mode;
-    const patterns = [
+    const patterns = window.StreamPulsePatterns?.PATTERN_CATEGORIES || [
         { group: 'Geometric', options: [['grid', 'Grid'], ['geometry', 'Geometry'], ['orbits', 'Orbits'], ['hexagons', 'Hexagons'], ['honeycomb', 'Honeycomb'], ['diamonds', 'Diamonds'], ['isometric', 'Isometric tiles'], ['mesh', 'Curved mesh'], ['sunburst', 'Sunburst'], ['triangles', 'Triangles'], ['chevrons', 'Chevrons'], ['checker', 'Checkerboard']] },
-        { group: 'Organic', options: [['waves', 'Waves'], ['rings', 'Concentric rings'], ['scales', 'Scales'], ['topography', 'Topographic contours'], ['evergreens', 'Evergreen forest'], ['football-field', 'Football field']] },
-        { group: 'Atmospheric', options: [['starfield', 'Starfield'], ['sparkles', 'Sparkles'], ['dots', 'Dots']] },
-        { group: 'Playful & tech', options: [['confetti', 'Confetti'], ['circuit', 'Circuit board']] },
+        { group: 'Organic & decorative', options: [['waves', 'Waves'], ['rings', 'Rings'], ['scales', 'Scales'], ['topography', 'Topography'], ['circuit', 'Circuit board'], ['evergreens', 'Evergreen forest'], ['football-field', 'Football field']] },
+        { group: 'Particle & field', options: [['starfield', 'Starfield'], ['sparkles', 'Sparkles'], ['dots', 'Dots'], ['confetti', 'Confetti']] },
         { group: 'Seasonal & holiday', options: [['leaves', 'Autumn leaves'], ['turkeys', 'Thanksgiving turkeys'], ['pumpkins', 'Pumpkins & harvest'], ['christmas-trees', 'Christmas trees'], ['christmas-lights', 'Christmas string lights'], ['snowflakes', 'Snowflakes'], ['hearts', 'Floating hearts'], ['fireworks', 'Celebration fireworks']] }
     ];
     let body = F.select('background.mode', 'Style', m, [['theme', 'Theme background'], ['solid', 'Solid color'], ['gradient', 'Gradient'], ['pattern', 'Pattern'], ['image', 'Image'], ['transparent', 'Transparent']]);
-    if (['solid', 'pattern'].includes(m)) body += F.color('background.color', m === 'pattern' ? 'Base color' : 'Color', bg.color);
+    if (['solid', 'pattern'].includes(m)) body += F.color('background.color', m === 'pattern' ? 'Base backdrop color' : 'Color', bg.color);
     if (m === 'gradient') body += `${F.select('background.gradientType', 'Type', bg.gradientType, [['linear', 'Linear'], ['radial', 'Radial'], ['conic', 'Conic']])}
         ${bg.gradientType === 'radial' ? '' : F.range('background.angle', 'Angle', bg.angle, { min: 0, max: 360, editable: true, reset: 135, unit: '°' })}
         ${F.select('background.motion', 'Motion', ['rotate'].includes(bg.motion) ? 'rotate' : 'none', [['none', 'Still'], ['rotate', 'Rotating gradient']])}${bg.motion === 'rotate' ? F.range('background.speed', 'Loops per 6 s', bg.speed, { min: 1, max: 4, editable: true, reset: 1, unit: 'x' }) : ''}
-        <div class="grid2">${F.color('background.color', 'From', bg.color)}${F.color('background.endColor', 'To', bg.endColor)}</div>${F.color('background.midColor', 'Middle (optional)', bg.midColor, { clear: true })}`;
-    if (m === 'pattern') body += `${F.select('background.pattern', 'Pattern', bg.pattern, patterns)}${F.range('background.scale', 'Pattern scale', bg.scale, { min: 2, max: 800, step: 1, editable: true, reset: 100, unit: '%' })}
-        ${F.select('background.motion', 'Motion', bg.motion, [['none', 'Still'], ['drift', 'Slow drift'], ['pulse', 'Soft pulse'], ['sweep', 'Light sweep'], ['aurora', 'Aurora ribbons'], ['flow', 'Sweeping gradient'], ['sway', 'Sway and zoom'], ['orbit', 'Orbit'], ['pan', 'Linear pan']])}
-        ${bg.motion === 'none' ? '' : F.range('background.speed', 'Loops per 6 s', bg.speed, { min: 1, max: 4, editable: true, reset: 1, unit: 'x' })}
-        ${bg.motion === 'pan' ? F.range('background.angle', 'Pan direction', bg.angle, { min: 0, max: 360, step: 5, editable: true, reset: 135, unit: '°' }) : ''}${['aurora', 'flow'].includes(bg.motion) ? `${F.color('background.endColor', 'Third ribbon color', bg.endColor)}<p class="hint">Ribbons use the palette accent and secondary colors. Motion loops seamlessly in preview and MP4 export.</p>` : ''}`;
+        <div class="grid2">${F.color('background.color', 'From', bg.color)}${F.color('background.endColor', 'To', bg.endColor)}</div>${F.color('background.midColor', 'Middle (optional)', bg.midColor, { clear: true, clearValue: '' })}`;
+    if (m === 'pattern') body += `${F.select('background.pattern', 'Pattern', bg.pattern, patterns)}${patternStyleDrawers(bg)}`;
     if (m === 'image') body += `<p class="hint" id="background-name">${bg.image ? esc(decodeURIComponent(bg.image.split('/').pop())) : 'No background image'}</p>
         <div class="asset-actions"><button data-library="background" type="button">Choose image</button><button data-upload="background" type="button">Upload</button><button data-clear-asset="background" type="button">Clear</button></div>
-        ${F.select('background.fit', 'Fit', bg.fit, [['cover', 'Fill / crop'], ['contain', 'Contain']])}${F.range('background.shade', 'Darken', bg.shade, { min: 0, max: 100, editable: true, reset: 35, unit: '%' })}
-        ${F.range('background.focusX', 'Crop X', bg.focusX, { min: 0, max: 100, unit: '%' })}${F.range('background.focusY', 'Crop Y', bg.focusY, { min: 0, max: 100, unit: '%' })}`;
+        ${F.select('background.fit', 'Fit', bg.fit, [['cover', 'Fill / crop'], ['contain', 'Contain'], ['contain-blur', 'Contain + Blurred Fill (uncropped)']])}${bg.fit === 'contain-blur' ? blurFillControls('background.blurFill', bg.blurFill, 'bg') : ''}${F.range('background.shade', 'Darken', bg.shade, { min: 0, max: 100, editable: true, reset: 35, unit: '%' })}
+        ${bg.fit === 'contain' ? '' : `${F.range('background.focusX', 'Crop X', bg.focusX, { min: 0, max: 100, unit: '%' })}${F.range('background.focusY', 'Crop Y', bg.focusY, { min: 0, max: 100, unit: '%' })}`}`;
     if (m === 'pattern' || m === 'theme') body += `${F.select('background.bar', 'Top accent bar', bg.bar, [['theme', 'Theme gradient'], ['custom', 'Custom colors'], ['none', 'Hidden']])}${bg.bar === 'custom' ? F.color('background.barColor', 'Bar start color', bg.barColor) + F.color('background.barEndColor', 'Bar end color', bg.barEndColor) : ''}`;
     if (m !== 'transparent') body += F.range('background.vignette', 'Edge vignette', bg.vignette, { min: 0, max: 100, editable: true, reset: 0, unit: '%' });
+    if (m !== 'transparent') body += effectsSubDrawers(bg.mediaFilter, 'background.mediaFilter', { key: 'bg', allowAnimate: true });
     const palette = Object.entries(design.colors).map(([key, value]) => F.color(`colors.${key}`, key[0].toUpperCase() + key.slice(1), value)).join('');
     $('style-fields').innerHTML = F.section('s-bg', 'Background', body) + F.section('s-frame', 'Frame & font', `${F.range('cornerRadius', 'Corner radius', design.cornerRadius, { min: 0, max: 300, editable: true, reset: 0, unit: 'px' })}${F.select('font', 'Promo font', design.font, fontGroups().slice(1))}`) + F.section('s-palette', 'Color palette', palette, false);
 }
 bindFields($('style-fields'), () => [design], (path, event) => {
+    if (path === 'background.pattern') design.background.density = null;
+    if (path === 'background.fillMode') {
+        design.background.fillOpacity = design.background.fillMode === 'solid' ? 100 : design.background.fillMode === 'outline' ? 0 : 30;
+    }
     design.background = M.background(design.background, design.theme);
+    if (path.startsWith('background.mediaFilter')) updateEffectBadge('bg', design.background.mediaFilter);
+    if (path.startsWith('background.blurFill')) {
+        const bfEl = document.querySelector('[data-bf-badge="bg"]');
+        if (bfEl) bfEl.textContent = `${design.background.blurFill.blur}px`;
+    }
     changed(); renderEls();
     if (structural(event)) renderStyle();
     if (path === 'cornerRadius') applyScale();
@@ -652,6 +913,7 @@ function contentSnapshot() {
 async function save(copy = false) {
     if (!ready) throw new Error('The promo library could not be loaded. Reload and resolve the library error before saving.');
     const snapshot = contentSnapshot();
+    status('Saving design...');
     document.querySelector('main').inert = true;
     try {
         const result = await request(id && !copy ? `/api/promos/${id}` : '/api/promos', {

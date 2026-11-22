@@ -1,4 +1,5 @@
 import { cleanupMedia } from './lifecycle.js';
+import { syncBlurFillMedia } from './blur-fill.js';
 
 
 // ---- slideshow ----------------------------------------------------------------------------
@@ -73,12 +74,19 @@ function mountSlideshow(node, element, options = {}) {
         const layer = document.createElement('div');
         layer.style.cssText = 'position:absolute;inset:0;overflow:hidden;';
         const media = document.createElement(item.kind === 'video' ? 'video' : 'img');
-        media.style.cssText = `position:absolute;inset:0;width:100%;height:100%;object-fit:${config.fit === 'contain' ? 'contain' : 'cover'};`;
+        media.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;';
         if (item.kind === 'video') { media.muted = true; media.playsInline = true; media.autoplay = true; }
         else media.decoding = 'async';
         media.src = item.url;
         media.alt = '';
         layer.appendChild(media);
+        syncBlurFillMedia(layer, {
+            media,
+            kind: item.kind === 'video' ? 'video' : 'img',
+            src: item.url,
+            fit: config.fit || 'cover',
+            blurFill: config.blurFill
+        });
         const captionText = config.caption === 'caption' ? item.caption : config.caption === 'name' || config.caption === true ? item.label : '';
         if (captionText) {
             const bar = document.createElement('div');

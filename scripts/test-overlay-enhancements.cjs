@@ -1773,4 +1773,12 @@ test('Procedural Patterns: Rendering Efficiency, 60fps Frame Pacing, Triangle Mo
 
     assert.ok(overlaySharedCode.includes("ctx.globalCompositeOperation = 'destination-in'"), 'overlay-shared.js must feather via in-canvas destination-in');
     assert.ok(overlaySharedCode.includes("wrap.style.webkitMaskImage = ''"), 'overlay-shared.js must eliminate DOM CSS mask compositing');
+
+    // 8. Contain + Blurred Fill support across overlays, inspector, canvas, runtime, and slideshows
+    assert.ok(inspectorCode.includes("['contain-blur', 'Contain + Blurred Fill (uncropped)']"), 'Inspector must expose contain-blur fit mode for images, videos, and slideshows');
+    assert.ok(inspectorCode.includes('blurFillControls('), 'Inspector must render blurFill settings when contain-blur is selected');
+    const fullBundleCode = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'overlay-shared.js'), 'utf8');
+    assert.ok(fullBundleCode.includes('syncBlurFillMedia'), 'overlay-shared.js must bundle shared syncBlurFillMedia helper');
+    const overlaysSvcCode = fs.readFileSync(path.join(__dirname, '..', 'server', 'services', 'overlays.js'), 'utf8');
+    assert.ok(overlaysSvcCode.includes('normalizeBlurFill') && overlaysSvcCode.includes("'contain-blur'"), 'overlays service must normalize contain-blur fit and blurFill settings');
 });

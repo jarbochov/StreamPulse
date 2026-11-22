@@ -698,6 +698,22 @@ export function applyNodeStyle(node, el, index) {
         if (cols) node.style.display = 'block';
     }
     if (el.type === 'random-text' && node._extra !== undefined) node.style.setProperty('--marquee-duration', `${Math.max(10, el.random?.marqueeSpeed || 60)}s`);
+    if (el.type === 'image' || el.type === 'video') {
+        const media = node.querySelector(':scope > img, :scope > video');
+        if (media && shared.syncBlurFillMedia) {
+            shared.syncBlurFillMedia(node, {
+                media,
+                kind: el.type,
+                src: media.getAttribute('src') || expand(el.src),
+                fit: s.objectFit || 'cover',
+                focusX: s.focusX ?? 50,
+                focusY: s.focusY ?? 50,
+                blurFill: s.blurFill,
+                crossOrigin: media.crossOrigin || '',
+                skipShadowOnMedia: true
+            });
+        }
+    }
     if (shared.loadGoogleFont) shared.loadGoogleFont(s.fontFamily);
     if (shared.applyMediaFilter) shared.applyMediaFilter(node, el);
     node.style.transform = s.rotate ? `rotate(${s.rotate}deg)` : '';
@@ -779,6 +795,19 @@ export function buildContent(node, el, playback) {
             if (media.parentNode === node && media.getAttribute('src')) node.replaceChildren(placeholder(`Couldn't load this ${el.type}. Check the URL or upload it again.`));
         });
         node.appendChild(media);
+        if (shared.syncBlurFillMedia) {
+            shared.syncBlurFillMedia(node, {
+                media,
+                kind: el.type,
+                src: url,
+                fit: el.style?.objectFit || 'cover',
+                focusX: el.style?.focusX ?? 50,
+                focusY: el.style?.focusY ?? 50,
+                blurFill: el.style?.blurFill,
+                crossOrigin: !url.startsWith('data:') ? 'anonymous' : '',
+                skipShadowOnMedia: true
+            });
+        }
     } else if (el.type === 'icon') {
         if (shared.renderIcon) shared.renderIcon(node, expand(el.content), el.style);
     } else if (el.type === 'qr') {
@@ -880,14 +909,14 @@ export const contentSignature = (el, live) =>
         el.style?.letterSpacing, el.style?.textAlign, el.style?.verticalAlign,
         el.style?.textStroke, el.style?.textShadow, el.style?.textTransform, el.style?.textDecoration
     ]) :
-    el.type === 'video' ? JSON.stringify([el.type, expand(el.src), el.video, el.style.objectFit, el.style.focusX, el.style.focusY]) :
+    el.type === 'video' ? JSON.stringify([el.type, expand(el.src), el.video, el.style.objectFit, el.style.focusX, el.style.focusY, el.style.blurFill]) :
     el.type === 'game-list' ? JSON.stringify([el.type, el.gameList, el.style?.borderRadius, el.style?.textGradient?.enabled, state.liveStatus?.gamePlan]) :
     JSON.stringify([
         el.type, el.content, el.src, el.items, el.source, el.textFit, el.columns, el.display,
         el.headingSpan, el.headingScale, sourceSignature(el), el.progress,
         el.style.color, el.style.fontFamily, el.style.fontWeight, el.style.textStroke,
         el.style.textShadow, el.qr, el.style.fill, el.random?.typewriter, el.random?.marquee, el.cycle,
-        el.style.objectFit, el.style.focusX, el.style.focusY,
+        el.style.objectFit, el.style.focusX, el.style.focusY, el.style.blurFill,
         usesLivePlaceholders(el) || el.type === 'data-display' || Boolean(el.source && el.source.mode !== 'inline') ? live : ''
     ]);
 
@@ -996,7 +1025,8 @@ export function renderCanvas(only) {
         pagePlayback.delete(el.id);
         if (node._sig !== signature) {
             const existingVid = el.type === 'video' ? node.querySelector(':scope > video') : null;
-            const canReuseVid = existingVid && node._src === el.src && node._fit === el.style?.objectFit && node._fx === el.style?.focusX && node._fy === el.style?.focusY;
+            const resolvedVidSrc = el.type === 'video' ? expand(el.src) : '';
+            const canReuseVid = existingVid && node._src === el.src && !(shared.parseYouTubeUrl && shared.parseYouTubeUrl(resolvedVidSrc));
             const existingImg = el.type === 'image' ? node.querySelector(':scope > img') : null;
             const resolvedImgSrc = el.type === 'image' ? expand(el.src) : '';
             const resolvedImgValid = Boolean(resolvedImgSrc && !/\{\{/.test(resolvedImgSrc));
@@ -1011,8 +1041,22 @@ export function renderCanvas(only) {
                 node._fit = el.style?.objectFit;
                 node._fx = el.style?.focusX;
                 node._fy = el.style?.focusY;
-                existingImg.style.objectFit = el.style?.objectFit || 'cover';
-                existingImg.style.objectPosition = `${el.style?.focusX ?? 50}% ${el.style?.focusY ?? 50}%`;
+                if (shared.syncBlurFillMedia) {
+                    shared.syncBlurFillMedia(node, {
+                        media: existingImg,
+                        kind: 'img',
+                        src: resolvedImgSrc,
+                        fit: el.style?.objectFit || 'cover',
+                        focusX: el.style?.focusX ?? 50,
+                        focusY: el.style?.focusY ?? 50,
+                        blurFill: el.style?.blurFill,
+                        crossOrigin: !resolvedImgSrc.startsWith('data:') ? 'anonymous' : '',
+                        skipShadowOnMedia: true
+                    });
+                } else {
+                    existingImg.style.objectFit = el.style?.objectFit || 'cover';
+                    existingImg.style.objectPosition = `${el.style?.focusX ?? 50}% ${el.style?.focusY ?? 50}%`;
+                }
             } else if (canReusePattern) {
                 node._sig = signature;
                 node._src = el.src;
@@ -1023,6 +1067,25 @@ export function renderCanvas(only) {
                 node._patternHandle.update(el, { preview: true, animate: true, expand });
             } else if (canReuseVid) {
                 node._sig = signature;
+                node._fit = el.style?.objectFit;
+                node._fx = el.style?.focusX;
+                node._fy = el.style?.focusY;
+                if (shared.syncBlurFillMedia) {
+                    shared.syncBlurFillMedia(node, {
+                        media: existingVid,
+                        kind: 'video',
+                        src: resolvedVidSrc,
+                        fit: el.style?.objectFit || 'cover',
+                        focusX: el.style?.focusX ?? 50,
+                        focusY: el.style?.focusY ?? 50,
+                        blurFill: el.style?.blurFill,
+                        crossOrigin: !resolvedVidSrc.startsWith('data:') ? 'anonymous' : '',
+                        skipShadowOnMedia: true
+                    });
+                } else {
+                    existingVid.style.objectFit = el.style?.objectFit || 'cover';
+                    existingVid.style.objectPosition = `${el.style?.focusX ?? 50}% ${el.style?.focusY ?? 50}%`;
+                }
                 const v = el.video || {};
                 const hasSound = Boolean(v.sound === true || (v.sound !== false && v.muted === false));
                 const vol = Math.max(0, Math.min(1, (Number.isFinite(Number(v.volume)) ? Number(v.volume) : 100) / 100));

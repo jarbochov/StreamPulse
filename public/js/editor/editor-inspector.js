@@ -62,7 +62,7 @@ export function registerInspectorCallbacks(callbacks) {
 export const RERENDER_PATHS = new Set([
     'style.numberBindings',
     'poll.previewMode',
-    'cutout.shape', 'obsLink.enabled', 'alert.showOnPreview', 'alert.effectsTarget', 'alert.mediaFit', 'style.objectFit', 'mediaFilter.duotone.enabled',
+    'cutout.shape', 'obsLink.enabled', 'alert.showOnPreview', 'alert.effectsTarget', 'alert.mediaFit', 'style.objectFit', 'slideshow.fit', 'mediaFilter.duotone.enabled',
     'mediaFilter.duotone.animate', 'mediaFilter.grain.enabled', 'mediaFilter.tint.enabled',
     'mediaFilter.halftone.mode', 'mediaFilter.halftone.colorMode', 'mediaFilter.halftone.fadeMode',
     'mediaFilter.retro.display', 'mediaFilter.retro.vhs', 'mediaFilter.retro.ntsc', 'mediaFilter.retro.static',
@@ -325,10 +325,26 @@ export function typographySection(el) {
 }
 
 export function focusField(el) {
-    if ((el.style.objectFit || 'cover') !== 'cover' || !el.src || /\{\{/.test(el.src)) return '';
+    const fit = el.style?.objectFit || 'cover';
+    if ((fit !== 'cover' && fit !== 'contain-blur') || !el.src || /\{\{/.test(el.src)) return '';
     const x = el.style.focusX ?? 50, y = el.style.focusY ?? 50;
     const thumb = (el.type === 'image' || el.type === 'pattern') ? `<img src="${esc(el.src)}" draggable="false">` : `<video src="${esc(el.src)}" muted preload="metadata"></video>`;
-    return `<div class="field focus-field"><span>Focus point</span><div class="focus-pick" data-focus-pick>${thumb}<i class="focus-dot" style="left:${x}%;top:${y}%"></i></div><small class="hint">Drag to choose which part stays in view when cropped.</small></div>`;
+    const hint = fit === 'contain-blur' ? 'Drag to choose which part of the blurred backdrop stays centered.' : 'Drag to choose which part stays in view when cropped.';
+    return `<div class="field focus-field"><span>Focus point</span><div class="focus-pick" data-focus-pick>${thumb}<i class="focus-dot" style="left:${x}%;top:${y}%"></i></div><small class="hint">${hint}</small></div>`;
+}
+
+function blurFillControls(prefix, rawBf) {
+    const bf = shared.normalizeBlurFill ? shared.normalizeBlurFill(rawBf) : { blur: 24, dim: 30, zoom: 112, shadow: 45, ...(rawBf || {}) };
+    return `
+        <div class="grid2">
+            ${F.range(`${prefix}.blur`, 'Backdrop blur', bf.blur, { min: 0, max: 80, step: 1, unit: 'px', editable: true, reset: 24 })}
+            ${F.range(`${prefix}.dim`, 'Backdrop dim', bf.dim, { min: 0, max: 85, step: 5, unit: '%', editable: true, reset: 30 })}
+        </div>
+        <div class="grid2">
+            ${F.range(`${prefix}.zoom`, 'Backdrop zoom', bf.zoom, { min: 100, max: 200, step: 2, unit: '%', editable: true, reset: 112 })}
+            ${F.range(`${prefix}.shadow`, 'Foreground shadow', bf.shadow, { min: 0, max: 100, step: 5, unit: '%', editable: true, reset: 45 })}
+        </div>
+    `;
 }
 
 export const boxEffectsRelevant = (el, multi) => multi || !TEXT_TYPES.has(el.type) || hasBox(el.style) || el.style?.blur > 0 || el.style?.shadow?.blur > 0 || el.style?.innerShadow?.blur > 0 || el.style?.innerShadow?.spread > 0;
@@ -494,7 +510,7 @@ export function appearanceBody(el, multi) {
         ${boxEffectFields(el, multi)}
         ${F.range('style.opacity', 'Opacity', s.opacity ?? 1, { min: 0, max: 100, scale: 0.01, unit: '%' })}
         ${!multi && shape ? F.select('style.shape', 'Shape', s.shape, [['rectangle', 'Rectangle'], ['circle', 'Circle'], ['pill', 'Pill'], ['line', 'Line']]) : ''}
-        ${!multi && (el.type === 'image' || el.type === 'video') ? F.select('style.objectFit', 'Fit', s.objectFit, [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (letterbox)']]) + focusField(el) : ''}`;
+        ${!multi && (el.type === 'image' || el.type === 'video') ? F.select('style.objectFit', 'Fit', s.objectFit, [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (letterbox)'], ['contain-blur', 'Contain + Blurred Fill (uncropped)']]) + (s.objectFit === 'contain-blur' ? blurFillControls('style.blurFill', s.blurFill) : '') + focusField(el) : ''}`;
 }
 
 export function appearanceSection(el, multi) {
@@ -504,7 +520,7 @@ export function appearanceSection(el, multi) {
 export function fillSection(el) {
     const s = el.style || {}, shape = el.type === 'shape';
     return F.section('fill', shape ? 'Fill & outline' : 'Background & border', `
-        ${!shape && (el.type === 'image' || el.type === 'video') ? F.select('style.objectFit', 'Fit', s.objectFit, [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (letterbox)']]) + focusField(el) : ''}
+        ${!shape && (el.type === 'image' || el.type === 'video') ? F.select('style.objectFit', 'Fit', s.objectFit, [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (letterbox)'], ['contain-blur', 'Contain + Blurred Fill (uncropped)']]) + (s.objectFit === 'contain-blur' ? blurFillControls('style.blurFill', s.blurFill) : '') + focusField(el) : ''}
         ${shape ? F.select('style.shape', 'Shape', s.shape, [['rectangle', 'Rectangle'], ['circle', 'Circle'], ['pill', 'Pill'], ['line', 'Line']]) : ''}
         ${fillControl(s, 'gradient', shape ? 'Fill' : 'Background', F.color('style.background', 'Color', s.background, { clear: true }))}
         ${borderControls(s, shape, el)}
@@ -1141,7 +1157,8 @@ export function slideshowSection(el) {
         ${c.advance === 'manual' ? '<p class="hint">Starts on the first slide and only changes when you use the controls below, or the API.</p>' : ''}
         ${c.advance === 'manual' || c.kinds === 'video' ? '' : F.number('slideshow.seconds', 'Seconds per image', c.seconds ?? 5, { min: 1, max: 3600, step: 0.5 })}
         ${F.select('slideshow.order', 'Order', c.order || 'sequential', [['sequential', 'Newest first, in order'], ['shuffle', 'Shuffle (no repeats until all shown)'], ['random', 'Random each time']])}
-        ${F.select('slideshow.fit', 'Fit', c.fit || 'cover', [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (whole image)']])}
+        ${F.select('slideshow.fit', 'Fit', c.fit || 'cover', [['cover', 'Fill (crop to fit)'], ['contain', 'Contain (whole image)'], ['contain-blur', 'Contain + Blurred Fill (uncropped)']])}
+        ${c.fit === 'contain-blur' ? blurFillControls('slideshow.blurFill', c.blurFill) : ''}
         ${F.select('slideshow.transition', 'Transition', c.transition || 'fade', [['fade', 'Fade'], ['slide', 'Slide'], ['none', 'None']])}
         ${c.transition === 'none' ? '' : F.number('slideshow.transitionMs', 'Transition time (ms)', c.transitionMs ?? 800, { min: 0, max: 5000, step: 50 })}
         ${c.transition === 'none' ? '' : F.select('slideshow.easing', 'Transition easing', c.easing || 'ease', [['ease', 'Ease (Smooth)'], ['linear', 'Linear (Constant speed)'], ['ease-in-out', 'Ease In-Out'], ['cubic-bezier(0.16, 1, 0.3, 1)', 'Snappy Spring'], ['cubic-bezier(0.34, 1.56, 0.64, 1)', 'Back / Bounce']])}

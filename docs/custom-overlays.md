@@ -38,14 +38,14 @@ Custom Overlay Studio organizes its specialized layer types into six sections ac
 - **Markdown**: Renders formatted copy with headings, bold, italics, links, blockquotes, and lists while adopting your chosen typography and colors.
 
 ### 2. Media & Artwork
-- **Image**: Renders PNG, JPG, SVG, WebP, and GIF graphics from your Asset Library or URLs, with cover/contain framing, interactive focus points, corner radiuses, and non-destructive filters (blur, brightness, contrast, grayscale, duotone, color tint).
+- **Image**: Renders PNG, JPG, SVG, WebP, and GIF graphics from your Asset Library or URLs, with **Fill (cover)**, **Contain (letterbox)**, or **Contain + Blurred Fill (uncropped)** framing (with configurable backdrop blur, dim, zoom, and foreground elevation shadow), interactive focus points, corner radiuses, and non-destructive filters (blur, brightness, contrast, grayscale, duotone, color tint — mirrored onto the blurred backdrop when active).
 
   For live artwork, select the image and open **Content → Source → Placeholder / Variable**, then **Insert placeholder…** to pick any live image source (game covers, music artwork, Tier List item images, weather icons, or **Image** variables). Use an OBS browser source URL once and live image updates happen automatically without reloading.
 
   ![Image source options with a fictional variable-driven scene image](images/image-placeholder-source.png)
 
-- **Video**: Plays local video files (MP4, WebM) or embedded YouTube videos with uniform autoplay, looping, volume scaling, mute controls, and Bitfocus Companion remote playback triggers (`play`, `pause`, `toggle`, `restart`, `stop`, `mute`). Live OBS URLs stay completely free of floating preview prompts.
-- **Slideshow**: Automated image carousel cycling through chosen Asset Library images with adjustable slide timing, smooth crossfade or slide transitions, loop toggles, and Companion triggers.
+- **Video**: Plays local video files (MP4, WebM) or embedded YouTube videos with uniform autoplay, looping, volume scaling, mute controls, synchronized **Contain + Blurred Fill (uncropped)** backdrop support for local videos, and Bitfocus Companion remote playback triggers (`play`, `pause`, `toggle`, `restart`, `stop`, `mute`). Live OBS URLs stay completely free of floating preview prompts.
+- **Slideshow**: Automated image and video carousel cycling through chosen Asset Library items with Fill, Contain, or **Contain + Blurred Fill (uncropped)** framing, adjustable slide timing, smooth crossfade or slide transitions, loop toggles, and Companion triggers.
 - **Game Artwork**: Search the Internet Game Database (IGDB) right inside the editor to import official box art, banners, screenshots, and logos with one click.
 
 ### 3. Framing & Cutouts

@@ -828,6 +828,20 @@ function normalizeTextAnimation(ta = {}) {
     };
 }
 
+function normalizeBlurFill(raw) {
+    const b = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+    const clamp = (v, fb, min, max) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fb;
+    };
+    return {
+        blur: clamp(b.blur, 24, 0, 80),
+        dim: clamp(b.dim, 30, 0, 85),
+        zoom: clamp(b.zoom, 112, 100, 200),
+        shadow: clamp(b.shadow, 45, 0, 100)
+    };
+}
+
 function normalizePageStateStyle(rawStyle = {}, entry = {}) {
     const s = (rawStyle && typeof rawStyle === 'object' && !Array.isArray(rawStyle)) ? rawStyle : {};
     const out = {};
@@ -880,7 +894,8 @@ function normalizePageStateStyle(rawStyle = {}, entry = {}) {
     pickNum('rotate', -360, 360);
     pickNum('blur', 0, 60);
     pickEnum('shape', ['rectangle', 'circle', 'pill', 'line']);
-    pickEnum('objectFit', ['cover', 'contain']);
+    pickEnum('objectFit', ['cover', 'contain', 'contain-blur']);
+    if (s.blurFill && typeof s.blurFill === 'object') out.blurFill = normalizeBlurFill(s.blurFill);
     pickNum('focusX', 0, 100);
     pickNum('focusY', 0, 100);
     if (s.gradient && typeof s.gradient === 'object') out.gradient = normalizeGradient(s.gradient);
@@ -1022,7 +1037,8 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
             kinds: element.slideshow?.kinds === 'both' ? 'both' : element.slideshow?.kinds === 'video' ? 'video' : 'image',
             seconds: Math.max(1, Math.min(3600, Math.round((Number(element.slideshow?.seconds) || 5) * 10) / 10)),
             order: ['sequential', 'shuffle', 'random'].includes(element.slideshow?.order) ? element.slideshow.order : 'sequential',
-            fit: ['cover', 'contain'].includes(element.slideshow?.fit) ? element.slideshow.fit : 'cover',
+            fit: ['cover', 'contain', 'contain-blur'].includes(element.slideshow?.fit) ? element.slideshow.fit : 'cover',
+            blurFill: normalizeBlurFill(element.slideshow?.blurFill),
             transition: ['none', 'fade', 'slide'].includes(element.slideshow?.transition) ? element.slideshow.transition : 'fade',
             direction: PAGE_DIRECTIONS.includes(element.slideshow?.direction) ? element.slideshow.direction : 'left',
             transitionMs: Math.max(0, Math.min(5000, Math.round(Number(element.slideshow?.transitionMs ?? 800)))),
@@ -1302,7 +1318,8 @@ function normalizeOverlayElement(element = {}, index = 0, alertTriggers = {}) {
             opacity: Number.isFinite(Number(element.style?.opacity))
                 ? Math.max(0, Math.min(1, Number(element.style.opacity)))
                 : 1,
-            objectFit: element.style?.objectFit === 'contain' ? 'contain' : 'cover',
+            objectFit: ['contain', 'contain-blur'].includes(element.style?.objectFit) ? element.style.objectFit : 'cover',
+            blurFill: normalizeBlurFill(element.style?.blurFill),
             focusX: Number.isFinite(Number(element.style?.focusX)) ? Math.max(0, Math.min(100, Number(element.style.focusX))) : 50,
             focusY: Number.isFinite(Number(element.style?.focusY)) ? Math.max(0, Math.min(100, Number(element.style.focusY))) : 50,
             shape: ['rectangle', 'circle', 'pill', 'line'].includes(element.style?.shape) ? element.style.shape : 'rectangle',
@@ -1732,7 +1749,7 @@ function generateSvgThumbnail(overlay, { customOverlayAssetsDir = '', page = nul
                 const focusY = style.focusY != null ? Number(style.focusY) : 50;
                 const xAlign = focusX < 35 ? 'xMin' : focusX > 65 ? 'xMax' : 'xMid';
                 const yAlign = focusY < 35 ? 'YMin' : focusY > 65 ? 'YMax' : 'YMid';
-                const fit = style.objectFit === 'contain' ? 'meet' : 'slice';
+                const fit = (style.objectFit === 'contain' || style.objectFit === 'contain-blur') ? 'meet' : 'slice';
                 elementsSvg.push(`<image href="${escapeXml(href)}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="${xAlign}${yAlign} ${fit}"${clipAttr}${opacityAttr}${transform} />`);
             } else {
                 elementsSvg.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.15)" stroke-width="1"${opacityAttr}${transform} />`);
@@ -1900,7 +1917,7 @@ function generateSvgThumbnail(overlay, { customOverlayAssetsDir = '', page = nul
                     defs.push(`<clipPath id="${clipId}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" /></clipPath>`);
                     clipAttr = ` clip-path="url(#${clipId})"`;
                 }
-                const fit = style.objectFit === 'contain' ? 'meet' : 'slice';
+                const fit = (style.objectFit === 'contain' || style.objectFit === 'contain-blur') ? 'meet' : 'slice';
                 elementsSvg.push(`<image href="${escapeXml(href)}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid ${fit}"${clipAttr}${opacityAttr}${transform} />`);
             } else {
                 elementsSvg.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.18)" stroke-width="1"${opacityAttr}${transform} />`);

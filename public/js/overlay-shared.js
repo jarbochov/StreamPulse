@@ -401,7 +401,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
   // public/js/overlay/lifecycle.js
   function cleanupMedia(rootNode) {
     if (!rootNode) return;
-    const unloadVideo = (v) => {
+    const unloadVideo2 = (v) => {
       try {
         v.pause();
         v.removeAttribute("src");
@@ -422,7 +422,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       } catch {
       }
     };
-    if (rootNode.tagName === "VIDEO") unloadVideo(rootNode);
+    if (rootNode.tagName === "VIDEO") unloadVideo2(rootNode);
     else if (rootNode.tagName === "IFRAME") unloadFrame(rootNode);
     else if (rootNode.tagName === "CANVAS") unloadCanvas(rootNode);
     if (rootNode._igResizeFrame && typeof root.cancelAnimationFrame === "function") {
@@ -437,7 +437,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       rootNode._patternHandle = null;
     }
     if (typeof rootNode.querySelectorAll === "function") {
-      rootNode.querySelectorAll("video").forEach(unloadVideo);
+      rootNode.querySelectorAll("video").forEach(unloadVideo2);
       rootNode.querySelectorAll("iframe").forEach(unloadFrame);
       rootNode.querySelectorAll("canvas.sp-pattern-canvas").forEach(unloadCanvas);
       rootNode.querySelectorAll(".sp-image-group-item, .sp-image-group-avatar, .sp-image-group-field").forEach((child) => {
@@ -525,6 +525,14 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       }
       node._textAnimHandle = null;
     }
+    if (node._blurFillCleanup) {
+      try {
+        node._blurFillCleanup();
+      } catch {
+      }
+      node._blurFillCleanup = null;
+    }
+    node._blurFillShadowFilter = "";
     node._textAnimWrap = null;
     node._textAnimSig = "";
     if (root.OverlayFilters?.cleanupFilters) {
@@ -6166,6 +6174,202 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     }
   });
 
+  // public/js/overlay/blur-fill.js
+  function normalizeBlurFill(raw) {
+    const b = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+    const num = (v, fb, min, max) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fb;
+    };
+    return {
+      blur: num(b.blur, 24, 0, 80),
+      dim: num(b.dim, 30, 0, 85),
+      zoom: num(b.zoom, 112, 100, 200),
+      shadow: num(b.shadow, 45, 0, 100)
+    };
+  }
+  function blurFillShadowCss(bf) {
+    const sh = Number(bf?.shadow);
+    if (!Number.isFinite(sh) || sh <= 0) return "";
+    const blur = Math.max(2, Math.round(sh * 0.45));
+    const alpha = Math.min(0.85, 0.25 + sh / 100 * 0.5).toFixed(2);
+    return `drop-shadow(0 6px ${blur}px rgba(0,0,0,${alpha}))`;
+  }
+  function detachVideoSync(container) {
+    if (container?._blurFillCleanup) {
+      try {
+        container._blurFillCleanup();
+      } catch {
+      }
+      container._blurFillCleanup = null;
+    }
+  }
+  function unloadVideo(v) {
+    if (!v || v.tagName !== "VIDEO") return;
+    try {
+      v.pause();
+      v.removeAttribute("src");
+      v.load();
+    } catch {
+    }
+  }
+  function syncBlurFillMedia(container, opts = {}) {
+    const {
+      media,
+      kind = media?.tagName === "VIDEO" ? "video" : "img",
+      src = "",
+      fit = "cover",
+      focusX = 50,
+      focusY = 50,
+      blurFill = null,
+      crossOrigin = "",
+      skipShadowOnMedia = false
+    } = opts;
+    if (!container || !media) return;
+    const fx = Number.isFinite(Number(focusX)) ? Number(focusX) : 50;
+    const fy = Number.isFinite(Number(focusY)) ? Number(focusY) : 50;
+    if (fit !== "contain-blur") {
+      detachVideoSync(container);
+      container._blurFillShadowFilter = "";
+      const oldBackdrop = container.querySelector(":scope > .sp-blurfill-backdrop");
+      if (oldBackdrop) {
+        oldBackdrop.querySelectorAll("video").forEach(unloadVideo);
+        oldBackdrop.remove();
+      }
+      media.style.position = "";
+      media.style.zIndex = "";
+      media.style.objectFit = fit === "contain" ? "contain" : "cover";
+      media.style.objectPosition = fit === "contain" ? "50% 50%" : `${fx}% ${fy}%`;
+      if (!skipShadowOnMedia && !media.dataset.filterControlled) {
+        media.style.filter = "";
+      }
+      return;
+    }
+    const bf = normalizeBlurFill(blurFill);
+    const desiredTag = kind === "video" ? "VIDEO" : "IMG";
+    let backdrop = container.querySelector(":scope > .sp-blurfill-backdrop");
+    if (!backdrop) {
+      backdrop = document.createElement("div");
+      backdrop.className = "sp-blurfill-backdrop";
+      container.insertBefore(backdrop, media);
+    } else if (backdrop.nextElementSibling !== media && media.parentNode === container) {
+      container.insertBefore(backdrop, media);
+    }
+    backdrop.style.cssText = "position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0;border-radius:inherit;";
+    let bgMedia = backdrop.querySelector(":scope > .sp-blurfill-bg");
+    if (bgMedia && bgMedia.tagName !== desiredTag) {
+      unloadVideo(bgMedia);
+      bgMedia.remove();
+      bgMedia = null;
+      detachVideoSync(container);
+    }
+    if (!bgMedia) {
+      bgMedia = document.createElement(desiredTag.toLowerCase());
+      bgMedia.className = "sp-blurfill-bg";
+      if (desiredTag === "IMG") {
+        bgMedia.decoding = "async";
+        bgMedia.draggable = false;
+        bgMedia.alt = "";
+      } else {
+        bgMedia.muted = true;
+        bgMedia.playsInline = true;
+        bgMedia.draggable = false;
+      }
+      backdrop.insertBefore(bgMedia, backdrop.firstChild);
+    }
+    let dimEl = backdrop.querySelector(":scope > .sp-blurfill-dim");
+    if (!dimEl) {
+      dimEl = document.createElement("div");
+      dimEl.className = "sp-blurfill-dim";
+      backdrop.appendChild(dimEl);
+    }
+    if (crossOrigin) bgMedia.crossOrigin = crossOrigin;
+    else bgMedia.removeAttribute("crossorigin");
+    const resolvedSrc = src || media.getAttribute("src") || "";
+    if (resolvedSrc && bgMedia.getAttribute("src") !== resolvedSrc) {
+      bgMedia.src = resolvedSrc;
+    }
+    bgMedia.style.cssText = `position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:${fx}% ${fy}%;transform:scale(${(bf.zoom / 100).toFixed(3)});filter:${bf.blur > 0 ? `blur(${bf.blur}px)` : "none"};display:block;pointer-events:none;`;
+    dimEl.style.cssText = `position:absolute;inset:0;background:rgba(0,0,0,${(bf.dim / 100).toFixed(3)});pointer-events:none;`;
+    media.style.position = "relative";
+    media.style.zIndex = "1";
+    media.style.objectFit = "contain";
+    media.style.objectPosition = "50% 50%";
+    const shadowFilter = blurFillShadowCss(bf);
+    container._blurFillShadowFilter = shadowFilter;
+    if (!skipShadowOnMedia) {
+      media.style.filter = shadowFilter;
+    }
+    if (desiredTag === "VIDEO") {
+      bgMedia.muted = true;
+      bgMedia.playsInline = true;
+      bgMedia.loop = media.loop;
+      bgMedia.autoplay = media.autoplay;
+      if (media.preload) bgMedia.preload = media.preload;
+      if (container._blurFillSyncFg !== media || container._blurFillSyncBg !== bgMedia) {
+        detachVideoSync(container);
+        const syncTime = () => {
+          if (!bgMedia.isConnected || !media.isConnected) return;
+          try {
+            if (Math.abs((bgMedia.currentTime || 0) - (media.currentTime || 0)) > 0.15) {
+              bgMedia.currentTime = media.currentTime;
+            }
+            bgMedia.playbackRate = media.playbackRate || 1;
+          } catch {
+          }
+        };
+        const onPlay = () => {
+          syncTime();
+          bgMedia.play().catch(() => {
+          });
+        };
+        const onPause = () => {
+          try {
+            bgMedia.pause();
+          } catch {
+          }
+          syncTime();
+        };
+        const onSeeked = () => syncTime();
+        const onRate = () => {
+          try {
+            bgMedia.playbackRate = media.playbackRate || 1;
+          } catch {
+          }
+        };
+        const onMeta = () => {
+          syncTime();
+          if (!media.paused) bgMedia.play().catch(() => {
+          });
+        };
+        media.addEventListener("play", onPlay);
+        media.addEventListener("pause", onPause);
+        media.addEventListener("seeked", onSeeked);
+        media.addEventListener("ratechange", onRate);
+        bgMedia.addEventListener("loadedmetadata", onMeta);
+        container._blurFillSyncFg = media;
+        container._blurFillSyncBg = bgMedia;
+        container._blurFillCleanup = () => {
+          media.removeEventListener("play", onPlay);
+          media.removeEventListener("pause", onPause);
+          media.removeEventListener("seeked", onSeeked);
+          media.removeEventListener("ratechange", onRate);
+          bgMedia.removeEventListener("loadedmetadata", onMeta);
+          container._blurFillSyncFg = null;
+          container._blurFillSyncBg = null;
+        };
+        if (!media.paused) bgMedia.play().catch(() => {
+        });
+      }
+    } else {
+      detachVideoSync(container);
+    }
+  }
+  var init_blur_fill = __esm({
+    "public/js/overlay/blur-fill.js"() {
+    }
+  });
+
   // public/js/overlay/pattern-procedural.js
   function proceduralAnimation(element, options) {
     const procP = element.pattern || {};
@@ -7729,7 +7933,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       const layer = document.createElement("div");
       layer.style.cssText = "position:absolute;inset:0;overflow:hidden;";
       const media = document.createElement(item.kind === "video" ? "video" : "img");
-      media.style.cssText = `position:absolute;inset:0;width:100%;height:100%;object-fit:${config.fit === "contain" ? "contain" : "cover"};`;
+      media.style.cssText = "position:absolute;inset:0;width:100%;height:100%;";
       if (item.kind === "video") {
         media.muted = true;
         media.playsInline = true;
@@ -7738,6 +7942,13 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       media.src = item.url;
       media.alt = "";
       layer.appendChild(media);
+      syncBlurFillMedia(layer, {
+        media,
+        kind: item.kind === "video" ? "video" : "img",
+        src: item.url,
+        fit: config.fit || "cover",
+        blurFill: config.blurFill
+      });
       const captionText = config.caption === "caption" ? item.caption : config.caption === "name" || config.caption === true ? item.label : "";
       if (captionText) {
         const bar = document.createElement("div");
@@ -7902,6 +8113,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
   var init_slideshow = __esm({
     "public/js/overlay/slideshow.js"() {
       init_lifecycle();
+      init_blur_fill();
       slideshowCache = /* @__PURE__ */ new Map();
     }
   });
@@ -9708,6 +9920,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       init_icons();
       init_lifecycle();
       init_media();
+      init_blur_fill();
       init_patterns();
       init_slideshow();
       init_source_caches();
@@ -9732,7 +9945,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       Object.assign(root.OverlayShared, import_variable_links4.default);
       Object.assign(root.OverlayShared, import_variable_displays2.default, { renderVariableDisplay, setDisplayLibrary });
       Object.assign(root.OverlayShared, import_display_table4.default);
-      Object.assign(root.OverlayShared, { variableKey: import_variable_paths2.default.variableKey });
+      Object.assign(root.OverlayShared, { variableKey: import_variable_paths2.default.variableKey, blurFillShadowCss, normalizeBlurFill, syncBlurFillMedia });
       Object.assign(root.OverlayShared, import_border_catalog2.default);
       Object.defineProperty(root.OverlayShared, Symbol.for("StreamPulse.OverlayShared"), { value: true });
     }

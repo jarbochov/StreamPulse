@@ -2,6 +2,220 @@ import { promoFont } from './promo-fonts.js';
 
 const images = new Map();
 
+let fxScratchCanvas = null, fxPadCanvas = null, fxElCanvas = null, fxBlurBgCanvas = null, grainTileCanvas = null;
+const GRAIN_OFFSETS = [
+    [0, 0], [-37, 21], [19, -43], [-52, -14], [41, 33],
+    [-9, 58], [63, -27], [-28, 47], [34, -56], [-61, 12]
+];
+let duoCacheKey = '', duoLutR = null, duoLutG = null, duoLutB = null;
+
+function hasActiveEffects(f) {
+    if (!f) return false;
+    return (f.brightness ?? 100) !== 100
+        || (f.contrast ?? 100) !== 100
+        || (f.saturate ?? 100) !== 100
+        || (f.grayscale ?? 0) > 0
+        || (f.blur ?? 0) > 0
+        || Boolean(f.tint?.enabled && f.tint?.opacity > 0)
+        || Boolean(f.duotone?.enabled)
+        || Boolean(f.grain?.enabled && f.grain?.amount > 0);
+}
+
+function getGrainTile() {
+    if (grainTileCanvas) return grainTileCanvas;
+    const S = 128;
+    const c = grainTileCanvas = document.createElement('canvas');
+    c.width = S; c.height = S;
+    const ctx = c.getContext('2d');
+    const img = ctx.createImageData(S, S), d = img.data;
+    let seed = 0x12345678;
+    for (let i = 0; i < d.length; i += 4) {
+        seed = (seed * 1664525 + 1013904223) >>> 0;
+        const v = (seed >>> 24) & 0xff;
+        d[i] = v; d[i + 1] = v; d[i + 2] = v; d[i + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+    return c;
+}
+
+function getDuotoneLuts(darkHex, lightHex) {
+    const key = `${darkHex || '#1b1464'}|${lightHex || '#ff9de2'}`;
+    if (key === duoCacheKey && duoLutR) return [duoLutR, duoLutG, duoLutB];
+    const parseHex = h => {
+        const clean = /^#[0-9a-f]{6}$/i.test(h || '') ? h.slice(1) : '000000';
+        return [parseInt(clean.slice(0, 2), 16), parseInt(clean.slice(2, 4), 16), parseInt(clean.slice(4, 6), 16)];
+    };
+    const [dr, dg, db] = parseHex(darkHex);
+    const [lr, lg, lb] = parseHex(lightHex);
+    duoLutR = new Uint8Array(256);
+    duoLutG = new Uint8Array(256);
+    duoLutB = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) {
+        const t = i / 255;
+        duoLutR[i] = Math.round(dr + (lr - dr) * t);
+        duoLutG[i] = Math.round(dg + (lg - dg) * t);
+        duoLutB[i] = Math.round(db + (lb - db) * t);
+    }
+    duoCacheKey = key;
+    return [duoLutR, duoLutG, duoLutB];
+}
+
+function applyCanvasEffects(ctx, width, height, f, { time = 0, preserveAlpha = false } = {}) {
+    if (!hasActiveEffects(f) || width < 1 || height < 1) return;
+    const br = f.brightness ?? 100, co = f.contrast ?? 100, sa = f.saturate ?? 100, gr = f.grayscale ?? 0, bl = f.blur ?? 0;
+    const filterParts = [];
+    if (br !== 100) filterParts.push(`brightness(${br}%)`);
+    if (co !== 100) filterParts.push(`contrast(${co}%)`);
+    if (sa !== 100) filterParts.push(`saturate(${sa}%)`);
+    if (gr > 0) filterParts.push(`grayscale(${gr}%)`);
+    if (bl > 0) filterParts.push(`blur(${bl}px)`);
+
+    let alphaMask = null;
+    if (preserveAlpha && f.grain?.enabled) {
+        alphaMask = document.createElement('canvas');
+        alphaMask.width = width; alphaMask.height = height;
+        alphaMask.getContext('2d').drawImage(ctx.canvas, 0, 0, width, height);
+    }
+
+    if (filterParts.length && 'filter' in ctx) {
+        const scratch = fxScratchCanvas || (fxScratchCanvas = document.createElement('canvas'));
+        if (scratch.width !== width || scratch.height !== height) { scratch.width = width; scratch.height = height; }
+        const sCtx = scratch.getContext('2d');
+        sCtx.clearRect(0, 0, width, height);
+        sCtx.drawImage(ctx.canvas, 0, 0, width, height);
+
+        ctx.save();
+        ctx.clearRect(0, 0, width, height);
+        ctx.filter = filterParts.join(' ');
+        if (bl > 0 && !preserveAlpha) {
+            // Clamp outer edges cleanly so blurred solid/gradient/pattern backdrops do not darken at the border.
+            const pad = Math.min(140, Math.ceil(bl * 2.2));
+            const padW = width + pad * 2, padH = height + pad * 2;
+            const padded = fxPadCanvas || (fxPadCanvas = document.createElement('canvas'));
+            if (padded.width !== padW || padded.height !== padH) { padded.width = padW; padded.height = padH; }
+            const pCtx = padded.getContext('2d');
+            pCtx.clearRect(0, 0, padW, padH);
+            pCtx.drawImage(scratch, pad, pad);
+            pCtx.drawImage(scratch, 0, 0, width, 1, pad, 0, width, pad);
+            pCtx.drawImage(scratch, 0, height - 1, width, 1, pad, pad + height, width, pad);
+            pCtx.drawImage(scratch, 0, 0, 1, height, 0, pad, pad, height);
+            pCtx.drawImage(scratch, width - 1, 0, 1, height, pad + width, pad, pad, height);
+            ctx.drawImage(padded, pad, pad, width, height, 0, 0, width, height);
+        } else {
+            ctx.drawImage(scratch, 0, 0, width, height);
+        }
+        ctx.restore();
+    }
+
+    if (f.duotone?.enabled) {
+        const imgData = ctx.getImageData(0, 0, width, height), d = imgData.data;
+        const [lR, lG, lB] = getDuotoneLuts(f.duotone.dark, f.duotone.light);
+        for (let i = 0; i < d.length; i += 4) {
+            if (d[i + 3] === 0) continue;
+            const lum = (77 * d[i] + 150 * d[i + 1] + 29 * d[i + 2]) >> 8;
+            d[i] = lR[lum]; d[i + 1] = lG[lum]; d[i + 2] = lB[lum];
+        }
+        ctx.putImageData(imgData, 0, 0);
+    }
+
+    if (f.tint?.enabled && f.tint.opacity > 0) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'source-atop';
+        ctx.globalAlpha = f.tint.opacity;
+        ctx.fillStyle = f.tint.color || '#000000';
+        ctx.fillRect(0, 0, width, height);
+        ctx.restore();
+    }
+
+    if (f.grain?.enabled && f.grain.amount > 0) {
+        const tile = getGrainTile();
+        const grainScale = (160 * Math.max(0.5, Math.min(4, Number(f.grain.size) || 1))) / tile.width;
+        const step = (f.grain.animate !== false && time > 0)
+            ? GRAIN_OFFSETS[Math.floor(((time % 6) / 6) * GRAIN_OFFSETS.length) % GRAIN_OFFSETS.length]
+            : GRAIN_OFFSETS[0];
+        const pat = ctx.createPattern(tile, 'repeat');
+        if (pat) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'overlay';
+            ctx.globalAlpha = Math.max(0, Math.min(1, f.grain.amount));
+            ctx.translate(step[0], step[1]);
+            ctx.scale(grainScale, grainScale);
+            ctx.fillStyle = pat;
+            ctx.fillRect(-step[0] / grainScale, -step[1] / grainScale, width / grainScale + tile.width, height / grainScale + tile.height);
+            ctx.restore();
+        }
+    }
+
+    if (alphaMask) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'destination-in';
+        ctx.drawImage(alphaMask, 0, 0);
+        ctx.restore();
+    }
+}
+
+function drawMediaFill(ctx, image, box, { fit = 'cover', focusX = 50, focusY = 50, blurFill = null, filter = null, time = 0, preserveAlpha = true } = {}) {
+    const ew = Math.max(1, Math.ceil(box.w)), eh = Math.max(1, Math.ceil(box.h));
+    if (fit !== 'contain-blur') {
+        const block = { objectFit: fit, focusX: fit === 'contain' ? 50 : focusX, focusY: fit === 'contain' ? 50 : focusY };
+        if (hasActiveEffects(filter)) {
+            const elCanvas = fxElCanvas || (fxElCanvas = document.createElement('canvas'));
+            if (elCanvas.width !== ew || elCanvas.height !== eh) { elCanvas.width = ew; elCanvas.height = eh; }
+            const elCtx = elCanvas.getContext('2d');
+            elCtx.clearRect(0, 0, ew, eh);
+            drawImage(elCtx, image, { x: 0, y: 0, w: box.w, h: box.h }, block);
+            applyCanvasEffects(elCtx, ew, eh, filter, { time, preserveAlpha });
+            ctx.drawImage(elCanvas, box.x, box.y);
+        } else {
+            drawImage(ctx, image, box, block);
+        }
+        return;
+    }
+
+    const bf = blurFill || { blur: 24, dim: 30, zoom: 112, shadow: 45 };
+    const zoom = Math.max(1, (Number(bf.zoom) || 112) / 100);
+    const blur = Math.max(0, Number(bf.blur) ?? 24);
+    const dim = Math.max(0, Math.min(85, Number(bf.dim) ?? 30));
+    const shadow = Math.max(0, Math.min(100, Number(bf.shadow) ?? 45));
+
+    // 1. Blurred covered backdrop fill (inherits same Color & Exposure / Duotone / Tint / Grain as foreground)
+    const bgCanvas = fxBlurBgCanvas || (fxBlurBgCanvas = document.createElement('canvas'));
+    if (bgCanvas.width !== ew || bgCanvas.height !== eh) { bgCanvas.width = ew; bgCanvas.height = eh; }
+    const bgCtx = bgCanvas.getContext('2d');
+    bgCtx.clearRect(0, 0, ew, eh);
+    const coverScale = Math.max(box.w / image.width, box.h / image.height) * zoom;
+    const bw = image.width * coverScale, bh = image.height * coverScale;
+    const bx = (box.w - bw) * (Number.isFinite(Number(focusX)) ? Number(focusX) : 50) / 100;
+    const by = (box.h - bh) * (Number.isFinite(Number(focusY)) ? Number(focusY) : 50) / 100;
+    bgCtx.drawImage(image, bx, by, bw, bh);
+    applyCanvasEffects(bgCtx, ew, eh, { ...(filter || {}), blur: Math.min(80, blur + (filter?.blur || 0)) }, { time, preserveAlpha: false });
+    if (dim > 0) {
+        bgCtx.save();
+        bgCtx.fillStyle = `rgba(0,0,0,${dim / 100})`;
+        bgCtx.fillRect(0, 0, ew, eh);
+        bgCtx.restore();
+    }
+    ctx.drawImage(bgCanvas, box.x, box.y);
+
+    // 2. Crisp uncropped foreground copy + optional separating shadow
+    const elCanvas = fxElCanvas || (fxElCanvas = document.createElement('canvas'));
+    if (elCanvas.width !== ew || elCanvas.height !== eh) { elCanvas.width = ew; elCanvas.height = eh; }
+    const elCtx = elCanvas.getContext('2d');
+    elCtx.clearRect(0, 0, ew, eh);
+    drawImage(elCtx, image, { x: 0, y: 0, w: box.w, h: box.h }, { objectFit: 'contain', focusX: 50, focusY: 50 });
+    if (hasActiveEffects(filter)) {
+        applyCanvasEffects(elCtx, ew, eh, filter, { time, preserveAlpha: true });
+    }
+    ctx.save();
+    if (shadow > 0) {
+        ctx.shadowColor = `rgba(0,0,0,${Math.min(0.85, 0.25 + (shadow / 100) * 0.5)})`;
+        ctx.shadowBlur = Math.max(2, Math.round(shadow * 0.45));
+        ctx.shadowOffsetY = 6;
+    }
+    ctx.drawImage(elCanvas, box.x, box.y);
+    ctx.restore();
+}
+
 async function loadImage(url, qr = false) {
     if (!url) return null;
     if (!images.has(url)) {
@@ -156,251 +370,31 @@ function drawThemeBackdrop(ctx, width, height, design, pattern, motion = 'none',
         ctx.globalAlpha = .62 + .38 * pulse;
     }
     ctx.strokeStyle = colors.accent + '35'; ctx.lineWidth = 1.5;
-    if (pattern === 'grid' || (!pattern && (design.theme === 'matrix' || design.theme === 'cyberpunk'))) {
-        const step = Math.max(3, fullWidth / 32);
-        ctx.beginPath();
-        for (let x = 0; x < width; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, height); }
-        for (let y = 0; y < height; y += step) { ctx.moveTo(0, y); ctx.lineTo(width, y); }
-        ctx.stroke();
-        ctx.fillStyle = colors.accent;
-        ctx.fillRect(width * .92, height * .12, width * .012, height * .28);
-    } else if (pattern === 'hexagons') {
-        const radius = Math.max(3, fullWidth / 28), rowStep = Math.sqrt(3) * radius;
-        const columnStep = radius * 1.5;
-        ctx.lineWidth = Math.max(1, fullWidth / 700);
-        // Flat-top hexagons tile with half-row offsets between adjacent columns.
-        ctx.beginPath();
-        for (let col = -1; col <= width / columnStep + 1; col++) {
-            for (let row = -1; row <= height / rowStep + 1; row++) {
-                const cx = col * columnStep, cy = row * rowStep + (col & 1) * rowStep / 2;
-                for (let point = 0; point < 6; point++) {
-                    const angle = point * Math.PI / 3, x = cx + Math.cos(angle) * radius, y = cy + Math.sin(angle) * radius;
-                    if (point === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-                }
-                ctx.closePath();
-            }
-        }
-        ctx.stroke();
-    } else if (pattern === 'diamonds') {
-        const step = Math.max(4, fullWidth / 18), radius = step * .46;
-        ctx.lineWidth = Math.max(1, fullWidth / 720);
-        ctx.beginPath();
-        for (let y = -step; y < height + step; y += step) {
-            for (let x = -step; x < width + step; x += step) {
-                ctx.moveTo(x, y - radius); ctx.lineTo(x + radius, y); ctx.lineTo(x, y + radius); ctx.lineTo(x - radius, y); ctx.closePath();
-            }
-        }
-        ctx.stroke();
-    } else if (pattern === 'isometric') {
-        // Triangular lattice: vertical lines plus two families at +/-30 degrees.
-        const edge = Math.max(1, fullWidth / 20), half = edge * Math.sqrt(3) / 2, slope = Math.tan(Math.PI / 6);
-        ctx.lineWidth = Math.max(1, fullWidth / 700);
-        ctx.beginPath();
-        for (let x = 0; x <= width + half; x += half) { ctx.moveTo(x, 0); ctx.lineTo(x, height); }
-        for (let c = -width * slope - edge; c <= height + width * slope; c += edge) {
-            ctx.moveTo(0, c); ctx.lineTo(width, c + width * slope);
-            ctx.moveTo(0, c + width * slope); ctx.lineTo(width, c);
-        }
-        ctx.stroke();
-    } else if (pattern === 'mesh') {
-        const rows = 12, columns = 18, amplitude = Math.max(1, fullWidth / 60);
-        ctx.lineWidth = Math.max(1, fullWidth / 800);
-        for (let row = 0; row <= rows; row++) {
-            ctx.beginPath();
-            for (let column = 0; column <= columns * 8; column++) {
-                const x = column * width / (columns * 8), y = row * height / rows + Math.sin(x / width * Math.PI * 4 + row * .45) * amplitude;
-                if (!column) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-            }
-            ctx.stroke();
-        }
-        for (let column = 0; column <= columns; column++) {
-            ctx.beginPath();
-            for (let row = 0; row <= rows * 8; row++) {
-                const y = row * height / (rows * 8), x = column * width / columns + Math.sin(y / height * Math.PI * 3 + column * .5) * amplitude;
-                if (!row) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-            }
-            ctx.stroke();
-        }
-    } else if (pattern === 'plaid') {
-        const step = Math.max(6, fullWidth / 15);
-        ctx.fillStyle = colors.accent + '18';
-        for (let x = 0; x < width; x += step) {
-            ctx.fillRect(x, 0, step * .24, height);
-            ctx.fillRect(0, x, width, step * .24);
-        }
-        ctx.strokeStyle = colors.accent + '42'; ctx.lineWidth = Math.max(1, fullWidth / 600);
-        ctx.beginPath();
-        for (let offset = 0; offset < width; offset += step) { ctx.moveTo(offset, 0); ctx.lineTo(offset, height); ctx.moveTo(0, offset); ctx.lineTo(width, offset); }
-        ctx.stroke();
-    } else if (pattern === 'sunburst') {
-        const cx = width * .5, cy = height * .5, radius = Math.hypot(width, height), rays = 28;
-        ctx.lineWidth = Math.max(1, fullWidth / 700);
-        for (let i = 0; i < rays; i++) {
-            const angle = i * Math.PI * 2 / rays;
-            ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius); ctx.stroke();
-        }
-    } else if (pattern === 'dots') {
-        const step = Math.max(3, fullWidth / 24), radius = Math.max(1, fullWidth / 300);
-        ctx.fillStyle = colors.accent + '50';
-        for (let y = step / 2; y < height; y += step) {
-            for (let x = step / 2; x < width; x += step) {
-                ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fill();
-            }
-        }
-    } else if (pattern === 'starfield' || pattern === 'sparkles') {
-        const count = pattern === 'starfield' ? 190 : 70;
-        for (let i = 0; i < count; i++) {
-            const x = ((i * 0.61803398875) % 1) * width;
-            const y = ((i * 0.75487766625) % 1) * height;
-            const size = Math.max(1.5, width / (pattern === 'starfield' ? 420 : 260)) * (1 + i % 3 * .35);
-            ctx.fillStyle = i % 5 ? colors.accent + '70' : (colors.secondary || colors.accent) + 'a0';
-            if (pattern === 'starfield' && i % 4) {
-                ctx.beginPath(); ctx.arc(x, y, size * .55, 0, Math.PI * 2); ctx.fill();
-            } else {
-                ctx.beginPath(); ctx.moveTo(x, y - size * 2); ctx.lineTo(x + size * .38, y - size * .38);
-                ctx.lineTo(x + size * 2, y); ctx.lineTo(x + size * .38, y + size * .38);
-                ctx.lineTo(x, y + size * 2); ctx.lineTo(x - size * .38, y + size * .38);
-                ctx.lineTo(x - size * 2, y); ctx.lineTo(x - size * .38, y - size * .38); ctx.closePath(); ctx.fill();
-            }
-        }
-    } else if (pattern === 'diagonal') {
-        const step = Math.max(4, fullWidth / 22);
-        ctx.lineWidth = Math.max(1, fullWidth / 180);
-        ctx.beginPath();
-        for (let offset = -height; offset < width; offset += step) { ctx.moveTo(offset, 0); ctx.lineTo(offset + height, height); }
-        ctx.stroke();
-    } else if (pattern === 'checker') {
-        const step = Math.max(4, fullWidth / 18);
-        ctx.fillStyle = colors.accent; ctx.globalAlpha = .16;
-        for (let row = 0; row * step < height; row++) {
-            for (let col = row % 2; col * step < width; col += 2) ctx.fillRect(col * step, row * step, step, step);
-        }
-    } else if (pattern === 'crosshatch') {
-        const step = Math.max(4, fullWidth / 22);
-        ctx.lineWidth = Math.max(1, fullWidth / 700);
-        ctx.beginPath();
-        for (let offset = -height; offset < width + height; offset += step) {
-            ctx.moveTo(offset, 0); ctx.lineTo(offset + height, height);
-            ctx.moveTo(offset, height); ctx.lineTo(offset + height, 0);
-        }
-        ctx.stroke();
-    } else if (pattern === 'waves') {
-        const rowStep = Math.max(4, fullHeight / 18), amplitude = Math.max(1, fullWidth / 100), wavelength = Math.max(8, fullWidth / 8);
-        ctx.lineWidth = Math.max(1.5, fullWidth / 500);
-        for (let row = 0; row <= height / rowStep; row++) {
-            const baseY = row * rowStep;
-            ctx.beginPath();
-            for (let x = 0; x <= width; x += Math.max(1, fullWidth / 180)) {
-                const y = baseY + Math.sin((x / wavelength) * Math.PI * 2 + row * .45) * amplitude;
-                if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-            }
-            ctx.stroke();
-        }
-    } else if (pattern === 'rings') {
-        const cx = width * .5, cy = height * .5, step = Math.max(3, fullWidth / 36);
-        ctx.lineWidth = Math.max(1.5, fullWidth / 500);
-        for (let radius = step; radius < Math.hypot(width, height); radius += step) {
-            ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.stroke();
-        }
-    } else if (pattern === 'scales') {
-        const step = Math.max(3, fullWidth / 24), rowStep = step * .5;
-        ctx.lineWidth = Math.max(1, fullWidth / 720);
-        for (let row = -1; row < height / rowStep + 1; row++) {
-            const offset = (row & 1) * step / 2, y = row * rowStep;
-            for (let x = -step; x < width + step; x += step) {
-                ctx.beginPath(); ctx.arc(x + offset, y, step / 2, 0, Math.PI); ctx.stroke();
-            }
-        }
-    } else if (pattern === 'triangles') {
-        const size = Math.max(4, fullWidth / 20), rowStep = size * Math.sqrt(3) / 2;
-        ctx.lineWidth = Math.max(1, fullWidth / 700);
-        for (let row = -1; row * rowStep < height + rowStep; row++) {
-            for (let col = -1; col * size < width + size; col++) {
-                const x = col * size + (row & 1) * size / 2, y = row * rowStep;
-                ctx.beginPath();
-                ctx.moveTo(x, y + rowStep); ctx.lineTo(x + size / 2, y); ctx.lineTo(x + size, y + rowStep);
-                ctx.closePath(); ctx.stroke();
-                ctx.beginPath();
-                ctx.moveTo(x + size / 2, y); ctx.lineTo(x + size, y + rowStep); ctx.lineTo(x + size * 1.5, y);
-                ctx.closePath(); ctx.stroke();
-            }
-        }
-    } else if (pattern === 'chevrons') {
-        const step = Math.max(4, fullWidth / 22), rowStep = step * .65;
-        ctx.lineWidth = Math.max(1.5, fullWidth / 500);
-        ctx.beginPath();
-        for (let y = -rowStep; y < height + rowStep; y += rowStep) {
-            for (let x = -step; x < width + step; x += step) {
-                ctx.moveTo(x, y); ctx.lineTo(x + step / 2, y + rowStep / 2); ctx.lineTo(x + step, y);
-            }
-        }
-        ctx.stroke();
-    } else if (pattern === 'topography') {
-        const centers = [[.2, .25], [.76, .32], [.49, .82]], step = Math.max(2, fullWidth / 54);
-        ctx.lineWidth = Math.max(1, fullWidth / 850);
-        for (const [cx, cy] of centers) {
-            for (let ring = 1; ring <= 10; ring++) {
-                ctx.beginPath();
-                ctx.ellipse(width * cx, height * cy, step * ring, step * ring * (.58 + (ring % 3) * .08), ring * .13, 0, Math.PI * 2);
-                ctx.stroke();
-            }
-        }
-    } else if (pattern === 'confetti') {
-        for (let i = 0; i < 180; i++) {
-            const x = (i * 157.31) % width, y = (i * 281.17) % height, size = Math.max(1, fullWidth / 180) * (1 + i % 3);
-            ctx.save(); ctx.translate(x, y); ctx.rotate(i * 2.399);
-            ctx.fillStyle = i % 2 ? colors.accent + '90' : (colors.secondary || colors.accent) + '90';
-            if (i % 3 === 0) {
-                ctx.beginPath(); ctx.arc(0, 0, size / 2, 0, Math.PI * 2); ctx.fill();
-            } else ctx.fillRect(-size / 2, -size / 4, size, size / 2);
-            ctx.restore();
-        }
-    } else if (pattern === 'circuit') {
-        const step = Math.max(6, fullWidth / 16), node = Math.max(1, fullWidth / 220);
-        ctx.lineWidth = Math.max(1.5, fullWidth / 500);
-        for (let row = 0; row * step < height + step; row++) {
-            for (let col = 0; col * step < width + step; col++) {
-                const x = col * step, y = row * step, direction = (row + col) % 2 ? 1 : -1;
-                ctx.beginPath();
-                ctx.moveTo(x, y); ctx.lineTo(x + step * .32, y);
-                ctx.lineTo(x + step * .32, y + step * .55 * direction);
-                ctx.lineTo(x + step * .78, y + step * .55 * direction);
-                ctx.stroke();
-                ctx.beginPath(); ctx.arc(x + step * .78, y + step * .55 * direction, node, 0, Math.PI * 2); ctx.stroke();
-            }
-        }
-    } else if (!pattern && design.theme === 'gold') {
-        for (let i = 0; i < 6; i++) ctx.strokeRect(width * (.025 + i * .006), height * (.025 + i * .006), width * (.95 - i * .012), height * (.95 - i * .012));
-    } else if (pattern === 'geometry' || (!pattern && ['fire', 'purple', 'rainbow'].includes(design.theme))) {
-        ctx.fillStyle = gradient;
-        ctx.globalAlpha = .7;
-        ctx.beginPath(); ctx.moveTo(width * .55, 0); ctx.lineTo(width, 0); ctx.lineTo(width, height * .8); ctx.closePath(); ctx.fill();
-        ctx.globalAlpha = .15;
-        ctx.beginPath(); ctx.moveTo(0, height * .72); ctx.lineTo(width * .7, height); ctx.lineTo(0, height); ctx.closePath(); ctx.fill();
-    } else if (['leaves', 'turkeys', 'pumpkins', 'christmas-trees', 'christmas-lights', 'snowflakes', 'hearts', 'fireworks', 'honeycomb', 'evergreens', 'football-field'].includes(pattern) && window.StreamPulsePatterns?.drawProceduralPattern) {
+    if (pattern && window.StreamPulsePatterns?.drawProceduralPattern) {
         ctx.restore();
         window.StreamPulsePatterns.drawProceduralPattern(ctx, pattern, fullWidth, fullHeight, {
             scale: scale * 100,
             color: 'transparent',
-            accent: colors.accent,
-            secondary: colors.secondary || colors.accent,
+            accent: bg.accent || colors.accent,
+            secondary: bg.secondary || colors.secondary || colors.accent,
             palette: bg.palette || 'dual',
             fillMode: bg.fillMode || 'tinted',
             fillOpacity: bg.fillOpacity,
+            lineWidth: Number(bg.lineWidth) || 0,
+            density: bg.density ?? undefined,
+            spacing: Number(bg.spacing) || 100,
             motion,
             speed: bg.speed || 1,
-            panDirection: bg.panDirection || 'continuous',
-            panAngle: Number.isFinite(Number(bg.panAngle)) ? Number(bg.panAngle) : (Number.isFinite(Number(bg.angle)) ? Number(bg.angle) : 45),
+            panDirection: bg.panDirection || 'oscillate',
+            panAngle: Number.isFinite(Number(bg.panAngle)) ? Number(bg.panAngle) : (Number.isFinite(Number(bg.angle)) ? Number(bg.angle) : 135),
             inPlace: bg.inPlace || (motion !== 'none' ? 'auto' : 'none'),
             inPlaceSpeed: Number(bg.inPlaceSpeed) || 1,
-            spin: bg.spin || 'none',
+            spin: bg.spin || 'auto',
             spinSpeed: Number(bg.spinSpeed) || 1,
             sizeVariance: Number(bg.sizeVariance) || 0,
             scatter: Number(bg.scatter) || 0,
             rotationVariance: Number(bg.rotationVariance) || 0,
-            vignette: Number(bg.vignette) || 0,
-            vignetteColor: bg.vignetteColor || '#000000',
-            density: Number(bg.density) || undefined,
+            vignette: 0,
             colorMode: bg.colorMode || 'mosaic',
             colorAnim: bg.colorAnim || 'none',
             colorSpeed: Number(bg.colorSpeed) || 1,
@@ -410,6 +404,22 @@ function drawThemeBackdrop(ctx, width, height, design, pattern, motion = 'none',
             loopDuration: 6
         });
         ctx.save();
+    } else if (!pattern && (design.theme === 'matrix' || design.theme === 'cyberpunk')) {
+        const step = Math.max(3, fullWidth / 32);
+        ctx.beginPath();
+        for (let x = 0; x < width; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, height); }
+        for (let y = 0; y < height; y += step) { ctx.moveTo(0, y); ctx.lineTo(width, y); }
+        ctx.stroke();
+        ctx.fillStyle = colors.accent;
+        ctx.fillRect(width * .92, height * .12, width * .012, height * .28);
+    } else if (!pattern && design.theme === 'gold') {
+        for (let i = 0; i < 6; i++) ctx.strokeRect(width * (.025 + i * .006), height * (.025 + i * .006), width * (.95 - i * .012), height * (.95 - i * .012));
+    } else if (!pattern && ['fire', 'purple', 'rainbow'].includes(design.theme)) {
+        ctx.fillStyle = gradient;
+        ctx.globalAlpha = .7;
+        ctx.beginPath(); ctx.moveTo(width * .55, 0); ctx.lineTo(width, 0); ctx.lineTo(width, height * .8); ctx.closePath(); ctx.fill();
+        ctx.globalAlpha = .15;
+        ctx.beginPath(); ctx.moveTo(0, height * .72); ctx.lineTo(width * .7, height); ctx.lineTo(0, height); ctx.closePath(); ctx.fill();
     } else {
         for (let i = 0; i < 4; i++) {
             ctx.beginPath(); ctx.ellipse(width * .85, height * .2, width * (.23 + i * .06), height * (.17 + i * .04), -.5, 0, Math.PI * 2); ctx.stroke();
@@ -460,14 +470,12 @@ const panCache = new Map();
 function drawBackdrop(ctx, width, height, design, background, image, time) {
     if (background.mode === 'transparent') return;
     if (background.mode === 'theme') drawThemeBackdrop(ctx, width, height, { ...design, theme: background.theme }, null, 'none', time, 1, background);
-    else if (background.mode === 'pattern' && background.motion === 'pan') {
-        // Only the pattern layer pans; the base stays put. A crossfade between the pattern and its
-        // one-wrap-later copy guarantees the 6s loop is seamless for any pattern.
+    else if (background.mode === 'pattern' && background.motion === 'pan' && (background.panDirection || 'oscillate') === 'oscillate') {
+        // Only the pattern layer pans; the base stays put. A sinusoidal glide
+        // across the zoomed buffer keeps any pattern seamless for the 6s loop.
         const theme = { ...design, theme: background.theme, colors: { ...design.colors, background: background.color } };
-        drawThemeBackdrop(ctx, width, height, theme, null, 'none', 0, 1, { ...background, baseOnly: true });
-        // The real pattern, zoomed slightly so it can travel inside its own margin. It glides
-        // back and forth along the angle, so the 6s loop is exact and nothing is distorted.
-        const key = JSON.stringify([width, height, background.pattern, background.scale, background.color, background.theme, design.colors]);
+        drawThemeBackdrop(ctx, width, height, theme, null, 'none', 0, 1, { ...background, baseOnly: true, noBar: true });
+        const key = JSON.stringify([width, height, background, design.theme, design.colors]);
         let still = panCache.get(key);
         if (!still) {
             panCache.clear();
@@ -478,8 +486,11 @@ function drawBackdrop(ctx, width, height, design, background, image, time) {
         const zoom = 1.3, mx = width * (zoom - 1) / 2, my = height * (zoom - 1) / 2;
         const a = (background.angle - 90) * Math.PI / 180, u = Math.sin(time / 6 * (background.speed || 1) * Math.PI * 2);
         ctx.drawImage(still, -mx + Math.cos(a) * mx * u, -my + Math.sin(a) * my * u, width * zoom, height * zoom);
+        drawThemeBackdrop(ctx, width, height, theme, null, 'none', 0, 1, { ...background, baseOnly: true, skipBase: true });
+        applyCanvasEffects(ctx, width, height, background.mediaFilter, { time });
     } else if (background.mode === 'pattern') {
         drawThemeBackdrop(ctx, width, height, { ...design, theme: background.theme, colors: { ...design.colors, background: background.color } }, background.pattern, background.motion, time, (background.scale || 100) / 100, background);
+        applyCanvasEffects(ctx, width, height, background.mediaFilter, { time });
     } else {
         ctx.fillStyle = background.color;
         if (background.mode === 'gradient') {
@@ -497,10 +508,25 @@ function drawBackdrop(ctx, width, height, design, background, image, time) {
         }
         ctx.fillRect(0, 0, width, height);
         if (background.mode === 'image' && image) {
-            drawImage(ctx, image, { x: 0, y: 0, w: width, h: height }, background);
-            ctx.fillStyle = `rgba(0,0,0,${background.shade / 100})`;
-            ctx.fillRect(0, 0, width, height);
+            drawMediaFill(ctx, image, { x: 0, y: 0, w: width, h: height }, {
+                fit: background.fit,
+                focusX: background.focusX,
+                focusY: background.focusY,
+                blurFill: background.blurFill,
+                filter: background.mediaFilter,
+                time,
+                preserveAlpha: false
+            });
+            if (background.shade > 0) {
+                ctx.fillStyle = `rgba(0,0,0,${background.shade / 100})`;
+                ctx.fillRect(0, 0, width, height);
+            }
+        } else {
+            applyCanvasEffects(ctx, width, height, background.mediaFilter, { time });
         }
+    }
+    if (background.mode === 'theme') {
+        applyCanvasEffects(ctx, width, height, background.mediaFilter, { time });
     }
     drawVignette(ctx, width, height, background.vignette);
 }
@@ -583,8 +609,17 @@ export async function renderPromo(canvas, design, ratio, { preview = true, time 
                 ctx.save(); ctx.shadowBlur = s.shadow.blur; ctx.shadowColor = s.shadow.color; ctx.fillStyle = colors.panel; path(); ctx.fill(); ctx.restore();
             }
             ctx.save(); path(); ctx.clip();
-            if (image) drawImage(ctx, image, box, s);
-            else if (preview) {
+            if (image) {
+                drawMediaFill(ctx, image, box, {
+                    fit: s.objectFit,
+                    focusX: s.focusX,
+                    focusY: s.focusY,
+                    blurFill: s.blurFill,
+                    filter: item.mediaFilter,
+                    time,
+                    preserveAlpha: true
+                });
+            } else if (preview) {
                 ctx.fillStyle = colors.panel; ctx.fillRect(box.x, box.y, box.w, box.h);
                 const placeholder = item.role === 'photo' ? 'Add your screenshot' : item.role === 'artwork' ? 'Add artwork' : 'Add image';
                 drawText(ctx, placeholder, { x: box.x + 24, y: box.y + 24, w: box.w - 48, h: box.h - 48 }, PLAIN, defaultFont, colors.muted);

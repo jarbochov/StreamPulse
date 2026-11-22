@@ -217,8 +217,22 @@
             media.style.visibility = '';
             media.src = src;
         }
-        media.style.objectFit = element.style?.objectFit || 'cover';
-        media.style.objectPosition = `${element.style?.focusX ?? 50}% ${element.style?.focusY ?? 50}%`;
+        if (shared.syncBlurFillMedia) {
+            shared.syncBlurFillMedia(node, {
+                media,
+                kind: 'img',
+                src,
+                fit: element.style?.objectFit || 'cover',
+                focusX: element.style?.focusX ?? 50,
+                focusY: element.style?.focusY ?? 50,
+                blurFill: element.style?.blurFill,
+                crossOrigin: !src.startsWith('data:') ? 'anonymous' : '',
+                skipShadowOnMedia: true
+            });
+        } else {
+            media.style.objectFit = element.style?.objectFit || 'cover';
+            media.style.objectPosition = `${element.style?.focusX ?? 50}% ${element.style?.focusY ?? 50}%`;
+        }
     }
 
     function variableContext() {
@@ -313,6 +327,22 @@
             node.classList.toggle('md-cols', !!cols);
             node.dataset.span = element.headingSpan ?? 6;
             if (cols) node.style.display = 'block';
+        }
+        if (element.type === 'image' || element.type === 'video') {
+            const media = node.querySelector(':scope > img, :scope > video');
+            if (media && shared.syncBlurFillMedia) {
+                shared.syncBlurFillMedia(node, {
+                    media,
+                    kind: element.type,
+                    src: media.getAttribute('src') || expandVariables(element.src || ''),
+                    fit: style.objectFit || 'cover',
+                    focusX: style.focusX ?? 50,
+                    focusY: style.focusY ?? 50,
+                    blurFill: style.blurFill,
+                    crossOrigin: media.crossOrigin || '',
+                    skipShadowOnMedia: true
+                });
+            }
         }
         node.style.transform = style.rotate ? `rotate(${style.rotate}deg)` : '';
     }
@@ -920,9 +950,22 @@
                     media.draggable = false;
                     media.style.width = '100%';
                     media.style.height = '100%';
-                    media.style.objectFit = element.style?.objectFit || 'cover';
-                    media.style.objectPosition = `${element.style?.focusX ?? 50}% ${element.style?.focusY ?? 50}%`;
                     node.appendChild(media);
+                    if (shared.syncBlurFillMedia) {
+                        shared.syncBlurFillMedia(node, {
+                            media,
+                            kind: 'video',
+                            src: media.getAttribute('src') || '',
+                            fit: element.style?.objectFit || 'cover',
+                            focusX: element.style?.focusX ?? 50,
+                            focusY: element.style?.focusY ?? 50,
+                            blurFill: element.style?.blurFill,
+                            skipShadowOnMedia: true
+                        });
+                    } else {
+                        media.style.objectFit = element.style?.objectFit || 'cover';
+                        media.style.objectPosition = `${element.style?.focusX ?? 50}% ${element.style?.focusY ?? 50}%`;
+                    }
                 }
             } else if (element.type === 'image') {
                 syncImageNode(node, element);

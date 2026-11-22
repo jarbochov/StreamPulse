@@ -1271,7 +1271,7 @@
         const active = mediaFilterActive(f) && (media || f.blur > 0 || f.brightness !== 100 || f.contrast !== 100 || f.saturate !== 100 || f.grayscale > 0 || f.duotone.enabled || hasHt || hasRetro);
         const signature = JSON.stringify([
             f, media, element.id, element.width, element.height,
-            element.style?.objectFit, element.style?.focusX, element.style?.focusY,
+            element.style?.objectFit, element.style?.blurFill, element.style?.focusX, element.style?.focusY,
             element.style?.background, element.style?.fill, element.style?.gradient,
             element.src
         ]);
@@ -1374,8 +1374,19 @@
                 if (cv && media && cv._mode === 'blend') canvasParts.push(svgRef);
             }
         }
-        const nextFilter = parts.join(' ');
+        const baseFilter = parts.join(' ');
+        const blurFillShadow = (media && element.style?.objectFit === 'contain-blur')
+            ? (node._blurFillShadowFilter || root.OverlayShared?.blurFillShadowCss?.(element.style?.blurFill) || '')
+            : '';
+        const nextFilter = [baseFilter, blurFillShadow].filter(Boolean).join(' ');
         if (target.style.filter !== nextFilter) target.style.filter = nextFilter;
+        if (media) {
+            target.dataset.filterControlled = baseFilter ? '1' : '';
+            const bfBackdrop = node.querySelector(':scope > .sp-blurfill-backdrop');
+            if (bfBackdrop && bfBackdrop.style.filter !== baseFilter) {
+                bfBackdrop.style.filter = baseFilter;
+            }
+        }
 
         if (media) {
             if (node.style.filter) node.style.filter = '';

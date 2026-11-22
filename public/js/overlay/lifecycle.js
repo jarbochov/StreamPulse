@@ -57,6 +57,8 @@ function cleanupNode(node) {
     if (node._cycleHandle?.stop) { try { node._cycleHandle.stop(); } catch {} node._cycleHandle = null; }
     if (node._typeTimer) { clearInterval(node._typeTimer); node._typeTimer = null; }
     if (node._textAnimHandle?.stop) { try { node._textAnimHandle.stop(); } catch {} node._textAnimHandle = null; }
+    if (node._blurFillCleanup) { try { node._blurFillCleanup(); } catch {} node._blurFillCleanup = null; }
+    node._blurFillShadowFilter = '';
     node._textAnimWrap = null;
     node._textAnimSig = '';
     if (root.OverlayFilters?.cleanupFilters) {

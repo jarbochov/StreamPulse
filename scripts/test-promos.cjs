@@ -902,4 +902,126 @@ test('IGDB picker detects actual image formats and reports unavailable credentia
     await assert.rejects(invalid.importImage(42, 'cover'), /unsupported image/);
 });
 
+test('promo creator exposes fill modes, palettes, and background/image effect controls identically in UI and canvas export', async t => {
+    const normalized = model.normalize({
+        background: {
+            mode: 'pattern', pattern: 'hexagons', fillMode: 'solid', fillOpacity: 85, palette: 'neon',
+            lineWidth: 3, density: 1.5, spacing: 120, scatter: 25, sizeVariance: 30,
+            colorMode: 'diagonal', colorAnim: 'cycle', colorSpeed: 1.5, inPlace: 'pulse', spin: 'reverse',
+            mediaFilter: { brightness: 135, contrast: 125, saturate: 140, grayscale: 15, blur: 6, tint: { enabled: true, color: '#ff0055', opacity: 0.3 }, duotone: { enabled: true, dark: '#101020', light: '#55eeff' }, grain: { enabled: true, amount: 0.35, size: 1.5, animate: false } }
+        }
+    });
+    assert.equal(normalized.background.fillMode, 'solid');
+    assert.equal(normalized.background.palette, 'neon');
+    assert.equal(normalized.background.lineWidth, 3);
+    assert.equal(normalized.background.mediaFilter.brightness, 135);
+    assert.equal(normalized.background.mediaFilter.contrast, 125);
+    assert.equal(normalized.background.mediaFilter.duotone.enabled, true);
+    assert.equal(normalized.background.mediaFilter.tint.enabled, true);
+    assert.equal(normalized.background.mediaFilter.grain.enabled, true);
+
+    const photoEl = normalized.elements.find(el => el.id === 'photo');
+    assert.equal(photoEl.mediaFilter.brightness, 100);
+    const withPhotoFx = model.normalizeElement({
+        ...photoEl,
+        mediaFilter: { brightness: 150, contrast: 120, grayscale: 50, tint: { enabled: true, color: '#112233', opacity: 0.25 } }
+    });
+    assert.equal(withPhotoFx.mediaFilter.brightness, 150);
+    assert.equal(withPhotoFx.mediaFilter.contrast, 120);
+    assert.equal(withPhotoFx.mediaFilter.tint.enabled, true);
+
+    const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'promo-creator.js'), 'utf8');
+    for (const token of ['background.fillMode', 'background.palette', 'background.mediaFilter', 'blurFillControls', 'Image Effects']) {
+        assert.ok(html.includes(token), `promo-creator.js missing ${token}`);
+    }
+
+    const dataDir = fs.mkdtempSync(path.join(__dirname, '..', '.test-promo-fx-'));
+    const assetsDir = path.join(dataDir, 'assets');
+    fs.mkdirSync(assetsDir, { recursive: true });
+    const service = createPromoService({ dataDir });
+    const overlayRoutes = createOverlayRoutes({ customOverlayAssetsDir: assetsDir });
+    const rootDir = path.resolve(__dirname, '..');
+    const staticRouter = createStaticRouter({ rootDir, publicDir: path.join(rootDir, 'public'), customOverlayAssetsDir: assetsDir });
+    const server = http.createServer(async (req, res) => {
+        const url = new URL(req.url, 'http://fixture.local');
+        if (await createPromoRoutes({ service })(req, res, url.pathname)) return;
+        if (await overlayRoutes(req, res, url, url.pathname)) return;
+        if (url.pathname.startsWith('/api/')) { res.setHeader('Content-Type', 'application/json'); res.end('[]'); }
+        else if (!staticRouter.handleRequest(req, res)) { res.writeHead(404); res.end(); }
+    });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const origin = `http://127.0.0.1:${server.address().port}`;
+    let browser;
+    t.after(async () => {
+        if (browser) await browser.close();
+        await new Promise(resolve => server.close(resolve));
+        fs.rmSync(dataDir, { recursive: true, force: true });
+    });
+
+    browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1440, height: 900 });
+    await page.goto(`${origin}/promo-creator.html`, { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => document.querySelector('#status').textContent.startsWith('Ready.'));
+
+    const pixelDiffs = await page.evaluate(async () => {
+        const { makeBackdrop } = await import('/js/promo-renderer.js');
+        const fp = canvas => {
+            const d = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+            let h = 2166136261;
+            for (let i = 0; i < d.length; i += 43) h = Math.imul(h ^ d[i], 16777619);
+            return h >>> 0;
+        };
+        const renderBg = async patch => {
+            const design = window.PromoModel.normalize({ background: { mode: 'pattern', pattern: 'hexagons', color: '#112233', vignette: 0, bar: 'none', ...patch } });
+            return fp(await makeBackdrop(design, 'square', 0, false));
+        };
+        return {
+            tinted: await renderBg({ fillMode: 'tinted' }),
+            solid: await renderBg({ fillMode: 'solid' }),
+            outline: await renderBg({ fillMode: 'outline' }),
+            neon: await renderBg({ palette: 'neon', fillMode: 'solid' }),
+            bright: await renderBg({ fillMode: 'solid', mediaFilter: { brightness: 180, contrast: 140 } }),
+            duotone: await renderBg({ fillMode: 'solid', mediaFilter: { duotone: { enabled: true, dark: '#100020', light: '#ffd166' } } }),
+            grain: await renderBg({ fillMode: 'solid', mediaFilter: { grain: { enabled: true, amount: 0.6, size: 1 } } })
+        };
+    });
+    assert.notEqual(pixelDiffs.solid, pixelDiffs.outline, 'solid and outline fill modes render differently');
+    assert.notEqual(pixelDiffs.solid, pixelDiffs.tinted, 'solid and tinted fill modes render differently');
+    assert.notEqual(pixelDiffs.solid, pixelDiffs.neon, 'curated palettes change rendered pixels');
+    assert.notEqual(pixelDiffs.solid, pixelDiffs.bright, 'brightness & contrast effects alter rendered backdrop pixels');
+    assert.notEqual(pixelDiffs.solid, pixelDiffs.duotone, 'duotone effect alters rendered backdrop pixels');
+    assert.notEqual(pixelDiffs.solid, pixelDiffs.grain, 'grain effect alters rendered backdrop pixels');
+
+    // Contain + Blurred Fill (background image and image elements)
+    const sampleImg = Buffer.from(await page.evaluate(() => {
+        const c = document.createElement('canvas'); c.width = 160; c.height = 40;
+        const g = c.getContext('2d');
+        g.fillStyle = '#e11d48'; g.fillRect(0, 0, 80, 40);
+        g.fillStyle = '#0ea5e9'; g.fillRect(80, 0, 80, 40);
+        return c.toDataURL('image/png').split(',')[1];
+    }), 'base64');
+    fs.writeFileSync(path.join(assetsDir, 'wide-sample.png'), sampleImg);
+    const fitDiffs = await page.evaluate(async () => {
+        const { makeBackdrop } = await import('/js/promo-renderer.js');
+        const fp = canvas => {
+            const d = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+            let h = 2166136261;
+            for (let i = 0; i < d.length; i += 43) h = Math.imul(h ^ d[i], 16777619);
+            return h >>> 0;
+        };
+        const renderFit = async fit => {
+            const design = window.PromoModel.normalize({
+                background: { mode: 'image', image: '/custom-overlay-assets/wide-sample.png', fit, blurFill: { blur: 20, dim: 25, zoom: 115, shadow: 40 }, shade: 0, vignette: 0 }
+            });
+            const c = await makeBackdrop(design, 'portrait', 0, false);
+            return { hash: fp(c), topPixel: [...c.getContext('2d').getImageData(20, 20, 1, 1).data] };
+        };
+        return { contain: await renderFit('contain'), cover: await renderFit('cover'), containBlur: await renderFit('contain-blur') };
+    });
+    assert.notEqual(fitDiffs.containBlur.hash, fitDiffs.contain.hash, 'contain-blur renders blurred fill instead of empty letterbox bars');
+    assert.notEqual(fitDiffs.containBlur.hash, fitDiffs.cover.hash, 'contain-blur preserves uncropped center instead of full cover crop');
+    assert.notDeepEqual(fitDiffs.containBlur.topPixel, [11, 16, 32, 255], 'top letterbox region contains blurred image tones instead of solid base fill');
+});
+
 const clone = value => JSON.parse(JSON.stringify(value));

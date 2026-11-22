@@ -7,6 +7,7 @@ import { GOOGLE_FONTS, assetFonts, loadAssetFonts, loadGoogleFont } from './font
 import { qrUrl, renderIcon, renderInlineText, sanitizeIconClass } from './icons.js';
 import { cleanupMedia, cleanupNode } from './lifecycle.js';
 import { embedUrl, parseYouTubeUrl, renderImageGroupStrip } from './media.js';
+import { blurFillShadowCss, normalizeBlurFill, syncBlurFillMedia } from './blur-fill.js';
 import { mountPattern } from './patterns.js';
 import { mountSlideshow, slideshowItems } from './slideshow.js';
 import { pruneSourceCaches } from './source-caches.js';
@@ -33,6 +34,6 @@ Object.assign(root.OverlayShared, numericBindings);
 Object.assign(root.OverlayShared, variableLinks);
 Object.assign(root.OverlayShared, variableDisplays, { renderVariableDisplay, setDisplayLibrary });
 Object.assign(root.OverlayShared, displayTable);
-Object.assign(root.OverlayShared, { variableKey: variablePaths.variableKey });
+Object.assign(root.OverlayShared, { variableKey: variablePaths.variableKey, blurFillShadowCss, normalizeBlurFill, syncBlurFillMedia });
 Object.assign(root.OverlayShared, borderCatalog);
 Object.defineProperty(root.OverlayShared, Symbol.for('StreamPulse.OverlayShared'), { value: true });
