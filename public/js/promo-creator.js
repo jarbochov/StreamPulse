@@ -156,10 +156,12 @@ function paint(node, item, p) {
             } else {
                 img.style.cssText = `object-fit:${s.objectFit === 'contain-blur' ? 'contain' : s.objectFit};object-position:${s.focusX}% ${s.focusY}%`;
             }
-            if (hasFx && window.OverlayFilters?.applyMediaFilter) {
-                window.OverlayFilters.applyMediaFilter(pb, { ...item, width: box.w, height: box.h, mediaFilter: f });
-            } else if (window.OverlayFilters?.cleanupFilters) {
-                window.OverlayFilters.cleanupFilters(pb);
+            const applyFx = window.OverlayFilters?.applyMediaFilter || window.OverlayShared?.applyMediaFilter;
+            const cleanupFx = window.OverlayFilters?.cleanupFilters || window.OverlayShared?.cleanupNode;
+            if (hasFx && applyFx) {
+                applyFx(pb, { ...item, width: box.w, height: box.h, mediaFilter: f });
+            } else if (cleanupFx) {
+                cleanupFx(pb);
             }
         } else {
             if (window.OverlayFilters?.cleanupFilters) window.OverlayFilters.cleanupFilters(pb);

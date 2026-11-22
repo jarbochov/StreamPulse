@@ -1022,6 +1022,56 @@ test('promo creator exposes fill modes, palettes, and background/image effect co
     assert.notEqual(fitDiffs.containBlur.hash, fitDiffs.contain.hash, 'contain-blur renders blurred fill instead of empty letterbox bars');
     assert.notEqual(fitDiffs.containBlur.hash, fitDiffs.cover.hash, 'contain-blur preserves uncropped center instead of full cover crop');
     assert.notDeepEqual(fitDiffs.containBlur.topPixel, [11, 16, 32, 255], 'top letterbox region contains blurred image tones instead of solid base fill');
+
+    // Live UI interaction: Color & Exposure sliders on BOTH background canvas AND foreground image elements
+    assert.equal(await page.evaluate(() => Boolean(window.OverlayFilters?.applyMediaFilter)), true, 'promo-creator.html must load OverlayFilters for image element effects');
+    const createdPromo = await (await fetch(`${origin}/api/promos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(model.normalize({
+            name: 'Effect Check',
+            background: { mode: 'solid', color: '#204060', vignette: 0 },
+            elements: model.DEFAULT_ELEMENTS.map(el => el.id === 'photo' ? { ...el, src: '/custom-overlay-assets/wide-sample.png' } : el)
+        }))
+    })).json();
+    await page.goto(`${origin}/promo-creator.html?id=${createdPromo.id}`, { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => document.querySelector('#status').textContent.startsWith('Ready.'));
+    await page.click('#rail-tab-appearance');
+    await page.waitForSelector('#style-fields [data-path="background.mediaFilter.brightness"]');
+    const previewBefore = await page.evaluate(() => {
+        const c = document.getElementById('preview');
+        return [...c.getContext('2d').getImageData(Math.floor(c.width / 2), Math.floor(c.height / 2), 1, 1).data];
+    });
+    await page.evaluate(() => {
+        const b = document.querySelector('#style-fields input[type="range"][data-path="background.mediaFilter.brightness"]');
+        b.value = '180'; b.dispatchEvent(new Event('input', { bubbles: true })); b.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await new Promise(r => setTimeout(r, 150));
+    const previewAfter = await page.evaluate(() => {
+        const c = document.getElementById('preview');
+        return [...c.getContext('2d').getImageData(Math.floor(c.width / 2), Math.floor(c.height / 2), 1, 1).data];
+    });
+    assert.ok(previewAfter[0] > previewBefore[0] && previewAfter[2] > previewBefore[2], 'dragging background brightness slider visibly brightens #preview canvas');
+
+    await page.click('#rail-tab-layers');
+    await page.click('#block-list [data-select="photo"]');
+    await page.waitForSelector('#properties [data-path="mediaFilter.brightness"]');
+    await page.evaluate(() => {
+        const b = document.querySelector('#properties input[type="range"][data-path="mediaFilter.brightness"]');
+        b.value = '160'; b.dispatchEvent(new Event('input', { bubbles: true })); b.dispatchEvent(new Event('change', { bubbles: true }));
+        const t = document.querySelector('#properties input[data-path="mediaFilter.tint.enabled"]');
+        t.checked = true; t.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await new Promise(r => setTimeout(r, 150));
+    const photoDomCheck = await page.evaluate(() => {
+        const pb = document.querySelector('#els [data-id="photo"] > .pb');
+        return {
+            imgFilter: pb?.querySelector(':scope > img')?.style.filter || '',
+            tintZ: pb?.querySelector(':scope > .sp-tint')?.style.zIndex || ''
+        };
+    });
+    assert.ok(photoDomCheck.imgFilter.includes('brightness(160%)'), 'image element Color & Exposure slider applies live filter to stage DOM <img>');
+    assert.equal(photoDomCheck.tintZ, '2', 'tint overlay sits above contain-blur foreground image');
 });
 
 const clone = value => JSON.parse(JSON.stringify(value));

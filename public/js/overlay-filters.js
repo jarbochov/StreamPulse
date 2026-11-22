@@ -1315,7 +1315,7 @@
                     tint.className = 'sp-fx sp-tint';
                     node.appendChild(tint);
                 }
-                tint.style.cssText = `position:absolute;inset:0;pointer-events:none;border-radius:inherit;background-color:${f.tint.color};opacity:${f.tint.opacity};`;
+                tint.style.cssText = `position:absolute;inset:0;z-index:2;pointer-events:none;border-radius:inherit;background-color:${f.tint.color};opacity:${f.tint.opacity};`;
             } else if (node._fxTint) {
                 node._fxTint.remove();
                 node._fxTint = null;
@@ -1331,7 +1331,7 @@
                     node.appendChild(grain);
                 }
                 const size = Math.max(0.5, Math.min(4, Number(f.grain.size) || 1));
-                grain.style.cssText = `position:absolute;inset:0;overflow:hidden;pointer-events:none;border-radius:inherit;mix-blend-mode:overlay;opacity:${f.grain.amount};`;
+                grain.style.cssText = `position:absolute;inset:0;z-index:2;overflow:hidden;pointer-events:none;border-radius:inherit;mix-blend-mode:overlay;opacity:${f.grain.amount};`;
                 let texture = grain.firstElementChild;
                 if (!texture) {
                     texture = document.createElement('div');
