@@ -142,7 +142,7 @@
                         </button>
                         <button type="button" class="ob-inspector-tab" data-ob-inspector="fx" role="tab" aria-selected="false">
                             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                            <span>Glow &amp; Motion</span>
+                            <span>Shadow &amp; FX</span>
                         </button>
                         <button type="button" class="ob-inspector-tab" data-ob-inspector="standby" role="tab" aria-selected="false">
                             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><circle cx="12" cy="11" r="3"/><path d="M7 18c1.2-2.2 3-3 5-3s3.8.8 5 3"/></svg>
@@ -453,6 +453,76 @@
                                         <span>Inner glow</span>
                                     </label>
                                 </div>
+                                <div class="ob-dirty-pill is-dirty" id="ob-glow-inside-note" hidden style="border-radius:6px;white-space:normal;padding:0.42rem 0.6rem;line-height:1.4;">
+                                    Border Placement is set to <strong>Inside</strong> (0px expansion): external glow cannot extend outside the frame. Enable <strong>Inner glow</strong> or switch Placement to Outside / Middle.
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="sect" id="ob-sect-shadow">
+                            <div class="sect-head">
+                                <span class="sect-title">Drop Shadow (Works With or Without Borders)</span>
+                                <label class="ob-check">
+                                    <input type="checkbox" id="ob-shadow-enabled">
+                                    <span>Enabled</span>
+                                </label>
+                            </div>
+                            <div class="sect-body" id="ob-shadow-body">
+                                <div class="ob-dirty-pill is-dirty" id="ob-shadow-inside-note" hidden style="border-radius:6px;white-space:normal;padding:0.42rem 0.6rem;line-height:1.4;">
+                                    Border Placement is set to <strong>Inside</strong> (0px expansion): outer drop shadows cannot cast outside the frame. Use <strong>Inner Shadow (Inset)</strong> or switch Placement to Outside / Middle.
+                                </div>
+                                <div class="grid2">
+                                    <div class="field">
+                                        <label for="ob-shadow-mode">Shadow Style</label>
+                                        <select id="ob-shadow-mode"></select>
+                                    </div>
+                                    <div class="field">
+                                        <label for="ob-shadow-color">Shadow Color &amp; Opacity</label>
+                                        <div class="ob-color-row">
+                                            <input type="color" id="ob-shadow-color-pick" value="#000000">
+                                            <input type="text" id="ob-shadow-color" placeholder="#000000B3" data-var-kind="color" data-var-label="Drop Shadow Color">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="ob-micro-head"><span>Offset &amp; Feather</span></div>
+                                <div class="grid2">
+                                    <div class="field">
+                                        <label for="ob-shadow-x">Offset X (px)</label>
+                                        <div class="ob-input-row">
+                                            <input type="number" id="ob-shadow-x" min="-150" max="150" step="1" data-var-kind="number" data-var-label="Shadow Offset X">
+                                        </div>
+                                    </div>
+                                    <div class="field">
+                                        <label for="ob-shadow-y">Offset Y (px)</label>
+                                        <div class="ob-input-row">
+                                            <input type="number" id="ob-shadow-y" min="-150" max="150" step="1" data-var-kind="number" data-var-label="Shadow Offset Y">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="grid2">
+                                    <div class="field" id="ob-shadow-blur-wrap">
+                                        <label for="ob-shadow-blur">Blur / Softness (px)</label>
+                                        <div class="ob-input-row">
+                                            <input type="number" id="ob-shadow-blur" min="0" max="120" step="1" data-var-kind="number" data-var-label="Shadow Blur">
+                                        </div>
+                                    </div>
+                                    <div class="field">
+                                        <label for="ob-shadow-spread">Spread (px)</label>
+                                        <div class="ob-input-row">
+                                            <input type="number" id="ob-shadow-spread" min="-40" max="80" step="1" data-var-kind="number" data-var-label="Shadow Spread">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div id="ob-shadow-inset-wrap" hidden style="display:flex;flex-direction:column;gap:0.4rem;">
+                                    <label class="ob-check">
+                                        <input type="checkbox" id="ob-shadow-multiply" checked>
+                                        <span>Multiply blend over video (uncheck for opaque tint)</span>
+                                    </label>
+                                </div>
+                                <span class="hint" style="font-size:0.74rem;color:var(--text-muted);">Dark outer shadows (#000000 with alpha) naturally darken/multiply over OBS scenes below. Inner Shadow multiplies per-pixel over your video feed.</span>
                             </div>
                         </section>
 

@@ -53,7 +53,7 @@ try {
     for (const path of ['/', '/?legacy=1']) {
         await page.goto(`${origin}${path}`);
         assert.equal(await page.evaluate(() => window.fixtureImmediate), 'Hello Fictional show', 'blocking classic consumers receive the API immediately');
-        assert.deepEqual(await page.evaluate(() => Object.keys(window.OverlayShared).sort()), [...publicKeys, 'variableKey', 'trackerMax', 'linkedSourceEntry', 'linkedSourceFields', 'normalizeDisplay', 'normalizeDisplayBinding', 'resolveDisplayOwner', 'renderVariableDisplay', 'setDisplayLibrary', 'normalizeDisplayTable', 'displayFieldValue', 'getDisplayRows', 'ANIM_CODE_MAP', 'BACKGROUND_FILL_MODES', 'BACKGROUND_MODE_MAP', 'BORDER_ANIMATION_GROUPS', 'BORDER_STYLE_GROUPS', 'STYLE_CODE_MAP', 'computeAutoBorderPad'].sort(), 'facade preserves the complete public contract through both aliases');
+        assert.deepEqual(await page.evaluate(() => Object.keys(window.OverlayShared).sort()), [...publicKeys, 'variableKey', 'trackerMax', 'linkedSourceEntry', 'linkedSourceFields', 'normalizeDisplay', 'normalizeDisplayBinding', 'resolveDisplayOwner', 'renderVariableDisplay', 'setDisplayLibrary', 'normalizeDisplayTable', 'displayFieldValue', 'getDisplayRows', 'ANIM_CODE_MAP', 'BACKGROUND_FILL_MODES', 'BACKGROUND_MODE_MAP', 'BORDER_ANIMATION_GROUPS', 'BORDER_STYLE_GROUPS', 'SHADOW_MODES', 'SHADOW_MODE_MAP', 'STYLE_CODE_MAP', 'computeAutoBorderPad'].sort(), 'facade preserves the complete public contract through both aliases');
     }
     await page.addScriptTag({ url: `${origin}/js/overlay-retro.js` });
     await page.addScriptTag({ url: `${origin}/js/overlay-filters.js` });

@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const http = require('node:http');
 
-const { createObsBordersService, BORDER_STYLES, ANIMATION_TYPES } = require('../server/services/obs-borders');
+const { createObsBordersService, BORDER_STYLES, ANIMATION_TYPES, resolveProfileForManifest } = require('../server/services/obs-borders');
 const { createObsBordersRoutes } = require('../server/routes/obs-borders');
 
 function requestJson(port, method, reqPath, body) {
@@ -370,5 +370,80 @@ describe('OBS Border Studio (Beta / Advanced)', () => {
         for (const fn of ['updateBorderDesignerVisibility', 'switchInspectorTab', 'updateDirtyIndicators']) {
             assert.ok(js.includes(fn), `obs-borders-studio.js missing ${fn}`);
         }
+        for (const shToken of ['id="ob-shadow-enabled"', 'id="ob-shadow-mode"', 'id="ob-shadow-multiply"', 'id="ob-shadow-blur-wrap"']) {
+            assert.ok(html.includes(shToken), `obs-borders.html missing ${shToken}`);
+        }
+    });
+
+    it('computes borderless Drop Shadow padding, resolves all 4 shadow modes, and exports HLSL/Lua uniforms', () => {
+        const catalog = require('../shared/border-catalog.cjs');
+        assert.ok(Array.isArray(catalog.SHADOW_MODES) && catalog.SHADOW_MODES.length === 4);
+
+        // Borderless Soft Drop expands evenly by offset + spread + blur * 1.65 + minSafeBleed
+        const softPad = catalog.computeAutoBorderPad({
+            placement: 'outside',
+            autoPad: true,
+            inner: { enabled: false },
+            outer: { enabled: false },
+            glow: { enabled: false },
+            shadow: { enabled: true, mode: 'soft', offsetX: 10, offsetY: 14, blur: 20, spread: 0 }
+        });
+        assert.equal(softPad, 49);
+
+        // Hard Offset expands tightly for crisp solid edge without blur bleed
+        const hardPad = catalog.computeAutoBorderPad({
+            placement: 'outside',
+            autoPad: true,
+            inner: { enabled: false },
+            outer: { enabled: false },
+            shadow: { enabled: true, mode: 'hard', offsetX: 12, offsetY: 16, blur: 30, spread: 4 }
+        });
+        assert.equal(hardPad, 24);
+
+        // Inner Shadow needs 0 expansion when no outer border/glow is active
+        const insetPad = catalog.computeAutoBorderPad({
+            placement: 'outside',
+            autoPad: true,
+            inner: { enabled: false },
+            outer: { enabled: false },
+            shadow: { enabled: true, mode: 'inset', offsetX: 10, offsetY: 14, blur: 28, spread: 0 }
+        });
+        assert.equal(insetPad, 0);
+
+        const resolved = service.upsertProfile({
+            id: 'borderless-shadow-test',
+            name: 'Borderless Shadow',
+            inner: { enabled: false },
+            outer: { enabled: false },
+            shadow: { enabled: true, mode: 'inset', color: '#2563EBCC', offsetX: 8, offsetY: 12, blur: 32, spread: 2, multiply: true }
+        });
+        const res = resolveProfileForManifest(resolved);
+        assert.equal(res.shadow.enabled, true);
+        assert.equal(res.shadow.mode, 'inset');
+        assert.equal(res.shadow.modeCode, 3);
+        assert.equal(res.shadow.multiply, true);
+        assert.equal(res.pad, 0);
+
+        const luaText = fs.readFileSync(service.getState().luaScriptPath, 'utf8');
+        for (const uName of ['shadow_enabled', 'shadow_mode', 'shadow_color', 'shadow_offset', 'shadow_blur', 'shadow_spread', 'shadow_multiply', 'evalSoftShadowAlpha']) {
+            assert.ok(luaText.includes(uName), `streampulse-borders.lua missing ${uName}`);
+        }
+    });
+
+    it('enforces sharp 0px corners, live OBS scene scale detection, and Inside placement notes/guards', () => {
+        const luaText = fs.readFileSync(service.getState().luaScriptPath, 'utf8');
+        for (const token of ['sdShapeBox', 'collect_live_scene_scales', 'placement_code < 1.5']) {
+            assert.ok(luaText.includes(token), `streampulse-borders.lua missing ${token}`);
+        }
+        assert.ok(!luaText.includes('scene_scale > 4.0'), 'inverse scene scale cap should exceed 4.0');
+
+        const htmlPath = path.join(__dirname, '..', 'public', 'tools', 'obs-borders.html');
+        const htmlText = fs.readFileSync(htmlPath, 'utf8');
+        assert.ok(htmlText.includes('id="ob-glow-inside-note"'), 'obs-borders.html missing #ob-glow-inside-note');
+        assert.ok(htmlText.includes('id="ob-shadow-inside-note"'), 'obs-borders.html missing #ob-shadow-inside-note');
+
+        const cssPath = path.join(__dirname, '..', 'public', 'css', 'obs-borders.css');
+        const cssText = fs.readFileSync(cssPath, 'utf8');
+        assert.ok(!/\.ob-preview-stage\s*\{[^}]*border-radius\s*:\s*[1-9]/.test(cssText), '.ob-preview-stage should not clip previews with non-zero border-radius');
     });
 });

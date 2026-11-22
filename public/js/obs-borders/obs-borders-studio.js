@@ -13,6 +13,13 @@
     const BORDER_ANIMATION_GROUPS = Array.isArray(SHARED.BORDER_ANIMATION_GROUPS) ? SHARED.BORDER_ANIMATION_GROUPS : [];
     const STYLE_CODE_MAP = SHARED.STYLE_CODE_MAP || { solid: 0 };
     const ANIM_CODE_MAP = SHARED.ANIM_CODE_MAP || { none: 0 };
+    const SHADOW_MODES = Array.isArray(SHARED.SHADOW_MODES) ? SHARED.SHADOW_MODES : [
+        { id: 'soft', label: 'Soft Drop (Feathered)', code: 0 },
+        { id: 'hard', label: 'Hard Offset (Solid Card)', code: 1 },
+        { id: 'layered', label: 'Layered Elevation (Contact + Soft)', code: 2 },
+        { id: 'inset', label: 'Inner Shadow (Inset over Source)', code: 3 }
+    ];
+    const SHADOW_MODE_MAP = SHARED.SHADOW_MODE_MAP || { soft: 0, hard: 1, layered: 2, inset: 3 };
     const BACKGROUND_MODE_MAP = SHARED.BACKGROUND_MODE_MAP || {
         none: 0,
         person: 1,
@@ -24,7 +31,7 @@
     const PLACEMENT_HINTS = {
         outside: 'Expands the OBS canvas evenly outward so borders sit outside your 16:9 video cleanly.',
         center: 'Straddles the source edge half inside and half outside; auto-expands for the outer half + glow.',
-        inside: 'Renders strictly inside your 16:9 source dimensions with zero canvas expansion.'
+        inside: 'Renders strictly inside your 16:9 source dimensions (0px expansion — outer shadows & external glow are unavailable; Inner Glow & Inner Shadow still work).'
     };
 
     function parseTabFromHash() {
@@ -128,6 +135,17 @@
                 animSel.appendChild(og);
             }
         }
+
+        const shSel = document.getElementById('ob-shadow-mode');
+        if (shSel) {
+            shSel.innerHTML = '';
+            for (const m of SHADOW_MODES) {
+                const o = document.createElement('option');
+                o.value = m.id;
+                o.textContent = m.label;
+                shSel.appendChild(o);
+            }
+        }
     }
 
     function updateBgFieldVisibility(bgMode) {
@@ -171,6 +189,21 @@
         toggleSect('ob-sect-inner', 'ob-inner-body', innerOn);
         toggleSect('ob-sect-outer', 'ob-outer-body', outerOn);
         toggleSect('ob-sect-glow', 'ob-glow-body', glowOn);
+        toggleSect('ob-sect-shadow', 'ob-shadow-body', Boolean(p.shadow?.enabled));
+
+        const shMode = p.shadow?.mode || 'soft';
+        const isInside = normalizePlacement(p.placement) === 'inside';
+        const shBlurWrap = document.getElementById('ob-shadow-blur-wrap');
+        if (shBlurWrap) shBlurWrap.hidden = shMode === 'hard';
+        const shInsetWrap = document.getElementById('ob-shadow-inset-wrap');
+        if (shInsetWrap) shInsetWrap.hidden = shMode !== 'inset';
+        const glowInsideNote = document.getElementById('ob-glow-inside-note');
+        if (glowInsideNote) glowInsideNote.hidden = !isInside || Boolean(p.glow?.inner);
+        const shInsideNote = document.getElementById('ob-shadow-inside-note');
+        if (shInsideNote) shInsideNote.hidden = !isInside || shMode === 'inset';
+        document.querySelectorAll('#ob-shadow-mode option').forEach(opt => {
+            if (opt.value !== 'inset') opt.disabled = isInside;
+        });
 
         const innerAng = document.getElementById('ob-inner-angle-wrap');
         if (innerAng) innerAng.hidden = !p.inner?.gradient;
@@ -369,6 +402,16 @@
         p.glow.neon = Boolean(document.getElementById('ob-glow-neon')?.checked);
         p.glow.inner = Boolean(document.getElementById('ob-glow-inner')?.checked);
 
+        if (!p.shadow || typeof p.shadow !== 'object') p.shadow = {};
+        p.shadow.enabled = Boolean(document.getElementById('ob-shadow-enabled')?.checked);
+        p.shadow.mode = document.getElementById('ob-shadow-mode')?.value || 'soft';
+        p.shadow.color = getFieldRawValue('ob-shadow-color', '#000000B3');
+        p.shadow.offsetX = getFieldRawValue('ob-shadow-x', 10);
+        p.shadow.offsetY = getFieldRawValue('ob-shadow-y', 14);
+        p.shadow.blur = getFieldRawValue('ob-shadow-blur', 24);
+        p.shadow.spread = getFieldRawValue('ob-shadow-spread', 0);
+        p.shadow.multiply = Boolean(document.getElementById('ob-shadow-multiply')?.checked ?? true);
+
         p.animation.type = document.getElementById('ob-anim-type')?.value || 'none';
         p.animation.speed = getFieldRawValue('ob-anim-speed', 4);
         p.animation.size = getFieldRawValue('ob-anim-size', 35);
@@ -417,6 +460,11 @@
             { id: 'ob-outer-c2', kind: 'color', label: 'Outer Ring Color 2', pairColorId: 'ob-outer-c2-pick', defaultFallback: '#026E54FF' },
             { id: 'ob-glow-color', kind: 'color', label: 'Glow Color', pairColorId: 'ob-glow-color-pick', defaultFallback: '#38BDF8FF' },
             { id: 'ob-glow-blur', kind: 'number', label: 'Glow Blur', defaultFallback: '16' },
+            { id: 'ob-shadow-color', kind: 'color', label: 'Drop Shadow Color', pairColorId: 'ob-shadow-color-pick', defaultFallback: '#000000B3' },
+            { id: 'ob-shadow-x', kind: 'number', label: 'Shadow Offset X', defaultFallback: '10' },
+            { id: 'ob-shadow-y', kind: 'number', label: 'Shadow Offset Y', defaultFallback: '14' },
+            { id: 'ob-shadow-blur', kind: 'number', label: 'Shadow Blur', defaultFallback: '24' },
+            { id: 'ob-shadow-spread', kind: 'number', label: 'Shadow Spread', defaultFallback: '0' },
             { id: 'ob-anim-speed', kind: 'number', label: 'Animation Speed', defaultFallback: '4' },
             { id: 'ob-anim-c2', kind: 'color', label: 'Beam Color', pairColorId: 'ob-anim-c2-pick', defaultFallback: '#FFFFFFFF' },
             { id: 'ob-anim-size', kind: 'number', label: 'Beam Arc', defaultFallback: '35' },
@@ -494,6 +542,17 @@
         setControlValue('ob-glow-blur', p.glow?.blur ?? 16, 16);
         setControlValue('ob-glow-neon', Boolean(p.glow?.neon), false);
         setControlValue('ob-glow-inner', Boolean(p.glow?.inner), false);
+
+        const sh = p.shadow || {};
+        setControlValue('ob-shadow-enabled', Boolean(sh.enabled), false);
+        setControlValue('ob-shadow-mode', SHADOW_MODE_MAP[sh.mode] !== undefined ? sh.mode : 'soft', 'soft');
+        setControlValue('ob-shadow-color', sh.color, '#000000B3', { isColor: true });
+        syncColorPicker('ob-shadow-color', 'ob-shadow-color-pick');
+        setControlValue('ob-shadow-x', sh.offsetX ?? 10, 10);
+        setControlValue('ob-shadow-y', sh.offsetY ?? 14, 14);
+        setControlValue('ob-shadow-blur', sh.blur ?? 24, 24);
+        setControlValue('ob-shadow-spread', sh.spread ?? 0, 0);
+        setControlValue('ob-shadow-multiply', sh.multiply !== undefined ? Boolean(sh.multiply) : true, true);
 
         setControlValue('ob-anim-type', normalizeAnimAlias(p.animation?.type || 'none'), 'none');
         setControlValue('ob-anim-speed', p.animation?.speed ?? 4, 4);
@@ -1170,6 +1229,14 @@
         uniform float glow_neon;
         uniform float glow_inner;
 
+        uniform float shadow_enabled;
+        uniform float shadow_mode;
+        uniform vec4 shadow_color;
+        uniform vec2 shadow_offset;
+        uniform float shadow_blur;
+        uniform float shadow_spread;
+        uniform float shadow_multiply;
+
         uniform float anim_type;
         uniform float anim_time;
         uniform float anim_speed;
@@ -1196,6 +1263,17 @@
             float rad = (p.y > 0.0) ? r_sel.y : r_sel.x;
             rad = min(rad, min(b.x, b.y));
             vec2 q = abs(p) - b + rad;
+            return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - rad;
+        }
+
+        float sdShapeBox(vec2 p, vec2 b, vec4 r, float sharp_zero) {
+            vec2 r_sel = (p.x > 0.0) ? vec2(r.y, r.z) : vec2(r.x, r.w);
+            float rad = (p.y > 0.0) ? r_sel.y : r_sel.x;
+            rad = min(rad, min(b.x, b.y));
+            vec2 q = abs(p) - b + rad;
+            if (sharp_zero > 0.5 && rad <= 0.001) {
+                return max(q.x, q.y);
+            }
             return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - rad;
         }
 
@@ -1230,6 +1308,29 @@
             float cut2 = max((b.x - c) - ap.x, (b.y - s) - ap.y);
             float d_cut = min(cut1, cut2);
             return max(d_rect, -d_cut);
+        }
+
+        float evalShapeSDF(vec2 p, vec2 half_base, vec4 r, float clip_style, float inner_en, float in_t, float out_t, float sharp_zero) {
+            if (clip_style > 11.5 && clip_style < 12.5) {
+                return sdChamferBox(p, half_base, r.x);
+            } else if (clip_style > 12.5 && clip_style < 13.5) {
+                return sdNotchedBox(p, half_base, r.x);
+            } else if (clip_style > 18.5 && clip_style < 19.5) {
+                float st = (inner_en > 0.5) ? in_t : out_t;
+                return sdPixelBox(p, half_base, st);
+            }
+            return sdShapeBox(p, half_base, r, sharp_zero);
+        }
+
+        float evalSoftShadowAlpha(float dist, float blur_px) {
+            if (blur_px < 0.75) {
+                return 1.0 - smoothstep(-0.75, 0.75, dist);
+            }
+            float b = max(blur_px, 1.0);
+            float sigma = max(b * 0.45, 0.75);
+            float x = max(0.0, dist + b * 0.15);
+            float fade = 1.0 - smoothstep(b * 1.15, b * 1.65, max(0.0, dist));
+            return clamp(exp(-(x * x) / (2.0 * sigma * sigma)) * fade, 0.0, 1.0);
         }
 
         float clockwisePerimDist(vec2 p, vec2 half_base) {
@@ -1684,16 +1785,8 @@
             vec2 p = pixel_pos - center;
             vec2 half_base = base_size * 0.5;
 
-            float d_shape = sdRoundedBox(p, half_base, radii);
             float clip_style = (inner_enabled > 0.5) ? inner_style : outer_style;
-            if (clip_style > 11.5 && clip_style < 12.5) {
-                d_shape = sdChamferBox(p, half_base, radii.x);
-            } else if (clip_style > 12.5 && clip_style < 13.5) {
-                d_shape = sdNotchedBox(p, half_base, radii.x);
-            } else if (clip_style > 18.5 && clip_style < 19.5) {
-                float st = (inner_enabled > 0.5) ? inner_thickness : outer_thickness;
-                d_shape = sdPixelBox(p, half_base, st);
-            }
+            float d_shape = evalShapeSDF(p, half_base, radii, clip_style, inner_enabled, inner_thickness, outer_thickness, 1.0);
 
             vec2 video_uv = (pixel_pos - pad_xy) / max(base_size, vec2(1.0, 1.0));
             vec4 video_col = vec4(0.0);
@@ -1760,6 +1853,47 @@
             }
 
             float glow_edge = (outer_enabled > 0.5 && total_outer > 0.0) ? out_end : in_end;
+            float shadow_edge = (outer_enabled > 0.5 && total_outer > 0.0)
+                ? out_end
+                : ((inner_enabled > 0.5 && total_inner > 0.0) ? in_end : 0.0);
+            float inset_edge = (inner_enabled > 0.5 && total_inner > 0.0)
+                ? min(0.0, in_start)
+                : ((outer_enabled > 0.5 && total_outer > 0.0) ? min(0.0, out_start) : 0.0);
+
+            if (shadow_enabled > 0.5 && shadow_mode >= 2.5 && d_shape <= inset_edge + 0.75) {
+                float sharp_in = (shadow_blur < 0.75) ? 1.0 : 0.0;
+                float d_in_sh = evalShapeSDF(p - shadow_offset, half_base, radii, clip_style, inner_enabled, inner_thickness, outer_thickness, sharp_in) - (inset_edge - shadow_spread);
+                float sa_in = evalSoftShadowAlpha(-d_in_sh, shadow_blur);
+                float sh_ia = clamp(shadow_color.a * sa_in, 0.0, 1.0) * video_mask;
+                if (shadow_multiply > 0.5) {
+                    video_col.rgb *= mix(vec3(1.0), shadow_color.rgb, sh_ia);
+                } else {
+                    vec4 is_pm = vec4(shadow_color.rgb * sh_ia, sh_ia);
+                    video_col = is_pm + video_col * (1.0 - sh_ia);
+                }
+            }
+
+            vec4 shadow_pm = vec4(0.0);
+            if (shadow_enabled > 0.5 && shadow_mode < 2.5 && placement_code < 1.5) {
+                float edge = shadow_edge + shadow_spread;
+                float sa_out = 0.0;
+                if (shadow_mode > 1.5) {
+                    float d_c = evalShapeSDF(p - shadow_offset * 0.35, half_base, radii, clip_style, inner_enabled, inner_thickness, outer_thickness, 0.0);
+                    float d_a = evalShapeSDF(p - shadow_offset, half_base, radii, clip_style, inner_enabled, inner_thickness, outer_thickness, 0.0);
+                    float c_a = evalSoftShadowAlpha(d_c - edge, max(2.0, shadow_blur * 0.28));
+                    float a_a = evalSoftShadowAlpha(d_a - edge, shadow_blur);
+                    sa_out = clamp(max(c_a * 0.65, a_a * 0.75) + 0.2 * c_a * a_a, 0.0, 1.0);
+                } else {
+                    float is_hard = (shadow_mode > 0.5 && shadow_mode < 1.5) ? 1.0 : 0.0;
+                    float eff_blur = (is_hard > 0.5) ? 0.0 : shadow_blur;
+                    float sharp_out = (eff_blur < 0.75) ? 1.0 : 0.0;
+                    float d_sh = evalShapeSDF(p - shadow_offset, half_base, radii, clip_style, inner_enabled, inner_thickness, outer_thickness, sharp_out);
+                    sa_out = evalSoftShadowAlpha(d_sh - edge, eff_blur);
+                }
+                float sh_a = clamp(shadow_color.a * sa_out, 0.0, 1.0) * (1.0 - video_mask);
+                shadow_pm = vec4(shadow_color.rgb * sh_a, sh_a);
+            }
+
             vec4 glow_pm = vec4(0.0);
             if (glow_enabled > 0.5 && glow_blur > 0.5) {
                 float pulse = (anim_type > 5.5 && anim_type < 6.5) ? (0.65 + 0.35 * sin(anim_time / max(anim_speed, 0.25) * 6.2831853)) : 1.0;
@@ -1769,7 +1903,7 @@
                     ga *= (1.0 - smoothstep(glow_blur * 1.4, glow_blur * 1.9, gd_in));
                     float a = clamp(glow_color.a * ga, 0.0, 1.0);
                     glow_pm = vec4(glow_color.rgb * a, a);
-                } else if (d_shape > glow_edge - 0.5) {
+                } else if (glow_inner < 0.5 && placement_code < 1.5 && d_shape > glow_edge - 0.5) {
                     float gd_out = max(0.0, d_shape - glow_edge);
                     float ga = exp(-gd_out / max(glow_blur * 0.45, 1.0)) * 0.75 * pulse;
                     ga *= (1.0 - smoothstep(glow_blur * 1.4, glow_blur * 1.9, gd_out));
@@ -1788,6 +1922,7 @@
             vec4 result = video_col;
             if (glow_inner > 0.5) result = glow_pm + result * (1.0 - glow_pm.a * 0.35);
             else result = result + glow_pm * (1.0 - result.a);
+            result = result + shadow_pm * (1.0 - clamp(result.a, 0.0, 1.0));
             result = border_pm + result * (1.0 - border_pm.a);
 
             if (show_guides > 0.5) {
@@ -1909,6 +2044,7 @@
             'outer_enabled', 'outer_style', 'outer_grad', 'outer_thickness', 'outer_gap',
             'outer_color1', 'outer_color2', 'outer_angle_rad',
             'glow_enabled', 'glow_color', 'glow_blur', 'glow_neon', 'glow_inner',
+            'shadow_enabled', 'shadow_mode', 'shadow_color', 'shadow_offset', 'shadow_blur', 'shadow_spread', 'shadow_multiply',
             'anim_type', 'anim_time', 'anim_speed', 'anim_size', 'anim_dir', 'anim_color2',
             'bg_mode', 'bg_standby', 'bg_color1', 'bg_color2', 'bg_angle_rad', 'bg_icon_color',
             'bg_static_noise', 'bg_static_scale', 'bg_static_speed', 'bg_static_color', 'bg_static_glitch',
@@ -1972,6 +2108,11 @@
         const rawOutT = p.outer?.enabled ? resolveNum(p.outer.thickness, 2, 0, 200) : 0;
         const rawOutGap = resolveNum(p.outer?.gap, 0, 0, 100);
         const rawGlowBlur = p.glow?.enabled ? resolveNum(p.glow.blur, 16, 0, 120) : 0;
+        const shMode = SHADOW_MODE_MAP[p.shadow?.mode] !== undefined ? p.shadow.mode : 'soft';
+        const rawShOffX = p.shadow?.enabled ? resolveNum(p.shadow.offsetX, 10, -150, 150) : 0;
+        const rawShOffY = p.shadow?.enabled ? resolveNum(p.shadow.offsetY, 14, -150, 150) : 0;
+        const rawShBlur = p.shadow?.enabled ? resolveNum(p.shadow.blur, 24, 0, 120) : 0;
+        const rawShSpread = p.shadow?.enabled ? resolveNum(p.shadow.spread, 0, -40, 80) : 0;
         const rawSeamOverlap = Number(p.seamOverlap) || 0;
 
         const inT = rawInT * sizeScale;
@@ -1979,6 +2120,10 @@
         const outT = rawOutT * sizeScale;
         const outGap = rawOutGap * sizeScale;
         const glowBlur = rawGlowBlur * sizeScale;
+        const shOffX = rawShOffX * sizeScale;
+        const shOffY = rawShOffY * sizeScale;
+        const shBlur = rawShBlur * sizeScale;
+        const shSpread = rawShSpread * sizeScale;
         const seamOverlap = rawSeamOverlap * sizeScale;
 
         const autoPadOn = p.autoPad !== false;
@@ -1997,7 +2142,8 @@
                 seamOverlap: rawSeamOverlap,
                 inner: { enabled: Boolean(p.inner?.enabled), style: inStyle, thickness: rawInT, gap: rawInGap },
                 outer: { enabled: Boolean(p.outer?.enabled), style: outStyle, thickness: rawOutT, gap: rawOutGap },
-                glow: { enabled: Boolean(p.glow?.enabled), inner: Boolean(p.glow?.inner), blur: rawGlowBlur }
+                glow: { enabled: Boolean(p.glow?.enabled), inner: Boolean(p.glow?.inner), blur: rawGlowBlur },
+                shadow: { enabled: Boolean(p.shadow?.enabled), mode: shMode, offsetX: rawShOffX, offsetY: rawShOffY, blur: rawShBlur, spread: rawShSpread }
             });
         } else if (placementCode !== 2) {
             refPad = manualPad;
@@ -2016,7 +2162,7 @@
         const scaleNote = autoScaleOn ? ` • Scale: ${sizeScale.toFixed(2)}×` : ' • Fixed px (1.00×)';
         const nextDimsText = pad > 0
             ? `Source: ${baseW}×${baseH} → Expanded: ${totalW}×${totalH} (+${pad}px pad)${scaleNote}`
-            : `Source: ${baseW}×${baseH} (0px expansion — Inside mode)${scaleNote}`;
+            : `Source: ${baseW}×${baseH} (${placementCode === 2 ? '0px expansion — Inside mode' : '0px expansion'})${scaleNote}`;
         if (nextDimsText !== lastDimsText) {
             const dimsEl = document.getElementById('ob-preview-dims');
             if (dimsEl) dimsEl.textContent = nextDimsText;
@@ -2061,6 +2207,7 @@
         const outC1 = hexToRgbaFloats(resolveColor(p.outer?.color1, '#99A443FF'));
         const outC2 = hexToRgbaFloats(resolveColor(p.outer?.color2, '#026E54FF'));
         const glC = hexToRgbaFloats(resolveColor(p.glow?.color, '#38BDF8FF'));
+        const shC = hexToRgbaFloats(resolveColor(p.shadow?.color, '#000000B3'));
         const animType = normalizeAnimAlias(p.animation?.type || 'none');
         const animC2 = hexToRgbaFloats(resolveColor(p.animation?.color2, '#FFFFFFFF'));
         const animDir = p.animation?.direction === 'ccw' ? -1 : (p.animation?.direction === 'alternate' ? 2 : 1);
@@ -2088,6 +2235,14 @@
         gl.uniform1f(u.glow_blur, glowBlur);
         gl.uniform1f(u.glow_neon, p.glow?.neon ? 1 : 0);
         gl.uniform1f(u.glow_inner, p.glow?.inner ? 1 : 0);
+
+        gl.uniform1f(u.shadow_enabled, p.shadow?.enabled ? 1 : 0);
+        gl.uniform1f(u.shadow_mode, SHADOW_MODE_MAP[shMode] ?? 0);
+        gl.uniform4f(u.shadow_color, shC[0], shC[1], shC[2], shC[3]);
+        gl.uniform2f(u.shadow_offset, shOffX, shOffY);
+        gl.uniform1f(u.shadow_blur, shBlur);
+        gl.uniform1f(u.shadow_spread, shSpread);
+        gl.uniform1f(u.shadow_multiply, p.shadow?.multiply !== false ? 1 : 0);
 
         gl.uniform1f(u.anim_type, ANIM_CODE_MAP[animType] ?? 0);
         const elapsedMs = previewPaused ? pausedElapsedMs : Math.max(0, nowMs - animOriginMs);
@@ -2308,6 +2463,7 @@
             populateFormFromProfile();
             renderSourceList();
             renderSetupInfo();
+            if (obsConnected) syncFromObsWebSocket({ quiet: true });
             showToast('Saved & synced to OBS manifest');
         } catch (err) {
             showToast(err.message || 'Save failed');
@@ -2390,6 +2546,7 @@
         bindColorPair('ob-outer-c1', 'ob-outer-c1-pick');
         bindColorPair('ob-outer-c2', 'ob-outer-c2-pick');
         bindColorPair('ob-glow-color', 'ob-glow-color-pick');
+        bindColorPair('ob-shadow-color', 'ob-shadow-color-pick');
         bindColorPair('ob-anim-c2', 'ob-anim-c2-pick');
         bindColorPair('ob-bg-c1', 'ob-bg-c1-pick');
         bindColorPair('ob-bg-c2', 'ob-bg-c2-pick');

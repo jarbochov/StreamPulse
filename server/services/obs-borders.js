@@ -16,6 +16,8 @@ const {
     ANIM_CODE_MAP,
     BACKGROUND_FILL_MODES,
     BACKGROUND_MODE_MAP,
+    SHADOW_MODES,
+    SHADOW_MODE_MAP,
     computeAutoBorderPad
 } = require('../../shared/border-catalog.cjs');
 
@@ -331,6 +333,66 @@ function buildDefaultProfiles() {
                 color2: '#FFFFFFFF',
                 direction: 'cw'
             }
+        },
+        {
+            id: 'floating-shadow',
+            name: 'Floating Drop Shadow (Borderless)',
+            description: 'Clean rounded frame with layered ambient drop shadow and no border ring.',
+            baseWidth: 1920,
+            baseHeight: 1080,
+            placement: 'outside',
+            pad: 52,
+            seamOverlap: 0,
+            perCornerRadius: false,
+            radius: 24,
+            radiusTL: 24,
+            radiusTR: 24,
+            radiusBR: 24,
+            radiusBL: 24,
+            inner: {
+                enabled: false,
+                style: 'solid',
+                gradient: false,
+                thickness: 10,
+                gap: 0,
+                color1: '#FFFFFFFF',
+                color2: '#FFFFFFFF',
+                angle: 180
+            },
+            outer: {
+                enabled: false,
+                style: 'solid',
+                gradient: false,
+                thickness: 2,
+                gap: 0,
+                color1: '#FFFFFFFF',
+                color2: '#FFFFFFFF',
+                angle: 180
+            },
+            glow: {
+                enabled: false,
+                color: '#38BDF8FF',
+                blur: 16,
+                neon: false,
+                inner: false
+            },
+            shadow: {
+                enabled: true,
+                mode: 'layered',
+                color: '#000000BF',
+                offsetX: 8,
+                offsetY: 16,
+                blur: 28,
+                spread: 0,
+                multiply: true
+            },
+            animation: {
+                type: 'none',
+                speed: 4,
+                size: 35,
+                color2: '#FFFFFFFF',
+                direction: 'cw'
+            }
         }
     ];
 }
@@ -403,6 +465,16 @@ function normalizeProfile(raw = {}, fallbackIndex = 0) {
             neon: Boolean(raw.glow?.neon),
             inner: Boolean(raw.glow?.inner)
         },
+        shadow: {
+            enabled: Boolean(raw.shadow?.enabled),
+            mode: SHADOW_MODE_MAP[raw.shadow?.mode] !== undefined ? raw.shadow.mode : 'soft',
+            color: sanitizeColorOrVar(raw.shadow?.color, '#000000B3'),
+            offsetX: sanitizeNumberOrVar(raw.shadow?.offsetX, 10, -150, 150),
+            offsetY: sanitizeNumberOrVar(raw.shadow?.offsetY, 14, -150, 150),
+            blur: sanitizeNumberOrVar(raw.shadow?.blur, 24, 0, 120),
+            spread: sanitizeNumberOrVar(raw.shadow?.spread, 0, -40, 80),
+            multiply: raw.shadow?.multiply !== undefined ? Boolean(raw.shadow.multiply) : true
+        },
         animation: {
             type: normalizeAnimAlias(raw.animation?.type || defaults.animation.type),
             speed: sanitizeNumberOrVar(raw.animation?.speed, defaults.animation.speed, 0.25, 60),
@@ -437,6 +509,7 @@ function resolveProfileForManifest(profile, varValues = {}) {
     const outerColor1 = col(profile.outer?.color1, '#99A443FF');
     const outerColor2 = col(profile.outer?.color2, '#026E54FF');
     const glowColor = col(profile.glow?.color, '#38BDF8FF');
+    const shadowColor = col(profile.shadow?.color, '#000000B3');
     const animColor2 = col(profile.animation?.color2, '#FFFFFFFF');
 
     const innerStyle = normalizeStyleAlias(profile.inner?.style || 'solid');
@@ -478,6 +551,19 @@ function resolveProfileForManifest(profile, varValues = {}) {
         neon: Boolean(profile.glow?.neon),
         inner: Boolean(profile.glow?.inner)
     };
+    const shMode = SHADOW_MODE_MAP[profile.shadow?.mode] !== undefined ? profile.shadow.mode : 'soft';
+    const shadowResolved = {
+        enabled: Boolean(profile.shadow?.enabled),
+        mode: shMode,
+        modeCode: SHADOW_MODE_MAP[shMode] ?? 0,
+        color: shadowColor,
+        colorRgba: hexToRgbaFloats(shadowColor, [0, 0, 0, 0.7]),
+        offsetX: num(profile.shadow?.offsetX, 10, -150, 150),
+        offsetY: num(profile.shadow?.offsetY, 14, -150, 150),
+        blur: num(profile.shadow?.blur, 24, 0, 120),
+        spread: num(profile.shadow?.spread, 0, -40, 80),
+        multiply: profile.shadow?.multiply !== undefined ? Boolean(profile.shadow.multiply) : true
+    };
 
     const bgRaw = normalizeBackground(profile.background || {});
     const bgColor1 = col(profile.background?.color1 ?? bgRaw.color1, '#16202FFF');
@@ -496,7 +582,8 @@ function resolveProfileForManifest(profile, varValues = {}) {
         seamOverlap: profile.seamOverlap,
         inner: innerResolved,
         outer: outerResolved,
-        glow: glowResolved
+        glow: glowResolved,
+        shadow: shadowResolved
     });
 
     return {
@@ -517,6 +604,7 @@ function resolveProfileForManifest(profile, varValues = {}) {
         inner: innerResolved,
         outer: outerResolved,
         glow: glowResolved,
+        shadow: shadowResolved,
         animation: {
             type: animType,
             typeCode: ANIM_CODE_MAP[animType] ?? 0,
@@ -570,6 +658,7 @@ local manifest_last_sig = ""
 local profiles_by_id = {}
 local assignment_rules = {}
 local scene_scales = {}
+local live_scene_scales = {}
 local default_profile_id = "dual-gradient"
 local active_scene_name = ""
 
@@ -607,6 +696,14 @@ uniform float4 glow_color;
 uniform float glow_blur;
 uniform float glow_neon;
 uniform float glow_inner;
+
+uniform float shadow_enabled;
+uniform float shadow_mode;
+uniform float4 shadow_color;
+uniform float2 shadow_offset;
+uniform float shadow_blur;
+uniform float shadow_spread;
+uniform float shadow_multiply;
 
 uniform float anim_type;
 uniform float anim_time;
@@ -658,6 +755,17 @@ float sdRoundedBox(float2 p, float2 b, float4 r) {
     return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - rad;
 }
 
+float sdShapeBox(float2 p, float2 b, float4 r, float sharp_zero) {
+    float2 r_sel = (p.x > 0.0) ? float2(r.y, r.z) : float2(r.x, r.w);
+    float rad = (p.y > 0.0) ? r_sel.y : r_sel.x;
+    rad = min(rad, min(b.x, b.y));
+    float2 q = abs(p) - b + rad;
+    if (sharp_zero > 0.5 && rad <= 0.001) {
+        return max(q.x, q.y);
+    }
+    return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - rad;
+}
+
 float sdChamferBox(float2 p, float2 b, float ch) {
     float2 ap = abs(p);
     float d_rect = max(ap.x - b.x, ap.y - b.y);
@@ -690,6 +798,29 @@ float sdPixelBox(float2 p, float2 b, float step_sz) {
     float cut2 = max((b.x - c) - ap.x, (b.y - s) - ap.y);
     float d_cut = min(cut1, cut2);
     return max(d_rect, -d_cut);
+}
+
+float evalShapeSDF(float2 p, float2 half_base, float4 r, float clip_style, float inner_en, float in_t, float out_t, float sharp_zero) {
+    if (clip_style > 11.5 && clip_style < 12.5) {
+        return sdChamferBox(p, half_base, r.x);
+    } else if (clip_style > 12.5 && clip_style < 13.5) {
+        return sdNotchedBox(p, half_base, r.x);
+    } else if (clip_style > 18.5 && clip_style < 19.5) {
+        float st = (inner_en > 0.5) ? in_t : out_t;
+        return sdPixelBox(p, half_base, st);
+    }
+    return sdShapeBox(p, half_base, r, sharp_zero);
+}
+
+float evalSoftShadowAlpha(float dist, float blur_px) {
+    if (blur_px < 0.75) {
+        return 1.0 - smoothstep(-0.75, 0.75, dist);
+    }
+    float b = max(blur_px, 1.0);
+    float sigma = max(b * 0.45, 0.75);
+    float x = max(0.0, dist + b * 0.15);
+    float fade = 1.0 - smoothstep(b * 1.15, b * 1.65, max(0.0, dist));
+    return clamp(exp(-(x * x) / (2.0 * sigma * sigma)) * fade, 0.0, 1.0);
 }
 
 float clockwisePerimDist(float2 p, float2 half_base) {
@@ -1250,16 +1381,8 @@ float4 PSDefault(VertDataOut v_in) : TARGET {
     float2 p = pixel_pos - center;
     float2 half_base = base_size * 0.5;
 
-    float d_shape = sdRoundedBox(p, half_base, radii);
     float clip_style = (inner_enabled > 0.5) ? inner_style : outer_style;
-    if (clip_style > 11.5 && clip_style < 12.5) {
-        d_shape = sdChamferBox(p, half_base, radii.x);
-    } else if (clip_style > 12.5 && clip_style < 13.5) {
-        d_shape = sdNotchedBox(p, half_base, radii.x);
-    } else if (clip_style > 18.5 && clip_style < 19.5) {
-        float st = (inner_enabled > 0.5) ? inner_thickness : outer_thickness;
-        d_shape = sdPixelBox(p, half_base, st);
-    }
+    float d_shape = evalShapeSDF(p, half_base, radii, clip_style, inner_enabled, inner_thickness, outer_thickness, 1.0);
 
     // Sample video content safely and apply premultiplied corner clip
     float2 video_uv = (pixel_pos - pad_xy) / max(base_size, float2(1.0, 1.0));
@@ -1331,6 +1454,48 @@ float4 PSDefault(VertDataOut v_in) : TARGET {
     }
 
     float glow_edge = (outer_enabled > 0.5 && total_outer > 0.0) ? out_end : in_end;
+    float shadow_edge = (outer_enabled > 0.5 && total_outer > 0.0)
+        ? out_end
+        : ((inner_enabled > 0.5 && total_inner > 0.0) ? in_end : 0.0);
+    float inset_edge = (inner_enabled > 0.5 && total_inner > 0.0)
+        ? min(0.0, in_start)
+        : ((outer_enabled > 0.5 && total_outer > 0.0) ? min(0.0, out_start) : 0.0);
+
+    // Inner Shadow (inset over source video/background with optional true Multiply blend)
+    if (shadow_enabled > 0.5 && shadow_mode >= 2.5 && d_shape <= inset_edge + 0.75) {
+        float sharp_in = (shadow_blur < 0.75) ? 1.0 : 0.0;
+        float d_in_sh = evalShapeSDF(p - shadow_offset, half_base, radii, clip_style, inner_enabled, inner_thickness, outer_thickness, sharp_in) - (inset_edge - shadow_spread);
+        float sa_in = evalSoftShadowAlpha(-d_in_sh, shadow_blur);
+        float sh_ia = clamp(shadow_color.a * sa_in, 0.0, 1.0) * video_mask;
+        if (shadow_multiply > 0.5) {
+            video_col.rgb *= lerp(float3(1.0, 1.0, 1.0), shadow_color.rgb, sh_ia);
+        } else {
+            float4 is_pm = float4(shadow_color.rgb * sh_ia, sh_ia);
+            video_col = is_pm + video_col * (1.0 - sh_ia);
+        }
+    }
+
+    float4 shadow_pm = float4(0.0, 0.0, 0.0, 0.0);
+    if (shadow_enabled > 0.5 && shadow_mode < 2.5 && placement_code < 1.5) {
+        float edge = shadow_edge + shadow_spread;
+        float sa_out = 0.0;
+        if (shadow_mode > 1.5) {
+            float d_c = evalShapeSDF(p - shadow_offset * 0.35, half_base, radii, clip_style, inner_enabled, inner_thickness, outer_thickness, 0.0);
+            float d_a = evalShapeSDF(p - shadow_offset, half_base, radii, clip_style, inner_enabled, inner_thickness, outer_thickness, 0.0);
+            float c_a = evalSoftShadowAlpha(d_c - edge, max(2.0, shadow_blur * 0.28));
+            float a_a = evalSoftShadowAlpha(d_a - edge, shadow_blur);
+            sa_out = clamp(max(c_a * 0.65, a_a * 0.75) + 0.2 * c_a * a_a, 0.0, 1.0);
+        } else {
+            float is_hard = (shadow_mode > 0.5 && shadow_mode < 1.5) ? 1.0 : 0.0;
+            float eff_blur = (is_hard > 0.5) ? 0.0 : shadow_blur;
+            float sharp_out = (eff_blur < 0.75) ? 1.0 : 0.0;
+            float d_sh = evalShapeSDF(p - shadow_offset, half_base, radii, clip_style, inner_enabled, inner_thickness, outer_thickness, sharp_out);
+            sa_out = evalSoftShadowAlpha(d_sh - edge, eff_blur);
+        }
+        float sh_a = clamp(shadow_color.a * sa_out, 0.0, 1.0) * (1.0 - video_mask);
+        shadow_pm = float4(shadow_color.rgb * sh_a, sh_a);
+    }
+
     float4 glow_pm = float4(0.0, 0.0, 0.0, 0.0);
     if (glow_enabled > 0.5 && glow_blur > 0.5) {
         float pulse = (anim_type > 5.5 && anim_type < 6.5) ? (0.65 + 0.35 * sin(anim_time / max(anim_speed, 0.25) * 6.2831853)) : 1.0;
@@ -1340,7 +1505,7 @@ float4 PSDefault(VertDataOut v_in) : TARGET {
             ga *= (1.0 - smoothstep(glow_blur * 1.4, glow_blur * 1.9, gd_in));
             float a = clamp(glow_color.a * ga, 0.0, 1.0);
             glow_pm = float4(glow_color.rgb * a, a);
-        } else if (d_shape > glow_edge - 0.5) {
+        } else if (glow_inner < 0.5 && placement_code < 1.5 && d_shape > glow_edge - 0.5) {
             float gd_out = max(0.0, d_shape - glow_edge);
             float ga = exp(-gd_out / max(glow_blur * 0.45, 1.0)) * 0.75 * pulse;
             ga *= (1.0 - smoothstep(glow_blur * 1.4, glow_blur * 1.9, gd_out));
@@ -1356,13 +1521,14 @@ float4 PSDefault(VertDataOut v_in) : TARGET {
         }
     }
 
-    // Composite premultiplied stack: border over glow over video
+    // Composite premultiplied stack: border over glow & video over drop shadow
     float4 result = video_col;
     if (glow_inner > 0.5) {
         result = glow_pm + result * (1.0 - glow_pm.a * 0.35);
     } else {
         result = result + glow_pm * (1.0 - result.a);
     }
+    result = result + shadow_pm * (1.0 - clamp(result.a, 0.0, 1.0));
     result = border_pm + result * (1.0 - border_pm.a);
     return result;
 }
@@ -1431,6 +1597,7 @@ local function parse_profile_block(block)
     local inner_raw = extract_object_raw(block, "inner") or "{}"
     local outer_raw = extract_object_raw(block, "outer") or "{}"
     local glow_raw  = extract_object_raw(block, "glow") or "{}"
+    local shad_raw  = extract_object_raw(block, "shadow") or "{}"
     local anim_raw  = extract_object_raw(block, "animation") or "{}"
     local bg_raw    = extract_object_raw(block, "background") or "{}"
 
@@ -1470,6 +1637,16 @@ local function parse_profile_block(block)
             blur = extract_number(glow_raw, "blur", 16),
             neon = extract_bool(glow_raw, "neon", false) and 1.0 or 0.0,
             inner = extract_bool(glow_raw, "inner", false) and 1.0 or 0.0
+        },
+        shadow = {
+            enabled = extract_bool(shad_raw, "enabled", false) and 1.0 or 0.0,
+            modeCode = extract_number(shad_raw, "modeCode", 0),
+            colorRgba = parse_number_array(extract_array_raw(shad_raw, "colorRgba") or "[0,0,0,0.7]"),
+            offsetX = extract_number(shad_raw, "offsetX", 10),
+            offsetY = extract_number(shad_raw, "offsetY", 14),
+            blur = extract_number(shad_raw, "blur", 24),
+            spread = extract_number(shad_raw, "spread", 0),
+            multiply = extract_bool(shad_raw, "multiply", true) and 1.0 or 0.0
         },
         animation = {
             typeCode = extract_number(anim_raw, "typeCode", 0),
@@ -1543,11 +1720,85 @@ local function reload_manifest(force)
     return true
 end
 
+local function collect_live_scene_scales(scene_obj, scene_name, parent_scale, out_map)
+    if scene_obj == nil or not obs.obs_scene_enum_items then return end
+    local items = obs.obs_scene_enum_items(scene_obj)
+    if items == nil then return end
+    local sv = obs.vec2()
+    local bv = obs.vec2()
+    for _, item in ipairs(items) do
+        local src = obs.obs_sceneitem_get_source(item)
+        if src ~= nil then
+            local sname = obs.obs_source_get_name(src) or ""
+            local sx = 1.0
+            local sy = 1.0
+            if obs.obs_sceneitem_get_scale then
+                obs.obs_sceneitem_get_scale(item, sv)
+                sx = math.abs(sv.x or 1.0)
+                sy = math.abs(sv.y or 1.0)
+            end
+            local eff_item_scale = math.max(0.05, math.min(sx, sy)) * (parent_scale or 1.0)
+            if obs.obs_sceneitem_get_bounds_type and obs.obs_sceneitem_get_bounds then
+                local btype = obs.obs_sceneitem_get_bounds_type(item)
+                if btype ~= nil and btype ~= (obs.OBS_BOUNDS_NONE or 0) then
+                    obs.obs_sceneitem_get_bounds(item, bv)
+                    local sw = obs.obs_source_get_width(src)
+                    local sh = obs.obs_source_get_height(src)
+                    if sw > 0 and sh > 0 and bv.x > 1 and bv.y > 1 then
+                        eff_item_scale = math.max(0.05, math.min(bv.x / sw, bv.y / sh)) * (parent_scale or 1.0)
+                    end
+                end
+            end
+            if sname ~= "" then
+                local k = scene_name .. "::" .. sname
+                local visible = (not obs.obs_sceneitem_visible) or obs.obs_sceneitem_visible(item)
+                if out_map[k] == nil or visible then
+                    out_map[k] = eff_item_scale
+                end
+            end
+            if obs.obs_sceneitem_is_group and obs.obs_sceneitem_is_group(item) and obs.obs_sceneitem_group_enum_items then
+                local gitems = obs.obs_sceneitem_group_enum_items(item)
+                if gitems ~= nil then
+                    for _, gitem in ipairs(gitems) do
+                        local gsrc = obs.obs_sceneitem_get_source(gitem)
+                        if gsrc ~= nil then
+                            local gname = obs.obs_source_get_name(gsrc) or ""
+                            local gsx, gsy = 1.0, 1.0
+                            if obs.obs_sceneitem_get_scale then
+                                obs.obs_sceneitem_get_scale(gitem, sv)
+                                gsx = math.abs(sv.x or 1.0)
+                                gsy = math.abs(sv.y or 1.0)
+                            end
+                            local geff = math.max(0.05, math.min(gsx, gsy)) * eff_item_scale
+                            if gname ~= "" then
+                                local gk = scene_name .. "::" .. gname
+                                out_map[gk] = geff
+                            end
+                        end
+                    end
+                    obs.sceneitem_list_release(gitems)
+                end
+            end
+        end
+    end
+    obs.sceneitem_list_release(items)
+end
+
 local function refresh_active_scene_name()
     if obs.obs_frontend_get_current_scene then
         local sc = obs.obs_frontend_get_current_scene()
         if sc ~= nil then
             active_scene_name = obs.obs_source_get_name(sc) or ""
+            if active_scene_name ~= "" and obs.obs_scene_from_source then
+                local scene_obj = obs.obs_scene_from_source(sc)
+                if scene_obj ~= nil then
+                    local next_live = {}
+                    pcall(collect_live_scene_scales, scene_obj, active_scene_name, 1.0, next_live)
+                    for k, v in pairs(next_live) do
+                        live_scene_scales[k] = v
+                    end
+                end
+            end
             obs.obs_source_release(sc)
         end
     end
@@ -1640,6 +1891,7 @@ filter_def.create = function(settings, source)
             "outer_enabled", "outer_style", "outer_grad", "outer_thickness", "outer_gap",
             "outer_color1", "outer_color2", "outer_angle_rad",
             "glow_enabled", "glow_color", "glow_blur", "glow_neon", "glow_inner",
+            "shadow_enabled", "shadow_mode", "shadow_color", "shadow_offset", "shadow_blur", "shadow_spread", "shadow_multiply",
             "anim_type", "anim_time", "anim_speed", "anim_size", "anim_dir", "anim_color2",
             "bg_mode", "bg_standby", "bg_color1", "bg_color2", "bg_angle_rad", "bg_icon_color",
             "bg_static_noise", "bg_static_scale", "bg_static_speed", "bg_static_color", "bg_static_glitch"
@@ -1728,7 +1980,8 @@ filter_def.video_tick = function(data, seconds)
     local target_name = name_src and obs.obs_source_get_name(name_src) or ""
     local tx_scale = 1.0
     if active_scene_name ~= "" and target_name ~= "" then
-        local sc_val = scene_scales[active_scene_name .. "::" .. target_name]
+        local live_key = active_scene_name .. "::" .. target_name
+        local sc_val = live_scene_scales[live_key] or scene_scales[live_key]
         if sc_val ~= nil and sc_val > 0.05 then tx_scale = sc_val end
     end
 
@@ -1738,7 +1991,7 @@ filter_def.video_tick = function(data, seconds)
         local cur_min = math.max(1.0, math.min(bw, bh))
         scale = math.max(0.25, math.min(4.0, cur_min / ref_min))
     elseif tx_scale < 0.999 or tx_scale > 1.001 then
-        scale = math.max(0.25, math.min(4.0, 1.0 / tx_scale))
+        scale = math.max(0.25, math.min(8.0, 1.0 / tx_scale))
     end
     data.size_scale = scale
 
@@ -1804,6 +2057,15 @@ filter_def.video_render = function(data)
     obs.gs_effect_set_float(p.glow_blur, (prof.glow.blur or 16.0) * sc)
     obs.gs_effect_set_float(p.glow_neon, prof.glow.neon or 0.0)
     obs.gs_effect_set_float(p.glow_inner, prof.glow.inner or 0.0)
+
+    local sh = prof.shadow or {}
+    obs.gs_effect_set_float(p.shadow_enabled, sh.enabled or 0.0)
+    obs.gs_effect_set_float(p.shadow_mode, sh.modeCode or 0.0)
+    set_vec4(v4, p.shadow_color, sh.colorRgba)
+    set_vec2(v2, p.shadow_offset, (sh.offsetX or 10.0) * sc, (sh.offsetY or 14.0) * sc)
+    obs.gs_effect_set_float(p.shadow_blur, (sh.blur or 24.0) * sc)
+    obs.gs_effect_set_float(p.shadow_spread, (sh.spread or 0.0) * sc)
+    obs.gs_effect_set_float(p.shadow_multiply, sh.multiply ~= nil and sh.multiply or 1.0)
 
     obs.gs_effect_set_float(p.anim_type, prof.animation.typeCode or 0.0)
     obs.gs_effect_set_float(p.anim_time, data.anim_time or 0.0)
@@ -2395,6 +2657,8 @@ module.exports = {
     BORDER_STYLES,
     PLACEMENT_MODES,
     ANIMATION_TYPES,
+    SHADOW_MODES,
+    SHADOW_MODE_MAP,
     resolveProfileForManifest,
     hexToRgbaFloats
 };

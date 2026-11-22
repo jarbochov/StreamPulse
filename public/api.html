@@ -1061,9 +1061,9 @@
                 },
                 {
                     method: 'POST', path: '/api/obs-borders/profile',
-                    desc: 'Create or update a border profile',
-                    body: '{ "profile": { "id": "dual-gradient-bundle", "name": "Dual Gradient", "placement": "outset", "pad": 48, "radius": 20 }, "setActive": false }',
-                    details: 'Saves the profile, updates data/obs-borders/manifest.json immediately so OBS hot-reloads within 0.5s, and broadcasts obs-borders-update over WebSocket.'
+                    desc: 'Create or update a border profile (borders, glow, independent Drop Shadow, animations & standby fill)',
+                    body: '{ "profile": { "id": "floating-shadow-cam", "name": "Floating Cam", "placement": "outside", "radius": 24, "inner": { "enabled": false }, "outer": { "enabled": false }, "shadow": { "enabled": true, "mode": "layered", "color": "#000000BF", "offsetX": 8, "offsetY": 16, "blur": 28, "spread": 0, "multiply": true } }, "setActive": false }',
+                    details: 'Saves the profile, updates data/obs-borders/manifest.json immediately so OBS hot-reloads within 0.5s, and broadcasts obs-borders-update over WebSocket. shadow.mode supports "soft", "hard", "layered", and "inset" (per-pixel Multiply over video).'
                 },
                 {
                     method: 'POST', path: '/api/obs-borders/import-scenes',

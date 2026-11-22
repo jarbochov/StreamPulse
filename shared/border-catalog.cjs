@@ -137,6 +137,15 @@ const BACKGROUND_MODE_MAP = {
     'tv-static': 4
 };
 
+const SHADOW_MODES = [
+    { id: 'soft', label: 'Soft Drop (Feathered)', code: 0 },
+    { id: 'hard', label: 'Hard Offset (Solid Card)', code: 1 },
+    { id: 'layered', label: 'Layered Elevation (Contact + Soft)', code: 2 },
+    { id: 'inset', label: 'Inner Shadow (Inset over Source)', code: 3 }
+];
+
+const SHADOW_MODE_MAP = Object.fromEntries(SHADOW_MODES.map(m => [m.id, m.code]));
+
 function clampFinite(val, fallback, min, max) {
     const n = Number(val);
     if (!Number.isFinite(n)) return fallback;
@@ -191,8 +200,20 @@ function computeAutoBorderPad(profile = {}) {
     const glowBlur = glowEnabled ? clampFinite(profile.glow?.blur, 16, 0, 120) : 0;
     const glowBleed = glowBlur > 0.5 ? Math.ceil(glowBlur * 1.65) : 0;
 
-    const minSafeBleed = (inT > 0 || outT > 0 || glowBleed > 0) ? 2 : 0;
-    const totalBleed = Math.ceil(outerBorderReach + Math.max(finialOverhang, glowBleed) + extraPad + minSafeBleed);
+    const shMode = String(profile.shadow?.mode || 'soft').toLowerCase();
+    const shadowEnabled = Boolean(profile.shadow?.enabled) && shMode !== 'inset';
+    let shadowBleed = 0;
+    if (shadowEnabled) {
+        const shOffX = Math.abs(clampFinite(profile.shadow?.offsetX, 10, -150, 150));
+        const shOffY = Math.abs(clampFinite(profile.shadow?.offsetY, 14, -150, 150));
+        const shSpread = clampFinite(profile.shadow?.spread, 0, -40, 80);
+        const shBlur = shMode === 'hard' ? 0 : clampFinite(profile.shadow?.blur, 24, 0, 120);
+        const tail = shBlur > 0.5 ? (shBlur * 1.65) : 2;
+        shadowBleed = Math.max(0, Math.ceil(Math.max(shOffX, shOffY) + shSpread + tail));
+    }
+
+    const minSafeBleed = (inT > 0 || outT > 0 || glowBleed > 0 || shadowBleed > 0) ? 2 : 0;
+    const totalBleed = Math.ceil(outerBorderReach + Math.max(finialOverhang, glowBleed, shadowBleed) + extraPad + minSafeBleed);
     return Math.max(0, Math.min(400, totalBleed));
 }
 
@@ -205,5 +226,7 @@ module.exports = {
     ANIM_CODE_MAP,
     BACKGROUND_FILL_MODES,
     BACKGROUND_MODE_MAP,
+    SHADOW_MODES,
+    SHADOW_MODE_MAP,
     computeAutoBorderPad
 };
