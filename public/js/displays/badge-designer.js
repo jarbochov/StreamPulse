@@ -60,27 +60,42 @@ function gradientFields(s, key = 'gradient', prefix = 'style') {
 
 const fillControl = (s, key, label, solidField, prefix = 'style') => fillSeg(s, key, label, prefix) + (s[key]?.enabled ? gradientFields(s, key, prefix) : solidField);
 
-const BORDER_STYLE_OPTIONS = [
-    { group: 'Standard', options: [['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted'], ['double', 'Double']] },
-    { group: '3D Bevel', options: [['groove', '3D Groove'], ['ridge', '3D Ridge'], ['inset', '3D Inset'], ['outset', '3D Outset']] },
-    { group: 'Broadcast & Tech HUD', options: [
-        ['neon-tube', 'Neon tube (hot core)'],
-        ['double-ring', 'Double ring track'],
-        ['corner-brackets', 'Corner brackets (HUD)'],
-        ['tech-hud', 'Mecha tech HUD'],
-        ['chamfer', 'Chamfered octagon'],
-        ['notched', 'Cyber notched HUD'],
-        ['crosshair', 'Scope crosshair reticles']
-    ] },
-    { group: 'Stylized & Decorative', options: [
-        ['hazard', 'Hazard stripes'],
-        ['chevron-track', 'Speed chevron track'],
-        ['scallop-stamp', 'Scallop ticket stamp'],
-        ['ornate-filigree', 'Royal diamond filigree'],
-        ['pixel-arcade', '8-bit pixel arcade'],
-        ['film-sprocket', 'Cinema filmstrip']
-    ] }
-];
+const BORDER_STYLE_OPTIONS = (window.OverlayShared?.BORDER_STYLE_GROUPS)
+    ? window.OverlayShared.BORDER_STYLE_GROUPS.map(g => ({
+        group: g.label,
+        options: g.options.map(o => [o.id, o.label])
+    }))
+    : [
+        { group: 'Standard', options: [['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted'], ['double', 'Double']] },
+        { group: '3D Bevel', options: [['groove', '3D Groove'], ['ridge', '3D Ridge'], ['inset', '3D Inset'], ['outset', '3D Outset']] },
+        { group: 'Broadcast & Tech HUD', options: [
+            ['neon-tube', 'Neon tube (hot core)'],
+            ['double-ring', 'Double ring track'],
+            ['corner-brackets', 'Corner brackets (HUD)'],
+            ['tech-hud', 'Mecha tech HUD'],
+            ['chamfer', 'Chamfered octagon'],
+            ['notched', 'Cyber notched HUD'],
+            ['crosshair', 'Scope crosshair reticles'],
+            ['viewfinder-ticks', 'Viewfinder telemetry ticks'],
+            ['circuit-trace', 'PCB circuit trace'],
+            ['segmented-bars', 'Segmented LED bars']
+        ] },
+        { group: 'Stylized & Decorative', options: [
+            ['hazard', 'Hazard stripes'],
+            ['chevron-track', 'Speed chevron track'],
+            ['scallop-stamp', 'Scallop ticket stamp'],
+            ['ornate-filigree', 'Royal diamond filigree'],
+            ['pixel-arcade', '8-bit pixel arcade'],
+            ['film-sprocket', 'Cinema filmstrip'],
+            ['marquee-bulbs', 'Theater marquee bulbs'],
+            ['art-deco', 'Art Deco stepped frame'],
+            ['rivet-plate', 'Riveted steel plate'],
+            ['braid-weave', 'Braided rope weave'],
+            ['zigzag', 'Serrated zigzag teeth'],
+            ['sine-wave', 'Smooth wave scallop'],
+            ['sketch-ink', 'Hand-drawn sketch ink']
+        ] }
+    ];
 
 function borderFxControls(container = {}, { glowKey = 'borderGlow', animKey = 'borderAnimation', prefix = 'style', fallbackColor = '#38bdf8' } = {}) {
     let html = '';

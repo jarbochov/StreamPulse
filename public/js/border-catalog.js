@@ -37,7 +37,10 @@ var StreamPulseBorderCatalog = (() => {
             { id: "tech-hud", label: "Mecha tech HUD", code: 11 },
             { id: "chamfer", label: "Chamfered octagon", code: 12 },
             { id: "notched", label: "Cyber notched HUD", code: 13 },
-            { id: "crosshair", label: "Scope crosshair reticles", code: 14 }
+            { id: "crosshair", label: "Scope crosshair reticles", code: 14 },
+            { id: "viewfinder-ticks", label: "Viewfinder telemetry ticks", code: 22 },
+            { id: "circuit-trace", label: "PCB circuit trace", code: 23 },
+            { id: "segmented-bars", label: "Segmented LED bars", code: 30 }
           ]
         },
         {
@@ -48,7 +51,14 @@ var StreamPulseBorderCatalog = (() => {
             { id: "scallop-stamp", label: "Scallop ticket stamp", code: 17 },
             { id: "ornate-filigree", label: "Royal diamond filigree", code: 18 },
             { id: "pixel-arcade", label: "8-bit pixel arcade", code: 19 },
-            { id: "film-sprocket", label: "Cinema filmstrip", code: 20 }
+            { id: "film-sprocket", label: "Cinema filmstrip", code: 20 },
+            { id: "marquee-bulbs", label: "Theater marquee bulbs", code: 21 },
+            { id: "art-deco", label: "Art Deco stepped frame", code: 24 },
+            { id: "rivet-plate", label: "Riveted steel plate", code: 25 },
+            { id: "braid-weave", label: "Braided rope weave", code: 26 },
+            { id: "zigzag", label: "Serrated zigzag teeth", code: 27 },
+            { id: "sine-wave", label: "Smooth wave scallop", code: 28 },
+            { id: "sketch-ink", label: "Hand-drawn sketch ink", code: 29 }
           ]
         }
       ];

@@ -608,7 +608,10 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
             { id: "tech-hud", label: "Mecha tech HUD", code: 11 },
             { id: "chamfer", label: "Chamfered octagon", code: 12 },
             { id: "notched", label: "Cyber notched HUD", code: 13 },
-            { id: "crosshair", label: "Scope crosshair reticles", code: 14 }
+            { id: "crosshair", label: "Scope crosshair reticles", code: 14 },
+            { id: "viewfinder-ticks", label: "Viewfinder telemetry ticks", code: 22 },
+            { id: "circuit-trace", label: "PCB circuit trace", code: 23 },
+            { id: "segmented-bars", label: "Segmented LED bars", code: 30 }
           ]
         },
         {
@@ -619,7 +622,14 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
             { id: "scallop-stamp", label: "Scallop ticket stamp", code: 17 },
             { id: "ornate-filigree", label: "Royal diamond filigree", code: 18 },
             { id: "pixel-arcade", label: "8-bit pixel arcade", code: 19 },
-            { id: "film-sprocket", label: "Cinema filmstrip", code: 20 }
+            { id: "film-sprocket", label: "Cinema filmstrip", code: 20 },
+            { id: "marquee-bulbs", label: "Theater marquee bulbs", code: 21 },
+            { id: "art-deco", label: "Art Deco stepped frame", code: 24 },
+            { id: "rivet-plate", label: "Riveted steel plate", code: 25 },
+            { id: "braid-weave", label: "Braided rope weave", code: 26 },
+            { id: "zigzag", label: "Serrated zigzag teeth", code: 27 },
+            { id: "sine-wave", label: "Smooth wave scallop", code: 28 },
+            { id: "sketch-ink", label: "Hand-drawn sketch ink", code: 29 }
           ]
         }
       ];
@@ -837,13 +847,13 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     tag.textContent = '@property --sp-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; } @keyframes sp-border-spin { from { --sp-angle: 0deg; } to { --sp-angle: 360deg; } } @keyframes sp-border-pulse { 0%, 100% { opacity: 0.35; filter: brightness(0.85); } 50% { opacity: 1; filter: brightness(1.38) drop-shadow(0 0 10px currentColor); } } @keyframes sp-border-surge { 0%, 52%, 100% { opacity: 0.72; filter: brightness(0.95); } 60% { opacity: 1; filter: brightness(1.9) drop-shadow(0 0 14px currentColor); } 67% { opacity: 0.52; filter: brightness(0.82); } 74% { opacity: 1; filter: brightness(1.75) drop-shadow(0 0 10px currentColor); } 88% { opacity: 0.82; filter: brightness(1.06); } } @keyframes sp-border-gradient-shift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } } @keyframes sp-border-rainbow { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } } @keyframes sp-border-marching { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -32; } } @keyframes sp-border-marching-bg { from { background-position: 0 0; } to { background-position: 40px 0; } } @keyframes sp-border-laser { from { --sp-angle: 0deg; } to { --sp-angle: 360deg; } } @keyframes sp-border-plasma { 0% { --sp-angle: 0deg; filter: saturate(1.15) brightness(1); } 50% { --sp-angle: 180deg; filter: saturate(1.5) brightness(1.26); } 100% { --sp-angle: 360deg; filter: saturate(1.15) brightness(1); } } @keyframes sp-border-radial-circuit { 0%,100% { transform:translate(0,0); } 25% { transform:translate(var(--sp-border-travel),0); } 50% { transform:translate(var(--sp-border-travel),var(--sp-border-travel)); } 75% { transform:translate(0,var(--sp-border-travel)); } } @keyframes sp-border-radial-circuit-rev { 0%,100% { transform:translate(0,0); } 25% { transform:translate(0,var(--sp-border-travel)); } 50% { transform:translate(var(--sp-border-travel),var(--sp-border-travel)); } 75% { transform:translate(var(--sp-border-travel),0); } } @keyframes sp-border-radial-paint { 0%,100% { background-position:0% 0%; } 25% { background-position:100% 0%; } 50% { background-position:100% 100%; } 75% { background-position:0% 100%; } } @keyframes sp-border-radial-paint-rev { 0%,100% { background-position:0% 0%; } 25% { background-position:0% 100%; } 50% { background-position:100% 100%; } 75% { background-position:100% 0%; } } .sp-fx-paused [data-border-fx], .sp-fx-paused [data-border-ring], .sp-fx-paused [data-border-fx-ring] { animation-play-state: paused !important; }';
     document.head.appendChild(tag);
   }
-  function computeBoxShadow(style = {}, width = 0, outset = 0) {
+  function computeBoxShadow(style = {}, width = 0, outset = 0, { skipBorderGlow = false } = {}) {
     const shadows = [];
     if (style.shadow?.blur > 0) {
       shadows.push(`0 0 ${style.shadow.blur}px ${outset}px ${style.shadow.color || "rgba(0,0,0,0.5)"}`);
     }
     const glow = style.borderGlow;
-    if (glow?.enabled && width > 0) {
+    if (!skipBorderGlow && glow?.enabled && width > 0) {
       const gc = glow.color && glow.color !== "transparent" ? glow.color : style.borderColor && style.borderColor !== "transparent" ? style.borderColor : "#38bdf8";
       const gb = Math.max(0, Number(glow.blur ?? 16));
       const gs = Math.max(0, Number(glow.spread ?? 2));
@@ -964,6 +974,73 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       Math.max(0, radii.br - midInset),
       Math.max(0, radii.bl - midInset)
     );
+  }
+  function sampleBorderOutlinePoints(rw, rh, inset, radii, targetStep = 10) {
+    const pts = [];
+    const step = Math.max(3, Number(targetStep) || 10);
+    if (radii.isEllipse) {
+      const cx = rw / 2, cy = rh / 2;
+      const rx = Math.max(2, rw / 2 - inset), ry = Math.max(2, rh / 2 - inset);
+      const circ = Math.PI * (3 * (rx + ry) - Math.sqrt((3 * rx + ry) * (rx + 3 * ry)));
+      const count = Math.max(16, Math.min(360, Math.round(circ / step)));
+      let dist2 = 0, prevX = cx, prevY = cy - ry;
+      for (let i = 0; i < count; i++) {
+        const a = -Math.PI / 2 + i / count * Math.PI * 2;
+        const x = cx + rx * Math.cos(a), y = cy + ry * Math.sin(a);
+        if (i > 0) dist2 += Math.hypot(x - prevX, y - prevY);
+        prevX = x;
+        prevY = y;
+        const gX = (x - cx) / (rx * rx), gY = (y - cy) / (ry * ry);
+        const gl = Math.hypot(gX, gY) || 1;
+        pts.push({ x, y, nx: -gX / gl, ny: -gY / gl, dist: dist2 });
+      }
+      return pts;
+    }
+    const x0 = inset, y0 = inset, x1 = Math.max(inset + 2, rw - inset), y1 = Math.max(inset + 2, rh - inset);
+    const mw = x1 - x0, mh = y1 - y0;
+    const raw = [radii.tl, radii.tr, radii.br, radii.bl].map((v) => Math.max(0, v - inset));
+    const f = Math.min(
+      raw[0] + raw[1] > 0 ? mw / (raw[0] + raw[1]) : 1,
+      raw[3] + raw[2] > 0 ? mw / (raw[3] + raw[2]) : 1,
+      raw[0] + raw[3] > 0 ? mh / (raw[0] + raw[3]) : 1,
+      raw[1] + raw[2] > 0 ? mh / (raw[1] + raw[2]) : 1,
+      1
+    );
+    const tl = raw[0] * f, tr = raw[1] * f, br = raw[2] * f, bl = raw[3] * f;
+    let dist = 0, lastX = null, lastY = null;
+    const pushPt = (x, y, nx, ny) => {
+      if (lastX !== null) dist += Math.hypot(x - lastX, y - lastY);
+      lastX = x;
+      lastY = y;
+      pts.push({ x, y, nx, ny, dist });
+    };
+    const addLine = (ax, ay, bx, by, nx, ny) => {
+      const len = Math.hypot(bx - ax, by - ay);
+      if (len < 0.5) return;
+      const n = Math.max(1, Math.round(len / step));
+      for (let i = 0; i < n; i++) {
+        const t = i / n;
+        pushPt(ax + (bx - ax) * t, ay + (by - ay) * t, nx, ny);
+      }
+    };
+    const addArc = (cx, cy, r, a0, a1) => {
+      if (r < 0.5) return;
+      const len = Math.abs(a1 - a0) * r;
+      const n = Math.max(2, Math.round(len / step));
+      for (let i = 0; i < n; i++) {
+        const a = a0 + (a1 - a0) * (i / n);
+        pushPt(cx + r * Math.cos(a), cy + r * Math.sin(a), -Math.cos(a), -Math.sin(a));
+      }
+    };
+    addLine(x0 + tl, y0, x1 - tr, y0, 0, 1);
+    addArc(x1 - tr, y0 + tr, tr, -Math.PI / 2, 0);
+    addLine(x1, y0 + tr, x1, y1 - br, -1, 0);
+    addArc(x1 - br, y1 - br, br, 0, Math.PI / 2);
+    addLine(x1 - br, y1, x0 + bl, y1, 0, -1);
+    addArc(x0 + bl, y1 - bl, bl, Math.PI / 2, Math.PI);
+    addLine(x0, y1 - bl, x0, y0 + tl, 1, 0);
+    addArc(x0 + tl, y0 + tl, tl, Math.PI, Math.PI * 1.5);
+    return pts;
   }
   function computePolygonBorderSpec(borderStyle, style, rw, rh, width) {
     const minDim = Math.min(rw, rh);
@@ -1226,6 +1303,151 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       const topBand = `M0,0H${W}V${band}H0Z`;
       const botBand = `M0,${H - band}H${W}V${H}H0Z`;
       parts.push(`<path d="${topBand} ${botBand}${holes}" fill="#fff" fill-rule="evenodd"/>`);
+    } else if (borderStyle === "marquee-bulbs") {
+      const rail = Math.max(1, +(w * 0.16).toFixed(2));
+      parts.push(`<path d="${svgInsetRimPath(W, H, 0, w, radii)}" fill="#fff" fill-opacity="0.24" fill-rule="evenodd"/>`);
+      parts.push(`<path d="${svgInsetRimPath(W, H, 0, rail, radii)}" fill="#fff" fill-opacity="0.78" fill-rule="evenodd"/>`);
+      parts.push(`<path d="${svgInsetRimPath(W, H, Math.max(0, w - rail), rail, radii)}" fill="#fff" fill-opacity="0.78" fill-rule="evenodd"/>`);
+      const step = Math.max(8, w * 1.65).toFixed(1);
+      const bulbW = Math.max(2, +(w * 0.56).toFixed(2));
+      parts.push(`<path d="${svgMidlinePath(W, H, w * 0.5, radii)}" fill="none" stroke="#fff" stroke-width="${bulbW}" stroke-linecap="round" stroke-dasharray="0.1 ${step}"/>`);
+    } else if (borderStyle === "segmented-bars") {
+      parts.push(`<path d="${svgInsetRimPath(W, H, 0, w, radii)}" fill="#fff" fill-opacity="0.14" fill-rule="evenodd"/>`);
+      const seg = Math.max(8, Math.round(w * 1.45)), gap = Math.max(4, Math.round(w * 0.65));
+      const barW = Math.max(1.5, +(w * 0.84).toFixed(2));
+      parts.push(`<path d="${svgMidlinePath(W, H, w * 0.5, radii)}" fill="none" stroke="#fff" stroke-width="${barW}" stroke-dasharray="${seg} ${gap}"/>`);
+    } else if (borderStyle === "viewfinder-ticks") {
+      const rail = Math.max(1, +(w * 0.22).toFixed(2));
+      parts.push(`<path d="${svgInsetRimPath(W, H, 0, rail, radii)}" fill="#fff" fill-opacity="0.48" fill-rule="evenodd"/>`);
+      const arm = Math.max(12, Math.min(Math.floor(minDim * 0.24), Math.round(14 + w * 2.1)));
+      const cornerW = Math.max(1.5, +(w * 0.48).toFixed(2));
+      for (const [cx, cy, dx, dy] of [[0, 0, 1, 1], [W, 0, -1, 1], [W, H, -1, -1], [0, H, 1, -1]]) {
+        parts.push(`<rect x="${dx > 0 ? cx : cx - arm}" y="${dy > 0 ? cy : cy - cornerW}" width="${arm}" height="${cornerW}" fill="#fff"/>`);
+        parts.push(`<rect x="${dx > 0 ? cx : cx - cornerW}" y="${dy > 0 ? cy : cy - arm}" width="${cornerW}" height="${arm}" fill="#fff"/>`);
+      }
+      const pitch = Math.max(8, Math.round(w * 0.95));
+      const tickW = Math.max(1.2, +(w * 0.22).toFixed(2));
+      const pts = sampleBorderOutlinePoints(W, H, 0, radii, pitch);
+      for (let i = 0; i < pts.length; i++) {
+        const p = pts[i], len = i % 5 === 0 ? w * 0.96 : w * 0.56;
+        parts.push(`<line x1="${p.x.toFixed(1)}" y1="${p.y.toFixed(1)}" x2="${(p.x + p.nx * len).toFixed(1)}" y2="${(p.y + p.ny * len).toFixed(1)}" stroke="#fff" stroke-width="${tickW}" stroke-opacity="${i % 5 === 0 ? 1 : 0.72}"/>`);
+      }
+    } else if (borderStyle === "circuit-trace") {
+      const traceW = Math.max(1.2, +(w * 0.24).toFixed(2));
+      parts.push(`<path d="${svgInsetRimPath(W, H, 0, Math.max(1, +(w * 0.16).toFixed(2)), radii)}" fill="#fff" fill-opacity="0.34" fill-rule="evenodd"/>`);
+      const pitch = Math.max(14, Math.round(w * 2.2));
+      const pts = sampleBorderOutlinePoints(W, H, 0, radii, pitch);
+      if (pts.length > 2) {
+        const laneA = w * 0.26, laneB = w * 0.78;
+        let traceD = "";
+        const pads = [];
+        for (let i = 0; i < pts.length; i++) {
+          const p = pts[i], ins = i % 2 === 0 ? laneA : laneB;
+          const px = (p.x + p.nx * ins).toFixed(1), py = (p.y + p.ny * ins).toFixed(1);
+          traceD += i === 0 ? `M${px},${py}` : `L${px},${py}`;
+          if (i % 2 === 0) pads.push([px, py]);
+        }
+        parts.push(`<path d="${traceD}Z" fill="none" stroke="#fff" stroke-width="${traceW}" stroke-linejoin="round"/>`);
+        const padR = Math.max(2, +(w * 0.24).toFixed(2));
+        for (const [px, py] of pads) {
+          parts.push(`<circle cx="${px}" cy="${py}" r="${padR}" fill="#fff"/>`);
+        }
+      }
+    } else if (borderStyle === "art-deco") {
+      const ow = Math.max(1.5, +(w * 0.34).toFixed(2)), iw = Math.max(1, +(w * 0.22).toFixed(2));
+      const ins2 = Math.max(ow + 2, +(w * 0.76).toFixed(2));
+      parts.push(`<path d="${svgInsetRimPath(W, H, 0, ow, radii)}" fill="#fff" fill-rule="evenodd"/>`);
+      parts.push(`<path d="${svgInsetRimPath(W, H, ins2, iw, radii)}" fill="#fff" fill-opacity="0.78" fill-rule="evenodd"/>`);
+      const step = Math.max(5, Math.round(w * 0.85));
+      for (const [cx, cy, dx, dy] of [[0, 0, 1, 1], [W, 0, -1, 1], [W, H, -1, -1], [0, H, 1, -1]]) {
+        for (let k = 0; k < 3; k++) {
+          const s1 = step * (3 - k), t1 = Math.max(1.5, w * 0.28);
+          parts.push(`<rect x="${dx > 0 ? cx + k * step * 0.45 : cx - k * step * 0.45 - s1}" y="${dy > 0 ? cy + k * step * 0.45 : cy - k * step * 0.45 - t1}" width="${s1}" height="${t1}" fill="#fff" fill-opacity="${(1 - k * 0.16).toFixed(2)}"/>`);
+          parts.push(`<rect x="${dx > 0 ? cx + k * step * 0.45 : cx - k * step * 0.45 - t1}" y="${dy > 0 ? cy + k * step * 0.45 : cy - k * step * 0.45 - s1}" width="${t1}" height="${s1}" fill="#fff" fill-opacity="${(1 - k * 0.16).toFixed(2)}"/>`);
+        }
+      }
+      const kd = Math.max(4, Math.round(w * 0.52));
+      for (const [mx, my] of [[W / 2, w * 0.48], [W / 2, H - w * 0.48], [w * 0.48, H / 2], [W - w * 0.48, H / 2]]) {
+        parts.push(`<polygon points="${mx},${my - kd} ${mx + kd * 1.4},${my} ${mx},${my + kd} ${mx - kd * 1.4},${my}" fill="#fff"/>`);
+      }
+    } else if (borderStyle === "rivet-plate") {
+      const rail = Math.max(1, +(w * 0.15).toFixed(2));
+      const pitch = Math.max(14, Math.round(w * 2.2));
+      const pts = sampleBorderOutlinePoints(W, H, w * 0.5, radii, pitch);
+      const rHalo = Math.max(2.4, +(w * 0.32).toFixed(2)), rStud = Math.max(1.4, +(w * 0.17).toFixed(2));
+      let cutouts = "", studs = "";
+      for (const p of pts) {
+        const cx = p.x.toFixed(1), cy = p.y.toFixed(1);
+        cutouts += `<circle cx="${cx}" cy="${cy}" r="${rHalo}" fill="#333"/>`;
+        studs += `<circle cx="${cx}" cy="${cy}" r="${rStud}" fill="#fff"/>`;
+      }
+      const defs = `<mask id="rv"><rect width="${W}" height="${H}" fill="#fff"/>${cutouts}</mask>`;
+      return {
+        useBoxMask: false,
+        svg: wrapSvg(
+          defs,
+          `<path d="${svgInsetRimPath(W, H, 0, w, radii)}" fill="#fff" fill-opacity="0.76" fill-rule="evenodd" mask="url(#rv)"/><path d="${svgInsetRimPath(W, H, 0, rail, radii)}" fill="#fff" fill-rule="evenodd"/><path d="${svgInsetRimPath(W, H, Math.max(0, w - rail), rail, radii)}" fill="#fff" fill-opacity="0.88" fill-rule="evenodd"/>` + studs
+        )
+      };
+    } else if (borderStyle === "braid-weave") {
+      const rim = svgInsetRimPath(W, H, 0, w, radii);
+      const step = Math.max(12, Math.round(w * 2));
+      const s34 = (step * 0.32).toFixed(1), sGap = (step * 0.36).toFixed(1), half = (step * 0.5).toFixed(1);
+      const patDef = `<pattern id="p" width="${step}" height="${step}" patternUnits="userSpaceOnUse"><path d="M0,0L${(step * 0.28).toFixed(1)},${(step * 0.28).toFixed(1)} M${(step * 0.72).toFixed(1)},${(step * 0.72).toFixed(1)}L${step},${step}" stroke="#fff" stroke-opacity="0.82" stroke-width="${s34}" stroke-linecap="butt"/><path d="M${step},0L0,${step}" stroke="#fff" stroke-opacity="0.96" stroke-width="${sGap}" stroke-linecap="butt"/><circle cx="${half}" cy="${half}" r="${(step * 0.08).toFixed(1)}" fill="#fff" fill-opacity="0.5"/></pattern>`;
+      const railW = Math.max(1, +(w * 0.14).toFixed(2));
+      const rails = `<path d="${svgInsetRimPath(W, H, 0, railW, radii)}" fill="#fff" fill-opacity="0.65" fill-rule="evenodd"/><path d="${svgInsetRimPath(W, H, Math.max(0, w - railW), railW, radii)}" fill="#fff" fill-opacity="0.65" fill-rule="evenodd"/>`;
+      return {
+        useBoxMask: false,
+        svg: wrapSvg(patDef, `<path d="${rim}" fill="#fff" fill-opacity="0.18" fill-rule="evenodd"/><path d="${rim}" fill="url(#p)" fill-rule="evenodd"/>${rails}`)
+      };
+    } else if (borderStyle === "zigzag") {
+      const pitch = Math.max(7, Math.round(w * 0.95));
+      const pts = sampleBorderOutlinePoints(W, H, 0, radii, pitch);
+      if (pts.length > 2) {
+        const zigPts = pts.map((p, i) => {
+          const depth = i % 2 === 0 ? w * 0.18 : w * 0.82;
+          return `${(p.x + p.nx * depth).toFixed(1)},${(p.y + p.ny * depth).toFixed(1)}`;
+        }).join(" ");
+        const sw = Math.max(1.4, +(w * 0.34).toFixed(2));
+        parts.push(`<polygon points="${zigPts}" fill="none" stroke="#fff" stroke-width="${sw}" stroke-linejoin="miter"/>`);
+      }
+    } else if (borderStyle === "sine-wave") {
+      const step = Math.max(4, Math.min(8, Math.round(w * 0.45)));
+      const pts = sampleBorderOutlinePoints(W, H, 0, radii, step);
+      const waveLen = Math.max(16, w * 2.2);
+      if (pts.length > 4) {
+        let d = "";
+        for (let i = 0; i < pts.length; i++) {
+          const p = pts[i];
+          const off = w * (0.5 + 0.3 * Math.sin(p.dist / waveLen * Math.PI * 2));
+          const sx = (p.x + p.nx * off).toFixed(1), sy = (p.y + p.ny * off).toFixed(1);
+          d += i === 0 ? `M${sx},${sy}` : `L${sx},${sy}`;
+        }
+        const sw = Math.max(1.6, +(w * 0.38).toFixed(2));
+        parts.push(`<path d="${svgInsetRimPath(W, H, 0, Math.max(1, +(w * 0.12).toFixed(2)), radii)}" fill="#fff" fill-opacity="0.22" fill-rule="evenodd"/>`);
+        parts.push(`<path d="${d}Z" fill="none" stroke="#fff" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>`);
+      }
+    } else if (borderStyle === "sketch-ink") {
+      const step = Math.max(6, Math.round(w * 0.85));
+      const pts = sampleBorderOutlinePoints(W, H, w * 0.5, radii, step);
+      if (pts.length > 3) {
+        const amp = Math.max(1.2, Math.min(4.5, w * 0.24));
+        const passes = [
+          { sw: Math.max(1.4, +(w * 0.48).toFixed(2)), op: 0.96, p: 0 },
+          { sw: Math.max(1, +(w * 0.3).toFixed(2)), op: 0.68, p: 2.3 },
+          { sw: Math.max(0.8, +(w * 0.2).toFixed(2)), op: 0.42, p: 4.7 }
+        ];
+        for (const cfg of passes) {
+          let d = "";
+          for (let i = 0; i < pts.length; i++) {
+            const pt = pts[i];
+            const j = (Math.sin(i * 1.9 + cfg.p) * 0.65 + Math.cos(i * 0.83 + cfg.p * 1.4) * 0.35) * amp;
+            const sx = (pt.x + pt.nx * j).toFixed(1), sy = (pt.y + pt.ny * j).toFixed(1);
+            d += i === 0 ? `M${sx},${sy}` : `L${sx},${sy}`;
+          }
+          parts.push(`<path d="${d}Z" fill="none" stroke="#fff" stroke-opacity="${cfg.op}" stroke-width="${cfg.sw}" stroke-linecap="round" stroke-linejoin="round"/>`);
+        }
+      }
     } else {
       return { useBoxMask: true };
     }
@@ -1323,17 +1545,44 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     const hasBorderGradient = width > 0 && Boolean(g?.enabled);
     const hasBorderAnim = width > 0 && Boolean(animType && animType !== "none");
     const hasRingBorder = hasBorderGradient || hasBorderAnim || width > 0 && (shapeBorder || isCustomRing);
+    const hasCustomRingGlow = hasRingBorder && isCustomRing && width > 0 && Boolean(glow.enabled && !glow.inner);
     const bw = Math.max(24, Math.round(Number(element.width) || node.offsetWidth || 400));
     const bh = Math.max(24, Math.round(Number(element.height) || node.offsetHeight || 120));
     const rw = Math.round(bw + outset * 2);
     const rh = Math.round(bh + outset * 2);
     applyShapeClipPath(node, borderStyle, style, element, width, outset, bw, bh);
-    node.style.boxShadow = computeBoxShadow(style, width, outset);
+    node.style.boxShadow = computeBoxShadow(style, width, outset, { skipBorderGlow: hasCustomRingGlow });
+    if (hasCustomRingGlow) {
+      let glowWrap = node._borderGlowWrap;
+      if (!glowWrap) {
+        glowWrap = node._borderGlowWrap = document.createElement("div");
+        glowWrap.setAttribute("aria-hidden", "true");
+        glowWrap.dataset.borderGlowWrap = "true";
+      }
+      const gc = glow.color && glow.color !== "transparent" ? glow.color : c;
+      const gb = Math.max(0, Number(glow.blur ?? 16));
+      const dropFilter = glow.neon ? `drop-shadow(0 0 2px rgba(255,255,255,0.92)) drop-shadow(0 0 ${Math.max(4, Math.round(gb * 0.45))}px ${gc}) drop-shadow(0 0 ${Math.max(8, gb)}px ${gc})` : `drop-shadow(0 0 ${Math.max(4, gb)}px ${gc})`;
+      const wrapSig = `${dropFilter}`;
+      if (glowWrap._sig !== wrapSig) {
+        glowWrap._sig = wrapSig;
+        glowWrap.style.cssText = `position:absolute;inset:0;overflow:visible;border-radius:inherit;pointer-events:none;z-index:2;filter:${dropFilter};`;
+      }
+      if (glowWrap.parentNode !== node) node.append(glowWrap);
+    } else if (node._borderGlowWrap) {
+      for (const r of [node._borderRing, node._borderFxRing]) {
+        if (r && r.parentNode === node._borderGlowWrap) node.append(r);
+      }
+      node._borderGlowWrap.remove();
+      node._borderGlowWrap = null;
+    }
+    const ringHost = node._borderGlowWrap || node;
     if (hasInnerGlow || hasInnerShadow || hasRingBorder) {
       if (!node._borderObserver) {
         node._borderObserver = new MutationObserver(() => {
-          if (node._borderRing && node._borderRing.parentNode !== node) node.append(node._borderRing);
-          if (node._borderFxRing && node._borderFxRing.parentNode !== node) node.append(node._borderFxRing);
+          const host = node._borderGlowWrap || node;
+          if (node._borderGlowWrap && node._borderGlowWrap.parentNode !== node) node.append(node._borderGlowWrap);
+          if (node._borderRing && node._borderRing.parentNode !== host) host.append(node._borderRing);
+          if (node._borderFxRing && node._borderFxRing.parentNode !== host) host.append(node._borderFxRing);
           if (node._innerGlowRing && node._innerGlowRing.parentNode !== node) node.append(node._innerGlowRing);
         });
         node._borderObserver.observe(node, { childList: true });
@@ -1416,7 +1665,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         fxRing.setAttribute("aria-hidden", "true");
         fxRing.dataset.borderFxRing = "true";
       }
-      if (fxRing.parentNode !== node) node.append(fxRing);
+      if (fxRing.parentNode !== ringHost) ringHost.append(fxRing);
       node.style.border = "0";
       node.style.backgroundClip = "padding-box";
       const isClassicMarching = animType === "marching" && !hasBorderGradient && !isCustomRing && (borderStyle === "solid" || borderStyle === "dashed" || borderStyle === "dotted");
@@ -1558,7 +1807,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           ring.setAttribute("aria-hidden", "true");
           ring.dataset.borderRing = "true";
         }
-        if (ring.parentNode !== node) node.append(ring);
+        if (ring.parentNode !== ringHost) ringHost.append(ring);
         node.style.border = "0";
         node.style.backgroundClip = hasBorderGradient ? "padding-box" : "";
         if (!hasBorderGradient && !isCustomRing) {
@@ -2091,7 +2340,17 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         "scallop-stamp",
         "ornate-filigree",
         "pixel-arcade",
-        "film-sprocket"
+        "film-sprocket",
+        "marquee-bulbs",
+        "viewfinder-ticks",
+        "circuit-trace",
+        "art-deco",
+        "rivet-plate",
+        "braid-weave",
+        "zigzag",
+        "sine-wave",
+        "sketch-ink",
+        "segmented-bars"
       ]);
       SHAPE_CLIP_STYLES = /* @__PURE__ */ new Set(["chamfer", "notched", "scallop-stamp", "pixel-arcade"]);
       BORDER_PLACEMENTS = ["inside", "center", "outside"];

@@ -78,8 +78,8 @@ describe('OBS Border Studio (Beta / Advanced)', () => {
         if (tmpDir) fs.rmSync(tmpDir, { recursive: true, force: true });
     });
 
-    it('creates default profiles (with all 21 styles & 10 animations), manifest.json, and Lua script without hardcoded example scenes', () => {
-        assert.equal(BORDER_STYLES.length, 21);
+    it('creates default profiles (with all 31 styles & 10 animations), manifest.json, and Lua script without hardcoded example scenes', () => {
+        assert.equal(BORDER_STYLES.length, 31);
         assert.equal(ANIMATION_TYPES.length, 11); // none + 10 animations
 
         const state = service.getState();

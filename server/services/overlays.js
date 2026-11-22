@@ -351,12 +351,7 @@ const Motion = require('../../public/js/motion-easing');
 const isPageEasing = name => Motion.isEasing(name);
 const PAGE_ENTER_EXITS = ['fade', 'slide', 'zoom', 'none'];
 const PAGE_DIRECTIONS = ['left', 'right', 'up', 'down'];
-const BORDER_STYLES = [
-    'solid', 'dashed', 'dotted', 'double',
-    'groove', 'ridge', 'inset', 'outset',
-    'neon-tube', 'double-ring', 'corner-brackets', 'tech-hud', 'chamfer', 'notched', 'crosshair',
-    'hazard', 'chevron-track', 'scallop-stamp', 'ornate-filigree', 'pixel-arcade', 'film-sprocket'
-];
+const { BORDER_STYLES } = require('../../shared/border-catalog.cjs');
 const BORDER_PLACEMENTS = ['inside', 'center', 'outside'];
 const BORDER_ANIM_TYPES = [
     'none', 'rotating', 'dual-beam', 'radial', 'pulsing',

@@ -1383,6 +1383,135 @@
                 col.a *= hole_keep;
                 return col;
             }
+            if (style_code > 20.5 && style_code < 21.5) {
+                float pitch = max(thickness * 1.65, 16.0);
+                float bx = (fract(p_dist / pitch) - 0.5) * pitch;
+                float by = (band_t - 0.5) * thickness;
+                float br = max(thickness * 0.28, 1.8);
+                float bulb = 1.0 - smoothstep(br - 0.8, br + 0.8, length(vec2(bx, by)));
+                bool is_rail = (band_t < 0.16 || band_t > 0.84);
+                col.rgb = mix(col.rgb, vec3(1.0, 1.0, 1.0), bulb * 0.42);
+                col.a *= max(bulb, is_rail ? 0.76 : 0.24);
+                return col;
+            }
+            if (style_code > 21.5 && style_code < 22.5) {
+                vec2 corner_dist = half_base - abs(p);
+                float span = clamp(min(half_base.x, half_base.y) * 0.24, 24.0, 180.0);
+                if (corner_dist.x <= span && corner_dist.y <= span && band_t < 0.48) {
+                    return col;
+                }
+                float tick_pitch = max(thickness * 0.95, 10.0);
+                bool in_tick = fract(p_dist / tick_pitch) < 0.28;
+                bool major_tick = fract(p_dist / (tick_pitch * 5.0)) < 0.20;
+                if (band_t < 0.22) {
+                    col.a *= 0.48;
+                    return col;
+                }
+                if (in_tick && band_t <= (major_tick ? 0.96 : 0.58)) {
+                    col.a *= (major_tick ? 1.0 : 0.72);
+                    return col;
+                }
+                col.a = 0.0;
+                return col;
+            }
+            if (style_code > 22.5 && style_code < 23.5) {
+                float pitch = max(thickness * 2.2, 24.0);
+                float u = fract(p_dist / pitch);
+                float lane = step(0.5, fract(p_dist / (pitch * 2.0)));
+                float target_t = (lane > 0.5) ? 0.72 : 0.28;
+                if (u > 0.82) {
+                    float k = (u - 0.82) / 0.18;
+                    target_t = mix(target_t, (lane > 0.5) ? 0.28 : 0.72, k);
+                }
+                float d_trace = abs(band_t - target_t);
+                float m_trace = 1.0 - smoothstep(0.11, 0.20, d_trace);
+                float px_c = (u - 0.25) * pitch;
+                float py_c = (band_t - target_t) * thickness;
+                float pad_r = max(thickness * 0.24, 2.0);
+                float m_pad = 1.0 - smoothstep(pad_r - 0.7, pad_r + 0.7, length(vec2(px_c, py_c)));
+                float rail_a = (band_t < 0.16) ? 0.34 : 0.0;
+                col.a *= max(max(m_trace, m_pad), rail_a);
+                return col;
+            }
+            if (style_code > 23.5 && style_code < 24.5) {
+                bool in_outer = band_t < 0.34;
+                bool in_inner = band_t > 0.76;
+                vec2 corner_dist = half_base - abs(p);
+                float step_span = clamp(min(half_base.x, half_base.y) * 0.22, 24.0, 140.0);
+                bool in_corner_step = (corner_dist.x < step_span && corner_dist.y < step_span * 0.38)
+                                   || (corner_dist.y < step_span && corner_dist.x < step_span * 0.38)
+                                   || (corner_dist.x < step_span * 0.65 && corner_dist.y < step_span * 0.65);
+                bool in_keystone = (abs(p.x) < max(thickness * 1.3, 18.0)) || (abs(p.y) < max(thickness * 1.3, 18.0));
+                if (!in_outer && !in_inner && !in_corner_step && !in_keystone) {
+                    col.a = 0.0;
+                }
+                return col;
+            }
+            if (style_code > 24.5 && style_code < 25.5) {
+                float pitch = max(thickness * 2.2, 24.0);
+                float bx = (fract(p_dist / pitch) - 0.5) * pitch;
+                float by = (band_t - 0.5) * thickness;
+                float d_r = length(vec2(bx, by));
+                float r_halo = max(thickness * 0.32, 2.4);
+                float r_stud = max(thickness * 0.18, 1.4);
+                float stud_m = 1.0 - smoothstep(r_stud - 0.6, r_stud + 0.6, d_r);
+                float groove_m = (1.0 - smoothstep(r_halo - 0.6, r_halo + 0.6, d_r)) * smoothstep(r_stud - 0.4, r_stud + 0.4, d_r);
+                col.rgb *= (0.86 + 0.16 * (1.0 - band_t));
+                if (band_t < 0.15 || band_t > 0.85) {
+                    col.a *= 0.96;
+                } else {
+                    col.rgb = mix(col.rgb, vec3(1.0, 1.0, 1.0), stud_m * 0.35);
+                    col.a *= mix(0.76, 0.28, groove_m);
+                }
+                return col;
+            }
+            if (style_code > 25.5 && style_code < 26.5) {
+                if (band_t < 0.14 || band_t > 0.86) {
+                    col.a *= 0.65;
+                    return col;
+                }
+                float pitch = max(thickness * 2.0, 22.0);
+                float ang = (p_dist / pitch) * 6.2831853;
+                float w1 = abs(band_t - (0.5 + 0.28 * sin(ang)));
+                float w2 = abs(band_t - (0.5 - 0.28 * sin(ang)));
+                float s1 = 1.0 - smoothstep(0.14, 0.22, w1);
+                float s2 = 1.0 - smoothstep(0.14, 0.22, w2);
+                float top_s = (cos(ang) >= 0.0) ? max(s1, s2 * 0.65) : max(s2, s1 * 0.65);
+                col.a *= max(0.18, top_s);
+                return col;
+            }
+            if (style_code > 26.5 && style_code < 27.5) {
+                float pitch = max(thickness * 1.45, 16.0);
+                float tri = abs(fract(p_dist / pitch) - 0.5) * 2.0;
+                float target_t = 0.18 + 0.64 * tri;
+                float m = 1.0 - smoothstep(0.15, 0.26, abs(band_t - target_t));
+                col.a *= m;
+                return col;
+            }
+            if (style_code > 27.5 && style_code < 28.5) {
+                float pitch = max(thickness * 2.2, 22.0);
+                float wv = 0.5 + 0.30 * sin((p_dist / pitch) * 6.2831853);
+                float m = 1.0 - smoothstep(0.16, 0.27, abs(band_t - wv));
+                float rail_a = (band_t < 0.12) ? 0.22 : 0.0;
+                col.a *= max(m, rail_a);
+                return col;
+            }
+            if (style_code > 28.5 && style_code < 29.5) {
+                float j1 = 0.50 + 0.15 * sin(p_dist * 0.17) + 0.08 * cos(p_dist * 0.41);
+                float j2 = 0.46 + 0.14 * cos(p_dist * 0.23) + 0.09 * sin(p_dist * 0.37);
+                float m1 = 1.0 - smoothstep(0.14, 0.24, abs(band_t - j1));
+                float m2 = (1.0 - smoothstep(0.10, 0.20, abs(band_t - j2))) * 0.68;
+                col.a *= clamp(max(m1, m2), 0.0, 1.0);
+                return col;
+            }
+            if (style_code > 29.5) {
+                float pitch = max(thickness * 2.1, 20.0);
+                float f = fract(p_dist / pitch);
+                float seg = smoothstep(0.14, 0.18, f) * (1.0 - smoothstep(0.84, 0.88, f));
+                float bar_m = (band_t >= 0.08 && band_t <= 0.92) ? seg : 0.0;
+                col.a *= max(0.14, bar_m);
+                return col;
+            }
             return col;
         }
 
