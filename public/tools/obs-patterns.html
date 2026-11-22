@@ -375,7 +375,7 @@
                                 <div class="field">
                                     <label for="op-proc-cspeed">Color Speed</label>
                                     <div class="ob-input-row">
-                                        <input type="number" id="op-proc-cspeed" min="0.2" max="3" step="0.1">
+                                        <input type="number" id="op-proc-cspeed" min="0" max="5" step="0.02">
                                     </div>
                                 </div>
                             </div>
@@ -758,7 +758,22 @@
                                     <div class="field">
                                         <label for="op-tile-cspeed">Color Speed</label>
                                         <div class="ob-input-row">
-                                            <input type="number" id="op-tile-cspeed" min="0" max="5" step="0.1">
+                                            <input type="number" id="op-tile-cspeed" min="0" max="5" step="0.02">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="grid2" id="op-tile-pal-grad-wrap">
+                                    <div class="field">
+                                        <label for="op-tile-pal-scale">Band Width (%)</label>
+                                        <div class="ob-input-row">
+                                            <input type="number" id="op-tile-pal-scale" min="25" max="500" step="5" data-var-kind="number" data-var-label="Tile Palette Band Width">
+                                        </div>
+                                    </div>
+                                    <div class="field" id="op-tile-pal-angle-wrap">
+                                        <label for="op-tile-pal-angle">Gradient Angle (deg)</label>
+                                        <div class="ob-input-row">
+                                            <input type="number" id="op-tile-pal-angle" min="-360" max="360" step="15" data-var-kind="number" data-var-label="Tile Gradient Angle">
                                         </div>
                                     </div>
                                 </div>

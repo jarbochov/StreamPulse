@@ -943,10 +943,12 @@ describe('OBS Pattern Studio (Beta / Advanced)', () => {
                 customColors: ['#FF0000FF', '#00FF00FF', '#0000FFFF'],
                 colorMode: 'spiral',
                 colorAnim: 'cycle',
-                colorSpeed: 1.5,
+                colorSpeed: 0.04,
                 paletteStyle: 'gradient',
                 paletteBlend: 'multiply',
-                paletteStrength: 85
+                paletteStrength: 85,
+                paletteScale: 220,
+                paletteAngle: 45
             }
         });
         assert.equal(palProf.tiles.colorSource, 'palette');
@@ -954,6 +956,9 @@ describe('OBS Pattern Studio (Beta / Advanced)', () => {
         assert.equal(palProf.tiles.paletteStyle, 'gradient');
         assert.equal(palProf.tiles.paletteBlend, 'multiply');
         assert.equal(palProf.tiles.paletteStrength, 85);
+        assert.equal(palProf.tiles.colorSpeed, 0.04);
+        assert.equal(palProf.tiles.paletteScale, 220);
+        assert.equal(palProf.tiles.paletteAngle, 45);
 
         const manifest = service.syncResolvedManifest();
         const rTile = manifest.profiles.find(p => p.id === 'tile-pal-test').tiles;
@@ -962,6 +967,8 @@ describe('OBS Pattern Studio (Beta / Advanced)', () => {
         assert.equal(rTile.colorAnimCode, 1); // cycle
         assert.equal(rTile.paletteStyleCode, 1); // gradient
         assert.equal(rTile.paletteBlendCode, 0); // multiply
+        assert.equal(rTile.paletteScale, 220);
+        assert.equal(rTile.paletteAngle, 45);
         assert.equal(rTile.palCount, 3);
         assert.deepEqual(rTile.pal0, [1, 0, 0, 1]);
         assert.deepEqual(rTile.pal1, [0, 1, 0, 1]);
@@ -1022,7 +1029,8 @@ describe('OBS Pattern Studio (Beta / Advanced)', () => {
                 for (const [k, v] of Object.entries({
                     mode_code: 1, opacity: 1, has_stamp: 1, tile_count: 1, tile_size: 180, tile_gap: 0,
                     tile_opacity: 1, tile_alt_opacity: 1, tile_alt_scale: 1, tile_color_source: 1,
-                    tile_pal_strength: 1, tile_pal_cspeed: 1.5, flt_brightness: 100, flt_contrast: 100, flt_saturate: 100
+                    tile_pal_strength: 1, tile_pal_cspeed: 1.5, tile_pal_scale: 1, tile_pal_angle_rad: 0,
+                    flt_brightness: 100, flt_contrast: 100, flt_saturate: 100
                 })) u1f(k, v);
 
                 const capture = (overrides) => {
@@ -1032,7 +1040,7 @@ describe('OBS Pattern Studio (Beta / Advanced)', () => {
                     gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, p);
                     let h = 2166136261;
                     for (let i = 0; i < p.length; i += 8) h = ((h ^ p[i]) * 16777619) >>> 0;
-                    return { hash: h, sample: [p[0], p[1], p[2], p[3]] };
+                    return { hash: h, pixels: p };
                 };
 
                 const digests = [];
@@ -1043,6 +1051,17 @@ describe('OBS Pattern Studio (Beta / Advanced)', () => {
                         }
                     }
                 }
+                const gradBase = capture({ tile_pal_cmode: 2, tile_pal_style: 1, tile_pal_blend: 1, tile_pal_canim: 0, tile_pal_scale: 1, tile_pal_angle_rad: 0, anim_time: 0 }).hash;
+                const gradScaled = capture({ tile_pal_scale: 2.5, tile_pal_angle_rad: 0 }).hash;
+                const gradAngled = capture({ tile_pal_scale: 1, tile_pal_angle_rad: 0.7854 }).hash;
+                // Sample -1, 0, +1 diagonal cells around canvas center (80, 45) to ensure no center mirror
+                const diagFrame = capture({ tile_pal_cmode: 4, tile_pal_style: 0, tile_pal_blend: 1, tile_pal_canim: 0, tile_pal_scale: 1, tile_pal_angle_rad: 0, anim_time: 0 }).pixels;
+                const pxAt = (cx, cy) => {
+                    const idx = (cy * canvas.width + cx) * 4;
+                    return `${diagFrame[idx]},${diagFrame[idx + 1]},${diagFrame[idx + 2]}`;
+                };
+                // Sample -1, 0, +1 diagonal cells around canvas center (tile_size=180 -> 15px in 160w: cells at 72, 88, 102)
+                const centerCols = [pxAt(72, 45), pxAt(88, 45), pxAt(102, 45)];
                 const animT0 = capture({ tile_pal_cmode: 5, tile_pal_style: 1, tile_pal_blend: 1, tile_pal_canim: 1, anim_time: 0 }).hash;
                 const animT1 = capture({ tile_pal_cmode: 5, tile_pal_style: 1, tile_pal_blend: 1, tile_pal_canim: 1, anim_time: 1.2 }).hash;
                 const hueIgnoredA = capture({ tile_color_source: 1, tile_hue_mode: 0, tile_pal_cmode: 2, tile_pal_style: 0, tile_pal_blend: 1, tile_pal_canim: 0, anim_time: 0.7 }).hash;
@@ -1050,12 +1069,18 @@ describe('OBS Pattern Studio (Beta / Advanced)', () => {
                 return {
                     uniqueModes: new Set(digests).size,
                     totalTested: digests.length,
+                    gradScaleChanged: gradBase !== gradScaled,
+                    gradAngleChanged: gradBase !== gradAngled,
+                    distinctDiagonalSteps: new Set(centerCols).size,
                     animChanged: animT0 !== animT1,
                     hueMutuallyExclusive: hueIgnoredA === hueIgnoredB
                 };
             }, { vertex, fragment });
             assert.equal(stats.totalTested, 28);
             assert.ok(stats.uniqueModes >= 20, `Expected distinct renders across placements/styles/blends, got ${stats.uniqueModes}`);
+            assert.equal(stats.gradScaleChanged, true, 'Band Width must adjust gradient band spacing');
+            assert.equal(stats.gradAngleChanged, true, 'Gradient Angle must rotate smooth gradient bands');
+            assert.equal(stats.distinctDiagonalSteps, 3, 'Per-tile diagonal must not mirror colors across center');
             assert.equal(stats.animChanged, true, 'Palette cycle animation must advance tiles over time');
             assert.equal(stats.hueMutuallyExclusive, true, 'Hue shift uniform must not affect Palette Set output');
         } finally {

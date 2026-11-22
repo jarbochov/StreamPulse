@@ -535,6 +535,7 @@
         setHidden('op-tile-dual-colors', pal !== 'dual');
         setHidden('op-tile-custom-palette-editor', pal !== 'custom');
         setHidden('op-tile-pal-customize-btn', pal === 'custom');
+        setHidden('op-tile-pal-angle-wrap', (tl.paletteStyle || 'per-tile') !== 'gradient');
         document.querySelectorAll('#op-tile-color-source-seg button').forEach(btn => {
             btn.setAttribute('aria-pressed', String((btn.dataset.cs === 'palette') === isPal));
         });
@@ -820,6 +821,8 @@
             document.getElementById('op-tile-pal-style').value = tl.paletteStyle || 'per-tile';
             document.getElementById('op-tile-pal-blend').value = tl.paletteBlend || 'recolor';
             setControlValue('op-tile-pal-strength', tl.paletteStrength, 100);
+            setControlValue('op-tile-pal-scale', tl.paletteScale, 100);
+            setControlValue('op-tile-pal-angle', tl.paletteAngle, 0);
             document.getElementById('op-tile-sat-jitter').value = tl.saturationJitter ?? 0;
             document.getElementById('op-tile-bright-jitter').value = tl.brightnessJitter ?? 0;
             document.getElementById('op-tile-scale-jitter').value = tl.scaleJitter ?? 0;
@@ -969,6 +972,8 @@
         p.tiles.paletteStyle = document.getElementById('op-tile-pal-style')?.value || 'per-tile';
         p.tiles.paletteBlend = document.getElementById('op-tile-pal-blend')?.value || 'recolor';
         p.tiles.paletteStrength = getFieldRawValue('op-tile-pal-strength', 100);
+        p.tiles.paletteScale = getFieldRawValue('op-tile-pal-scale', 100);
+        p.tiles.paletteAngle = getFieldRawValue('op-tile-pal-angle', 0);
         p.tiles.saturationJitter = Number(document.getElementById('op-tile-sat-jitter')?.value ?? 0);
         p.tiles.brightnessJitter = Number(document.getElementById('op-tile-bright-jitter')?.value ?? 0);
         p.tiles.scaleJitter = Number(document.getElementById('op-tile-scale-jitter')?.value ?? 0);
@@ -1043,6 +1048,8 @@
             { id: 'op-tile-accent', kind: 'color', label: 'Tile Palette Accent', pairColorId: 'op-tile-accent-pick', defaultFallback: '#58A6FFFF' },
             { id: 'op-tile-secondary', kind: 'color', label: 'Tile Palette Secondary', pairColorId: 'op-tile-secondary-pick', defaultFallback: '#A855F7FF' },
             { id: 'op-tile-pal-strength', kind: 'number', label: 'Tile Palette Strength', defaultFallback: '100' },
+            { id: 'op-tile-pal-scale', kind: 'number', label: 'Tile Palette Band Width', defaultFallback: '100' },
+            { id: 'op-tile-pal-angle', kind: 'number', label: 'Tile Gradient Angle', defaultFallback: '0' },
             { id: 'op-tile-speed', kind: 'number', label: 'Tile Speed', defaultFallback: '16' },
             { id: 'op-flt-brightness', kind: 'number', label: 'Filter Brightness', defaultFallback: '100' },
             { id: 'op-flt-contrast', kind: 'number', label: 'Filter Contrast', defaultFallback: '100' },
@@ -1190,6 +1197,8 @@
         uniform float tile_pal_style;
         uniform float tile_pal_blend;
         uniform float tile_pal_strength;
+        uniform float tile_pal_scale;
+        uniform float tile_pal_angle_rad;
         uniform float has_stamp;
         uniform float show_checker;
 
@@ -1626,22 +1635,24 @@
         }
         vec4 evalTilePaletteColor(vec2 cell_id, vec2 tile_screen_center, vec2 screen_p, vec2 grid_p, float step_px, float t) {
             float n = max(2.0, pal_count);
-            float g_scale = max(48.0, step_px);
+            float g_scale = max(24.0, step_px * max(0.15, tile_pal_scale));
+            vec2 gp = rot2d(screen_p, -tile_pal_angle_rad);
+            vec2 gg = rot2d(grid_p, -tile_pal_angle_rad);
             float h = hash21(cell_id);
             float idx = 0.0;
             if (tile_pal_style < 0.5) {
                 if (tile_pal_cmode < 0.5) idx = floor(h * n);
-                else if (tile_pal_cmode < 1.5) idx = floor(length(tile_screen_center) / max(32.0, g_scale * 0.85));
-                else if (tile_pal_cmode < 2.5) idx = floor(abs(cell_id.y));
-                else if (tile_pal_cmode < 3.5) idx = floor(abs(cell_id.x));
-                else if (tile_pal_cmode < 4.5) idx = floor(abs(cell_id.x + cell_id.y));
+                else if (tile_pal_cmode < 1.5) idx = floor(length(tile_screen_center) / max(24.0, g_scale * 0.85));
+                else if (tile_pal_cmode < 2.5) idx = floor(4200.0 + cell_id.y);
+                else if (tile_pal_cmode < 3.5) idx = floor(4200.0 + cell_id.x);
+                else if (tile_pal_cmode < 4.5) idx = floor(4200.0 + cell_id.x + cell_id.y);
                 else if (tile_pal_cmode < 5.5) {
                     float ang = (atan(tile_screen_center.y, tile_screen_center.x) + 3.1415926) / 6.2831853;
-                    idx = floor(length(tile_screen_center) / max(32.0, g_scale * 0.85) + ang * n);
+                    idx = floor(length(tile_screen_center) / max(24.0, g_scale * 0.85) + ang * n);
                 } else idx = mod(abs(cell_id.x + cell_id.y), 2.0) * (n > 2.5 ? 2.0 : 1.0);
             } else {
                 if (tile_pal_cmode < 0.5) {
-                    vec2 mg = grid_p / g_scale;
+                    vec2 mg = gg / g_scale;
                     vec2 mi = floor(mg);
                     vec2 mf = smoothstep(0.0, 1.0, fract(mg));
                     float v00 = hash21(mi) * n;
@@ -1649,26 +1660,26 @@
                     float v01 = hash21(mi + vec2(0.0, 1.0)) * n;
                     float v11 = hash21(mi + vec2(1.0, 1.0)) * n;
                     idx = mix(mix(v00, v10, mf.x), mix(v01, v11, mf.x), mf.y);
-                } else if (tile_pal_cmode < 1.5) idx = length(screen_p) / max(32.0, g_scale * 0.85);
-                else if (tile_pal_cmode < 2.5) idx = 4200.0 + (screen_p.y / g_scale);
-                else if (tile_pal_cmode < 3.5) idx = 4200.0 + (screen_p.x / g_scale);
-                else if (tile_pal_cmode < 4.5) idx = 4200.0 + ((screen_p.x + screen_p.y) / (g_scale * 1.4142));
+                } else if (tile_pal_cmode < 1.5) idx = length(gp) / max(24.0, g_scale * 0.85);
+                else if (tile_pal_cmode < 2.5) idx = 4200.0 + (gp.y / g_scale);
+                else if (tile_pal_cmode < 3.5) idx = 4200.0 + (gp.x / g_scale);
+                else if (tile_pal_cmode < 4.5) idx = 4200.0 + ((gp.x + gp.y) / (g_scale * 1.4142));
                 else if (tile_pal_cmode < 5.5) {
-                    float ang = (atan(screen_p.y, screen_p.x) + 3.1415926) / 6.2831853;
-                    idx = length(screen_p) / max(32.0, g_scale * 0.85) + ang * n;
+                    float ang = (atan(gp.y, gp.x) + 3.1415926) / 6.2831853;
+                    idx = length(gp) / max(24.0, g_scale * 0.85) + ang * n;
                 } else {
-                    float cw = 0.5 + 0.5 * cos((grid_p.x / g_scale) * 3.1415926) * cos((grid_p.y / g_scale) * 3.1415926);
+                    float cw = 0.5 + 0.5 * cos((gg.x / g_scale) * 3.1415926) * cos((gg.y / g_scale) * 3.1415926);
                     idx = cw * (n > 2.5 ? 2.0 : 1.0);
                 }
             }
             float h_seed = (tile_pal_style < 0.5) ? h : 0.0;
             float shift = 0.0;
-            if (tile_pal_canim > 0.5 && tile_pal_canim < 1.5) shift = t * tile_pal_cspeed * 1.4;
-            else if (tile_pal_canim >= 1.5) shift = (0.5 + 0.5 * sin(t * tile_pal_cspeed * 2.0 + h_seed * 1.8)) * max(1.0, n - 0.5);
+            if (tile_pal_canim > 0.5 && tile_pal_canim < 1.5) shift = t * tile_pal_cspeed * 0.45;
+            else if (tile_pal_canim >= 1.5) shift = (0.5 + 0.5 * sin(t * tile_pal_cspeed * 0.85 + h_seed * 1.8)) * max(1.0, n - 0.5);
             float fidx = max(0.0, idx + shift);
             float i0 = floor(fidx);
             vec4 c = mix(getPaletteStop(i0), getPaletteStop(i0 + 1.0), fract(fidx));
-            if (tile_pal_canim >= 1.5) c.a *= 0.65 + 0.35 * sin(t * tile_pal_cspeed * 2.2 + h_seed * 6.28318);
+            if (tile_pal_canim >= 1.5) c.a *= 0.65 + 0.35 * sin(t * tile_pal_cspeed * 0.95 + h_seed * 6.28318);
             return c;
         }
         vec4 evalPatternTiles(vec2 px, float t) {
@@ -2149,7 +2160,7 @@
             'tile_hue_mode', 'tile_hue_speed', 'tile_hue_jitter', 'tile_sat_jitter', 'tile_bright_jitter',
             'tile_scale_jitter', 'tile_rot_jitter', 'tile_pos_jitter', 'tile_twinkle', 'tile_twinkle_speed',
             'tile_tint', 'tile_color_source', 'tile_pal_cmode', 'tile_pal_canim', 'tile_pal_cspeed',
-            'tile_pal_style', 'tile_pal_blend', 'tile_pal_strength',
+            'tile_pal_style', 'tile_pal_blend', 'tile_pal_strength', 'tile_pal_scale', 'tile_pal_angle_rad',
             'has_stamp', 'show_checker', 'scene_tex', 'scene_padding'
         ];
         const uniforms = program => {
@@ -2242,7 +2253,7 @@
         gl.uniform1f(u.proc_fill_opacity, Number(pr.fillOpacity ?? 35));
         gl.uniform1f(u.proc_color_mode, PROC_CMODE_CODE_MAP[pr.colorMode] ?? 0);
         gl.uniform1f(u.proc_color_anim, PROC_CANIM_CODE_MAP[pr.colorAnim] ?? 0);
-        gl.uniform1f(u.proc_color_speed, resolveNum(pr.colorSpeed, 1, 0.2, 3));
+        gl.uniform1f(u.proc_color_speed, resolveNum(pr.colorSpeed, 1, 0, 5));
         gl.uniform1f(u.proc_motion, PROC_MOTION_CODE_MAP[pr.motion] ?? 1);
         gl.uniform1f(u.proc_speed, resolveNum(pr.speed, 1, 0, 10));
         gl.uniform1f(u.proc_pan_osc, pr.panDirection === 'oscillate' ? 1 : 0);
@@ -2330,6 +2341,8 @@
         gl.uniform1f(u.tile_pal_style, TILE_PALETTE_STYLE_CODE_MAP[tl.paletteStyle] ?? 0);
         gl.uniform1f(u.tile_pal_blend, TILE_PALETTE_BLEND_CODE_MAP[tl.paletteBlend] ?? 1);
         gl.uniform1f(u.tile_pal_strength, resolveNum(tl.paletteStrength, 100, 0, 100) / 100);
+        gl.uniform1f(u.tile_pal_scale, resolveNum(tl.paletteScale, 100, 25, 500) / 100);
+        gl.uniform1f(u.tile_pal_angle_rad, (resolveNum(tl.paletteAngle, 0, -360, 360) * Math.PI) / 180);
         const wantsProcBake = p.mode !== 'tiles' && !ANALYTIC_GPU_SET.has(pr.preset);
         const activeStampFile = p.mode === 'tiles' ? tl.stampFile : (wantsProcBake ? pr.bakedStampFile : '');
         gl.uniform1f(u.has_stamp, (hasStampTexture && activeStampFile) ? 1 : 0);
@@ -3228,7 +3241,7 @@
             'op-tile-motion', 'op-tile-track-mode', 'op-tile-speed', 'op-tile-scroll-angle',
             'op-tile-spin', 'op-tile-spin-dir', 'op-tile-wave-amt',
             'op-tile-hue-mode', 'op-tile-hue-speed', 'op-tile-hue-jitter',
-            'op-tile-cmode', 'op-tile-canim', 'op-tile-cspeed', 'op-tile-pal-style', 'op-tile-pal-blend', 'op-tile-pal-strength',
+            'op-tile-cmode', 'op-tile-canim', 'op-tile-cspeed', 'op-tile-pal-style', 'op-tile-pal-blend', 'op-tile-pal-strength', 'op-tile-pal-scale', 'op-tile-pal-angle',
             'op-tile-sat-jitter', 'op-tile-bright-jitter', 'op-tile-scale-jitter',
             'op-tile-rot-jitter', 'op-tile-pos-jitter', 'op-tile-twinkle', 'op-tile-twinkle-speed',
             'op-flt-brightness', 'op-flt-contrast', 'op-flt-saturate', 'op-flt-grayscale', 'op-flt-hue', 'op-flt-blur',
