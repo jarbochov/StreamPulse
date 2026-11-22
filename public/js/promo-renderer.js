@@ -60,6 +60,302 @@ function getDuotoneLuts(darkHex, lightHex) {
     return [duoLutR, duoLutG, duoLutB];
 }
 
+let nativeCanvasFilterSupported = null;
+function supportsNativeCanvasFilter() {
+    if (nativeCanvasFilterSupported !== null) return nativeCanvasFilterSupported;
+    try {
+        const probeSrc = document.createElement('canvas');
+        probeSrc.width = probeSrc.height = 2;
+        const ps = probeSrc.getContext('2d');
+        ps.fillStyle = '#404040';
+        ps.fillRect(0, 0, 2, 2);
+        const probeDst = document.createElement('canvas');
+        probeDst.width = probeDst.height = 2;
+        const pd = probeDst.getContext('2d');
+        if (!('filter' in pd)) return (nativeCanvasFilterSupported = false);
+        pd.filter = 'brightness(200%)';
+        pd.drawImage(probeSrc, 0, 0);
+        const px = pd.getImageData(0, 0, 1, 1).data;
+        nativeCanvasFilterSupported = px[0] >= 120;
+    } catch {
+        nativeCanvasFilterSupported = false;
+    }
+    return nativeCanvasFilterSupported;
+}
+
+let fxGl = null;
+function getFxWebGL() {
+    if (fxGl === false) return null;
+    if (fxGl && !fxGl.gl.isContextLost()) return fxGl;
+    try {
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: true, preserveDrawingBuffer: true, antialias: false, depth: false, stencil: false });
+        if (!gl) return (fxGl = false, null);
+        const compile = (type, src) => {
+            const sh = gl.createShader(type);
+            gl.shaderSource(sh, src);
+            gl.compileShader(sh);
+            if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh) || 'shader error');
+            return sh;
+        };
+        const link = (vsSrc, fsSrc) => {
+            const prog = gl.createProgram();
+            gl.attachShader(prog, compile(gl.VERTEX_SHADER, vsSrc));
+            gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, fsSrc));
+            gl.linkProgram(prog);
+            if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog) || 'link error');
+            return prog;
+        };
+        const vs = `attribute vec2 aPos;varying vec2 vUv;void main(){vUv=aPos*0.5+0.5;gl_Position=vec4(aPos,0.0,1.0);}`;
+        const fsColor = `precision mediump float;
+            varying vec2 vUv;
+            uniform sampler2D uTex;
+            uniform float uFlipY, uBright, uContrast, uSat, uGray;
+            void main(){
+                vec2 uv = vec2(vUv.x, uFlipY > 0.5 ? 1.0 - vUv.y : vUv.y);
+                vec4 c = texture2D(uTex, uv);
+                if (c.a <= 0.0005) { gl_FragColor = vec4(0.0); return; }
+                vec3 rgb = c.rgb / c.a;
+                rgb = clamp(rgb * uBright, 0.0, 1.0);
+                rgb = clamp((rgb - 0.5) * uContrast + 0.5, 0.0, 1.0);
+                float lum = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
+                rgb = clamp(mix(vec3(lum), rgb, uSat), 0.0, 1.0);
+                float lumG = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
+                rgb = clamp(mix(rgb, vec3(lumG), uGray), 0.0, 1.0);
+                gl_FragColor = vec4(rgb * c.a, c.a);
+            }`;
+        const fsBlur = `precision mediump float;
+            varying vec2 vUv;
+            uniform sampler2D uTex;
+            uniform vec2 uStep;
+            uniform float uSigma, uFlipY, uPreserveAlpha;
+            void main(){
+                vec2 uv0 = vec2(vUv.x, uFlipY > 0.5 ? 1.0 - vUv.y : vUv.y);
+                if (uSigma <= 0.05) { gl_FragColor = texture2D(uTex, uv0); return; }
+                vec4 acc = vec4(0.0);
+                float wSum = 0.0;
+                float inv2s2 = -0.5 / (uSigma * uSigma);
+                for (int i = -18; i <= 18; i++) {
+                    float fi = float(i);
+                    float w = exp(fi * fi * inv2s2);
+                    vec2 uv = uv0 + uStep * fi;
+                    vec4 s = (uPreserveAlpha > 0.5 && (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0))
+                        ? vec4(0.0)
+                        : texture2D(uTex, clamp(uv, 0.0, 1.0));
+                    acc += s * w;
+                    wSum += w;
+                }
+                gl_FragColor = acc / max(wSum, 1e-5);
+            }`;
+        const progColor = link(vs, fsColor);
+        const progBlur = link(vs, fsBlur);
+        const buf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+        const makeTex = () => {
+            const t = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, t);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            return t;
+        };
+        const texSrc = makeTex(), texTmp = makeTex(), fbo = gl.createFramebuffer();
+        fxGl = { gl, canvas, progColor, progBlur, buf, texSrc, texTmp, fbo, tmpW: 0, tmpH: 0 };
+        return fxGl;
+    } catch {
+        fxGl = false;
+        return null;
+    }
+}
+
+export function applyWebGLCanvasFilters(ctx, width, height, { br, co, sa, gr, bl, preserveAlpha }) {
+    const state = getFxWebGL();
+    if (!state) return false;
+    const { gl, canvas, progColor, progBlur, buf, texSrc, texTmp, fbo } = state;
+    try {
+        if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
+        gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+        gl.bindTexture(gl.TEXTURE_2D, texSrc);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, ctx.canvas);
+
+        let curTex = texSrc;
+        let flipY = 1;
+        const bindQuad = prog => {
+            gl.useProgram(prog);
+            const loc = gl.getAttribLocation(prog, 'aPos');
+            gl.enableVertexAttribArray(loc);
+            gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+        };
+
+        if (bl > 0) {
+            const down = bl > 7 ? Math.min(12, Math.max(2, Math.ceil(bl / 7))) : 1;
+            const bw = Math.max(1, Math.round(width / down)), bh = Math.max(1, Math.round(height / down));
+            const sigma = bl / down;
+            gl.bindTexture(gl.TEXTURE_2D, texTmp);
+            if (state.tmpW !== bw || state.tmpH !== bh) {
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, bw, bh, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+                state.tmpW = bw; state.tmpH = bh;
+            }
+            const texDst = makeBlurDst(state, bw, bh);
+            bindQuad(progBlur);
+            gl.viewport(0, 0, bw, bh);
+            gl.uniform1f(gl.getUniformLocation(progBlur, 'uSigma'), sigma);
+            gl.uniform1f(gl.getUniformLocation(progBlur, 'uPreserveAlpha'), preserveAlpha ? 1 : 0);
+
+            // Horizontal pass -> texTmp
+            gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texTmp, 0);
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, texSrc);
+            gl.uniform1i(gl.getUniformLocation(progBlur, 'uTex'), 0);
+            gl.uniform1f(gl.getUniformLocation(progBlur, 'uFlipY'), 0);
+            gl.uniform2f(gl.getUniformLocation(progBlur, 'uStep'), 1 / bw, 0);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+            // Vertical pass -> texDst (reuse viewport/target)
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texDst, 0);
+            gl.bindTexture(gl.TEXTURE_2D, texTmp);
+            gl.uniform1f(gl.getUniformLocation(progBlur, 'uFlipY'), 0);
+            gl.uniform2f(gl.getUniformLocation(progBlur, 'uStep'), 0, 1 / bh);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+            curTex = texDst;
+            flipY = 1;
+        }
+
+        // Color & Exposure final pass -> WebGL default framebuffer (at full target resolution)
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, width, height);
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        bindQuad(progColor);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, curTex);
+        gl.uniform1i(gl.getUniformLocation(progColor, 'uTex'), 0);
+        gl.uniform1f(gl.getUniformLocation(progColor, 'uFlipY'), flipY);
+        gl.uniform1f(gl.getUniformLocation(progColor, 'uBright'), br / 100);
+        gl.uniform1f(gl.getUniformLocation(progColor, 'uContrast'), co / 100);
+        gl.uniform1f(gl.getUniformLocation(progColor, 'uSat'), sa / 100);
+        gl.uniform1f(gl.getUniformLocation(progColor, 'uGray'), Math.max(0, Math.min(1, gr / 100)));
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+        ctx.save();
+        ctx.clearRect(0, 0, width, height);
+        ctx.drawImage(canvas, 0, 0, width, height);
+        ctx.restore();
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function makeBlurDst(state, bw, bh) {
+    const { gl } = state;
+    if (!state.texDst) {
+        const t = state.texDst = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, t);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    }
+    gl.bindTexture(gl.TEXTURE_2D, state.texDst);
+    if (state.dstW !== bw || state.dstH !== bh) {
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, bw, bh, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        state.dstW = bw; state.dstH = bh;
+    }
+    return state.texDst;
+}
+
+export function applyCpuCanvasFilters(ctx, width, height, { br, co, sa, gr, bl, preserveAlpha }) {
+    if (bl > 0) {
+        const down = Math.min(4, Math.max(1, Math.ceil(bl / 6)));
+        const sw = Math.max(1, Math.round(width / down)), sh = Math.max(1, Math.round(height / down));
+        const r = Math.max(1, Math.round((bl / down) * 1.4));
+        const tmp = fxScratchCanvas || (fxScratchCanvas = document.createElement('canvas'));
+        if (tmp.width !== sw || tmp.height !== sh) { tmp.width = sw; tmp.height = sh; }
+        const tCtx = tmp.getContext('2d');
+        tCtx.clearRect(0, 0, sw, sh);
+        tCtx.drawImage(ctx.canvas, 0, 0, width, height, 0, 0, sw, sh);
+        const img = tCtx.getImageData(0, 0, sw, sh), src = new Uint8ClampedArray(img.data), dst = img.data;
+        const buf = new Float32Array(sw * sh * 4);
+        const span = r * 2 + 1;
+        for (let pass = 0; pass < 2; pass++) {
+            const inArr = pass === 0 ? src : dst;
+            for (let y = 0; y < sh; y++) {
+                const row = y * sw * 4;
+                for (let c = 0; c < 4; c++) {
+                    let sum = 0;
+                    for (let k = -r; k <= r; k++) {
+                        const xk = preserveAlpha ? k : Math.max(0, Math.min(sw - 1, k));
+                        sum += (xk < 0 || xk >= sw) ? 0 : inArr[row + xk * 4 + c];
+                    }
+                    for (let x = 0; x < sw; x++) {
+                        buf[row + x * 4 + c] = sum / span;
+                        const xl = x - r, xr = x + r + 1;
+                        const lIdx = preserveAlpha ? xl : Math.max(0, xl);
+                        const rIdx = preserveAlpha ? xr : Math.min(sw - 1, xr);
+                        sum -= (lIdx < 0 || lIdx >= sw) ? 0 : inArr[row + lIdx * 4 + c];
+                        sum += (rIdx < 0 || rIdx >= sw) ? 0 : inArr[row + rIdx * 4 + c];
+                    }
+                }
+            }
+            for (let x = 0; x < sw; x++) {
+                for (let c = 0; c < 4; c++) {
+                    let sum = 0;
+                    for (let k = -r; k <= r; k++) {
+                        const yk = preserveAlpha ? k : Math.max(0, Math.min(sh - 1, k));
+                        sum += (yk < 0 || yk >= sh) ? 0 : buf[(yk * sw + x) * 4 + c];
+                    }
+                    for (let y = 0; y < sh; y++) {
+                        dst[(y * sw + x) * 4 + c] = Math.round(sum / span);
+                        const yt = y - r, yb = y + r + 1;
+                        const tIdx = preserveAlpha ? yt : Math.max(0, yt);
+                        const bIdx = preserveAlpha ? yb : Math.min(sh - 1, yb);
+                        sum -= (tIdx < 0 || tIdx >= sh) ? 0 : buf[(tIdx * sw + x) * 4 + c];
+                        sum += (bIdx < 0 || bIdx >= sh) ? 0 : buf[(bIdx * sw + x) * 4 + c];
+                    }
+                }
+            }
+        }
+        tCtx.putImageData(img, 0, 0);
+        ctx.save();
+        ctx.clearRect(0, 0, width, height);
+        ctx.drawImage(tmp, 0, 0, sw, sh, 0, 0, width, height);
+        ctx.restore();
+    }
+    if (br !== 100 || co !== 100 || sa !== 100 || gr > 0) {
+        const b = br / 100, c = co / 100, s = sa / 100, g = Math.max(0, Math.min(1, gr / 100));
+        const imgData = ctx.getImageData(0, 0, width, height), d = imgData.data;
+        const clamp = v => (v <= 0 ? 0 : v >= 255 ? 255 : v);
+        for (let i = 0; i < d.length; i += 4) {
+            if (d[i + 3] === 0) continue;
+            let r = clamp(d[i] * b), gg = clamp(d[i + 1] * b), bb = clamp(d[i + 2] * b);
+            if (c !== 1) {
+                r = clamp((r - 127.5) * c + 127.5);
+                gg = clamp((gg - 127.5) * c + 127.5);
+                bb = clamp((bb - 127.5) * c + 127.5);
+            }
+            if (s !== 1) {
+                const lum = 0.2126 * r + 0.7152 * gg + 0.0722 * bb;
+                r = clamp(lum + (r - lum) * s);
+                gg = clamp(lum + (gg - lum) * s);
+                bb = clamp(lum + (bb - lum) * s);
+            }
+            if (g > 0) {
+                const lum = 0.2126 * r + 0.7152 * gg + 0.0722 * bb;
+                r = clamp(r + (lum - r) * g);
+                gg = clamp(gg + (lum - gg) * g);
+                bb = clamp(bb + (lum - bb) * g);
+            }
+            d[i] = r; d[i + 1] = gg; d[i + 2] = bb;
+        }
+        ctx.putImageData(imgData, 0, 0);
+    }
+}
+
 function applyCanvasEffects(ctx, width, height, f, { time = 0, preserveAlpha = false } = {}) {
     if (!hasActiveEffects(f) || width < 1 || height < 1) return;
     const br = f.brightness ?? 100, co = f.contrast ?? 100, sa = f.saturate ?? 100, gr = f.grayscale ?? 0, bl = f.blur ?? 0;
@@ -77,34 +373,38 @@ function applyCanvasEffects(ctx, width, height, f, { time = 0, preserveAlpha = f
         alphaMask.getContext('2d').drawImage(ctx.canvas, 0, 0, width, height);
     }
 
-    if (filterParts.length && 'filter' in ctx) {
-        const scratch = fxScratchCanvas || (fxScratchCanvas = document.createElement('canvas'));
-        if (scratch.width !== width || scratch.height !== height) { scratch.width = width; scratch.height = height; }
-        const sCtx = scratch.getContext('2d');
-        sCtx.clearRect(0, 0, width, height);
-        sCtx.drawImage(ctx.canvas, 0, 0, width, height);
+    if (filterParts.length) {
+        if (supportsNativeCanvasFilter()) {
+            const scratch = fxScratchCanvas || (fxScratchCanvas = document.createElement('canvas'));
+            if (scratch.width !== width || scratch.height !== height) { scratch.width = width; scratch.height = height; }
+            const sCtx = scratch.getContext('2d');
+            sCtx.clearRect(0, 0, width, height);
+            sCtx.drawImage(ctx.canvas, 0, 0, width, height);
 
-        ctx.save();
-        ctx.clearRect(0, 0, width, height);
-        ctx.filter = filterParts.join(' ');
-        if (bl > 0 && !preserveAlpha) {
-            // Clamp outer edges cleanly so blurred solid/gradient/pattern backdrops do not darken at the border.
-            const pad = Math.min(140, Math.ceil(bl * 2.2));
-            const padW = width + pad * 2, padH = height + pad * 2;
-            const padded = fxPadCanvas || (fxPadCanvas = document.createElement('canvas'));
-            if (padded.width !== padW || padded.height !== padH) { padded.width = padW; padded.height = padH; }
-            const pCtx = padded.getContext('2d');
-            pCtx.clearRect(0, 0, padW, padH);
-            pCtx.drawImage(scratch, pad, pad);
-            pCtx.drawImage(scratch, 0, 0, width, 1, pad, 0, width, pad);
-            pCtx.drawImage(scratch, 0, height - 1, width, 1, pad, pad + height, width, pad);
-            pCtx.drawImage(scratch, 0, 0, 1, height, 0, pad, pad, height);
-            pCtx.drawImage(scratch, width - 1, 0, 1, height, pad + width, pad, pad, height);
-            ctx.drawImage(padded, pad, pad, width, height, 0, 0, width, height);
-        } else {
-            ctx.drawImage(scratch, 0, 0, width, height);
+            ctx.save();
+            ctx.clearRect(0, 0, width, height);
+            ctx.filter = filterParts.join(' ');
+            if (bl > 0 && !preserveAlpha) {
+                // Clamp outer edges cleanly so blurred solid/gradient/pattern backdrops do not darken at the border.
+                const pad = Math.min(140, Math.ceil(bl * 2.2));
+                const padW = width + pad * 2, padH = height + pad * 2;
+                const padded = fxPadCanvas || (fxPadCanvas = document.createElement('canvas'));
+                if (padded.width !== padW || padded.height !== padH) { padded.width = padW; padded.height = padH; }
+                const pCtx = padded.getContext('2d');
+                pCtx.clearRect(0, 0, padW, padH);
+                pCtx.drawImage(scratch, pad, pad);
+                pCtx.drawImage(scratch, 0, 0, width, 1, pad, 0, width, pad);
+                pCtx.drawImage(scratch, 0, height - 1, width, 1, pad, pad + height, width, pad);
+                pCtx.drawImage(scratch, 0, 0, 1, height, 0, pad, pad, height);
+                pCtx.drawImage(scratch, width - 1, 0, 1, height, pad + width, pad, pad, height);
+                ctx.drawImage(padded, pad, pad, width, height, 0, 0, width, height);
+            } else {
+                ctx.drawImage(scratch, 0, 0, width, height);
+            }
+            ctx.restore();
+        } else if (!applyWebGLCanvasFilters(ctx, width, height, { br, co, sa, gr, bl, preserveAlpha })) {
+            applyCpuCanvasFilters(ctx, width, height, { br, co, sa, gr, bl, preserveAlpha });
         }
-        ctx.restore();
     }
 
     if (f.duotone?.enabled) {

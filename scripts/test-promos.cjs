@@ -1072,6 +1072,50 @@ test('promo creator exposes fill modes, palettes, and background/image effect co
     });
     assert.ok(photoDomCheck.imgFilter.includes('brightness(160%)'), 'image element Color & Exposure slider applies live filter to stage DOM <img>');
     assert.equal(photoDomCheck.tintZ, '2', 'tint overlay sits above contain-blur foreground image');
+
+    // Cross-browser Safari/WebKit fallback parity (WebGL & CPU paths when ctx.filter is unavailable)
+    const fallbackChecks = await page.evaluate(async () => {
+        const { applyWebGLCanvasFilters, applyCpuCanvasFilters, makeBackdrop } = await import('/js/promo-renderer.js');
+        const mkSample = () => {
+            const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+            const g = c.getContext('2d');
+            g.fillStyle = '#402010'; g.fillRect(0, 0, 64, 64);
+            g.fillStyle = '#e11d48'; g.fillRect(16, 16, 32, 32);
+            return [c, g];
+        };
+        const [glC, glG] = mkSample();
+        const glOk = applyWebGLCanvasFilters(glG, 64, 64, { br: 200, co: 100, sa: 100, gr: 0, bl: 0, preserveAlpha: false });
+        const glPx = [...glG.getImageData(4, 4, 1, 1).data];
+        const [glGrayC, glGrayG] = mkSample();
+        applyWebGLCanvasFilters(glGrayG, 64, 64, { br: 100, co: 100, sa: 100, gr: 100, bl: 10, preserveAlpha: false });
+        const glGrayPx = [...glGrayG.getImageData(32, 32, 1, 1).data];
+
+        const [cpuC, cpuG] = mkSample();
+        applyCpuCanvasFilters(cpuG, 64, 64, { br: 200, co: 100, sa: 100, gr: 0, bl: 0, preserveAlpha: false });
+        const cpuPx = [...cpuG.getImageData(4, 4, 1, 1).data];
+        const [cpuBlurC, cpuBlurG] = mkSample();
+        applyCpuCanvasFilters(cpuBlurG, 64, 64, { br: 100, co: 100, sa: 100, gr: 100, bl: 10, preserveAlpha: false });
+        const cpuGrayPx = [...cpuBlurG.getImageData(32, 32, 1, 1).data];
+
+        // Also confirm animated leaves pattern (Tonight-style) responds to brightness & saturation
+        const leavesBase = await makeBackdrop(window.PromoModel.normalize({
+            background: { mode: 'pattern', pattern: 'leaves', color: '#180800', palette: 'autumn', motion: 'sway', vignette: 0, mediaFilter: { brightness: 100 } }
+        }), 'square', 0, false);
+        const leavesBright = await makeBackdrop(window.PromoModel.normalize({
+            background: { mode: 'pattern', pattern: 'leaves', color: '#180800', palette: 'autumn', motion: 'sway', vignette: 0, mediaFilter: { brightness: 200 } }
+        }), 'square', 0, false);
+        return {
+            glOk, glPx, glGrayPx, cpuPx, cpuGrayPx,
+            leaves100: [...leavesBase.getContext('2d').getImageData(10, 900, 1, 1).data],
+            leaves200: [...leavesBright.getContext('2d').getImageData(10, 900, 1, 1).data]
+        };
+    });
+    assert.equal(fallbackChecks.glOk, true, 'WebGL fallback pipeline executes when ctx.filter is bypassed');
+    assert.ok(fallbackChecks.glPx[0] >= 120 && fallbackChecks.glPx[1] >= 60, `WebGL brightness(200%) doubles dark pixel (#402010 -> ${fallbackChecks.glPx})`);
+    assert.ok(Math.abs(fallbackChecks.glGrayPx[0] - fallbackChecks.glGrayPx[2]) <= 2, 'WebGL grayscale+blur desaturates without chromatic bias');
+    assert.ok(fallbackChecks.cpuPx[0] >= 120 && fallbackChecks.cpuPx[1] >= 60, 'CPU fallback doubles dark pixel accurately');
+    assert.ok(Math.abs(fallbackChecks.cpuGrayPx[0] - fallbackChecks.cpuGrayPx[2]) <= 2, 'CPU fallback grayscale+blur desaturates cleanly');
+    assert.ok(fallbackChecks.leaves200[0] > fallbackChecks.leaves100[0], 'leaves sway pattern brightness(200%) brightens base & pattern');
 });
 
 const clone = value => JSON.parse(JSON.stringify(value));

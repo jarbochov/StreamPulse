@@ -258,7 +258,7 @@ export function bindFields(container, getTargets, onApply) {
     container.addEventListener('change', event => {
         const input = event.target.closest('[data-path]');
         if (!input) return;
-        if (input.dataset.lazy === '1' || input.dataset.kind === 'number' || input.tagName === 'SELECT' || input.type === 'color' || input.classList.contains('color-text')) apply(input, event);
+        if (input.dataset.lazy === '1' || input.dataset.kind === 'number' || input.dataset.kind === 'check' || input.tagName === 'SELECT' || input.type === 'color' || input.classList.contains('color-text')) apply(input, event);
         const target = getTargets()[0];
         if (target && input.dataset.kind === 'number') {
             const formatted = fmt(getPath(target, input.dataset.path), Number(input.dataset.scale) || 1);
