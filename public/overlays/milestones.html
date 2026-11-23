@@ -344,6 +344,7 @@
         <!-- Rendered dynamically -->
     </div>
 
+    <script src="/js/overlay-idle.js"></script>
     <script src="/overlay-visibility.js" data-key="milestones"></script>
     <script src="/url-params.js"></script>
     <script src="/overlay-theme.js"></script>
@@ -561,10 +562,16 @@
         };
     }
 
+    const isOverlayHidden = () => Boolean(window.StreamPulseIdle?.isHidden ? window.StreamPulseIdle.isHidden() : document.hidden);
+    if (window.StreamPulseIdle) {
+        window.StreamPulseIdle.onChange(hidden => { if (!hidden) loadData(); });
+    }
     loadData();
     connectWS();
-    // Background polling fallback every 25s
-    setInterval(loadData, 25000);
+    // Background polling fallback every 25s (paused when tab or OBS source is hidden)
+    setInterval(() => {
+        if (!isOverlayHidden()) loadData();
+    }, 25000);
     </script>
 </body>
 </html>

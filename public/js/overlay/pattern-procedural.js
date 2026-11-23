@@ -1,5 +1,5 @@
-import { fxPaused, patternRunners } from './effects.js';
-import { root } from './environment.js';
+import { applyRadialFeatherMask, clearFeatherMaskCache, fxPaused, patternRunners } from './effects.js';
+import { isOverlayHidden, root } from './environment.js';
 import { hasBoxFill } from './styles.js';
 
 function proceduralAnimation(element, options) {
@@ -24,6 +24,7 @@ function mountProceduralPattern(node, element, options = {}) {
     const ctx = canvas.getContext('2d', { alpha: true });
     let curElement = element, curOptions = options;
     let stopped = false, rafId = 0, dirtyFrame = true, startTime = 0, lastDrawTs = 0;
+    const featherCache = {};
 
     function drawFrame(now) {
         rafId = 0;
@@ -92,27 +93,14 @@ function mountProceduralPattern(node, element, options = {}) {
             });
         }
         const pFeather = Number(curElement.feather ?? curElement.pattern?.feather) || 0;
-        if (pFeather > 0) {
-            ctx.save();
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.globalAlpha = 1;
-            ctx.globalCompositeOperation = 'destination-in';
-            const stop = Math.max(0, 100 - pFeather);
-            const maxR = Math.hypot(cw, ch) / 2;
-            const radGrad = ctx.createRadialGradient(cw / 2, ch / 2, maxR * (stop / 100), cw / 2, ch / 2, maxR);
-            radGrad.addColorStop(0, '#000000');
-            radGrad.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = radGrad;
-            ctx.fillRect(0, 0, cw, ch);
-            ctx.restore();
-        }
-        if (hasProcAnim && !fxPaused && !document.hidden) {
+        applyRadialFeatherMask(ctx, cw, ch, pFeather, featherCache);
+        if (hasProcAnim && !fxPaused && !isOverlayHidden()) {
             rafId = requestAnimationFrame(drawFrame);
         }
     }
 
     function wake() {
-        if (document.hidden) {
+        if (isOverlayHidden()) {
             if (rafId) cancelAnimationFrame(rafId);
             rafId = 0;
             return;
@@ -161,6 +149,7 @@ function mountProceduralPattern(node, element, options = {}) {
             patternRunners.delete(wake);
             if (rafId) cancelAnimationFrame(rafId);
             rafId = 0;
+            clearFeatherMaskCache(featherCache);
             canvas.width = 0; canvas.height = 0;
         },
         update,

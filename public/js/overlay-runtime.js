@@ -3,6 +3,7 @@
     const overlayId = params.get('id');
     const root = document.getElementById('overlay-root');
     if (!overlayId || !root) return;
+    const isHidden = () => Boolean(window.StreamPulseIdle?.isHidden ? window.StreamPulseIdle.isHidden() : document.hidden);
     let liveStatus = {};
     const randomTimers = new Map();
     const randomIndexes = new Map();
@@ -110,7 +111,7 @@
             const speed = Math.max(10, Number(config.typewriterSpeed) || 110);
             if (node._typeTimer) clearInterval(node._typeTimer);
             node._typeTimer = setInterval(() => {
-                if (document.hidden) return;
+                if (isHidden()) return;
                 typed.textContent = value.slice(0, ++position);
                 if (position >= value.length) {
                     clearInterval(node._typeTimer);
@@ -470,12 +471,29 @@
     }
 
     function tickPlaceholders() {
-        if (document.hidden) return;
+        if (isHidden() || !tickingNodes.length) return;
         for (const { node, element } of tickingNodes) {
             let changed = false;
-            if (element.type === 'poll') { window.PollWidget.render(node, element, liveStatus.poll, { preview: params.get('preview') === 'true' }); changed = true; }
-            else if (element.type === 'progress') { shared.renderProgress(node, element, expandVariables); changed = true; }
-            else if (element.type === 'markdown') {
+            if (element.type === 'poll') {
+                const pollSig = JSON.stringify([liveStatus.poll, element.poll]);
+                if (node._pollSig !== pollSig) {
+                    node._pollSig = pollSig;
+                    window.PollWidget.render(node, element, liveStatus.poll, { preview: params.get('preview') === 'true' });
+                    changed = true;
+                }
+            } else if (element.type === 'progress') {
+                const progSig = JSON.stringify([
+                    expandVariables(String(element.content || '')),
+                    expandVariables(String(element.progress?.current || '')),
+                    expandVariables(String(element.progress?.max || '')),
+                    expandVariables(String(element.progress?.label || ''))
+                ]);
+                if (node._progSig !== progSig) {
+                    node._progSig = progSig;
+                    shared.renderProgress(node, element, expandVariables);
+                    changed = true;
+                }
+            } else if (element.type === 'markdown') {
                 const nextHtml = renderMarkdown(shared.elementContent(element), element);
                 if (node._mdHtml !== nextHtml) {
                     node._mdHtml = nextHtml;
@@ -514,7 +532,7 @@
         if (!video || video.tagName !== 'VIDEO') return;
         video._playbackWanted = true;
         const request = video._playRequest = (video._playRequest || 0) + 1;
-        if (document.hidden) {
+        if (isHidden()) {
             video._pausedByHidden = true;
             return;
         }
@@ -522,7 +540,7 @@
         const promise = video.play();
         if (promise && promise.catch) {
             promise.catch(() => {
-                if (request !== video._playRequest || !video.isConnected || document.hidden) return;
+                if (request !== video._playRequest || !video.isConnected || isHidden()) return;
                 if (!video.muted) {
                     video.dataset.audioPending = 'true';
                     video.muted = true;
@@ -837,7 +855,7 @@
                 const interval = Math.max(1, Number(element.random?.intervalSeconds) || 5) * 1000;
                 clearInterval(randomTimers.get(element.id));
                 randomTimers.set(element.id, setInterval(() => {
-                    if (!document.hidden) setRandomText(existingNode, element);
+                    if (!isHidden()) setRandomText(existingNode, element);
                 }, interval));
             } else if (element.type === 'game-list') {
                 shared.renderGameList(existingNode, element, liveStatus.gamePlan);
@@ -1024,7 +1042,7 @@
                 const interval = Math.max(1, Number(element.random?.intervalSeconds) || 5) * 1000;
                 clearInterval(randomTimers.get(element.id));
                 randomTimers.set(element.id, setInterval(() => {
-                    if (!document.hidden) setRandomText(node, element);
+                    if (!isHidden()) setRandomText(node, element);
                 }, interval));
             } else if (element.type === 'slideshow') {
                 slideshows.get(element.id)?.handle.stop();
@@ -1466,7 +1484,7 @@
     }
 
     async function refreshStatus() {
-        if (document.hidden) return;
+        if (isHidden()) return;
         try {
             const response = await fetch('/api/status', { cache: 'no-store' });
             if (!response.ok) return;
@@ -1744,14 +1762,14 @@
         root.style.color = '#f85149';
     });
     const textSourceTimer = setInterval(async () => {
-        if (document.hidden) return;
+        if (isHidden()) return;
         if (currentOverlay && await shared.refreshTextSources(currentOverlay.elements)) render(currentOverlay);
     }, 3000);
     const statusPollTimer = setInterval(refreshStatus, 5000);
     const placeholderTickTimer = setInterval(tickPlaceholders, 1000);
 
-    document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
+    const handleVisibilityChange = () => {
+        if (isHidden()) {
             root.querySelectorAll('video').forEach(v => {
                 if (!v.paused) {
                     v._pausedByHidden = true;
@@ -1774,7 +1792,9 @@
                 });
             }
         }
-    });
+    };
+    if (window.StreamPulseIdle) window.StreamPulseIdle.onChange(handleVisibilityChange);
+    else document.addEventListener('visibilitychange', handleVisibilityChange);
 
     connect();
 

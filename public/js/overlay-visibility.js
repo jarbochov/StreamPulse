@@ -19,13 +19,21 @@
         const instant = performance.now() < 2500;
         root.style.transition = instant ? 'none' : `opacity ${FADE_MS}ms ease`;
         if (visible) {
+            window.StreamPulseIdle?.setApiHidden?.(false);
             root.style.visibility = '';
             void root.offsetWidth;
             root.style.opacity = '';
         } else {
             root.style.opacity = '0';
-            if (instant) root.style.visibility = 'hidden';
-            else hideTimer = setTimeout(() => { root.style.visibility = 'hidden'; }, FADE_MS);
+            if (instant) {
+                root.style.visibility = 'hidden';
+                window.StreamPulseIdle?.setApiHidden?.(true);
+            } else {
+                hideTimer = setTimeout(() => {
+                    root.style.visibility = 'hidden';
+                    window.StreamPulseIdle?.setApiHidden?.(true);
+                }, FADE_MS);
+            }
         }
     };
     function connect() {
@@ -59,7 +67,10 @@
     window.addEventListener('pagehide', () => {
         suspended = true;
         clearTimeout(hideTimer);
-        if (lastVisible === false) root.style.visibility = 'hidden';
+        if (lastVisible === false) {
+            root.style.visibility = 'hidden';
+            window.StreamPulseIdle?.setApiHidden?.(true);
+        }
         clearTimeout(reconnectTimer);
         reconnectTimer = null;
         const ws = socket;

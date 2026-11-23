@@ -124,9 +124,13 @@ function fixtureServer() {
     return http.createServer((req, res) => {
         const url = new URL(req.url, 'http://fixture.local');
         if (url.pathname.startsWith('/fixture/')) {
-            const file = url.pathname === '/fixture/polls' ? 'tools/polls.html'
-                : url.pathname === '/fixture/poll-tournament' ? 'overlays/poll-tournament.html'
-                    : url.pathname === '/fixture/countdown' ? 'overlays/countdown.html' : 'overlays/tournament.html';
+            const name = url.pathname.slice('/fixture/'.length);
+            const file = name === 'polls' ? 'tools/polls.html'
+                : name === 'poll-tournament' ? 'overlays/poll-tournament.html'
+                    : name === 'countdown' ? 'overlays/countdown.html'
+                        : name === 'music' ? 'overlays/music.html'
+                            : name === 'matchup' ? 'overlays/matchup.html'
+                                : 'overlays/tournament.html';
             const html = fs.readFileSync(path.join(rootDir, 'public', file), 'utf8');
             res.writeHead(200, { 'Content-Type': 'text/html' });
             res.end(html.replace('<head>', `<head><script>(${installFixture.toString()})();</script>`));
@@ -315,6 +319,48 @@ if (process.argv.includes('--safari-fixture')) {
             }), [1, 1, 1, 0], 'live updates must keep one timer loop and cancel it on pause');
             await countdown.close();
         }
+        assert.deepEqual(errors, []);
+
+        // Virtual-clock verification for OBS Browser Source visibility gating (obsSourceVisibleChanged) & on-demand matchup clock
+        const music = await open('music');
+        const musicStats = await music.evaluate(async () => {
+            const f = window.idleFixture;
+            await f.advance(6000);
+            const beforeHide = f.requests.length;
+            window.dispatchEvent(new window.CustomEvent('obsSourceVisibleChanged', { detail: { visible: false } }));
+            await f.flush();
+            await f.advance(15000);
+            const duringHide = f.requests.length - beforeHide;
+            window.dispatchEvent(new window.CustomEvent('obsSourceVisibleChanged', { detail: { visible: true } }));
+            await f.flush();
+            const afterShow = f.requests.length - beforeHide;
+            return { hiddenNow: window.StreamPulseIdle.isHidden(), duringHide, afterShow };
+        });
+        assert.deepEqual(musicStats, { hiddenNow: false, duringHide: 0, afterShow: 1 }, 'music overlay pauses 5s polling while OBS source is hidden and catches up on show');
+        await music.close();
+
+        const matchup = await open('matchup');
+        const matchupStats = await matchup.evaluate(async () => {
+            const f = window.idleFixture;
+            await f.advance(1000);
+            const idleTimers = f.timers.size;
+            f.broadcast('matchup-update', {
+                id: 'm1', status: 'LIVE',
+                clock: { enabled: true, mode: 'stopwatch', isRunning: true, elapsed: 10 },
+                competitors: [{ name: 'Alpha', score: 0 }, { name: 'Beta', score: 0 }]
+            });
+            await f.flush();
+            const runningTimers = f.timers.size;
+            window.dispatchEvent(new window.CustomEvent('obsSourceVisibleChanged', { detail: { visible: false } }));
+            await f.flush();
+            const hiddenTimers = f.timers.size;
+            window.dispatchEvent(new window.CustomEvent('obsSourceVisibleChanged', { detail: { visible: true } }));
+            await f.flush();
+            const resumedTimers = f.timers.size;
+            return { idleTimers, runningTimers, hiddenTimers, resumedTimers };
+        });
+        assert.deepEqual(matchupStats, { idleTimers: 0, runningTimers: 1, hiddenTimers: 0, resumedTimers: 1 }, 'matchup clock ticker only runs while a live clock is active AND visible in OBS');
+        await matchup.close();
         assert.deepEqual(errors, []);
     });
 }

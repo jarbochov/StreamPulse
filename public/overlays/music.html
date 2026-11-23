@@ -327,6 +327,7 @@
 <body>
     <div id="player" class="player-container"></div>
 
+<script src="/js/overlay-idle.js"></script>
 <script src="/url-params.js"></script>
 <script>
     const params = overlayParams();
@@ -764,10 +765,16 @@
     }
 
     // Init
+    const isMusicHidden = () => Boolean(window.StreamPulseIdle?.isHidden ? window.StreamPulseIdle.isHidden() : document.hidden);
+    if (window.StreamPulseIdle) {
+        window.StreamPulseIdle.onChange(hidden => { if (!hidden) pollNowPlaying(); });
+    }
     Promise.all([loadTheme(), checkFallbackArt(), checkOverlayVisibility()]).then(() => {
         connectWS();
         pollNowPlaying();
-        setInterval(pollNowPlaying, 5000);
+        setInterval(() => {
+            if (!isMusicHidden()) pollNowPlaying();
+        }, 5000);
     });
 </script>
 </body>

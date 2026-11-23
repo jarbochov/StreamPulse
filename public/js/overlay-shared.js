@@ -31,6 +31,10 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
   ));
 
   // public/js/overlay/environment.js
+  function isOverlayHidden() {
+    if (root?.StreamPulseIdle?.isHidden) return Boolean(root.StreamPulseIdle.isHidden());
+    return typeof document !== "undefined" && Boolean(document.hidden);
+  }
   var root;
   var init_environment = __esm({
     "public/js/overlay/environment.js"() {
@@ -271,8 +275,9 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
 
   // public/js/overlay/effects.js
   function fxResume() {
+    const hidden = isOverlayHidden();
     if (typeof document !== "undefined") {
-      document.documentElement.classList.toggle("sp-fx-paused", fxPaused || document.hidden);
+      document.documentElement.classList.toggle("sp-fx-paused", fxPaused || hidden);
     }
     for (const wake of patternRunners) wake();
   }
@@ -282,6 +287,44 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     if (root.OverlayRetro?.setEffectsPaused) root.OverlayRetro.setEffectsPaused(paused);
     fxResume();
   }
+  function clearFeatherMaskCache(cache) {
+    if (!cache || !cache.canvas) return;
+    cache.canvas.width = 0;
+    cache.canvas.height = 0;
+    cache.canvas = null;
+    cache.w = 0;
+    cache.h = 0;
+    cache.feather = -1;
+  }
+  function applyRadialFeatherMask(ctx, cw, ch, feather, cache) {
+    if (!(feather > 0) || cw < 1 || ch < 1) {
+      clearFeatherMaskCache(cache);
+      return;
+    }
+    if (!cache.canvas || cache.w !== cw || cache.h !== ch || cache.feather !== feather) {
+      const mask = cache.canvas || (cache.canvas = document.createElement("canvas"));
+      mask.width = cw;
+      mask.height = ch;
+      const mCtx = mask.getContext("2d");
+      const stop = Math.max(0, 100 - feather);
+      const maxR = Math.hypot(cw, ch) / 2;
+      const radGrad = mCtx.createRadialGradient(cw / 2, ch / 2, maxR * (stop / 100), cw / 2, ch / 2, maxR);
+      radGrad.addColorStop(0, "#000000");
+      radGrad.addColorStop(1, "rgba(0,0,0,0)");
+      mCtx.clearRect(0, 0, cw, ch);
+      mCtx.fillStyle = radGrad;
+      mCtx.fillRect(0, 0, cw, ch);
+      cache.w = cw;
+      cache.h = ch;
+      cache.feather = feather;
+    }
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = "destination-in";
+    ctx.drawImage(cache.canvas, 0, 0);
+    ctx.restore();
+  }
   var patternRunners, fxPaused;
   var init_effects = __esm({
     "public/js/overlay/effects.js"() {
@@ -290,7 +333,8 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       fxPaused = false;
       if (typeof document !== "undefined") {
         document.addEventListener("visibilitychange", fxResume);
-        if (document.hidden) fxResume();
+        document.addEventListener("sp:visibilitychange", fxResume);
+        if (isOverlayHidden()) fxResume();
       }
     }
   });
@@ -2126,7 +2170,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
             timer = 0;
             return;
           }
-          if (document.hidden) return;
+          if (isOverlayHidden()) return;
           if (isMotionPaused(node)) {
             paint(glyphs.length);
             return;
@@ -2234,7 +2278,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
             timer = 0;
             return;
           }
-          if (document.hidden) return;
+          if (isOverlayHidden()) return;
           if (isMotionPaused(node)) {
             paintMatrix(slots.length);
             return;
@@ -2351,6 +2395,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
   var init_styles = __esm({
     "public/js/overlay/styles.js"() {
       import_border_catalog = __toESM(require_border_catalog());
+      init_environment();
       ({ BORDER_STYLES, BORDER_ANIM_TYPES } = import_border_catalog.default);
       TEXT_FILL_TYPES = /* @__PURE__ */ new Set(["text", "random-text", "markdown", "game-list"]);
       isTextGradient = (style, type) => TEXT_FILL_TYPES.has(type) && style?.textGradient?.enabled === true;
@@ -6392,6 +6437,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     const ctx = canvas.getContext("2d", { alpha: true });
     let curElement = element, curOptions = options;
     let stopped = false, rafId = 0, dirtyFrame = true, startTime = 0, lastDrawTs = 0;
+    const featherCache = {};
     function drawFrame(now) {
       rafId = 0;
       if (stopped || !node.isConnected && !fxPaused || !ctx || curElement.visible === false || node.classList.contains("hidden")) return;
@@ -6459,26 +6505,13 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         });
       }
       const pFeather = Number(curElement.feather ?? curElement.pattern?.feather) || 0;
-      if (pFeather > 0) {
-        ctx.save();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.globalAlpha = 1;
-        ctx.globalCompositeOperation = "destination-in";
-        const stop = Math.max(0, 100 - pFeather);
-        const maxR = Math.hypot(cw, ch) / 2;
-        const radGrad = ctx.createRadialGradient(cw / 2, ch / 2, maxR * (stop / 100), cw / 2, ch / 2, maxR);
-        radGrad.addColorStop(0, "#000000");
-        radGrad.addColorStop(1, "rgba(0,0,0,0)");
-        ctx.fillStyle = radGrad;
-        ctx.fillRect(0, 0, cw, ch);
-        ctx.restore();
-      }
-      if (hasProcAnim && !fxPaused && !document.hidden) {
+      applyRadialFeatherMask(ctx, cw, ch, pFeather, featherCache);
+      if (hasProcAnim && !fxPaused && !isOverlayHidden()) {
         rafId = requestAnimationFrame(drawFrame);
       }
     }
     function wake() {
-      if (document.hidden) {
+      if (isOverlayHidden()) {
         if (rafId) cancelAnimationFrame(rafId);
         rafId = 0;
         return;
@@ -6526,6 +6559,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         patternRunners.delete(wake);
         if (rafId) cancelAnimationFrame(rafId);
         rafId = 0;
+        clearFeatherMaskCache(featherCache);
         canvas.width = 0;
         canvas.height = 0;
       },
@@ -7126,6 +7160,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     let twinkle = 0, twinkleSpeed = 4;
     let dpr = 1, isKaleido = false;
     let currentFrameId = 0;
+    const featherCache = {};
     const stampState = {};
     const { captureBaseStampData, computeSlotDimensions, buildStampFromImage, buildStampFromIcon, getTintedIconStamp, getDynamicKaleidoStamp, updateKaleidoCell } = createPatternStampRenderer(stampState);
     function syncStampState() {
@@ -7448,26 +7483,13 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           ctx.drawImage(currentBitmap, -cTileW / 2, -cTileH / 2, cTileW, cTileH);
         }
       }
-      if (feather > 0) {
-        ctx.save();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.globalAlpha = 1;
-        ctx.globalCompositeOperation = "destination-in";
-        const stop = Math.max(0, 100 - feather);
-        const maxR = Math.hypot(cw, ch) / 2;
-        const radGrad = ctx.createRadialGradient(cw / 2, ch / 2, maxR * (stop / 100), cw / 2, ch / 2, maxR);
-        radGrad.addColorStop(0, "#000000");
-        radGrad.addColorStop(1, "rgba(0,0,0,0)");
-        ctx.fillStyle = radGrad;
-        ctx.fillRect(0, 0, cw, ch);
-        ctx.restore();
-      }
-      if (hasDynamicAnim && curOptions.animate !== false && !fxPaused && !document.hidden) {
+      applyRadialFeatherMask(ctx, cw, ch, feather, featherCache);
+      if (hasDynamicAnim && curOptions.animate !== false && !fxPaused && !isOverlayHidden()) {
         rafId = requestAnimationFrame(drawFrame);
       }
     }
     function wake() {
-      if (document.hidden) {
+      if (isOverlayHidden()) {
         if (rafId) {
           cancelAnimationFrame(rafId);
           rafId = 0;
@@ -7761,6 +7783,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           rafId = 0;
         }
         try {
+          clearFeatherMaskCache(featherCache);
           canvas.width = 0;
           canvas.height = 0;
           for (const sObj of allSlots) {
@@ -8073,7 +8096,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     }
     refresh(true);
     if (!frozen && config.source !== "manual") refreshTimer = setInterval(() => {
-      if (!document.hidden) refresh(false);
+      if (!isOverlayHidden()) refresh(false);
     }, 2e4);
     const control = (action) => {
       if (stopped || !items.length) return;
@@ -8114,6 +8137,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     "public/js/overlay/slideshow.js"() {
       init_lifecycle();
       init_blur_fill();
+      init_environment();
       slideshowCache = /* @__PURE__ */ new Map();
     }
   });
@@ -9010,7 +9034,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       const cfg = currentEl.cycle || {};
       const holdMs = Math.max(1, Number(cfg.intervalSeconds) || 5) * 1e3;
       timer = setInterval(() => {
-        if (stopped || document.hidden) return;
+        if (stopped || isOverlayHidden()) return;
         lines = resolveCycleLines(currentEl, expand);
         if (!lines.length) {
           setLayerText(activeLayer, "");
@@ -9071,6 +9095,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     "public/js/overlay/text-cycle.js"() {
       init_icons();
       init_text();
+      init_environment();
     }
   });
 

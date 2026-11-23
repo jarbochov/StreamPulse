@@ -2269,6 +2269,7 @@
         <div id="matchup-container" class="matchup-panel"></div>
     </div>
 
+    <script src="/js/overlay-idle.js"></script>
     <script src="/overlay-visibility.js" data-key="matchup"></script>
     <script src="../js/url-params.js"></script>
     <script src="../js/overlay-theme.js"></script>
@@ -2533,7 +2534,30 @@
             }[c]));
         }
 
-        let liveM = null, liveAt = 0;
+        let liveM = null, liveAt = 0, clockTicker = null;
+        function isOverlayHidden() {
+            return Boolean(window.StreamPulseIdle?.isHidden ? window.StreamPulseIdle.isHidden() : document.hidden);
+        }
+        function hasActiveClock() {
+            if (!liveM) return false;
+            const clockRunning = liveM.clock && liveM.clock.enabled !== false && liveM.clock.isRunning;
+            const anyRunnerRunning = Array.isArray(liveM.competitors) && liveM.competitors.some(c => c.timer && c.timer.isRunning && !c.timer.finished);
+            return Boolean(clockRunning || anyRunnerRunning);
+        }
+        function syncClockTicker() {
+            const shouldRun = hasActiveClock() && !suspended && !isOverlayHidden();
+            if (shouldRun && !clockTicker) {
+                clockTicker = setInterval(tickLiveClocks, 50);
+            } else if (!shouldRun && clockTicker) {
+                clearInterval(clockTicker);
+                clockTicker = null;
+            }
+        }
+        function setLiveMatchup(m) {
+            liveM = m;
+            liveAt = m ? Date.now() : 0;
+            syncClockTicker();
+        }
         function fmtMs(sec) {
             const t = Math.max(0, sec || 0);
             const cs = Math.floor(t * 100) % 100;
@@ -2543,10 +2567,7 @@
             return `${h > 0 ? h + ':' + p2(mi) : p2(mi)}:${p2(se)}.${p2(cs)}`;
         }
         function tickLiveClocks() {
-            if (!liveM) return;
-            const clockRunning = liveM.clock && liveM.clock.enabled !== false && liveM.clock.isRunning;
-            const anyRunnerRunning = Array.isArray(liveM.competitors) && liveM.competitors.some(c => c.timer && c.timer.isRunning && !c.timer.finished);
-            if (!clockRunning && !anyRunnerRunning) return;
+            if (!hasActiveClock() || isOverlayHidden()) { syncClockTicker(); return; }
             const dt = (Date.now() - liveAt) / 1000;
             document.querySelectorAll('[data-live]').forEach(el => {
                 const k = el.dataset.live;
@@ -2560,7 +2581,12 @@
                 }
             });
         }
-        let clockTicker = setInterval(tickLiveClocks, 50);
+        if (window.StreamPulseIdle) {
+            window.StreamPulseIdle.onChange(hidden => {
+                syncClockTicker();
+                if (!hidden && hasActiveClock()) tickLiveClocks();
+            });
+        }
 
         function formatClockTime(seconds, isStopwatch = false) {
             const s = Math.max(0, parseInt(seconds, 10) || 0);
@@ -2578,7 +2604,7 @@
         }
 
         function renderClockHtml(m, styleType = 'badge') {
-            liveM = m; liveAt = Date.now();
+            setLiveMatchup(m);
             const clock = m?.clock;
             if (!clock || clock.enabled === false || !showClock) return '';
             if (clockStyle === 'bottom' && styleType !== 'bottom') return '';
@@ -2762,7 +2788,7 @@
 
         // Single Competitor Floating Score Pod (?player=1..4 or ?layout=pod)
         function renderSinglePlayerPod(m, comp, idx, target) {
-            liveM = m; liveAt = Date.now();
+            setLiveMatchup(m);
             const compColor = comp.color || (idx === 0 ? 'var(--p1-color)' : (idx === 1 ? 'var(--p2-color)' : (idx === 2 ? 'var(--p3-color)' : 'var(--p4-color)')));
             const isWinner = (m.status === 'COMPLETED' && m.winner === comp.name);
             const slotLabel = `P${idx + 1}`;
@@ -2792,7 +2818,7 @@
 
         // Master Clock & Match Phase Only Panel (?player=none or ?layout=clock)
         function renderMasterClockOnly(m) {
-            liveM = m; liveAt = Date.now();
+            setLiveMatchup(m);
             const clock = m?.clock || {};
             const isStopwatch = clock.mode === 'stopwatch' || clock.mode === 'race';
             const displayVal = isStopwatch ? fmtMs(clock.elapsed) : (clock.remaining !== undefined ? formatClockTime(clock.remaining, clock.duration >= 60) : '99');
@@ -2834,7 +2860,7 @@
                     m = SAMPLE_MATCHUP;
                 } else {
                     currentMatchup = null;
-                    liveM = null;
+                    setLiveMatchup(null);
                     stage.classList.add('hidden');
                     return;
                 }
@@ -2942,7 +2968,7 @@
 
         // SPEEDRUN RACE LAYOUT
         function renderSpeedrunRace(m, target, count) {
-            liveM = m; liveAt = Date.now();
+            setLiveMatchup(m);
             const comps = m.competitors || [];
             const clock = m.clock || {};
             const est = clock.estimate || '';
@@ -3663,8 +3689,8 @@
         window.addEventListener('pageshow', () => {
             if (!suspended) return;
             suspended = false;
-            tickLiveClocks();
-            clockTicker = setInterval(tickLiveClocks, 50);
+            syncClockTicker();
+            if (hasActiveClock()) tickLiveClocks();
             connectWs();
             loadInitial();
         });

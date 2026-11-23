@@ -1673,7 +1673,7 @@ test('Procedural Patterns: Universal Color Placement, Continuous Seamless Pan, a
 
 test('Procedural Patterns: Rendering Efficiency, 60fps Frame Pacing, Triangle Mosaic Dispersion & Color/Grain Filters', () => {
     const patternsSharedCode = fs.readFileSync(path.join(__dirname, '../public/js/patterns-shared.js'), 'utf8');
-    const overlaySharedCode = ['pattern-tiles', 'pattern-procedural'].map(name => fs.readFileSync(path.join(__dirname, `../public/js/overlay/${name}.js`), 'utf8')).join('\n');
+    const overlaySharedCode = ['effects', 'pattern-tiles', 'pattern-procedural'].map(name => fs.readFileSync(path.join(__dirname, `../public/js/overlay/${name}.js`), 'utf8')).join('\n');
     const inspectorCode = fs.readFileSync(path.join(__dirname, '../public/js/editor/editor-inspector.js'), 'utf8');
 
     // 1. Frame-rate pacing caps continuous loops at ~60fps across high-refresh displays

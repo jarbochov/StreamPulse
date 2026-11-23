@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>StreamPulse — Live Tier List Broadcast Overlay</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <script src="/js/overlay-idle.js"></script>
     <script src="/js/overlay-theme.js"></script>
     <style>
         :root {
@@ -1966,16 +1967,18 @@
                 }
             }
 
+            const isOverlayHidden = () => Boolean(window.StreamPulseIdle?.isHidden ? window.StreamPulseIdle.isHidden() : document.hidden);
+
             function runLayoutPass() {
                 layoutRaf = 0;
-                if (document.hidden || !currentState) return;
+                if (isOverlayHidden() || !currentState) return;
                 applyAutoFit(activeCfg);
                 fitRowHeaders();
                 fitAllCardCaptions(activeCfg);
             }
 
             function scheduleLayoutPass() {
-                if (document.hidden || layoutRaf) return;
+                if (isOverlayHidden() || layoutRaf) return;
                 layoutRaf = requestAnimationFrame(runLayoutPass);
             }
 
@@ -2147,7 +2150,7 @@
                 updateVotingHint(newState, cfg);
                 renderFocusStage(effectiveState, cfg);
 
-                if (!document.hidden) {
+                if (!isOverlayHidden()) {
                     applyAutoFit(cfg);
                     fitRowHeaders();
                     fitAllCardCaptions(cfg);
@@ -2155,7 +2158,7 @@
 
                 const followItemId = pendingFollowItemId;
                 pendingFollowItemId = null;
-                if (followItemId && cfg.followZoom && !document.hidden) {
+                if (followItemId && cfg.followZoom && !isOverlayHidden()) {
                     triggerFollowPlacementZoom(followItemId, cfg);
                 }
 
@@ -2535,7 +2538,9 @@
                     }
                 };
                 updateCountdown();
-                hudInterval = setInterval(updateCountdown, 1000);
+                hudInterval = setInterval(() => {
+                    if (!isOverlayHidden()) updateCountdown();
+                }, 1000);
             }
 
             function updateVoteHUDMeters(consensus) {
@@ -2732,9 +2737,11 @@
             const onFontsLoaded = () => scheduleLayoutPass();
             document.fonts?.addEventListener?.('loadingdone', onFontsLoaded);
 
-            document.addEventListener('visibilitychange', () => {
-                if (!document.hidden && currentState) scheduleLayoutPass();
-            });
+            const onVisibility = () => {
+                if (!isOverlayHidden() && currentState) scheduleLayoutPass();
+            };
+            if (window.StreamPulseIdle) window.StreamPulseIdle.onChange(onVisibility);
+            else document.addEventListener('visibilitychange', onVisibility);
 
             function cleanupOverlay() {
                 document.fonts?.removeEventListener?.('loadingdone', onFontsLoaded);

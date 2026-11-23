@@ -1065,8 +1065,21 @@
         return fxScratchCanvas;
     }
 
+    function isHidden() {
+        if (root.StreamPulseIdle?.isHidden) return Boolean(root.StreamPulseIdle.isHidden());
+        return typeof document !== 'undefined' && Boolean(document.hidden);
+    }
+
     function fxResume() {
-        if (!fxRaf && fxAnimated.size && !fxPaused && (typeof document !== 'undefined' && !document.hidden)) {
+        const hidden = isHidden();
+        if (typeof document !== 'undefined') {
+            document.documentElement.classList.toggle('sp-fx-paused', fxPaused || hidden);
+        }
+        if (hidden && fxRaf) {
+            cancelAnimationFrame(fxRaf);
+            fxRaf = 0;
+        }
+        if (!fxRaf && fxAnimated.size && !fxPaused && !hidden) {
             fxRaf = requestAnimationFrame(fxLoop);
         }
     }
@@ -1074,7 +1087,7 @@
     function setEffectsPaused(paused) {
         fxPaused = !!paused;
         if (typeof document !== 'undefined') {
-            document.documentElement.classList.toggle('sp-fx-paused', fxPaused);
+            document.documentElement.classList.toggle('sp-fx-paused', fxPaused || isHidden());
         }
         if (fxPaused && fxRaf) {
             cancelAnimationFrame(fxRaf);
@@ -1086,10 +1099,11 @@
 
     if (typeof document !== 'undefined') {
         document.addEventListener('visibilitychange', fxResume);
+        document.addEventListener('sp:visibilitychange', fxResume);
     }
 
     function fxLoop(now) {
-        if (fxPaused || (typeof document !== 'undefined' && document.hidden)) { fxRaf = 0; return; }
+        if (fxPaused || isHidden()) { fxRaf = 0; return; }
         for (const node of fxAnimated) {
             if (!node.isConnected || !node._fxAnim) { fxAnimated.delete(node); continue; }
             if (now - node._fxAnim.last < 50) continue;

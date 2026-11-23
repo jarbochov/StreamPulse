@@ -967,12 +967,25 @@
     const activeNodes = new Set();
     let animRaf = 0;
     let isPaused = false;
+    let lastDrawTs = 0;
+
+    function isHidden() {
+        if (root.StreamPulseIdle?.isHidden) return Boolean(root.StreamPulseIdle.isHidden());
+        return typeof document !== 'undefined' && Boolean(document.hidden);
+    }
 
     function animLoop(timestamp) {
-        if (isPaused || typeof document === 'undefined' || document.hidden) {
+        if (isPaused || isHidden()) {
             animRaf = 0;
             return;
         }
+
+        // Cap animated retro shader redraws at ~60fps on 120Hz/144Hz monitors without dropping 60fps smoothness
+        if (lastDrawTs && timestamp - lastDrawTs < 15.8) {
+            animRaf = activeNodes.size ? requestAnimationFrame(animLoop) : 0;
+            return;
+        }
+        lastDrawTs = timestamp;
 
         const tSec = timestamp * 0.001;
         for (const node of activeNodes) {
@@ -988,11 +1001,19 @@
             renderRetroShader(record.canvas, record.source, record.filter, tSec);
         }
 
-        animRaf = (activeNodes.size && !isPaused) ? requestAnimationFrame(animLoop) : 0;
+        animRaf = (activeNodes.size && !isPaused && !isHidden()) ? requestAnimationFrame(animLoop) : 0;
     }
 
     function resumeLoop() {
-        if (!animRaf && activeNodes.size && !isPaused && typeof document !== 'undefined' && !document.hidden) {
+        if (isPaused || isHidden()) {
+            if (animRaf) {
+                cancelAnimationFrame(animRaf);
+                animRaf = 0;
+            }
+            return;
+        }
+        if (!animRaf && activeNodes.size) {
+            lastDrawTs = 0;
             animRaf = requestAnimationFrame(animLoop);
         }
     }
@@ -1021,6 +1042,7 @@
 
     if (typeof document !== 'undefined') {
         document.addEventListener('visibilitychange', resumeLoop);
+        document.addEventListener('sp:visibilitychange', resumeLoop);
     }
 
     /**

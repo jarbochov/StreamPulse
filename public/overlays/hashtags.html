@@ -22,6 +22,7 @@
 
     <div class="filter-info" id="filter-info"></div>
 
+    <script src="/js/overlay-idle.js"></script>
     <script src="/overlay-visibility.js" data-key="hashtags"></script>
     <script src="/url-params.js"></script>
     <script src="/overlay-theme.js"></script>
@@ -378,12 +379,16 @@
         }
     }
 
+    const isOverlayHidden = () => Boolean(window.StreamPulseIdle?.isHidden ? window.StreamPulseIdle.isHidden() : document.hidden);
+    if (window.StreamPulseIdle && VIEW !== 'scroll' && REFRESH > 0) {
+        window.StreamPulseIdle.onChange(hidden => { if (!hidden) loadHashtags(); });
+    }
     loadHashtags();
 
     // Auto-refresh only reloads data (for grid view staying on screen)
     if (VIEW !== 'scroll' && REFRESH > 0) {
         setInterval(() => {
-            loadHashtags();
+            if (!isOverlayHidden()) loadHashtags();
         }, REFRESH * 1000);
     }
     </script>

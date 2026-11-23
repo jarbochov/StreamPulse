@@ -1,5 +1,6 @@
 import { cleanupMedia } from './lifecycle.js';
 import { syncBlurFillMedia } from './blur-fill.js';
+import { isOverlayHidden } from './environment.js';
 
 
 // ---- slideshow ----------------------------------------------------------------------------
@@ -208,7 +209,7 @@ function mountSlideshow(node, element, options = {}) {
     }
 
     refresh(true);
-    if (!frozen && config.source !== 'manual') refreshTimer = setInterval(() => { if (!document.hidden) refresh(false); }, 20000);
+    if (!frozen && config.source !== 'manual') refreshTimer = setInterval(() => { if (!isOverlayHidden()) refresh(false); }, 20000);
     const control = action => {
         if (stopped || !items.length) return;
         if (action === 'toggle') action = paused ? 'play' : 'pause';

@@ -1,5 +1,5 @@
-import { fxPaused, patternRunners } from './effects.js';
-import { root } from './environment.js';
+import { applyRadialFeatherMask, clearFeatherMaskCache, fxPaused, patternRunners } from './effects.js';
+import { isOverlayHidden, root } from './environment.js';
 import { createSlotState, createPatternStampRenderer, drawSamplePatternStamp, faGlyphCache } from './pattern-stamps.js';
 import { cellHash, tileCoverage } from './pattern-geometry.js';
 import { hasBoxFill } from './styles.js';
@@ -46,6 +46,7 @@ function mountPatternTiles(node, element, options = {}) {
     let twinkle = 0, twinkleSpeed = 4;
     let dpr = 1, isKaleido = false;
     let currentFrameId = 0;
+    const featherCache = {};
 
     const stampState = {};
     const { captureBaseStampData, computeSlotDimensions, buildStampFromImage, buildStampFromIcon, getTintedIconStamp, getDynamicKaleidoStamp, updateKaleidoCell } = createPatternStampRenderer(stampState);
@@ -412,28 +413,15 @@ function mountPatternTiles(node, element, options = {}) {
             }
         }
 
-        if (feather > 0) {
-            ctx.save();
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.globalAlpha = 1;
-            ctx.globalCompositeOperation = 'destination-in';
-            const stop = Math.max(0, 100 - feather);
-            const maxR = Math.hypot(cw, ch) / 2;
-            const radGrad = ctx.createRadialGradient(cw / 2, ch / 2, maxR * (stop / 100), cw / 2, ch / 2, maxR);
-            radGrad.addColorStop(0, '#000000');
-            radGrad.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = radGrad;
-            ctx.fillRect(0, 0, cw, ch);
-            ctx.restore();
-        }
+        applyRadialFeatherMask(ctx, cw, ch, feather, featherCache);
 
-        if (hasDynamicAnim && curOptions.animate !== false && !fxPaused && !document.hidden) {
+        if (hasDynamicAnim && curOptions.animate !== false && !fxPaused && !isOverlayHidden()) {
             rafId = requestAnimationFrame(drawFrame);
         }
     }
 
     function wake() {
-        if (document.hidden) {
+        if (isOverlayHidden()) {
             if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
             return;
         }
@@ -735,6 +723,7 @@ function mountPatternTiles(node, element, options = {}) {
             patternRunners.delete(wake);
             if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
             try {
+                clearFeatherMaskCache(featherCache);
                 canvas.width = 0; canvas.height = 0;
                 for (const sObj of allSlots) {
                     sObj.stampRevision++;

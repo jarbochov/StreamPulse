@@ -1,5 +1,6 @@
 
 import borderCatalog from '../../../shared/border-catalog.cjs';
+import { isOverlayHidden } from './environment.js';
 
 const { BORDER_STYLES, BORDER_ANIM_TYPES } = borderCatalog;
 
@@ -1410,7 +1411,7 @@ function mountSplitTextAnimation(node, animType, speed, intensity, playMode = 'l
             cursor = 1;
             timer = setInterval(() => {
                 if (!node.isConnected) { clearInterval(timer); timer = 0; return; }
-                if (document.hidden) return;
+                if (isOverlayHidden()) return;
                 if (isMotionPaused(node)) {
                     paint(glyphs.length);
                     return;
@@ -1503,7 +1504,7 @@ function mountSplitTextAnimation(node, animType, speed, intensity, playMode = 'l
             if (!node.isConnected) return;
             timer = setInterval(() => {
                 if (!node.isConnected) { clearInterval(timer); timer = 0; return; }
-                if (document.hidden) return;
+                if (isOverlayHidden()) return;
                 if (isMotionPaused(node)) {
                     paintMatrix(slots.length);
                     return;

@@ -381,6 +381,7 @@
 <body>
     <div id="container"></div>
 
+    <script src="/js/overlay-idle.js"></script>
     <script src="/overlay-visibility.js" data-key="game-plan"></script>
     <script src="/url-params.js"></script>
     <script src="/overlay-theme.js"></script>
@@ -751,8 +752,10 @@
             return pos.some(t => matchesPeriodToken(item, t));
         }
 
+        const isOverlayHidden = () => Boolean(window.StreamPulseIdle?.isHidden ? window.StreamPulseIdle.isHidden() : document.hidden);
+
         function render() {
-            if (document.hidden || !currentPlan || !Array.isArray(currentPlan.items)) return;
+            if (isOverlayHidden() || !currentPlan || !Array.isArray(currentPlan.items)) return;
 
             // Smart period filters depend on the local day even when the plan is unchanged.
             const signature = `${planSignature}|${dateDependentPeriod ? new Date().toDateString() : ''}`;
@@ -862,7 +865,7 @@
         let disposed = false;
 
         async function fetchPlan() {
-            if (disposed || document.hidden) return;
+            if (disposed || isOverlayHidden()) return;
             if (request) {
                 if (request.signal.aborted) refreshAfterAbort = true;
                 return;
@@ -937,10 +940,12 @@
             ws.onerror = () => ws.close();
         }
 
+        let unsubscribeVisibility = null;
+
         function startPolling() {
-            if (disposed || document.hidden || pollTimer !== null) return;
+            if (disposed || isOverlayHidden() || pollTimer !== null) return;
             pollTimer = setInterval(() => {
-                if (disposed || document.hidden) return;
+                if (disposed || isOverlayHidden()) return;
                 render();
                 // An open but silent/stale socket still gets a bounded safety refresh.
                 const connected = socket?.readyState === WebSocket.OPEN && currentPlan && !fetchFailed;
@@ -949,7 +954,7 @@
         }
 
         function onVisibilityChange() {
-            if (document.hidden) {
+            if (isOverlayHidden()) {
                 clearInterval(pollTimer);
                 pollTimer = null;
             } else {
@@ -961,7 +966,8 @@
 
         function start() {
             disposed = false;
-            document.addEventListener('visibilitychange', onVisibilityChange);
+            if (window.StreamPulseIdle) unsubscribeVisibility = window.StreamPulseIdle.onChange(onVisibilityChange);
+            else document.addEventListener('visibilitychange', onVisibilityChange);
             render();
             fetchPlan();
             connectWs();
@@ -972,7 +978,8 @@
             disposed = true;
             planRevision++;
             refreshAfterAbort = false;
-            document.removeEventListener('visibilitychange', onVisibilityChange);
+            if (unsubscribeVisibility) { unsubscribeVisibility(); unsubscribeVisibility = null; }
+            else document.removeEventListener('visibilitychange', onVisibilityChange);
             clearInterval(pollTimer);
             pollTimer = null;
             clearTimeout(reconnectTimer);

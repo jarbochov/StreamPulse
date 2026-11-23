@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StreamPulse Trivia Overlay</title>
+    <script src="/js/overlay-idle.js"></script>
     <script src="/js/overlay-theme.js"></script>
     <style>
         *, *::before, *::after {
@@ -1344,7 +1345,7 @@
             const nextClass = ratio < 0.25 ? 'timer-bar critical' : ratio < 0.5 ? 'timer-bar warning' : 'timer-bar';
             setTimerBarStyle(nextWidth, nextClass);
 
-            if (remaining > 0 && currentState?.status === 'question' && !document.hidden) {
+            if (remaining > 0 && currentState?.status === 'question' && !(window.StreamPulseIdle?.isHidden ? window.StreamPulseIdle.isHidden() : document.hidden)) {
                 timerRaf = requestAnimationFrame(() => updateTimerBar(startedAt, endsAt));
             } else if (remaining === 0) {
                 activeTimerWindow = null;
@@ -1358,13 +1359,16 @@
             }
         }
 
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden) {
+        const onTriviaVisibility = () => {
+            const hidden = window.StreamPulseIdle?.isHidden ? window.StreamPulseIdle.isHidden() : document.hidden;
+            if (hidden) {
                 if (timerRaf) { cancelAnimationFrame(timerRaf); timerRaf = null; }
             } else if (activeTimerWindow && currentState?.status === 'question') {
                 updateTimerBar(activeTimerWindow.startedAt, activeTimerWindow.endsAt);
             }
-        });
+        };
+        if (window.StreamPulseIdle) window.StreamPulseIdle.onChange(onTriviaVisibility);
+        else document.addEventListener('visibilitychange', onTriviaVisibility);
         window.addEventListener('pagehide', () => {
             if (timerRaf) { cancelAnimationFrame(timerRaf); timerRaf = null; }
         });

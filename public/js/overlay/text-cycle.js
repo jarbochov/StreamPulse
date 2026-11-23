@@ -1,5 +1,6 @@
 import { renderInlineText } from './icons.js';
 import { elementContent } from './text.js';
+import { isOverlayHidden } from './environment.js';
 
 function resolveCycleLines(element, expand) {
     const raw = elementContent(element) || '';
@@ -132,7 +133,7 @@ function mountTextCycle(node, element, opts = {}) {
         const cfg = currentEl.cycle || {};
         const holdMs = Math.max(1, Number(cfg.intervalSeconds) || 5) * 1000;
         timer = setInterval(() => {
-            if (stopped || document.hidden) return;
+            if (stopped || isOverlayHidden()) return;
             lines = resolveCycleLines(currentEl, expand);
             if (!lines.length) {
                 setLayerText(activeLayer, '');
