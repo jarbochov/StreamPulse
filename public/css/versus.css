@@ -1,9 +1,180 @@
-/* StreamPulse — Versus Studio Styles */
+/* StreamPulse — Versus Studio Centralized Styles */
+
 @keyframes pulseWinReady {
     0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55), 0 4px 14px rgba(22, 163, 74, 0.35); }
     50% { box-shadow: 0 0 0 5px rgba(34, 197, 94, 0), 0 4px 20px rgba(22, 163, 74, 0.6); }
 }
 
+/* ── Navigation Tabs (Responsive, Zero Clipping) ─────────────────────────── */
+.tabs-nav.studio-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+    gap: 0.3rem;
+    margin-bottom: 1.25rem;
+}
+
+.tabs-nav.studio-tabs .tab-btn,
+.tabs-nav.studio-tabs .studio-tab-btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.tabs-nav.studio-tabs .tab-btn-right {
+    margin-left: auto;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+/* ── Shared Layout & Card Utility Classes ────────────────────────────────── */
+.vs-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+}
+
+.vs-card-header h2 {
+    margin-bottom: 0;
+}
+
+.vs-card-title-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.vs-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.vs-inset-box {
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.85rem;
+}
+
+.vs-inset-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 0.75rem;
+}
+
+.vs-form-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem;
+    margin-bottom: 0.75rem;
+}
+
+.vs-form-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.vs-opt-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.6rem;
+}
+
+.vs-opt-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    display: block;
+    margin-bottom: 0.2rem;
+}
+
+.vs-opt-control {
+    font-size: 0.75rem;
+    padding: 0.35rem 0.5rem;
+}
+
+.vs-toggle-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
+    gap: 0.5rem;
+}
+
+.vs-toggle-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.75rem;
+    color: var(--text);
+    padding: 0.45rem 0.65rem;
+    border-radius: 6px;
+    background: var(--bg-surface, var(--bg-card));
+    border: 1px solid var(--border);
+    transition: border-color 0.15s ease;
+}
+
+.vs-toggle-item:hover {
+    border-color: var(--accent);
+}
+
+.vs-color-field {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.vs-color-picker {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.vs-color-field .form-control {
+    flex: 1;
+    min-width: 0;
+}
+
+/* ── URL Copy Bars (Fix Cop/y Button Wrapping) ───────────────────────────── */
+.url-box {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.url-box .form-control,
+.url-box input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.75rem;
+}
+
+.url-box button,
+.url-box .btn-secondary {
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* ── Win-Ready Callouts & Active Match Cards ─────────────────────────────── */
 .win-ready-banner {
     display: flex;
     align-items: center;
@@ -30,4 +201,585 @@
     border-color: rgba(34, 197, 94, 0.7) !important;
     background: linear-gradient(135deg, rgba(34, 197, 94, 0.13), rgba(16, 185, 129, 0.05)) !important;
     box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.3);
+}
+
+/* Expanded Score Counter when Rounds-per-Game is Off */
+.is-no-rounds .t-score-split {
+    grid-template-columns: 1fr !important;
+}
+
+.is-no-rounds .t-games-col {
+    border-right: none !important;
+    padding-right: 0 !important;
+}
+
+.is-no-rounds .t-rounds-col {
+    display: none !important;
+}
+
+.is-no-rounds .score-stepper .score-btn {
+    width: 34px;
+    height: 34px;
+    font-size: 1.05rem;
+}
+
+.is-no-rounds .score-stepper .score-val-input {
+    width: 56px;
+    height: 34px;
+    font-size: 1.15rem;
+}
+
+.matchup-competitor-card.is-no-rounds .matchup-big-score {
+    font-size: 2.25rem;
+}
+
+/* ── Matchup Mini-Preview Drawer ─────────────────────────────────────────── */
+.mini-preview-drawer {
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.65rem 0.85rem;
+    margin-bottom: 0.85rem;
+}
+
+.mini-preview-drawer summary {
+    cursor: pointer;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    list-style: none;
+}
+
+.mini-preview-drawer summary::-webkit-details-marker {
+    display: none;
+}
+
+.mini-preview-drawer[open] summary {
+    margin-bottom: 0.6rem;
+    color: var(--text);
+}
+
+.mini-preview-stage {
+    position: relative;
+    width: 100%;
+    height: 112px;
+    background: #060911;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.mini-preview-stage iframe {
+    width: 1100px;
+    height: 140px;
+    border: none;
+    background: transparent;
+    transform-origin: top left;
+    transform: scale(0.76);
+    pointer-events: none;
+}
+
+/* ── Recent Players Roster Chips & Seed Preview Bar ──────────────────────── */
+.roster-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.35rem;
+}
+
+.roster-chips:empty::after {
+    content: 'Recent players will appear here automatically as you run matches.';
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.roster-chip {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.22rem 0.55rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.roster-chip:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.seed-preview-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem;
+    margin-top: 0.45rem;
+    padding: 0.45rem 0.65rem;
+    border-radius: 6px;
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    font-size: 0.74rem;
+    color: var(--text-muted);
+}
+
+.seed-preview-bar:empty {
+    display: none;
+}
+
+/* ── Keyboard Shortcuts & Companion Triggers Drawer ──────────────────────── */
+.shortcuts-drawer {
+    margin-top: 1rem;
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.65rem 0.85rem;
+}
+
+.shortcuts-drawer summary {
+    cursor: pointer;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    list-style: none;
+}
+
+.shortcuts-drawer summary::-webkit-details-marker {
+    display: none;
+}
+
+.shortcuts-drawer[open] summary {
+    margin-bottom: 0.65rem;
+    color: var(--text);
+}
+
+.shortcuts-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.6rem;
+}
+
+.shortcuts-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.shortcut-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.74rem;
+    color: var(--text-muted);
+}
+
+.kbd-key {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    padding: 0.12rem 0.4rem;
+    border-radius: 4px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 0 var(--border);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.companion-trigger-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.4rem;
+}
+
+.companion-trigger-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem;
+    padding: 0.35rem 0.55rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.72rem;
+}
+
+.companion-trigger-item code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.7rem;
+    color: var(--accent);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── Fight Card Drag & Drop States ───────────────────────────────────────── */
+.matchup-queue-item.dragging {
+    opacity: 0.45;
+    border-style: dashed;
+}
+
+.matchup-queue-item.drag-over {
+    border-color: var(--accent) !important;
+    background: color-mix(in srgb, var(--accent) 12%, transparent) !important;
+    box-shadow: 0 -2px 0 0 var(--accent);
+}
+
+/* ── Overlays Sync Theme Bar & Saved Look Presets Strip ──────────────────── */
+.sync-theme-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+    padding: 0.5rem 0.7rem;
+    margin-bottom: 0.75rem;
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.sync-theme-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--text);
+    cursor: pointer;
+    margin: 0;
+}
+
+.look-presets-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    padding: 0.55rem 0.7rem;
+    margin-bottom: 0.85rem;
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.look-presets-title {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-right: 0.2rem;
+}
+
+.look-preset-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.2rem 0.4rem 0.2rem 0.6rem;
+    border-radius: 999px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.look-preset-apply {
+    background: none;
+    border: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    padding: 0;
+}
+
+.look-preset-apply:hover {
+    color: var(--accent);
+}
+
+.look-preset-del {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.82rem;
+    line-height: 1;
+    padding: 0 0.15rem;
+    border-radius: 50%;
+}
+
+.look-preset-del:hover {
+    color: var(--danger, #ef4444);
+}
+
+/* ── Visual 2-Column Theme Swatch Picker ─────────────────────────────────── */
+.theme-swatch-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.45rem;
+    margin-bottom: 0.85rem;
+    max-height: 230px;
+    overflow-y: auto;
+    padding-right: 0.2rem;
+}
+
+.theme-swatch-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text);
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+}
+
+.theme-swatch-card:hover {
+    border-color: var(--accent);
+}
+
+.theme-swatch-card.active {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 14%, var(--bg-card));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.theme-swatch-name {
+    font-size: 0.74rem;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.theme-swatch-dots {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    flex-shrink: 0;
+}
+
+.theme-swatch-dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    display: inline-block;
+}
+
+/* ── Live Focus Camera Bar (Inside Bracket Inspector) ────────────────────── */
+.vs-live-camera-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    padding: 0.55rem 0.65rem;
+    margin-bottom: 0.75rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+}
+
+.vs-live-camera-bar .form-control {
+    width: auto;
+    font-size: 0.72rem;
+    padding: 0.22rem 0.45rem;
+    height: 26px;
+}
+
+/* ── Shared Modal Styles ─────────────────────────────────────────────────── */
+.vs-modal-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(5, 8, 17, 0.85);
+    z-index: 9999;
+    backdrop-filter: blur(8px);
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+}
+
+.vs-modal-dialog {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    width: 100%;
+    max-width: 600px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+}
+
+.vs-modal-dialog.vs-modal-sm { max-width: 520px; }
+.vs-modal-dialog.vs-modal-lg { max-width: 680px; }
+.vs-modal-dialog.vs-modal-xl { max-width: 980px; max-height: 90vh; }
+
+.vs-modal-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    background: var(--bg-inset);
+}
+
+.vs-modal-header h3 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--text);
+}
+
+.vs-modal-subtitle {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.2rem;
+}
+
+.vs-modal-body {
+    padding: 1.25rem;
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.vs-modal-footer {
+    padding: 0.75rem 1.25rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    align-items: center;
+    background: var(--bg-inset);
+}
+
+/* ── Preview Viewport Container ──────────────────────────────────────────── */
+.vs-viewport-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-bottom: 0.65rem;
+}
+
+.vs-viewport-wrapper {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #050811;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    padding: 0.5rem;
+    overflow: hidden;
+    min-height: 240px;
+    transition: all 0.2s ease;
+}
+
+.vs-viewport-scaler {
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    height: 260px;
+    transition: width 0.2s ease, height 0.2s ease;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.vs-preview-box {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    transform-origin: top left;
+    transition: transform 0.2s ease;
+}
+
+.vs-preview-box iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: transparent;
+}
+
+/* ── Responsive Breakpoints (Tablet 768px & Mobile) ──────────────────────── */
+@media (max-width: 960px) {
+    .vs-form-grid-3 {
+        grid-template-columns: 1fr 1fr;
+    }
+    .tourney-hud-grid {
+        grid-template-columns: 1fr !important;
+    }
+    .tourney-hud-vs {
+        padding: 0.15rem 0 !important;
+    }
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 0.85rem 0.9rem 2rem;
+    }
+    .tabs-nav.studio-tabs {
+        flex-wrap: wrap;
+        gap: 0.25rem;
+    }
+    .tabs-nav.studio-tabs .tab-btn,
+    .tabs-nav.studio-tabs .studio-tab-btn {
+        font-size: 0.78rem;
+        padding: 0.38rem 0.65rem;
+    }
+    .tabs-nav.studio-tabs .tab-btn-right {
+        margin-left: 0;
+    }
+    .vs-form-grid-2,
+    .vs-form-grid-3,
+    #matchup-competitors-grid {
+        grid-template-columns: 1fr !important;
+    }
+    .segmented-control {
+        flex-wrap: wrap;
+    }
+    .segmented-btn {
+        flex: 1 1 45%;
+    }
+    .theme-swatch-grid {
+        grid-template-columns: 1fr;
+    }
+    .bracket-steps {
+        flex-wrap: wrap;
+    }
 }

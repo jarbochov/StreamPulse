@@ -228,14 +228,14 @@ export function onPreviewOptionChange(opt, val) {
         if ($('matchup-opt-layout')) $('matchup-opt-layout').value = val;
         if (val === 'top') setPreviewViewport(1100, 100, $('chip-vp-topbar'));
         else if (val === 'fgc') setPreviewViewport(1100, 110, $('chip-vp-topbar'));
-        else if (val === 'split') setPreviewViewport(1280, 120, $('chip-vp-169'));
+        else if (val === 'split') setPreviewViewport(1280, 120, $('chip-vp-race'));
         else if (val === 'race') setPreviewViewport(1280, 220, $('chip-vp-race'));
         else if (val === 'minimal') setPreviewViewport(900, 80, $('chip-vp-topbar'));
         else if (val === 'bottom') setPreviewViewport(800, 130, $('chip-vp-hud'));
         else if (val === 'pillar') setPreviewViewport(420, 360, $('chip-vp-pillar'));
         else if (val === 'compact') setPreviewViewport(380, 120, $('chip-vp-bug'));
         else if (val === 'angular') setPreviewViewport(1100, 100, $('chip-vp-topbar'));
-        else if (val === 'versus') setPreviewViewport(1280, 720, $('chip-vp-169'));
+        else if (val === 'versus') setPreviewViewport(1280, 720, null);
         else if (val === 'pod') setPreviewViewport(380, 90, $('chip-vp-bug'));
         else if (val === 'pill') setPreviewViewport(420, 100, $('chip-vp-bug'));
         else if (val === 'clock') setPreviewViewport(460, 110, $('chip-vp-bug'));
@@ -297,6 +297,12 @@ export function setPreviewMode(mode) {
     if ($('preview-toolbar-matchup')) $('preview-toolbar-matchup').style.display = isMatchupLike ? 'flex' : 'none';
     if ($('preview-toolbar-tourney')) $('preview-toolbar-tourney').style.display = mode === 'tourney-tree' ? 'flex' : 'none';
 
+    const vpTarget = mode === 'tourney-tree' ? 'tourney' : 'matchup';
+    document.querySelectorAll('#prev-viewport-chips [data-vp-for]').forEach(chip => {
+        const forMode = chip.getAttribute('data-vp-for');
+        chip.style.display = (forMode === vpTarget || forMode === 'both') ? '' : 'none';
+    });
+
     const labelEl = $('prev-mode-label');
     if (labelEl) {
         if (mode === 'matchup') labelEl.textContent = 'Matchup Scoreboard Preview';
@@ -345,15 +351,21 @@ export function updateTourneyOverlayUrl() {
     const titleSelect = $('prev-ctrl-tourney-title') || $('tourney-opt-title');
     const roundsSelect = $('prev-ctrl-tourney-rounds') || $('tourney-opt-rounds');
 
+    const isControlOff = (el) => {
+        if (!el) return false;
+        if (el.type === 'checkbox') return !el.checked;
+        return String(el.value) === '0';
+    };
+
     const urlParams = new URLSearchParams();
     const bracketSelect = $('tourney-opt-bracket');
     if (bracketSelect && bracketSelect.value !== 'all') urlParams.set('bracket', bracketSelect.value);
     if (themeSelect && themeSelect.value !== 'card') urlParams.set('overlay', themeSelect.value);
     if (spacingSelect && spacingSelect.value !== 'normal') urlParams.set('spacing', spacingSelect.value);
     if (linesSelect && linesSelect.value !== 'glow') urlParams.set('lines', linesSelect.value);
-    if (scoresSelect && String(scoresSelect.value) === '0') urlParams.set('showscores', '0');
-    if (titleSelect && String(titleSelect.value) === '0') urlParams.set('showtitle', '0');
-    if (roundsSelect && String(roundsSelect.value) === '0') urlParams.set('showrounds', '0');
+    if (isControlOff(scoresSelect)) urlParams.set('showscores', '0');
+    if (isControlOff(titleSelect)) urlParams.set('showtitle', '0');
+    if (isControlOff(roundsSelect)) urlParams.set('showrounds', '0');
 
     const tourneyPipStyleSelect = $('prev-ctrl-tourney-pipstyle') || $('tourney-opt-pipstyle');
     if (tourneyPipStyleSelect && tourneyPipStyleSelect.value !== 'circle') urlParams.set('pipstyle', tourneyPipStyleSelect.value);
@@ -677,6 +689,7 @@ export function resetMatchupOverlayDefaults() {
     }
     updateMatchupOverlayUrl();
     updateAssetFontBadges();
+    syncThemeSwatchActive('matchup');
     saveVersusOverlayPrefs();
     toast('Matchup overlay settings reset to defaults');
 }
@@ -691,6 +704,7 @@ export function resetTourneyOverlayDefaults() {
     setTourneyFitWholeBracket(false);
     updateTourneyOverlayUrl();
     updateAssetFontBadges();
+    syncThemeSwatchActive('tourney');
     saveVersusOverlayPrefs();
     toast('Tournament bracket overlay settings reset to defaults');
 }
@@ -889,6 +903,10 @@ export function restoreVersusOverlayPrefs() {
     } catch { /* ignore parse error */ } finally {
         setIsRestoringVersusPrefs(false);
         updateAssetFontBadges();
+        restoreSyncThemeToggle();
+        syncThemeSwatchActive('matchup');
+        syncThemeSwatchActive('tourney');
+        renderLookPresetsBar();
     }
 }
 
@@ -944,8 +962,14 @@ export async function populateFontDatalist() {
 }
 
 export function onFontInput(target) {
-    if (target === 'matchup' || target === 'matchup-heading') updateMatchupOverlayUrl();
-    else updateTourneyOverlayUrl();
+    const isMatchup = target === 'matchup' || target === 'matchup-heading';
+    if (isMatchup) {
+        if (isSyncThemeEnabled()) mirrorThemeFields('matchup');
+        updateMatchupOverlayUrl();
+    } else {
+        if (isSyncThemeEnabled()) mirrorThemeFields('tourney');
+        updateTourneyOverlayUrl();
+    }
     updateAssetFontBadges();
 }
 
@@ -1052,7 +1076,7 @@ export function renderAssetFontPickerList() {
                     </button>
                 </div>
                 <div style="font-family: '${safeFam}', sans-serif; font-size: 1.15rem; color: var(--text); padding: 0.4rem 0.6rem; background: var(--bg-card); border-radius: 4px; border: 1px solid var(--border); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: 0.02em;">
-                    DAIGO 4 - 3 JUSTIN WONG • GRAND FINALS 2026
+                    KAIRO 4 - 3 NOVA &bull; APEX ARENA CUP
                 </div>
             </div>
         `;
@@ -1070,8 +1094,13 @@ export function selectAssetFont(fam) {
     const input = $(inputId);
     if (input) {
         input.value = fam;
-        if (activeFontPickerTarget && activeFontPickerTarget.startsWith('matchup')) updateMatchupOverlayUrl();
-        else updateTourneyOverlayUrl();
+        if (activeFontPickerTarget && activeFontPickerTarget.startsWith('matchup')) {
+            if (isSyncThemeEnabled()) mirrorThemeFields('matchup');
+            updateMatchupOverlayUrl();
+        } else {
+            if (isSyncThemeEnabled()) mirrorThemeFields('tourney');
+            updateTourneyOverlayUrl();
+        }
         updateAssetFontBadges();
     }
     closeAssetFontPicker();
@@ -1079,41 +1108,179 @@ export function selectAssetFont(fam) {
 }
 
 export const BUILT_IN_THEME_OPTIONS = [
-    { id: 'card', name: 'Dark Card' },
-    { id: 'fgc-evo', name: 'EVO Championship' },
-    { id: 'championship', name: 'Championship Gold' },
-    { id: 'cyber', name: 'Cyberpunk Neon' },
-    { id: 'clean-light', name: 'Clean Light Contrast' },
-    { id: 'minimal-dark', name: 'OLED Deep Black' },
-    { id: 'glass', name: 'Frosted Glass' },
-    { id: 'solid', name: 'Opaque Solid' },
-    { id: 'transparent', name: 'Transparent / Clean' },
-    { id: 'pill', name: 'Pill Capsule' },
-    { id: 'border', name: 'Border Framing' },
-    { id: 'retro', name: 'Retro Arcade' },
-    { id: 'ember', name: 'Ember' },
-    { id: 'aurora', name: 'Aurora' },
-    { id: 'ocean', name: 'Ocean' },
-    { id: 'sunset', name: 'Sunset' },
-    { id: 'violet', name: 'Violet' },
-    { id: 'forest', name: 'Forest' }
+    { id: 'card', name: 'Dark Card', card: '#161b22', accent: '#58a6ff', text: '#f0f6fc' },
+    { id: 'broadcast-ticker', name: 'Broadcast Sports Ticker', card: '#131d33', accent: '#f59e0b', text: '#f8fafc' },
+    { id: 'retro-arcade', name: 'Retro Arcade', card: '#1a0b2e', accent: '#ff2a85', text: '#fff04d' },
+    { id: 'minimal-hud', name: 'Minimal Transparent HUD', card: '#1e293b', accent: '#38bdf8', text: '#f8fafc' },
+    { id: 'fgc-evo', name: 'EVO Championship', card: '#111827', accent: '#ef4444', text: '#ffffff' },
+    { id: 'championship', name: 'Championship Gold', card: '#1c1917', accent: '#eab308', text: '#fefce8' },
+    { id: 'cyber', name: 'Cyberpunk Neon', card: '#0f1021', accent: '#00f0ff', text: '#f0abfc' },
+    { id: 'clean-light', name: 'Clean Light Contrast', card: '#f8fafc', accent: '#2563eb', text: '#0f172a' },
+    { id: 'minimal-dark', name: 'OLED Deep Black', card: '#050507', accent: '#a1a1aa', text: '#fafafa' },
+    { id: 'glass', name: 'Frosted Glass', card: '#1e293b', accent: '#60a5fa', text: '#f1f5f9' },
+    { id: 'solid', name: 'Opaque Solid', card: '#18181b', accent: '#3b82f6', text: '#ffffff' },
+    { id: 'transparent', name: 'Transparent / Clean', card: '#0f172a', accent: '#94a3b8', text: '#ffffff' },
+    { id: 'pill', name: 'Pill Capsule', card: '#1f2937', accent: '#818cf8', text: '#f9fafb' },
+    { id: 'border', name: 'Border Framing', card: '#111827', accent: '#22d3ee', text: '#f8fafc' },
+    { id: 'retro', name: 'Retro Classic', card: '#1e1b4b', accent: '#f43f5e', text: '#fde047' },
+    { id: 'ember', name: 'Ember', card: '#27120c', accent: '#f97316', text: '#fff7ed' },
+    { id: 'aurora', name: 'Aurora', card: '#0b2220', accent: '#2dd4bf', text: '#f0fdfa' },
+    { id: 'ocean', name: 'Ocean', card: '#0c1f33', accent: '#0ea5e9', text: '#f0f9ff' },
+    { id: 'sunset', name: 'Sunset', card: '#2b1322', accent: '#fb7185', text: '#fff1f2' },
+    { id: 'violet', name: 'Violet', card: '#1e1233', accent: '#a855f7', text: '#faf5ff' },
+    { id: 'forest', name: 'Forest', card: '#0f2419', accent: '#22c55e', text: '#f0fdf4' }
 ];
+
+export const MATCHUP_THEMES = BUILT_IN_THEME_OPTIONS;
+export const TOURNEY_THEMES = BUILT_IN_THEME_OPTIONS;
+
+const VERSUS_SYNC_THEME_KEY = 'streampulse:versus-sync-theme';
+const VERSUS_LOOK_PRESETS_KEY = 'streampulse:versus-look-presets';
+let isSyncingThemes = false;
+
+export function isSyncThemeEnabled() {
+    const el = $('versus-sync-theme');
+    if (el) return Boolean(el.checked);
+    try { return localStorage.getItem(VERSUS_SYNC_THEME_KEY) === '1'; } catch { return false; }
+}
+
+export function restoreSyncThemeToggle() {
+    const el = $('versus-sync-theme');
+    if (!el) return;
+    try {
+        el.checked = localStorage.getItem(VERSUS_SYNC_THEME_KEY) === '1';
+    } catch {
+        el.checked = false;
+    }
+}
+
+export function toggleSyncThemeToBoth(enabled) {
+    const isOn = Boolean(enabled);
+    try { localStorage.setItem(VERSUS_SYNC_THEME_KEY, isOn ? '1' : '0'); } catch {}
+    if (isOn) {
+        const source = previewMode === 'tourney-tree' ? 'tourney' : 'matchup';
+        mirrorThemeFields(source);
+        toast('Theme sync enabled across Matchup & Bracket overlays');
+    } else {
+        toast('Theme sync disabled');
+    }
+}
+
+const SYNCED_THEME_FIELDS = ['theme', 'heading-font', 'font', 'accent', 'badgecolor', 'p1color', 'p2color', 'winner', 'cardbg', 'bg', 'border', 'text', 'muted'];
+
+export function mirrorThemeFields(fromTarget) {
+    if (isSyncingThemes || isRestoringVersusPrefs) return;
+    isSyncingThemes = true;
+    try {
+        const toTarget = fromTarget === 'matchup' ? 'tourney' : 'matchup';
+        const fromPrefix = fromTarget === 'matchup' ? 'matchup-opt-' : 'tourney-opt-';
+        const toPrefix = toTarget === 'matchup' ? 'matchup-opt-' : 'tourney-opt-';
+
+        SYNCED_THEME_FIELDS.forEach(field => {
+            const src = $(fromPrefix + field);
+            const dst = $(toPrefix + field);
+            if (!src || !dst) return;
+            dst.value = src.value;
+            if ($(toPrefix + field + '-picker')) {
+                syncColorPicker(toPrefix + field, toPrefix + field + '-picker');
+            }
+        });
+
+        syncThemeSwatchActive(toTarget);
+        updateAssetFontBadges();
+        if (toTarget === 'matchup') updateMatchupOverlayUrl();
+        else updateTourneyOverlayUrl();
+    } finally {
+        isSyncingThemes = false;
+    }
+}
+
+export function onOverlayColorChange(target) {
+    if (target === 'matchup') {
+        if (isSyncThemeEnabled()) mirrorThemeFields('matchup');
+        updateMatchupOverlayUrl();
+    } else {
+        if (isSyncThemeEnabled()) mirrorThemeFields('tourney');
+        updateTourneyOverlayUrl();
+    }
+}
+
+export function renderThemeSwatches(onlyTarget) {
+    const customThemes = window.OverlayThemes ? window.OverlayThemes.getCustomThemes() : {};
+    const customList = Object.values(customThemes);
+    const targets = onlyTarget ? [onlyTarget] : ['matchup', 'tourney'];
+
+    targets.forEach(target => {
+        const container = $(target === 'matchup' ? 'matchup-theme-swatches' : 'tourney-theme-swatches');
+        const selectEl = $(target === 'matchup' ? 'matchup-opt-theme' : 'tourney-opt-theme');
+        if (!container) return;
+
+        const currentVal = selectEl?.value || 'card';
+        const themes = target === 'matchup' ? MATCHUP_THEMES : TOURNEY_THEMES;
+        const allItems = [
+            ...themes.map(t => ({
+                id: t.id,
+                name: t.name,
+                card: t.card || '#161b22',
+                accent: t.accent || '#58a6ff',
+                text: t.text || '#f0f6fc'
+            })),
+            ...customList.map(t => ({
+                id: t.id,
+                name: `${t.name || t.id} (Custom)`,
+                card: t.cardBg || t.cardbg || '#161b22',
+                accent: t.accent || '#58a6ff',
+                text: t.text || '#f0f6fc'
+            }))
+        ];
+
+        container.innerHTML = allItems.map(item => `
+            <button type="button" class="theme-swatch-card${item.id === currentVal ? ' active' : ''}" data-theme-id="${escapeHtml(item.id)}" onclick="selectThemeSwatch('${target}', '${escapeHtml(item.id)}')" title="Apply ${escapeHtml(item.name)}">
+                <span class="theme-swatch-name">${escapeHtml(item.name)}</span>
+                <span class="theme-swatch-dots" aria-hidden="true">
+                    <span class="theme-swatch-dot" style="background:${escapeHtml(item.card)};"></span>
+                    <span class="theme-swatch-dot" style="background:${escapeHtml(item.accent)};"></span>
+                    <span class="theme-swatch-dot" style="background:${escapeHtml(item.text)};"></span>
+                </span>
+            </button>
+        `).join('');
+    });
+}
+
+export function syncThemeSwatchActive(target) {
+    const targets = target ? [target] : ['matchup', 'tourney'];
+    targets.forEach(t => {
+        const container = $(t === 'matchup' ? 'matchup-theme-swatches' : 'tourney-theme-swatches');
+        const selectEl = $(t === 'matchup' ? 'matchup-opt-theme' : 'tourney-opt-theme');
+        if (!container || !selectEl) return;
+        const val = selectEl.value;
+        container.querySelectorAll('.theme-swatch-card').forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-theme-id') === val);
+        });
+    });
+}
+
+export function selectThemeSwatch(target, themeId) {
+    const selectEl = $(target === 'matchup' ? 'matchup-opt-theme' : 'tourney-opt-theme');
+    if (selectEl) selectEl.value = themeId;
+    onThemeSelectChange(target, themeId);
+}
 
 export function populateThemeDropdowns() {
     const customThemes = window.OverlayThemes ? window.OverlayThemes.getCustomThemes() : {};
     const customList = Object.values(customThemes);
 
-    const updateSelect = (selectEl, isMatchup) => {
+    const updateSelect = (selectEl, themes) => {
         if (!selectEl) return;
         const currentVal = selectEl.value;
         selectEl.innerHTML = '';
 
         const builtInGroup = document.createElement('optgroup');
         builtInGroup.label = 'Built-in Themes';
-        BUILT_IN_THEME_OPTIONS.forEach(t => {
+        themes.forEach(t => {
             const opt = document.createElement('option');
             opt.value = t.id;
-            opt.textContent = isMatchup ? `${t.name} (?overlay=${t.id})` : t.name;
+            opt.textContent = t.name;
             builtInGroup.appendChild(opt);
         });
         selectEl.appendChild(builtInGroup);
@@ -1133,10 +1300,11 @@ export function populateThemeDropdowns() {
         if (currentVal) selectEl.value = currentVal;
     };
 
-    updateSelect($('matchup-opt-theme'), true);
-    updateSelect($('prev-ctrl-theme'), false);
-    updateSelect($('tourney-opt-theme'), false);
-    updateSelect($('prev-ctrl-tourney-theme'), false);
+    updateSelect($('matchup-opt-theme'), MATCHUP_THEMES);
+    updateSelect($('prev-ctrl-theme'), MATCHUP_THEMES);
+    updateSelect($('tourney-opt-theme'), TOURNEY_THEMES);
+    updateSelect($('prev-ctrl-tourney-theme'), TOURNEY_THEMES);
+    renderThemeSwatches();
 }
 
 export function onThemeSelectChange(target, val) {
@@ -1145,6 +1313,10 @@ export function onThemeSelectChange(target, val) {
         if (theme && theme.isCustom) {
             applyThemeToInputs(target, theme);
         }
+    }
+    syncThemeSwatchActive(target);
+    if (isSyncThemeEnabled()) {
+        mirrorThemeFields(target);
     }
     if (target === 'matchup') updateMatchupOverlayUrl();
     else updateTourneyOverlayUrl();
@@ -1260,6 +1432,8 @@ export function submitSaveTheme(e) {
         if ($(selectId) && saved) {
             $(selectId).value = saved.id;
         }
+        syncThemeSwatchActive(activeThemeModalTarget);
+        if (isSyncThemeEnabled()) mirrorThemeFields(activeThemeModalTarget);
         closeSaveThemeModal();
         if (activeThemeModalTarget === 'matchup') updateMatchupOverlayUrl();
         else updateTourneyOverlayUrl();
@@ -1341,6 +1515,8 @@ export function applyCustomThemeToActive(themeId, target) {
     applyThemeToInputs(target, theme);
     const selectId = target === 'matchup' ? 'matchup-opt-theme' : 'tourney-opt-theme';
     if ($(selectId)) $(selectId).value = themeId;
+    syncThemeSwatchActive(target);
+    if (isSyncThemeEnabled()) mirrorThemeFields(target);
     if (target === 'matchup') updateMatchupOverlayUrl();
     else updateTourneyOverlayUrl();
     toast(`Theme "${theme.name || themeId}" applied to ${target === 'matchup' ? 'Matchup' : 'Tournament Bracket'}!`);
@@ -1355,9 +1531,142 @@ export function deleteCustomThemeAndRefresh(themeId) {
     toast('Custom theme deleted');
 }
 
+/* ── Saved Look Presets (localStorage: streampulse:versus-look-presets) ──── */
+const LOOK_PRESET_MATCHUP_KEYS = [
+    'layout', 'theme', 'heading-font', 'font', 'scale', 'weight', 'transform', 'radius', 'outline',
+    'clockstyle', 'pipstyle', 'roundpipstyle', 'accent', 'badgecolor', 'text', 'muted', 'cardbg',
+    'bg', 'border', 'winner', 'p1color', 'p2color'
+];
+const LOOK_PRESET_TOURNEY_KEYS = [
+    'layout', 'theme', 'heading-font', 'font', 'scale', 'weight', 'transform', 'radius', 'outline',
+    'spacing', 'lines', 'pipstyle', 'roundpipstyle', 'accent', 'badgecolor', 'text', 'muted', 'cardbg',
+    'bg', 'border', 'winner', 'p1color', 'p2color'
+];
+
+export function getLookPresets() {
+    try {
+        const raw = localStorage.getItem(VERSUS_LOOK_PRESETS_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+}
+
+function persistLookPresets(list) {
+    try {
+        localStorage.setItem(VERSUS_LOOK_PRESETS_KEY, JSON.stringify(list));
+    } catch {}
+}
+
+export function renderLookPresetsBar() {
+    const bar = $('versus-look-presets-bar');
+    if (!bar) return;
+    const list = getLookPresets();
+    const chipsHtml = list.length === 0
+        ? '<span style="font-size: 0.72rem; color: var(--text-muted); font-style: italic;">No saved looks yet</span>'
+        : list.map((preset, idx) => `
+            <span class="look-preset-chip">
+                <button type="button" class="look-preset-apply" onclick="applyLookPreset(${idx})" title="Apply saved look &quot;${escapeHtml(preset.name)}&quot;">${escapeHtml(preset.name)}</button>
+                <button type="button" class="look-preset-del" onclick="deleteLookPreset(${idx})" title="Delete saved look" aria-label="Delete ${escapeHtml(preset.name)}">&times;</button>
+            </span>
+        `).join('');
+
+    bar.innerHTML = `
+        <span class="look-presets-title">Saved Looks</span>
+        ${chipsHtml}
+        <button type="button" class="btn-secondary btn-sm" onclick="saveLookPreset()" style="margin-left: auto; display: inline-flex; align-items: center; gap: 0.25rem;" title="Save current Matchup and Bracket look settings">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Save Look
+        </button>
+    `;
+}
+
+export function saveLookPreset() {
+    const name = window.prompt('Name for this Saved Look Preset:');
+    const trimmed = (name || '').trim();
+    if (!trimmed) return;
+
+    const matchup = {};
+    LOOK_PRESET_MATCHUP_KEYS.forEach(k => {
+        const el = $('matchup-opt-' + k);
+        if (el) matchup[k] = el.value;
+    });
+    const tourney = {};
+    LOOK_PRESET_TOURNEY_KEYS.forEach(k => {
+        const el = $('tourney-opt-' + k);
+        if (el) tourney[k] = el.value;
+    });
+
+    const list = getLookPresets().filter(p => p.name.toLowerCase() !== trimmed.toLowerCase());
+    list.unshift({ name: trimmed, matchup, tourney, savedAt: Date.now() });
+    persistLookPresets(list.slice(0, 20));
+    renderLookPresetsBar();
+    toast(`Saved look preset "${trimmed}"`);
+}
+
+export function applyLookPreset(index) {
+    const list = getLookPresets();
+    const preset = list[index];
+    if (!preset) return;
+
+    setIsRestoringVersusPrefs(true);
+    try {
+        if (preset.matchup) {
+            LOOK_PRESET_MATCHUP_KEYS.forEach(k => {
+                const el = $('matchup-opt-' + k);
+                if (el && preset.matchup[k] !== undefined) {
+                    el.value = preset.matchup[k];
+                    if ($('matchup-opt-' + k + '-picker')) syncColorPicker('matchup-opt-' + k, 'matchup-opt-' + k + '-picker');
+                }
+            });
+        }
+        if (preset.tourney) {
+            LOOK_PRESET_TOURNEY_KEYS.forEach(k => {
+                const el = $('tourney-opt-' + k);
+                if (el && preset.tourney[k] !== undefined) {
+                    el.value = preset.tourney[k];
+                    if ($('tourney-opt-' + k + '-picker')) syncColorPicker('tourney-opt-' + k, 'tourney-opt-' + k + '-picker');
+                }
+            });
+            if (preset.tourney.radius !== undefined && $('tourney-opt-radius-layout')) {
+                $('tourney-opt-radius-layout').value = preset.tourney.radius;
+            }
+        }
+    } finally {
+        setIsRestoringVersusPrefs(false);
+    }
+
+    syncThemeSwatchActive('matchup');
+    syncThemeSwatchActive('tourney');
+    updateAssetFontBadges();
+    updateMatchupOverlayUrl();
+    updateTourneyOverlayUrl();
+    toast(`Applied look preset "${preset.name}"`);
+}
+
+export function deleteLookPreset(index) {
+    const list = getLookPresets();
+    if (!list[index]) return;
+    const removed = list.splice(index, 1)[0];
+    persistLookPresets(list);
+    renderLookPresetsBar();
+    toast(`Deleted look preset "${removed.name}"`);
+}
+
 export function copyUrl(inputId, btn) {
     const input = $(inputId);
+    if (!input) return;
     navigator.clipboard.writeText(input.value).then(() => {
+        const prev = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = prev; }, 1500);
+    });
+}
+
+export function copyCompanionTrigger(path, btn) {
+    const url = `${window.location.origin}${path}`;
+    navigator.clipboard.writeText(url).then(() => {
         const prev = btn.textContent;
         btn.textContent = 'Copied!';
         setTimeout(() => { btn.textContent = prev; }, 1500);

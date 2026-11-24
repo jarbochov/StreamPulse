@@ -532,6 +532,10 @@ export async function deleteTourneyDraft(draftId) {
     }
 }
 
+function getTourneyEntrantsEl() {
+    return $('tourney-entrants-text') || $('tourney-entrants');
+}
+
 export function handleTourneyFormatChange(fmt) {
     const rrBox = $('tourney-rr-options');
     if (rrBox) rrBox.style.display = fmt === 'roundRobin' ? 'block' : 'none';
@@ -539,18 +543,195 @@ export function handleTourneyFormatChange(fmt) {
     if (drawBtn) drawBtn.style.display = fmt === 'roundRobin' ? 'inline-block' : 'none';
     const matchupDrawBtn = $('btn-matchup-tourney-draw');
     if (matchupDrawBtn) matchupDrawBtn.style.display = fmt === 'roundRobin' ? 'inline-block' : 'none';
+    updateTourneySeedPreview();
 }
 
 export function parseEntrantString(str) {
     if (!str) return { name: '', tag: '' };
-    const s = str.trim();
+    // Strip optional leading seed numbering like "1. ", "#1 ", "1) ", "1 - "
+    const s = String(str).trim().replace(/^(?:#?\d+\s*[.)\-:]\s*)/, '').trim();
+    if (!s) return { name: '', tag: '' };
     const bracketMatch = s.match(/^(.*?)\s*\[(.*?)\]$/);
     if (bracketMatch) return { name: bracketMatch[1].trim(), tag: bracketMatch[2].trim() };
     const parenMatch = s.match(/^(.*?)\s*\((.*?)\)$/);
     if (parenMatch) return { name: parenMatch[1].trim(), tag: parenMatch[2].trim() };
     const pipeMatch = s.match(/^(.*?)\s*\|\s*(.*)$/);
     if (pipeMatch) return { name: pipeMatch[2].trim(), tag: pipeMatch[1].trim() };
-    return { name: s, tag: '' };
+    const commaIdx = s.indexOf(',');
+    if (commaIdx > 0) {
+        const namePart = s.slice(0, commaIdx).trim().replace(/^["']|["']$/g, '');
+        const tagPart = s.slice(commaIdx + 1).trim().replace(/^["']|["']$/g, '');
+        if (namePart) return { name: namePart, tag: tagPart };
+    }
+    return { name: s.replace(/^["']|["']$/g, ''), tag: '' };
+}
+
+export function parseEntrantsInput(rawText) {
+    const raw = String(rawText || '').trim();
+    if (!raw) return [];
+
+    // JSON array support: ["Player 1", ...] or [{"name": "Player 1", "tag": "Main"}, ...]
+    if (raw.startsWith('[')) {
+        try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+                return parsed.map(item => {
+                    if (typeof item === 'string') return parseEntrantString(item);
+                    if (item && typeof item === 'object') {
+                        const name = String(item.name || item.player || item.entrant || item.title || '').trim();
+                        const tag = String(item.tag || item.character || item.team || '').trim();
+                        return { name, tag };
+                    }
+                    return { name: '', tag: '' };
+                }).filter(e => e.name);
+            }
+        } catch {
+            // Fall through to line-based parsing if not valid JSON
+        }
+    }
+
+    const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (lines.length > 0 && /^(?:seed\s*,\s*)?(?:name|player|entrant|competitor)\s*(?:,\s*(?:tag|character|team|seed).*)?$/i.test(lines[0])) {
+        lines.shift();
+    }
+    return lines.map(parseEntrantString).filter(e => e.name);
+}
+
+export function updateTourneySeedPreview() {
+    const el = $('tourney-seed-preview');
+    if (!el) return;
+
+    let count = 0;
+    if (currentEntrantMode === 'table') {
+        const rows = document.querySelectorAll('#entrant-rows-list .entrant-table-row');
+        rows.forEach(r => {
+            const name = (r.querySelector('.entrant-row-name')?.value || '').trim();
+            if (name) count++;
+        });
+    } else {
+        const text = getTourneyEntrantsEl()?.value || '';
+        count = parseEntrantsInput(text).length;
+    }
+
+    const format = $('tourney-format')?.value || 'single';
+    if (count === 0) {
+        el.innerHTML = `<span style="color: var(--text-muted);">Enter at least 2 entrants (lines, <code>Name [Tag]</code>, CSV, or JSON array).</span>`;
+        return;
+    }
+    if (count === 1) {
+        el.innerHTML = `<span style="color: var(--text-muted);"><strong>1</strong> entrant — add at least 1 more to generate a bracket.</span>`;
+        return;
+    }
+
+    if (format === 'roundRobin') {
+        const legs = parseInt($('tourney-rr-legs')?.value, 10) || 1;
+        const totalMatches = (count * (count - 1) / 2) * legs;
+        el.innerHTML = `<span><strong>${count}</strong> entrants &middot; Round Robin (${legs === 2 ? 'Double' : 'Single'}) &middot; <strong>${totalMatches}</strong> total matches</span>`;
+        return;
+    }
+
+    const limit = format === 'double' ? 16 : 32;
+    const fmtLabel = format === 'double' ? 'Double Elim' : 'Single Elim';
+    if (count > limit) {
+        el.innerHTML = `<span style="color: #f87171;"><strong>${count}</strong> entrants exceeds the ${limit}-player limit for ${fmtLabel}.</span>`;
+        return;
+    }
+
+    let bracketSize = 2;
+    while (bracketSize < count) bracketSize *= 2;
+    const byes = bracketSize - count;
+    const byeText = byes === 0 ? 'No BYEs' : `<strong>${byes}</strong> BYE${byes === 1 ? '' : 's'} in Round 1`;
+    el.innerHTML = `<span><strong>${count}</strong> entrants &middot; <strong>${bracketSize}</strong>-slot ${fmtLabel} &middot; ${byeText}</span>`;
+}
+
+export function shuffleTourneyEntrants() {
+    if (currentEntrantMode === 'table') syncEntrantsTableToText();
+    const textarea = getTourneyEntrantsEl();
+    const parsed = parseEntrantsInput(textarea?.value || '');
+    if (parsed.length < 2) {
+        toast('Add at least 2 entrants to shuffle seeds');
+        return;
+    }
+
+    // Fisher-Yates shuffle
+    const shuffled = parsed.slice();
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
+    const formatted = shuffled.map(e => (e.tag ? `${e.name} [${e.tag}]` : e.name));
+    if (textarea) textarea.value = formatted.join('\n');
+    if (currentEntrantMode === 'table') {
+        renderEntrantTableRows(shuffled);
+    }
+    updateTourneySeedPreview();
+    toast(`Shuffled ${shuffled.length} seeds`);
+}
+
+export async function importTourneyEntrantsFile(input) {
+    const fileInput = input?.target || input;
+    const file = fileInput?.files?.[0];
+    if (!file) return;
+
+    try {
+        const text = typeof file.text === 'function'
+            ? await file.text()
+            : await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(String(reader.result || ''));
+                reader.onerror = () => reject(new Error('Failed to read file'));
+                reader.readAsText(file);
+            });
+
+        const parsed = parseEntrantsInput(text);
+        if (parsed.length === 0) {
+            toast('No valid entrants found in file');
+            if (fileInput) fileInput.value = '';
+            return;
+        }
+
+        const formatted = parsed.map(e => (e.tag ? `${e.name} [${e.tag}]` : e.name));
+        const textarea = getTourneyEntrantsEl();
+        if (textarea) textarea.value = formatted.join('\n');
+        if (currentEntrantMode === 'table') {
+            renderEntrantTableRows(parsed);
+        }
+        updateTourneySeedPreview();
+        toast(`Imported ${parsed.length} entrants from ${file.name}`);
+    } catch {
+        toast('Error importing entrants file');
+    } finally {
+        if (fileInput) fileInput.value = '';
+    }
+}
+
+export function openTourneyInPromoCreator() {
+    const t = activeTourneyData;
+    const formTitle = ($('tourney-title')?.value || '').trim();
+    const title = t?.title || formTitle || 'Tournament Bracket';
+    const format = t?.format || $('tourney-format')?.value || 'single';
+    const formatLabel = format === 'double' ? 'Double Elimination' : (format === 'roundRobin' ? 'Round Robin' : 'Single Elimination');
+    const entrantCount = Array.isArray(t?.entrants)
+        ? t.entrants.length
+        : parseEntrantsInput(getTourneyEntrantsEl()?.value || '').length;
+    const isCompleted = t?.status === 'COMPLETED' && Boolean(t?.champion);
+    const badge = isCompleted ? `CHAMPION: ${t.champion}` : formatLabel.toUpperCase();
+    const subtitle = entrantCount > 0 ? `${entrantCount} Competitors · ${formatLabel}` : formatLabel;
+    const artwork = t?.logo || ($('tourney-create-logo')?.value || $('tourney-opt-logo')?.value || '').trim() || '';
+
+    const payload = {
+        name: `${title} Promo`,
+        title,
+        subtitle,
+        badge,
+        artwork
+    };
+    try {
+        localStorage.setItem('streampulse:promo-handoff', JSON.stringify(payload));
+    } catch { /* ignore */ }
+    window.open('/promo-creator.html?handoff=versus', '_blank');
+    toast('Opening Promo Creator with tournament details');
 }
 
 export function switchEntrantEntryMode(mode) {
@@ -566,13 +747,14 @@ export function switchEntrantEntryMode(mode) {
         if ($('entrant-mode-table-container')) $('entrant-mode-table-container').style.display = 'none';
         if ($('entrant-mode-text-container')) $('entrant-mode-text-container').style.display = 'block';
     }
+    updateTourneySeedPreview();
 }
 
 export function syncEntrantsTextToTable() {
-    const raw = $('tourney-entrants-text')?.value || '';
-    const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
-    const parsed = lines.map(parseEntrantString);
+    const raw = getTourneyEntrantsEl()?.value || '';
+    const parsed = parseEntrantsInput(raw);
     renderEntrantTableRows(parsed);
+    updateTourneySeedPreview();
 }
 
 export function syncEntrantsTableToText() {
@@ -587,8 +769,10 @@ export function syncEntrantsTableToText() {
             lines.push(tag ? `${name} [${tag}]` : name);
         }
     });
-    if ($('tourney-entrants-text')) $('tourney-entrants-text').value = lines.join('\n');
+    const textarea = getTourneyEntrantsEl();
+    if (textarea) textarea.value = lines.join('\n');
     if ($('entrant-table-count')) $('entrant-table-count').textContent = `${lines.length} player${lines.length === 1 ? '' : 's'}`;
+    updateTourneySeedPreview();
 }
 
 export function renderEntrantTableRows(entrants) {
@@ -722,11 +906,12 @@ export async function handleCreateTournament(e) {
     const title = $('tourney-title').value.trim();
     const format = $('tourney-format').value;
     const seriesVal = $('tourney-series').value;
-    const entrantsText = $('tourney-entrants-text').value;
+    const entrantsText = getTourneyEntrantsEl()?.value || '';
 
-    const entrants = entrantsText.split('\n').map(s => s.trim()).filter(Boolean);
+    const parsedEntrants = parseEntrantsInput(entrantsText);
+    const entrants = parsedEntrants.map(item => (item.tag ? `${item.name} [${item.tag}]` : item.name));
     if (entrants.length < 2) {
-        alert('Please enter at least 2 entrants (one per line).');
+        alert('Please enter at least 2 entrants (one per line, CSV, or JSON array).');
         return;
     }
     const entrantLimit = format === 'double' ? 16 : (format === 'single' ? 32 : null);
@@ -1398,7 +1583,9 @@ export async function loadTournamentPresetToForm(presetId) {
             if (preset.scoringType === 'points') $('tourney-series').value = 'points';
             else $('tourney-series').value = `bestOf-${preset.bestOf || 3}`;
         }
-        if ($('tourney-entrants-text')) $('tourney-entrants-text').value = (preset.entrants || []).join('\n');
+        const textarea = getTourneyEntrantsEl();
+        if (textarea) textarea.value = (preset.entrants || []).join('\n');
+        updateTourneySeedPreview();
         toast(`Loaded preset: ${preset.name}`);
     } catch {
         toast('Error loading preset');

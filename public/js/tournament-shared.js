@@ -66,7 +66,7 @@
     // Sample 3: Round Robin League
     const SAMPLE_RR_TOURNAMENT = {
         id: 'sample-rr-tourney',
-        title: 'Community Championship League',
+        title: 'Apex Arena League',
         format: 'roundRobin',
         bracketSize: 4,
         roundCount: 3,
@@ -76,20 +76,204 @@
         status: 'IN_PROGRESS',
         activeMatchId: 'rr_2_1',
         standings: [
-            { name: 'Daigo', tag: 'Ken', seed: 1, played: 2, won: 2, lost: 0, draws: 0, scoreFor: 4, scoreAgainst: 1, diff: 3, points: 6 },
-            { name: 'Punk', tag: 'Cammy', seed: 2, played: 2, won: 1, lost: 1, draws: 0, scoreFor: 3, scoreAgainst: 2, diff: 1, points: 3 },
-            { name: 'Tokido', tag: 'Akuma', seed: 3, played: 2, won: 1, lost: 1, draws: 0, scoreFor: 2, scoreAgainst: 3, diff: -1, points: 3 },
-            { name: 'MenaRD', tag: 'Blanka', seed: 4, played: 2, won: 0, lost: 2, draws: 0, scoreFor: 1, scoreAgainst: 4, diff: -3, points: 0 }
+            { name: 'KAIRO', tag: 'BLAZE', seed: 1, played: 2, won: 2, lost: 0, draws: 0, scoreFor: 4, scoreAgainst: 1, diff: 3, points: 6 },
+            { name: 'NOVA', tag: 'FROST', seed: 2, played: 2, won: 1, lost: 1, draws: 0, scoreFor: 3, scoreAgainst: 2, diff: 1, points: 3 },
+            { name: 'VEX', tag: 'VOLT', seed: 3, played: 2, won: 1, lost: 1, draws: 0, scoreFor: 2, scoreAgainst: 3, diff: -1, points: 3 },
+            { name: 'SORA', tag: 'GALE', seed: 4, played: 2, won: 0, lost: 2, draws: 0, scoreFor: 1, scoreAgainst: 4, diff: -3, points: 0 }
         ],
         matches: [
-            { id: 'rr_1_1', round: 1, roundName: 'Round 1', entrant1: { name: 'Daigo', tag: 'Ken', seed: 1, score: 2 }, entrant2: { name: 'Punk', tag: 'Cammy', seed: 2, score: 1 }, scores: [2, 1], status: 'COMPLETED', winner: 'Daigo' },
-            { id: 'rr_1_2', round: 1, roundName: 'Round 1', entrant1: { name: 'Tokido', tag: 'Akuma', seed: 3, score: 2 }, entrant2: { name: 'MenaRD', tag: 'Blanka', seed: 4, score: 0 }, scores: [2, 0], status: 'COMPLETED', winner: 'Tokido' },
-            { id: 'rr_2_1', round: 2, roundName: 'Round 2', entrant1: { name: 'Daigo', tag: 'Ken', seed: 1, score: 1 }, entrant2: { name: 'Tokido', tag: 'Akuma', seed: 3, score: 0 }, scores: [1, 0], status: 'ACTIVE' },
-            { id: 'rr_2_2', round: 2, roundName: 'Round 2', entrant1: { name: 'Punk', tag: 'Cammy', seed: 2, score: 2 }, entrant2: { name: 'MenaRD', tag: 'Blanka', seed: 4, score: 1 }, scores: [2, 1], status: 'COMPLETED', winner: 'Punk' }
+            { id: 'rr_1_1', round: 1, roundName: 'Round 1', entrant1: { name: 'KAIRO', tag: 'BLAZE', seed: 1, score: 2 }, entrant2: { name: 'NOVA', tag: 'FROST', seed: 2, score: 1 }, scores: [2, 1], status: 'COMPLETED', winner: 'KAIRO' },
+            { id: 'rr_1_2', round: 1, roundName: 'Round 1', entrant1: { name: 'VEX', tag: 'VOLT', seed: 3, score: 2 }, entrant2: { name: 'SORA', tag: 'GALE', seed: 4, score: 0 }, scores: [2, 0], status: 'COMPLETED', winner: 'VEX' },
+            { id: 'rr_2_1', round: 2, roundName: 'Round 2', entrant1: { name: 'KAIRO', tag: 'BLAZE', seed: 1, score: 1 }, entrant2: { name: 'VEX', tag: 'VOLT', seed: 3, score: 0 }, scores: [1, 0], status: 'ACTIVE' },
+            { id: 'rr_2_2', round: 2, roundName: 'Round 2', entrant1: { name: 'NOVA', tag: 'FROST', seed: 2, score: 2 }, entrant2: { name: 'SORA', tag: 'GALE', seed: 4, score: 1 }, scores: [2, 1], status: 'COMPLETED', winner: 'NOVA' }
         ]
     };
 
+    const EXTRA_TOURNEY_THEMES = ['broadcast-ticker', 'retro-arcade', 'minimal-hud'];
+
+    function injectBroadcastThemeStyles() {
+        if (typeof document === 'undefined' || !document.head) return;
+        if (document.getElementById('sp-tourney-broadcast-themes')) return;
+        const style = document.createElement('style');
+        style.id = 'sp-tourney-broadcast-themes';
+        style.textContent = `
+            /* Broadcast Ticker (ESPN / F1 flat sports ticker bar) */
+            .theme-broadcast-ticker {
+                --tourney-bg: #0f172a;
+                --tourney-card-bg: #0f172a;
+                --tourney-border: #334155;
+                --tourney-text: #f8fafc;
+                --tourney-muted: #94a3b8;
+                --tourney-accent: #38bdf8;
+                --tourney-winner: #22c55e;
+                --tourney-radius: 3px;
+                --tourney-backdrop: none;
+                --tourney-text-transform: uppercase;
+                --tourney-heading-transform: uppercase;
+            }
+            .theme-broadcast-ticker .tournament-header,
+            .theme-broadcast-ticker .match-card,
+            .theme-broadcast-ticker .match-hud-card,
+            .theme-broadcast-ticker .rr-standings-card,
+            .theme-broadcast-ticker .rr-matches-card,
+            .theme-broadcast-ticker .champion-card {
+                background: var(--tourney-card-bg, #0f172a);
+                border-color: var(--tourney-border, #334155);
+                border-radius: var(--tourney-radius, 3px);
+                backdrop-filter: none;
+                -webkit-backdrop-filter: none;
+                box-shadow: 0 4px 12px rgba(2, 6, 23, 0.55);
+            }
+            .theme-broadcast-ticker .hud-header,
+            .theme-broadcast-ticker .rr-table th,
+            .theme-broadcast-ticker .rr-match-item {
+                background: #1e293b;
+                border-color: var(--tourney-border, #334155);
+            }
+            .theme-broadcast-ticker .entrant-row {
+                background: #0f172a;
+                border-left: 4px solid var(--tourney-p1-color, #ef4444);
+            }
+            .theme-broadcast-ticker .entrant-row:nth-child(2) {
+                border-left-color: var(--tourney-p2-color, #3b82f6);
+            }
+            .theme-broadcast-ticker .hud-entrant.e1 {
+                border-left: 6px solid var(--tourney-p1-color, #ef4444) !important;
+            }
+            .theme-broadcast-ticker .hud-entrant.e2 {
+                border-right: 6px solid var(--tourney-p2-color, #3b82f6) !important;
+            }
+            .theme-broadcast-ticker .entrant-name,
+            .theme-broadcast-ticker .hud-entrant-name,
+            .theme-broadcast-ticker .tournament-title,
+            .theme-broadcast-ticker .round-header {
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+            }
+            .theme-broadcast-ticker .score-badge,
+            .theme-broadcast-ticker .hud-score-display,
+            .theme-broadcast-ticker .rr-score-pill {
+                font-variant-numeric: tabular-nums;
+                background: #1e293b;
+                border: 1px solid #475569;
+                border-radius: 3px;
+                color: #f8fafc;
+            }
+
+            /* Retro Arcade (Classic coin-op pixel-sharp aesthetic) */
+            .theme-retro-arcade {
+                --tourney-bg: #090b1a;
+                --tourney-card-bg: #090b1a;
+                --tourney-border: #ffd60a;
+                --tourney-text: #f8fafc;
+                --tourney-muted: #22d3ee;
+                --tourney-accent: #ffd60a;
+                --tourney-winner: #00f5d4;
+                --tourney-radius: 2px;
+                --tourney-backdrop: none;
+                --tourney-text-transform: uppercase;
+                --tourney-heading-transform: uppercase;
+            }
+            .theme-retro-arcade .tournament-header,
+            .theme-retro-arcade .match-card,
+            .theme-retro-arcade .match-hud-card,
+            .theme-retro-arcade .rr-standings-card,
+            .theme-retro-arcade .rr-matches-card,
+            .theme-retro-arcade .champion-card {
+                background: var(--tourney-card-bg, #090b1a);
+                border: 2px solid var(--tourney-border, #ffd60a);
+                border-radius: var(--tourney-radius, 2px);
+                box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.85);
+                backdrop-filter: none;
+                -webkit-backdrop-filter: none;
+            }
+            .theme-retro-arcade .hud-header,
+            .theme-retro-arcade .rr-table th,
+            .theme-retro-arcade .rr-match-item {
+                background: #10142b;
+                border-color: var(--tourney-border, #ffd60a);
+            }
+            .theme-retro-arcade .score-badge,
+            .theme-retro-arcade .hud-score-display,
+            .theme-retro-arcade .rr-score-pill {
+                font-variant-numeric: tabular-nums;
+                background: #141833;
+                border: 2px solid #22d3ee;
+                border-radius: 2px;
+                color: #ffd60a;
+            }
+            .theme-retro-arcade .bracket-line {
+                filter: none !important;
+            }
+
+            /* Minimal HUD (Ultra-clean transparent gameplay HUD) */
+            .theme-minimal-hud {
+                --tourney-bg: transparent;
+                --tourney-card-bg: transparent;
+                --tourney-border: transparent;
+                --tourney-text: #ffffff;
+                --tourney-muted: #e2e8f0;
+                --tourney-accent: #38bdf8;
+                --tourney-winner: #4ade80;
+                --tourney-backdrop: none;
+                --tourney-text-shadow: 0 2px 6px rgba(0, 0, 0, 0.92), 0 0 2px rgba(0, 0, 0, 0.95);
+            }
+            .theme-minimal-hud .tournament-header,
+            .theme-minimal-hud .match-card,
+            .theme-minimal-hud .match-hud-card,
+            .theme-minimal-hud .rr-standings-card,
+            .theme-minimal-hud .rr-matches-card,
+            .theme-minimal-hud .rr-match-item,
+            .theme-minimal-hud .entrant-row,
+            .theme-minimal-hud .hud-header,
+            .theme-minimal-hud .rr-table th,
+            .theme-minimal-hud .champion-card {
+                background: transparent !important;
+                border-color: transparent !important;
+                box-shadow: none !important;
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+            }
+            .theme-minimal-hud .tournament-title,
+            .theme-minimal-hud .tournament-meta,
+            .theme-minimal-hud .round-header,
+            .theme-minimal-hud .entrant-name,
+            .theme-minimal-hud .entrant-tag,
+            .theme-minimal-hud .hud-header,
+            .theme-minimal-hud .hud-entrant-name,
+            .theme-minimal-hud .hud-entrant-tag,
+            .theme-minimal-hud .rr-table th,
+            .theme-minimal-hud .rr-table td,
+            .theme-minimal-hud .champion-title,
+            .theme-minimal-hud .champion-name {
+                text-shadow: var(--tourney-text-shadow, 0 2px 6px rgba(0, 0, 0, 0.92), 0 0 2px rgba(0, 0, 0, 0.95));
+            }
+            .theme-minimal-hud .score-badge,
+            .theme-minimal-hud .hud-score-display,
+            .theme-minimal-hud .rr-score-pill {
+                background: rgba(15, 23, 42, 0.82);
+                border: 1px solid rgba(255, 255, 255, 0.25);
+                border-radius: 999px;
+                padding: 0.12rem 0.55rem;
+                color: #ffffff;
+                font-variant-numeric: tabular-nums;
+                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.75);
+                text-shadow: none;
+            }
+            .theme-minimal-hud .hud-entrant.e1 .hud-score-display {
+                background: var(--tourney-p1-color, #ef4444);
+                border-color: rgba(255, 255, 255, 0.3);
+            }
+            .theme-minimal-hud .hud-entrant.e2 .hud-score-display {
+                background: var(--tourney-p2-color, #3b82f6);
+                border-color: rgba(255, 255, 255, 0.3);
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
     function initTournamentOverlay(config = {}) {
+        injectBroadcastThemeStyles();
         let params = (typeof overlayParams === 'function') ? overlayParams() : new URLSearchParams(window.location.search);
         const stage = document.getElementById('stage');
         const container = document.getElementById('tournament-container');
@@ -282,6 +466,27 @@
                 if (col && (/^[0-9a-fA-F]{3,8}$/.test(col) || /^#[0-9a-fA-F]{3,8}$/.test(col))) {
                     document.documentElement.style.setProperty('--tourney-bg', col.startsWith('#') ? col : '#' + col);
                 }
+            }
+
+            // Ensure broadcast themes resolve cleanly even if overlay-theme.js lacks built-in entries
+            const rawBroadcastTheme = (params.get('overlay') || params.get('theme') || ((window.location.hash || '').replace(/^#/, '').trim())).trim().toLowerCase();
+            if (EXTRA_TOURNEY_THEMES.includes(rawBroadcastTheme) && !document.body.classList.contains('theme-' + rawBroadcastTheme)) {
+                document.body.classList.remove('theme-custom');
+                document.body.classList.add('theme-' + rawBroadcastTheme);
+                const clearProp = (prop) => {
+                    document.documentElement.style.removeProperty(prop);
+                    if (document.body && document.body.style) document.body.style.removeProperty(prop);
+                };
+                if (!params.get('bg')) clearProp('--tourney-bg');
+                if (!params.get('cardbg') && !params.get('card_bg') && !params.get('bg')) clearProp('--tourney-card-bg');
+                if (!params.get('border') && !params.get('bordercolor')) clearProp('--tourney-border');
+                if (!params.get('text') && !params.get('textcolor')) clearProp('--tourney-text');
+                if (!params.get('muted') && !params.get('mutedcolor')) clearProp('--tourney-muted');
+                if (!params.get('accent')) clearProp('--tourney-accent');
+                if (!params.get('winner') && !params.get('winnercolor')) clearProp('--tourney-winner');
+                if (!params.get('radius') && !params.get('borderradius') && !params.get('border-radius') && !params.get('roundness')) clearProp('--tourney-radius');
+                clearProp('--tourney-backdrop');
+                if (!params.get('outline') && !params.get('shadow')) clearProp('--tourney-text-shadow');
             }
         }
 

@@ -124,11 +124,11 @@ test('matchup overlay renders topbar, bottom HUD, compact bug, versus stage, the
 
         const p1Name = await page.$eval('.topbar-competitor.c1 .competitor-name', el => el.textContent.trim());
         const p2Name = await page.$eval('.topbar-competitor.c2 .competitor-name', el => el.textContent.trim());
-        assert.equal(p1Name, 'Daigo');
-        assert.equal(p2Name, 'Justin Wong');
+        assert.equal(p1Name, 'KAIRO');
+        assert.equal(p2Name, 'NOVA');
 
         const phaseBadge = await page.$eval('.match-phase-badge', el => el.textContent.trim());
-        assert.equal(phaseBadge, 'Grand Finals');
+        assert.equal(phaseBadge, 'GRAND FINALS');
 
         const scoreBoxes = await page.$$('.score-box');
         assert.equal(scoreBoxes.length, 2, 'Top bar should render 2 score boxes for 2 competitors');
@@ -141,7 +141,7 @@ test('matchup overlay renders topbar, bottom HUD, compact bug, versus stage, the
         await page.goto(`${OVERLAY_URL}?preview=1&layout=bottom`, { waitUntil: 'domcontentloaded' });
         await page.waitForSelector('.bottom-hud-card');
         const hudTitle = await page.$eval('.hud-top-meta', el => el.textContent.trim());
-        assert.ok(hudTitle.includes('Street Fighter 6'));
+        assert.ok(hudTitle.includes('APEX ARENA CUP'));
 
         // 3. Compact Score Bug (?layout=compact)
         await page.goto(`${OVERLAY_URL}?preview=1&layout=compact`, { waitUntil: 'domcontentloaded' });
@@ -188,8 +188,8 @@ test('matchup overlay renders topbar, bottom HUD, compact bug, versus stage, the
         await page.waitForSelector('.fgc-panel');
         const fgcP1 = await page.$eval('.fgc-side.p1 .fgc-player-name', el => el.textContent.trim());
         const fgcP2 = await page.$eval('.fgc-side.p2 .fgc-player-name', el => el.textContent.trim());
-        assert.equal(fgcP1, 'Daigo');
-        assert.equal(fgcP2, 'Justin Wong');
+        assert.equal(fgcP1, 'KAIRO');
+        assert.equal(fgcP2, 'NOVA');
 
         // 10. Split Corners (?layout=split)
         await page.goto(`${OVERLAY_URL}?preview=1&layout=split`, { waitUntil: 'domcontentloaded' });
@@ -209,10 +209,15 @@ test('matchup overlay renders topbar, bottom HUD, compact bug, versus stage, the
         const centerOffBadge = await page.$('.match-phase-badge');
         assert.equal(centerOffBadge, null, 'Center badge should be omitted when ?center=0');
 
-        // 13. EVO Championship Theme (?overlay=fgc-evo)
+        // 13. EVO Championship & New Broadcast Themes
         await page.goto(`${OVERLAY_URL}?preview=1&overlay=fgc-evo`, { waitUntil: 'domcontentloaded' });
         const hasEvoClass = await page.$eval('body', el => el.classList.contains('theme-fgc-evo'));
         assert.ok(hasEvoClass, 'Body should receive theme-fgc-evo class');
+        for (const themeId of ['broadcast-ticker', 'retro-arcade', 'minimal-hud']) {
+            await page.goto(`${OVERLAY_URL}?preview=1&theme=${themeId}`, { waitUntil: 'domcontentloaded' });
+            const hasTheme = await page.$eval('body', (el, t) => el.classList.contains(`theme-${t}`), themeId);
+            assert.ok(hasTheme, `Body should receive theme-${themeId} class`);
+        }
 
         // 14. Side Pillar Layout (?layout=pillar)
         await page.goto(`${OVERLAY_URL}?preview=1&layout=pillar`, { waitUntil: 'domcontentloaded' });
@@ -241,7 +246,7 @@ test('matchup overlay renders topbar, bottom HUD, compact bug, versus stage, the
         await page.goto(`${OVERLAY_URL}?sample=1`, { waitUntil: 'domcontentloaded' });
         await page.waitForSelector('.topbar-panel');
         const sampleP1 = await page.$eval('.topbar-competitor.c1 .competitor-name', el => el.textContent.trim());
-        assert.equal(sampleP1, 'Daigo');
+        assert.equal(sampleP1, 'KAIRO');
 
         // 19. Round Pips: Diamond round pips (?roundpips=1)
         await page.goto(`${OVERLAY_URL}?preview=1&roundpips=1`, { waitUntil: 'domcontentloaded' });
@@ -606,14 +611,14 @@ test('matchup overlay renders topbar, bottom HUD, compact bug, versus stage, the
         await page.waitForSelector('.single-player-pod');
         const p1PodName = await page.$eval('.single-player-pod .competitor-name', el => el.textContent.trim());
         const p1PodSlot = await page.$eval('.single-player-pod .player-slot-pill', el => el.textContent.trim());
-        assert.equal(p1PodName, 'Daigo', 'Player 1 pod should display competitor name Daigo');
+        assert.equal(p1PodName, 'KAIRO', 'Player 1 pod should display competitor name KAIRO');
         assert.equal(p1PodSlot, 'P1', 'Player 1 pod should display P1 slot badge');
 
         await page.goto(`${OVERLAY_URL}?preview=1&player=4`, { waitUntil: 'domcontentloaded' });
         await page.waitForSelector('.single-player-pod');
         const p4PodName = await page.$eval('.single-player-pod .competitor-name', el => el.textContent.trim());
         const p4PodSlot = await page.$eval('.single-player-pod .player-slot-pill', el => el.textContent.trim());
-        assert.equal(p4PodName, 'Punk', 'Player 4 pod should display competitor name Punk');
+        assert.equal(p4PodName, 'SORA', 'Player 4 pod should display competitor name SORA');
         assert.equal(p4PodSlot, 'P4', 'Player 4 pod should display P4 slot badge');
 
         // 37. Master Clock Only layout & Filtering (?player=none / ?layout=clock)
@@ -832,9 +837,16 @@ test('matchup overlay renders topbar, bottom HUD, compact bug, versus stage, the
         const matchupUrlAfterMirror = await page.$eval('#url-matchup-overlay', el => el.value);
         assert.ok(matchupUrlAfterMirror.includes('mirror=1'), 'Matchup overlay URL should include mirror=1 when mirror is checked');
 
-        // Check preview toolbar mirror checkbox stayed in sync
-        const toolbarMirrorChecked = await page.$eval('#prev-ctrl-mirror', el => el.checked);
-        assert.equal(toolbarMirrorChecked, true, 'Preview toolbar mirror checkbox should be in sync');
+        // Verify single-source-of-truth inspector (no duplicated #prev-ctrl-mirror toolbar)
+        assert.equal(await page.$('#prev-ctrl-mirror'), null, 'Duplicate preview toolbar mirror control should be removed');
+
+        // Verify Saved Presets and History tabs are top-level panels and render visibly
+        for (const tab of ['presets', 'history']) {
+            await page.evaluate(t => switchTab(t), tab);
+            const visible = await page.$eval(`#panel-${tab}`, el => getComputedStyle(el).display !== 'none');
+            assert.equal(visible, true, `#panel-${tab} must render visibly when selected`);
+        }
+        await page.evaluate(() => switchTab('overlays'));
 
         // Persistence across reload
         await page.reload({ waitUntil: 'domcontentloaded' });

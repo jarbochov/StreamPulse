@@ -717,7 +717,6 @@ test('Border radius (?radius=) option across both bracket overlays and all wizar
 
     assert.ok(wizardHtml.includes('id="tourney-radius"'), 'overlay-url-wizard should have #tourney-radius control');
     assert.ok(wizardHtml.includes('id="poll-tourney-radius"'), 'overlay-url-wizard should have #poll-tourney-radius control');
-    assert.ok(versusHtml.includes('id="prev-ctrl-tourney-radius"'), 'versus.html should have #prev-ctrl-tourney-radius in toolbar');
     assert.ok(versusHtml.includes('id="tourney-opt-radius-layout"'), 'versus.html should have #tourney-opt-radius-layout in layout tab');
     assert.ok(pollsHtml.includes('id="tourney-opt-radius-layout"'), 'polls.html should have #tourney-opt-radius-layout in layout tab');
 

@@ -550,6 +550,241 @@
             border-radius: var(--matchup-radius, 8px) !important;
         }
 
+        /* Broadcast Ticker (ESPN / F1 flat sports ticker bar) */
+        .theme-broadcast-ticker {
+            --matchup-bg: #0f172a;
+            --matchup-card-bg: #0f172a;
+            --matchup-border: #334155;
+            --matchup-text: #f8fafc;
+            --matchup-muted: #94a3b8;
+            --matchup-accent: #38bdf8;
+            --matchup-winner: #22c55e;
+            --matchup-radius: 3px;
+            --matchup-backdrop: none;
+            --matchup-text-transform: uppercase;
+            --matchup-heading-transform: uppercase;
+        }
+        .theme-broadcast-ticker .topbar-panel, .theme-broadcast-ticker .fgc-side, .theme-broadcast-ticker .split-corner-card, .theme-broadcast-ticker .minimal-bar, .theme-broadcast-ticker .race-header, .theme-broadcast-ticker .race-runner-card, .theme-broadcast-ticker .pillar-panel, .theme-broadcast-ticker .bottom-hud-card, .theme-broadcast-ticker .compact-bug, .theme-broadcast-ticker .versus-card-stage, .theme-broadcast-ticker .clock-dock-pill, .theme-broadcast-ticker .single-player-pod, .theme-broadcast-ticker .master-clock-panel,
+        body.has-center-gap.no-center-badge.theme-broadcast-ticker .topbar-competitor, body.has-center-gap.no-center-badge.theme-broadcast-ticker .minimal-side {
+            background: var(--matchup-card-bg, #0f172a) !important;
+            border-color: var(--matchup-border, #334155) !important;
+            border-radius: var(--matchup-radius, 3px) !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            box-shadow: 0 4px 12px rgba(2, 6, 23, 0.55) !important;
+        }
+        .theme-broadcast-ticker .topbar-center-badge,
+        .theme-broadcast-ticker .compact-header,
+        .theme-broadcast-ticker .pillar-center-bar,
+        .theme-broadcast-ticker .ang-center {
+            background: #1e293b !important;
+            border-color: var(--matchup-border, #334155) !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+        }
+        .theme-broadcast-ticker .competitor-accent-strip {
+            width: 6px;
+        }
+        .theme-broadcast-ticker .fgc-side.p1,
+        .theme-broadcast-ticker .split-corner-card.p1,
+        .theme-broadcast-ticker .minimal-side.p1,
+        .theme-broadcast-ticker .pillar-competitor.c1 {
+            border-left: 6px solid var(--p1-color) !important;
+        }
+        .theme-broadcast-ticker .fgc-side.p2,
+        .theme-broadcast-ticker .split-corner-card.p2,
+        .theme-broadcast-ticker .minimal-side.p2 {
+            border-right: 6px solid var(--p2-color) !important;
+        }
+        .theme-broadcast-ticker .pillar-competitor.c2 {
+            border-left: 6px solid var(--p2-color) !important;
+        }
+        .theme-broadcast-ticker .competitor-name,
+        .theme-broadcast-ticker .fgc-player-name,
+        .theme-broadcast-ticker .race-runner-name,
+        .theme-broadcast-ticker .versus-big-name,
+        .theme-broadcast-ticker .ang-name,
+        .theme-broadcast-ticker .match-title-badge,
+        .theme-broadcast-ticker .match-phase-badge {
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .theme-broadcast-ticker .score-box,
+        .theme-broadcast-ticker .fgc-score-counter,
+        .theme-broadcast-ticker .compact-score,
+        .theme-broadcast-ticker .versus-big-score,
+        .theme-broadcast-ticker .ang-score,
+        .theme-broadcast-ticker .clock-val,
+        .theme-broadcast-ticker .fgc-clock-digits,
+        .theme-broadcast-ticker .race-timer-digits,
+        .theme-broadcast-ticker .race-master-clock-digits,
+        .theme-broadcast-ticker .clock-digits-hero {
+            font-variant-numeric: tabular-nums;
+        }
+        .theme-broadcast-ticker .score-box {
+            background: #1e293b !important;
+            border: 1px solid #475569 !important;
+            border-radius: 3px !important;
+            color: #f8fafc !important;
+        }
+
+        /* Retro Arcade (Classic coin-op pixel-sharp aesthetic) */
+        .theme-retro-arcade {
+            --matchup-bg: #090b1a;
+            --matchup-card-bg: #090b1a;
+            --matchup-border: #ffd60a;
+            --matchup-accent: #ffd60a;
+            --matchup-text: #f8fafc;
+            --matchup-muted: #22d3ee;
+            --matchup-winner: #00f5d4;
+            --matchup-radius: 2px;
+            --matchup-backdrop: none;
+            --matchup-text-transform: uppercase;
+            --matchup-heading-transform: uppercase;
+        }
+        .theme-retro-arcade .topbar-panel, .theme-retro-arcade .fgc-side, .theme-retro-arcade .split-corner-card, .theme-retro-arcade .minimal-bar, .theme-retro-arcade .race-header, .theme-retro-arcade .race-runner-card, .theme-retro-arcade .pillar-panel, .theme-retro-arcade .bottom-hud-card, .theme-retro-arcade .compact-bug, .theme-retro-arcade .versus-card-stage, .theme-retro-arcade .ang-center, .theme-retro-arcade .clock-dock-pill, .theme-retro-arcade .single-player-pod, .theme-retro-arcade .master-clock-panel,
+        body.has-center-gap.no-center-badge.theme-retro-arcade .topbar-competitor, body.has-center-gap.no-center-badge.theme-retro-arcade .minimal-side {
+            background: var(--matchup-card-bg, #090b1a) !important;
+            border: 2px solid var(--matchup-border, #ffd60a) !important;
+            border-radius: var(--matchup-radius, 2px) !important;
+            box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.85) !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+        }
+        .theme-retro-arcade .topbar-center-badge,
+        .theme-retro-arcade .compact-header,
+        .theme-retro-arcade .pillar-center-bar {
+            background: #10142b !important;
+            border-color: var(--matchup-border, #ffd60a) !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+        }
+        .theme-retro-arcade .score-box,
+        .theme-retro-arcade .fgc-score-counter {
+            background: #141833 !important;
+            border: 2px solid #22d3ee !important;
+            border-radius: 2px !important;
+            color: #ffd60a !important;
+            font-variant-numeric: tabular-nums;
+        }
+        .theme-retro-arcade .compact-score,
+        .theme-retro-arcade .versus-big-score,
+        .theme-retro-arcade .ang-score,
+        .theme-retro-arcade .clock-val,
+        .theme-retro-arcade .fgc-clock-digits,
+        .theme-retro-arcade .race-timer-digits,
+        .theme-retro-arcade .race-master-clock-digits,
+        .theme-retro-arcade .clock-digits-hero {
+            color: #ffd60a !important;
+            font-variant-numeric: tabular-nums;
+        }
+        .theme-retro-arcade .match-phase-badge,
+        .theme-retro-arcade .versus-badge-big,
+        .theme-retro-arcade .ang-vs {
+            color: #ffd60a !important;
+            text-shadow: none !important;
+        }
+        .theme-retro-arcade .ang-row {
+            filter: none !important;
+        }
+
+        /* Minimal HUD (Ultra-clean transparent gameplay HUD) */
+        .theme-minimal-hud {
+            --matchup-bg: transparent;
+            --matchup-card-bg: transparent;
+            --matchup-border: transparent;
+            --matchup-text: #ffffff;
+            --matchup-muted: #e2e8f0;
+            --matchup-accent: #38bdf8;
+            --matchup-winner: #4ade80;
+            --matchup-backdrop: none;
+            --matchup-text-shadow: 0 2px 6px rgba(0, 0, 0, 0.92), 0 0 2px rgba(0, 0, 0, 0.95);
+        }
+        .theme-minimal-hud .topbar-panel, .theme-minimal-hud .fgc-side, .theme-minimal-hud .topbar-center-badge, .theme-minimal-hud .split-corner-card, .theme-minimal-hud .minimal-bar, .theme-minimal-hud .race-header, .theme-minimal-hud .race-runner-card, .theme-minimal-hud .pillar-panel, .theme-minimal-hud .bottom-hud-card, .theme-minimal-hud .compact-bug, .theme-minimal-hud .versus-card-stage, .theme-minimal-hud .ang-center, .theme-minimal-hud .clock-dock-pill, .theme-minimal-hud .single-player-pod, .theme-minimal-hud .master-clock-panel, .theme-minimal-hud .pillar-center-bar, .theme-minimal-hud .compact-header, .theme-minimal-hud .hud-top-meta,
+        body.has-center-gap.no-center-badge.theme-minimal-hud .topbar-competitor, body.has-center-gap.no-center-badge.theme-minimal-hud .minimal-side {
+            background: transparent !important;
+            border-color: transparent !important;
+            box-shadow: none !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+        }
+        .theme-minimal-hud .topbar-competitor.c1,
+        .theme-minimal-hud .minimal-side.p1,
+        .theme-minimal-hud .compact-row,
+        .theme-minimal-hud .pillar-competitor.c1,
+        .theme-minimal-hud .multi-card {
+            border-color: transparent !important;
+        }
+        .theme-minimal-hud .center-divider {
+            background: transparent !important;
+        }
+        .theme-minimal-hud .ang-row {
+            filter: none !important;
+        }
+        .theme-minimal-hud .fgc-side {
+            clip-path: none !important;
+        }
+        .theme-minimal-hud .competitor-name,
+        .theme-minimal-hud .competitor-tag,
+        .theme-minimal-hud .fgc-player-name,
+        .theme-minimal-hud .fgc-char-badge,
+        .theme-minimal-hud .race-runner-name,
+        .theme-minimal-hud .race-runner-tag,
+        .theme-minimal-hud .versus-big-name,
+        .theme-minimal-hud .versus-big-score,
+        .theme-minimal-hud .match-title-badge,
+        .theme-minimal-hud .match-phase-badge,
+        .theme-minimal-hud .match-details-badge,
+        .theme-minimal-hud .clock-val,
+        .theme-minimal-hud .clock-digits-hero,
+        .theme-minimal-hud .compact-row,
+        .theme-minimal-hud .ang-name,
+        .theme-minimal-hud .ang-tag {
+            text-shadow: var(--matchup-text-shadow, 0 2px 6px rgba(0, 0, 0, 0.92), 0 0 2px rgba(0, 0, 0, 0.95)) !important;
+        }
+        .theme-minimal-hud .fgc-char-badge {
+            background: transparent !important;
+        }
+        .theme-minimal-hud .score-box,
+        .theme-minimal-hud .fgc-score-counter {
+            background: rgba(15, 23, 42, 0.82) !important;
+            border: 1px solid rgba(255, 255, 255, 0.25) !important;
+            border-radius: 999px !important;
+            padding: 0.12rem 0.65rem !important;
+            min-width: 2rem;
+            min-height: 1.8rem;
+            color: #ffffff !important;
+            font-variant-numeric: tabular-nums;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.75) !important;
+        }
+        .theme-minimal-hud .topbar-competitor.c1 .score-box,
+        .theme-minimal-hud .pillar-competitor.c1 .score-box,
+        .theme-minimal-hud .split-corner-card.p1 .score-box,
+        .theme-minimal-hud .minimal-side.p1 .score-box,
+        .theme-minimal-hud .fgc-side.p1 .fgc-score-counter {
+            background: var(--p1-color) !important;
+            border-color: rgba(255, 255, 255, 0.3) !important;
+            color: #ffffff !important;
+        }
+        .theme-minimal-hud .topbar-competitor.c2 .score-box,
+        .theme-minimal-hud .pillar-competitor.c2 .score-box,
+        .theme-minimal-hud .split-corner-card.p2 .score-box,
+        .theme-minimal-hud .minimal-side.p2 .score-box,
+        .theme-minimal-hud .fgc-side.p2 .fgc-score-counter {
+            background: var(--p2-color) !important;
+            border-color: rgba(255, 255, 255, 0.3) !important;
+            color: #ffffff !important;
+        }
+        .theme-minimal-hud .compact-score {
+            background: rgba(15, 23, 42, 0.82) !important;
+            border: 1px solid rgba(255, 255, 255, 0.25) !important;
+            border-radius: 999px !important;
+            padding: 0.08rem 0.5rem !important;
+            color: #ffffff !important;
+            font-variant-numeric: tabular-nums;
+            text-shadow: none !important;
+        }
+
         /* ----------------------------------------------------
            MODERN FGC (EVO / FIGHTING GAME) LAYOUT (?layout=fgc)
            ---------------------------------------------------- */
@@ -2329,10 +2564,10 @@
         function buildSampleMatchup() {
             const sampleClockMode = (layout === 'race' || params.get('clockmode') === 'race') ? 'race' : 'stopwatch';
             const SAMPLE_ALL_COMPETITORS = [
-                { id: 'c1', name: 'Daigo', tag: layout === 'race' ? 'PB 41:12' : 'Ken', color: '#ef4444', score: layout === 'race' ? 1 : 4, rounds: layout === 'race' ? 0 : 1 },
-                { id: 'c2', name: 'Justin Wong', tag: layout === 'race' ? 'PB 41:45' : 'Chun-Li', color: '#3b82f6', score: layout === 'race' ? 0 : 3, rounds: 0 },
-                { id: 'c3', name: 'Tokido', tag: layout === 'race' ? 'PB 42:30' : 'Akuma', color: '#10b981', score: layout === 'race' ? 0 : 2, rounds: 0 },
-                { id: 'c4', name: 'Punk', tag: layout === 'race' ? 'PB 42:45' : 'Cammy', color: '#f59e0b', score: layout === 'race' ? 0 : 1, rounds: 0 }
+                { id: 'c1', name: 'KAIRO', tag: layout === 'race' ? 'PB 41:12' : 'BLAZE', color: '#ef4444', score: layout === 'race' ? 1 : 4, rounds: layout === 'race' ? 0 : 1 },
+                { id: 'c2', name: 'NOVA', tag: layout === 'race' ? 'PB 41:45' : 'FROST', color: '#3b82f6', score: layout === 'race' ? 0 : 3, rounds: 0 },
+                { id: 'c3', name: 'VEX', tag: layout === 'race' ? 'PB 42:30' : 'VOLT', color: '#10b981', score: layout === 'race' ? 0 : 2, rounds: 0 },
+                { id: 'c4', name: 'SORA', tag: layout === 'race' ? 'PB 42:45' : 'GALE', color: '#f59e0b', score: layout === 'race' ? 0 : 1, rounds: 0 }
             ];
             if (layout === 'race' || sampleClockMode === 'race' || runnerTimersParam) {
                 SAMPLE_ALL_COMPETITORS[0].timer = { elapsed: 2512.80, finishSeconds: 2512.80, isRunning: false, finished: true, finishTime: '41:52.80', place: 1, delta: 'WINNER' };
@@ -2343,9 +2578,9 @@
             const needs4Comps = Boolean(playerFilterParam && (playerFilterParam.includes('3') || playerFilterParam.includes('4') || playerFilterParam === '3' || playerFilterParam === '4'));
             return {
                 id: 'sample-matchup',
-                title: layout === 'race' ? 'Super Metroid Any%' : 'Street Fighter 6',
-                phase: layout === 'race' ? 'Speedrun Race Finals' : 'Grand Finals',
-                details: layout === 'race' ? (needs4Comps ? '4-Way Live Race · Target EST 45:00' : '1v1 Live Race · Target EST 45:00') : (needs4Comps ? '4-Player Championship · Decider' : 'First to 5 (FT5) · Metro City Decider'),
+                title: layout === 'race' ? 'STARFALL CITADEL ANY%' : 'APEX ARENA CUP',
+                phase: layout === 'race' ? 'SPEEDRUN RACE FINALS' : 'GRAND FINALS',
+                details: layout === 'race' ? (needs4Comps ? '4-Way Live Race · Target EST 45:00' : '1v1 Live Race · Target EST 45:00') : (needs4Comps ? '4-Player Championship · Decider' : 'First to 5 (FT5) · Championship Decider'),
                 competitorCount: needs4Comps ? 4 : 2,
                 roundsBestOf: layout === 'race' ? 0 : 3,
                 competitors: needs4Comps ? SAMPLE_ALL_COMPETITORS.slice(0, 4) : SAMPLE_ALL_COMPETITORS.slice(0, 2),
@@ -2512,6 +2747,27 @@
                     document.documentElement.style.setProperty('--matchup-bg', col.startsWith('#') ? col : '#' + col);
                     document.body.classList.add('theme-custom');
                 }
+            }
+
+            // Ensure broadcast themes resolve cleanly even if overlay-theme.js lacks built-in entries
+            const rawBroadcastTheme = (params.get('overlay') || params.get('theme') || ((window.location.hash || '').replace(/^#/, '').trim())).trim().toLowerCase();
+            if (['broadcast-ticker', 'retro-arcade', 'minimal-hud'].includes(rawBroadcastTheme) && !document.body.classList.contains('theme-' + rawBroadcastTheme)) {
+                document.body.classList.remove('theme-custom');
+                document.body.classList.add('theme-' + rawBroadcastTheme);
+                const clearProp = (prop) => {
+                    document.documentElement.style.removeProperty(prop);
+                    if (document.body && document.body.style) document.body.style.removeProperty(prop);
+                };
+                if (!params.get('bg')) clearProp('--matchup-bg');
+                if (!params.get('cardbg') && !params.get('card_bg') && !params.get('bg')) clearProp('--matchup-card-bg');
+                if (!params.get('border') && !params.get('bordercolor')) clearProp('--matchup-border');
+                if (!params.get('text') && !params.get('textcolor')) clearProp('--matchup-text');
+                if (!params.get('muted') && !params.get('mutedcolor')) clearProp('--matchup-muted');
+                if (!params.get('accent')) clearProp('--matchup-accent');
+                if (!params.get('winner') && !params.get('winnercolor')) clearProp('--matchup-winner');
+                if (!params.get('radius') && !params.get('borderradius') && !params.get('border-radius') && !params.get('roundness')) clearProp('--matchup-radius');
+                clearProp('--matchup-backdrop');
+                if (!params.get('outline') && !params.get('shadow')) clearProp('--matchup-text-shadow');
             }
 
             SAMPLE_MATCHUP = buildSampleMatchup();

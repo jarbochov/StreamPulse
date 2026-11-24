@@ -10,6 +10,7 @@ const LABELS = { photo: 'Screenshot / photo', artwork: 'Artwork / logo', badge: 
 const clone = value => JSON.parse(JSON.stringify(value));
 const LAST_PROMO_KEY = 'streampulse.promo.lastId';
 const PROMO_RAIL_TAB_KEY = 'streampulse.promo.settingsTab';
+const VERSUS_HANDOFF_KEY = 'streampulse:promo-handoff';
 let design = M.normalize(), library = [], id = '', selected = 'title', dirty = false, ready = false;
 let ratio = 'square', assetTarget = 'photo', assets = [], zoom = 1, scale = 1;
 let customThemes = [], themesReady = false, editingTheme = '', themeSnapshot = null;
@@ -1255,6 +1256,49 @@ async function updateAnimationExport() {
         status(error.message, true);
     }
 }
+function readVersusHandoff() {
+    let raw = null;
+    try {
+        raw = localStorage.getItem(VERSUS_HANDOFF_KEY);
+        localStorage.removeItem(VERSUS_HANDOFF_KEY);
+    } catch { return null; }
+    if (!raw) return null;
+    try {
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+    } catch { return null; }
+}
+function applyVersusHandoff(payload) {
+    const name = typeof payload.name === 'string' && payload.name.trim()
+        ? payload.name.trim()
+        : (typeof payload.title === 'string' && payload.title.trim() ? payload.title.trim() : 'Matchup Promo');
+    design = M.normalize({ name });
+    id = '';
+    $('saved').value = '';
+    const titleEl = roleElement('title');
+    if (titleEl && typeof payload.title === 'string' && payload.title.trim()) titleEl.content = payload.title.trim().slice(0, 500);
+    const subtitleEl = roleElement('subtitle');
+    if (subtitleEl && typeof payload.subtitle === 'string') subtitleEl.content = payload.subtitle.trim().slice(0, 500);
+    const badgeEl = roleElement('badge');
+    if (badgeEl && typeof payload.badge === 'string' && payload.badge.trim()) badgeEl.content = payload.badge.trim().slice(0, 500);
+    if (typeof payload.artwork === 'string' && payload.artwork.trim()) {
+        try {
+            const safeArtwork = M.assetUrl(payload.artwork.trim());
+            const photoEl = roleElement('photo');
+            if (photoEl && safeArtwork) {
+                photoEl.src = safeArtwork;
+                for (const layout of Object.values(design.layouts)) {
+                    if (layout.placements[photoEl.id]) layout.placements[photoEl.id].visible = true;
+                }
+            }
+        } catch { /* Ignore invalid or non-library artwork paths from handoff payloads. */ }
+    }
+    syncFields();
+    resetHistory();
+    dirty = true;
+    updateDirty();
+    status('Loaded matchup details from Versus Studio — customize and export.');
+}
 window.addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
 await (async () => {
     try {
@@ -1264,22 +1308,31 @@ await (async () => {
         if (uploaded.length) {
             uploadedFonts.push(...uploaded.map(font => font.family));
         }
-        const requested = new URLSearchParams(location.search).get('id');
-        const preferred = requested || rememberedPromo();
-        let item = library.find(entry => entry.id === preferred);
-        if (requested) {
-            if (!item) throw new Error('Saved promo not found. Use New promo to start a design.');
-        } else if (!item && library.length) {
-            item = library[0];
-        }
-        if (item) {
-            design = M.normalize(item); id = item.id; $('saved').value = id;
-            rememberPromo(id);
+        const params = new URLSearchParams(location.search);
+        const handoff = params.get('handoff') === 'versus' ? readVersusHandoff() : null;
+        if (handoff) {
+            applyVersusHandoff(handoff);
+            params.delete('handoff');
+            const nextQuery = params.toString();
+            history.replaceState(null, '', nextQuery ? `${location.pathname}?${nextQuery}` : location.pathname);
         } else {
-            id = ''; rememberPromo('');
+            const requested = params.get('id');
+            const preferred = requested || rememberedPromo();
+            let item = library.find(entry => entry.id === preferred);
+            if (requested) {
+                if (!item) throw new Error('Saved promo not found. Use New promo to start a design.');
+            } else if (!item && library.length) {
+                item = library[0];
+            }
+            if (item) {
+                design = M.normalize(item); id = item.id; $('saved').value = id;
+                rememberPromo(id);
+            } else {
+                id = ''; rememberPromo('');
+            }
+            $('save-design').textContent = 'Save design';
+            resetHistory(); syncFields(); status(id ? 'Ready. Your saved promo is loaded.' : 'Ready. Add a headline and photo; export includes all three sizes.');
         }
-        $('save-design').textContent = 'Save design';
-        resetHistory(); syncFields(); status(id ? 'Ready. Your saved promo is loaded.' : 'Ready. Add a headline and photo; export includes all three sizes.');
         await loadThemes();
         await updateAnimationExport();
     } catch (error) { status(error.message, true); }

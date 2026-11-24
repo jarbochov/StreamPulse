@@ -51,6 +51,8 @@ export function switchTab(tab) {
     if ($('panel-presets')) $('panel-presets').style.display = tab === 'presets' ? 'block' : 'none';
     if ($('panel-history')) $('panel-history').style.display = tab === 'history' ? 'block' : 'none';
 
+    Matchup.setMatchupMiniPreviewIdle(tab !== 'matchup');
+
     if (tab === 'overlays') {
         const savedPreview = localStorage.getItem('versus-overlay-tab') || State.previewMode || 'matchup';
         setPreviewMode(savedPreview);
@@ -125,6 +127,68 @@ dynamicVars.forEach(([prop, setter]) => {
 // Initialize window resize listener for live viewport scaling
 window.addEventListener('resize', applyViewportScale);
 
+// Matchup live keyboard shortcuts
+function handleMatchupKeydown(e) {
+    if (State.activeTab !== 'matchup') return;
+    if (!Matchup.isMatchupHotkeysEnabled()) return;
+
+    const target = e.target;
+    if (target && target.nodeType === 1) {
+        const tag = target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable) {
+            return;
+        }
+    }
+
+    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && String(e.key || '').toLowerCase() === 'z') {
+        e.preventDefault();
+        Matchup.undoLastMatchupAction();
+        return;
+    }
+
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+    switch (e.code) {
+        case 'KeyQ':
+            e.preventDefault();
+            Matchup.stepMatchupScore(0, 1);
+            break;
+        case 'KeyA':
+            e.preventDefault();
+            Matchup.stepMatchupScore(0, -1);
+            break;
+        case 'KeyP':
+            e.preventDefault();
+            Matchup.stepMatchupScore(1, 1);
+            break;
+        case 'KeyL':
+            e.preventDefault();
+            Matchup.stepMatchupScore(1, -1);
+            break;
+        case 'KeyS':
+            e.preventDefault();
+            Matchup.swapMatchupSides();
+            break;
+        case 'Space': {
+            const clk = State.activeMatchupData?.clock;
+            if (clk && clk.enabled !== false) {
+                e.preventDefault();
+                if (clk.mode === 'race') {
+                    if (clk.isRunning) Matchup.pauseAllRunnersRace();
+                    else Matchup.startAllRunnersRace();
+                } else {
+                    Matchup.toggleMatchClock();
+                }
+            }
+            break;
+        }
+        default:
+            break;
+    }
+}
+
+document.addEventListener('keydown', handleMatchupKeydown);
+
 // Bootstrap
 function init() {
     const baseUrl = window.location.origin;
@@ -198,6 +262,43 @@ function init() {
     updateTourneyOverlayUrl();
     applyViewportScale();
     connectWs();
+
+    // Initialize Matchup hotkeys toggle, undo button, roster datalist, and mini-preview
+    const hotkeysCb = $('matchup-hotkeys-enabled');
+    if (hotkeysCb) {
+        hotkeysCb.checked = Matchup.isMatchupHotkeysEnabled();
+        if (!hotkeysCb.getAttribute('onchange')) {
+            hotkeysCb.addEventListener('change', () => Matchup.toggleMatchupHotkeys(hotkeysCb.checked));
+        }
+    }
+    Matchup.syncMatchupUndoButton();
+    Matchup.renderVersusRosterUi();
+    if ($('queue-add-p1-name')) $('queue-add-p1-name').setAttribute('list', 'versus-roster-datalist');
+    if ($('queue-add-p2-name')) $('queue-add-p2-name').setAttribute('list', 'versus-roster-datalist');
+
+    const miniDetails = $('matchup-mini-preview-details');
+    if (miniDetails) {
+        let savedMiniOpen = false;
+        try { savedMiniOpen = localStorage.getItem('sp-versus-mini-preview') === '1'; } catch {}
+        Matchup.toggleMatchupMiniPreview(savedMiniOpen);
+        if (!miniDetails.getAttribute('ontoggle')) {
+            miniDetails.addEventListener('toggle', () => Matchup.toggleMatchupMiniPreview(miniDetails.open));
+        }
+    }
+
+    // Initialize Bracket seed/BYE live preview and file import listener
+    const entrantsTextarea = $('tourney-entrants-text') || $('tourney-entrants');
+    if (entrantsTextarea) {
+        entrantsTextarea.addEventListener('input', Bracket.updateTourneySeedPreview);
+    }
+    if ($('tourney-rr-legs')) {
+        $('tourney-rr-legs').addEventListener('change', Bracket.updateTourneySeedPreview);
+    }
+    const importFileEl = $('tourney-import-file');
+    if (importFileEl && !importFileEl.getAttribute('onchange')) {
+        importFileEl.addEventListener('change', () => Bracket.importTourneyEntrantsFile(importFileEl));
+    }
+    Bracket.updateTourneySeedPreview();
 
     try {
         const savedViewMode = localStorage.getItem('versus-tourney-view-mode');

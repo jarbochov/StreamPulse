@@ -29,6 +29,327 @@ import { updateMatchupOverlayUrl } from './versus-preview.js';
 
 let studioTickN = 0;
 
+// --- Undo Stack (Bounded 20-entry history) ---
+const MAX_MATCHUP_UNDO = 20;
+const matchupUndoStack = [];
+
+export function syncMatchupUndoButton() {
+    const btn = $('btn-matchup-undo');
+    if (!btn) return;
+    const count = matchupUndoStack.length;
+    btn.disabled = count === 0;
+    const last = count > 0 ? matchupUndoStack[count - 1] : null;
+    btn.title = last ? `Undo: ${last.label} (Ctrl/Cmd+Z)` : 'Nothing to undo';
+}
+
+function captureMatchupSnapshot(label = 'Matchup change') {
+    if (isTournamentMatchActive()) {
+        const activeMatch = getTourneyActiveMatch();
+        if (!activeMatch) return null;
+        return {
+            mode: 'tournament',
+            label,
+            matchId: activeMatch.id,
+            entrant1Score: activeMatch.entrant1?.score ?? (Array.isArray(activeMatch.scores) ? (activeMatch.scores[0] ?? 0) : 0),
+            entrant2Score: activeMatch.entrant2?.score ?? (Array.isArray(activeMatch.scores) ? (activeMatch.scores[1] ?? 0) : 0),
+            entrant1Rounds: activeMatch.entrant1?.rounds || 0,
+            entrant2Rounds: activeMatch.entrant2?.rounds || 0
+        };
+    }
+    if (!activeMatchupData || !Array.isArray(activeMatchupData.competitors)) return null;
+    return {
+        mode: 'exhibition',
+        label,
+        title: activeMatchupData.title || '',
+        phase: activeMatchupData.phase || '',
+        details: activeMatchupData.details || '',
+        format: activeMatchupData.format || 'bestOf',
+        bestOf: activeMatchupData.bestOf ?? 5,
+        targetScore: activeMatchupData.targetScore ?? 3,
+        roundsBestOf: activeMatchupData.roundsBestOf || 0,
+        competitorCount: activeMatchupData.competitors.length,
+        competitors: activeMatchupData.competitors.map(c => ({
+            id: c.id,
+            name: c.name,
+            tag: c.tag || '',
+            color: c.color || '#ffffff',
+            score: Number(c.score) || 0,
+            rounds: Number(c.rounds) || 0
+        }))
+    };
+}
+
+function pushMatchupUndoSnapshot(label) {
+    const snap = captureMatchupSnapshot(label);
+    if (!snap) return;
+    matchupUndoStack.push(snap);
+    if (matchupUndoStack.length > MAX_MATCHUP_UNDO) {
+        matchupUndoStack.shift();
+    }
+    syncMatchupUndoButton();
+}
+
+export async function undoLastMatchupAction() {
+    if (matchupUndoStack.length === 0) {
+        syncMatchupUndoButton();
+        toast('Nothing to undo');
+        return;
+    }
+    const snap = matchupUndoStack.pop();
+    syncMatchupUndoButton();
+
+    try {
+        if (snap.mode === 'tournament') {
+            const res = await fetch('/api/tournament/score', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    matchId: snap.matchId,
+                    entrant1Score: snap.entrant1Score,
+                    entrant2Score: snap.entrant2Score,
+                    entrant1Rounds: snap.entrant1Rounds,
+                    entrant2Rounds: snap.entrant2Rounds
+                })
+            });
+            const data = await res.json();
+            if (data.status === 'ok') {
+                setActiveTourneyData(data.tournament);
+                if (window.renderTournamentStudio) window.renderTournamentStudio(activeTourneyData);
+                if (activeMatchupData) renderMatchupStudio(activeMatchupData);
+                toast(`Undid: ${snap.label}`);
+            }
+            return;
+        }
+
+        const payload = {
+            title: snap.title,
+            phase: snap.phase,
+            details: snap.details,
+            format: snap.format,
+            bestOf: snap.bestOf,
+            targetScore: snap.targetScore,
+            competitorCount: snap.competitorCount,
+            competitors: snap.competitors.map(c => ({
+                id: c.id,
+                name: c.name,
+                tag: c.tag,
+                color: c.color,
+                score: c.score
+            }))
+        };
+        if ((activeMatchupData?.roundsBestOf || 0) !== (snap.roundsBestOf || 0)) {
+            payload.roundsBestOf = snap.roundsBestOf;
+        }
+
+        const res = await fetch('/api/matchup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            let finalMatchup = data.matchup;
+            if ((snap.roundsBestOf || 0) > 0) {
+                for (let i = 0; i < snap.competitors.length; i++) {
+                    const desiredRounds = snap.competitors[i].rounds || 0;
+                    const currentRounds = finalMatchup?.competitors?.[i]?.rounds || 0;
+                    if (desiredRounds !== currentRounds) {
+                        const rRes = await fetch('/api/matchup/score', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ index: i, rounds: desiredRounds })
+                        });
+                        const rData = await rRes.json();
+                        if (rData.status === 'ok' && rData.matchup) finalMatchup = rData.matchup;
+                    }
+                }
+            }
+            renderMatchupStudio(finalMatchup);
+            toast(`Undid: ${snap.label}`);
+        }
+    } catch {
+        toast('Error undoing last action');
+    }
+}
+
+// --- Keyboard Shortcuts Preference ---
+const HOTKEYS_STORAGE_KEY = 'sp-versus-hotkeys';
+
+export function isMatchupHotkeysEnabled() {
+    try {
+        return localStorage.getItem(HOTKEYS_STORAGE_KEY) !== '0';
+    } catch {
+        return true;
+    }
+}
+
+export function toggleMatchupHotkeys(enabled) {
+    const isEnabled = Boolean(enabled);
+    try {
+        localStorage.setItem(HOTKEYS_STORAGE_KEY, isEnabled ? '1' : '0');
+    } catch { /* ignore */ }
+    const cb = $('matchup-hotkeys-enabled');
+    if (cb) cb.checked = isEnabled;
+    toast(isEnabled ? 'Matchup keyboard shortcuts enabled' : 'Matchup keyboard shortcuts disabled');
+}
+
+// --- Collapsible Inline Mini-Preview (Lazy Loaded) ---
+const MINI_PREVIEW_STORAGE_KEY = 'sp-versus-mini-preview';
+const MINI_PREVIEW_URL = '/overlays/matchup.html?source=standalone';
+
+export function toggleMatchupMiniPreview(isOpen) {
+    const details = $('matchup-mini-preview-details');
+    const frame = $('matchup-mini-preview-frame');
+    const open = isOpen !== undefined ? Boolean(isOpen) : Boolean(details && details.open);
+    try {
+        localStorage.setItem(MINI_PREVIEW_STORAGE_KEY, open ? '1' : '0');
+    } catch { /* ignore */ }
+    if (details && details.open !== open) {
+        details.open = open;
+    }
+    if (frame) {
+        if (open) {
+            const curSrc = frame.getAttribute('src') || '';
+            if (!curSrc || curSrc === 'about:blank') {
+                frame.src = MINI_PREVIEW_URL;
+            }
+        } else {
+            frame.src = 'about:blank';
+        }
+    }
+}
+
+export function setMatchupMiniPreviewIdle(idle) {
+    const frame = $('matchup-mini-preview-frame');
+    const details = $('matchup-mini-preview-details');
+    if (!frame) return;
+    if (idle) {
+        if (frame.getAttribute('src') && frame.getAttribute('src') !== 'about:blank') {
+            frame.src = 'about:blank';
+        }
+    } else if (details && details.open) {
+        const curSrc = frame.getAttribute('src') || '';
+        if (!curSrc || curSrc === 'about:blank') {
+            frame.src = MINI_PREVIEW_URL;
+        }
+    }
+}
+
+// --- Recent Players / Saved Roster Autocomplete ---
+const ROSTER_STORAGE_KEY = 'streampulse:versus-roster';
+const MAX_ROSTER_SIZE = 24;
+const DEFAULT_COMP_COLORS = new Set(['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#ffffff', '#fff']);
+let activeRosterTargetSlot = 0;
+
+export function setActiveRosterTargetSlot(index) {
+    const idx = parseInt(index, 10);
+    if (!isNaN(idx) && idx >= 0) activeRosterTargetSlot = idx;
+}
+
+export function loadVersusRoster() {
+    try {
+        const raw = localStorage.getItem(ROSTER_STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed
+            .filter(p => p && typeof p.name === 'string' && p.name.trim())
+            .slice(0, MAX_ROSTER_SIZE);
+    } catch {
+        return [];
+    }
+}
+
+function saveVersusRoster(list) {
+    try {
+        localStorage.setItem(ROSTER_STORAGE_KEY, JSON.stringify((list || []).slice(0, MAX_ROSTER_SIZE)));
+    } catch { /* ignore */ }
+}
+
+function isPlaceholderPlayerName(name) {
+    const n = String(name || '').trim();
+    if (!n) return true;
+    return /^(player|runner|competitor)\s*\d+$/i.test(n) || /^(tbd|bye)$/i.test(n);
+}
+
+export function recordCompetitorsToRoster(competitors = []) {
+    if (!Array.isArray(competitors) || competitors.length === 0) return;
+    const roster = loadVersusRoster();
+    let changed = false;
+    for (const c of competitors) {
+        const name = String(c?.name || '').trim();
+        if (isPlaceholderPlayerName(name)) continue;
+        const lower = name.toLowerCase();
+        const existingIdx = roster.findIndex(r => r.name.toLowerCase() === lower);
+        const existing = existingIdx >= 0 ? roster[existingIdx] : null;
+        const entry = {
+            name,
+            tag: String(c.tag ?? existing?.tag ?? '').trim(),
+            color: String(c.color || existing?.color || '#3b82f6').trim(),
+            avatar: String(c.avatar || existing?.avatar || '').trim()
+        };
+        if (existingIdx >= 0) roster.splice(existingIdx, 1);
+        roster.unshift(entry);
+        changed = true;
+    }
+    if (changed) {
+        if (roster.length > MAX_ROSTER_SIZE) roster.length = MAX_ROSTER_SIZE;
+        saveVersusRoster(roster);
+        renderVersusRosterUi();
+    }
+}
+
+export function renderVersusRosterUi() {
+    const roster = loadVersusRoster();
+    const datalist = $('versus-roster-datalist');
+    if (datalist) {
+        datalist.innerHTML = roster.map(p =>
+            `<option value="${esc(p.name)}">${p.tag ? esc(p.tag) : ''}</option>`
+        ).join('');
+    }
+    const chips = $('versus-roster-chips');
+    if (chips) {
+        if (roster.length === 0) {
+            chips.innerHTML = `<span style="font-size: 0.72rem; color: var(--text-muted);">Recent players appear here for 1-click fill.</span>`;
+        } else {
+            chips.innerHTML = roster.slice(0, 12).map((p, idx) => `
+                <button type="button" class="roster-chip-btn btn-secondary btn-sm" onclick="quickFillRosterPlayer(${idx})" title="Fill next player slot with ${esc(p.name)}${p.tag ? ' (' + esc(p.tag) + ')' : ''}" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; padding: 0.18rem 0.5rem;">
+                    <span style="width: 8px; height: 8px; border-radius: 50%; background: ${esc(p.color || '#3b82f6')}; flex-shrink: 0;"></span>
+                    <span>${esc(p.name)}</span>
+                    ${p.tag ? `<span style="color: var(--text-muted); font-size: 0.66rem;">[${esc(p.tag)}]</span>` : ''}
+                </button>
+            `).join('');
+        }
+    }
+}
+
+export function quickFillRosterPlayer(rosterIdx) {
+    if (isTournamentMatchActive()) {
+        toast('Switch to Exhibition Mode to quick-fill players');
+        return;
+    }
+    if (!activeMatchupData || !Array.isArray(activeMatchupData.competitors) || !activeMatchupData.competitors.length) return;
+    const roster = loadVersusRoster();
+    const entry = roster[rosterIdx];
+    if (!entry) return;
+
+    const count = activeMatchupData.competitors.length;
+    const targetIdx = activeRosterTargetSlot % count;
+    const comp = activeMatchupData.competitors[targetIdx];
+    comp.name = entry.name;
+    if (entry.tag) comp.tag = entry.tag;
+    if (entry.color) comp.color = entry.color;
+
+    const nameEl = $(`matchup-comp-name-${targetIdx}`);
+    const tagEl = $(`matchup-comp-tag-${targetIdx}`);
+    if (nameEl) nameEl.value = comp.name;
+    if (tagEl) tagEl.value = comp.tag || '';
+
+    activeRosterTargetSlot = (targetIdx + 1) % count;
+    saveMatchupSettings();
+    toast(`Filled Player ${targetIdx + 1}: ${entry.name}`);
+}
+
 export async function toggleMatchClock() {
     if (!activeMatchupData) return;
     const isRunning = Boolean(activeMatchupData.clock && activeMatchupData.clock.isRunning);
@@ -539,6 +860,8 @@ export function renderMatchupStudio(m) {
 
     grid.style.gridTemplateColumns = competitorsToRender.length > 2 ? 'repeat(2, 1fr)' : '1fr 1fr';
 
+    const hasNextQueueMatch = !tourneyActive && Array.isArray(m.queue) && m.queue.length > 0 && ((m.activeQueueIndex ?? -1) < m.queue.length - 1);
+
     grid.innerHTML = competitorsToRender.map((c, i) => {
         const isWinner = tourneyActive
             ? (activeMatch?.winner === c.name || (target > 0 && (c.score || 0) >= target))
@@ -568,12 +891,27 @@ export function renderMatchupStudio(m) {
                         Player ${i + 1}${isWinner ? ' · WIN TARGET MET' : ''}${tourneyActive ? ' (Tournament)' : ''}
                     </span>
                     <div style="display: flex; align-items: center; gap: 0.35rem;">
-                        <input type="color" value="${c.color || '#fff'}" style="width: 22px; height: 22px; border: none; cursor: pointer; border-radius: 4px;" onchange="updateCompetitorColor(${i}, this.value)" title="Change player color">
+                        <input type="color" id="matchup-comp-color-${i}" value="${c.color || '#fff'}" style="width: 22px; height: 22px; border: none; cursor: pointer; border-radius: 4px;" onchange="updateCompetitorColor(${i}, this.value)" title="Change player color">
                     </div>
                 </div>
 
+                ${isWinner && !tourneyActive ? `
+                    <div class="win-target-action-bar" style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-top: 0.4rem; padding: 0.45rem 0.55rem; background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.35); border-radius: 6px;">
+                        <button type="button" class="btn-primary btn-sm" style="background: #16a34a; border-color: #22c55e; color: #fff; display: inline-flex; align-items: center; gap: 0.3rem; flex: 1; justify-content: center;" onclick="crownWinnerAndAdvance(${i}, false)">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg>
+                            Log Winner &amp; Reset
+                        </button>
+                        ${hasNextQueueMatch ? `
+                            <button type="button" class="btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 0.3rem; flex: 1; justify-content: center;" onclick="crownWinnerAndAdvance(${i}, true)">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+                                Log Winner &amp; Next
+                            </button>
+                        ` : ''}
+                    </div>
+                ` : ''}
+
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem;">
-                    <input type="text" id="matchup-comp-name-${i}" class="form-control" style="font-size: 0.8rem; padding: 0.3rem 0.5rem;" value="${esc(c.name)}" placeholder="Player ${i + 1} Name" oninput="updateCompetitorNameImmediate(${i}, this.value)" onchange="saveMatchupSettings()" ${tourneyActive ? 'readonly title="Tournament entrant name locked to bracket"' : ''}>
+                    <input type="text" id="matchup-comp-name-${i}" list="versus-roster-datalist" class="form-control" style="font-size: 0.8rem; padding: 0.3rem 0.5rem;" value="${esc(c.name)}" placeholder="Player ${i + 1} Name" onfocus="setActiveRosterTargetSlot(${i})" oninput="updateCompetitorNameImmediate(${i}, this.value)" onchange="saveMatchupSettings()" ${tourneyActive ? 'readonly title="Tournament entrant name locked to bracket"' : ''}>
                     <input type="text" id="matchup-comp-tag-${i}" class="form-control" style="font-size: 0.8rem; padding: 0.3rem 0.5rem;" value="${esc(c.tag)}" placeholder="Character / Tag" oninput="updateCompetitorTagImmediate(${i}, this.value)" onchange="saveMatchupSettings()">
                 </div>
 
@@ -606,9 +944,9 @@ export function renderMatchupStudio(m) {
                 ` : ''}
 
                 <!-- Separated Score & Round Pips Dock -->
-                <div class="score-pips-dock" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.6rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem;">
+                <div class="score-pips-dock${roundTarget <= 0 ? ' is-no-rounds' : ''}" style="display: grid; grid-template-columns: ${roundTarget > 0 ? '1fr 1fr' : '1fr'}; gap: 0.5rem; margin-top: 0.6rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: ${roundTarget > 0 ? '0.6rem' : '0.75rem 0.85rem'};">
                     <!-- Game / Set Wins & Game Pips -->
-                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; border-right: 1px solid var(--border); padding-right: 0.35rem;">
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;${roundTarget > 0 ? ' border-right: 1px solid var(--border); padding-right: 0.35rem;' : ''}">
                         <div style="font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.3rem;">
                             Games Won
                         </div>
@@ -625,37 +963,31 @@ export function renderMatchupStudio(m) {
                         </div>
                     </div>
 
+                    ${roundTarget > 0 ? `
                     <!-- Round Pips & Round Stepper -->
                     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding-left: 0.35rem;">
                         <div style="font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.3rem;">
                             Rounds in Game
                         </div>
-                        ${roundTarget > 0 ? `
-                            <div class="score-stepper">
-                                <button type="button" class="score-btn" onclick="stepMatchupRound(${i}, -1)" ${(c.rounds || 0) <= 0 ? 'disabled' : ''}>-</button>
-                                <input type="number" class="score-val-input" min="0" max="${roundTarget - 1}" value="${Math.min(roundTarget - 1, c.rounds || 0)}" onchange="setMatchupRoundDirect(${i}, this.value)" ${!canStepRoundUp ? 'disabled' : ''}>
-                                <button type="button" class="score-btn" onclick="stepMatchupRound(${i}, 1)" ${!canStepRoundUp ? 'disabled' : ''} title="${!canStepRoundUp ? 'Series win target reached' : 'Add round win'}">+</button>
-                            </div>
-                            <div style="font-size: 0.82rem; letter-spacing: 0.12rem; color: #ffd700; margin-top: 0.35rem; font-weight: 800;">
-                                ${roundPips}
-                            </div>
-                            <div style="font-size: 0.65rem; font-weight: 700; color: var(--text-muted); margin-top: 0.15rem;">
-                                ${Math.min(roundTarget - 1, c.rounds || 0)} / ${roundTarget} ROUNDS
-                            </div>
-                        ` : `
-                            <div style="font-size: 0.72rem; color: var(--text-muted); padding: 0.45rem 0; font-style: italic;">
-                                Rounds Off
-                            </div>
-                            <div style="font-size: 0.62rem; color: var(--text-muted);">
-                                (Enable in format settings)
-                            </div>
-                        `}
+                        <div class="score-stepper">
+                            <button type="button" class="score-btn" onclick="stepMatchupRound(${i}, -1)" ${(c.rounds || 0) <= 0 ? 'disabled' : ''}>-</button>
+                            <input type="number" class="score-val-input" min="0" max="${roundTarget - 1}" value="${Math.min(roundTarget - 1, c.rounds || 0)}" onchange="setMatchupRoundDirect(${i}, this.value)" ${!canStepRoundUp ? 'disabled' : ''}>
+                            <button type="button" class="score-btn" onclick="stepMatchupRound(${i}, 1)" ${!canStepRoundUp ? 'disabled' : ''} title="${!canStepRoundUp ? 'Series win target reached' : 'Add round win'}">+</button>
+                        </div>
+                        <div style="font-size: 0.82rem; letter-spacing: 0.12rem; color: #ffd700; margin-top: 0.35rem; font-weight: 800;">
+                            ${roundPips}
+                        </div>
+                        <div style="font-size: 0.65rem; font-weight: 700; color: var(--text-muted); margin-top: 0.15rem;">
+                            ${Math.min(roundTarget - 1, c.rounds || 0)} / ${roundTarget} ROUNDS
+                        </div>
                     </div>
+                    ` : ''}
                 </div>
             </div>
         `;
     }).join('');
 
+    syncMatchupUndoButton();
     renderMatchupQueue(m.queue || [], tourneyActive ? -1 : (m.activeQueueIndex ?? -1));
 }
 
@@ -673,6 +1005,28 @@ let nameDebounceTimer = null;
 export function updateCompetitorNameImmediate(index, name) {
     if (!activeMatchupData || !activeMatchupData.competitors[index]) return;
     activeMatchupData.competitors[index].name = name;
+
+    // Auto-fill saved tag and color when user selects an exact roster name
+    const trimmed = String(name || '').trim();
+    if (trimmed) {
+        const match = loadVersusRoster().find(r => r.name.toLowerCase() === trimmed.toLowerCase());
+        if (match) {
+            const comp = activeMatchupData.competitors[index];
+            const tagEl = $(`matchup-comp-tag-${index}`);
+            const currentTag = (tagEl ? tagEl.value : comp.tag || '').trim();
+            if (!currentTag && match.tag) {
+                comp.tag = match.tag;
+                if (tagEl) tagEl.value = match.tag;
+            }
+            const currentColor = String(comp.color || '').toLowerCase();
+            if (match.color && (!currentColor || DEFAULT_COMP_COLORS.has(currentColor))) {
+                comp.color = match.color;
+                const colorEl = $(`matchup-comp-color-${index}`);
+                if (colorEl) colorEl.value = match.color;
+            }
+        }
+    }
+
     clearTimeout(nameDebounceTimer);
     nameDebounceTimer = setTimeout(() => {
         saveMatchupSettings();
@@ -717,6 +1071,7 @@ export async function updateCompetitorColor(index, color) {
 }
 
 export async function stepMatchupRound(index, roundDelta) {
+    pushMatchupUndoSnapshot(`P${index + 1} round ${roundDelta > 0 ? '+' : ''}${roundDelta}`);
     if (isTournamentMatchActive()) {
         const activeMatch = getTourneyActiveMatch();
         if (!activeMatch) return;
@@ -746,6 +1101,7 @@ export async function stepMatchupRound(index, roundDelta) {
 }
 
 export async function setMatchupRoundDirect(index, roundVal) {
+    pushMatchupUndoSnapshot(`P${index + 1} round edit`);
     const rounds = Math.max(0, parseInt(roundVal, 10) || 0);
     if (isTournamentMatchActive()) {
         const activeMatch = getTourneyActiveMatch();
@@ -782,6 +1138,7 @@ export async function setMatchupRoundDirect(index, roundVal) {
 }
 
 export async function stepMatchupScore(index, delta) {
+    pushMatchupUndoSnapshot(`P${index + 1} score ${delta > 0 ? '+' : ''}${delta}`);
     if (isTournamentMatchActive()) {
         if (window.stepTourneyScore) await window.stepTourneyScore(index + 1, delta);
         if (activeMatchupData) renderMatchupStudio(activeMatchupData);
@@ -806,6 +1163,7 @@ export async function stepMatchupScore(index, delta) {
 }
 
 export async function setMatchupScoreDirect(index, scoreVal) {
+    pushMatchupUndoSnapshot(`P${index + 1} score edit`);
     if (isTournamentMatchActive()) {
         if (window.setTourneyScoreDirect) await window.setTourneyScoreDirect(index + 1, scoreVal);
         if (activeMatchupData) renderMatchupStudio(activeMatchupData);
@@ -956,6 +1314,7 @@ export async function saveMatchupSettings() {
         });
         const data = await res.json();
         if (data.status === 'ok') {
+            recordCompetitorsToRoster(data.matchup?.competitors || payload.competitors);
             renderMatchupStudio(data.matchup);
         }
     } catch {
@@ -965,6 +1324,7 @@ export async function saveMatchupSettings() {
 
 export async function swapMatchupSides() {
     syncCompetitorsFromDom();
+    pushMatchupUndoSnapshot('Swap sides');
     await saveMatchupSettings();
     try {
         const res = await fetch('/api/matchup/swap', { method: 'POST' });
@@ -980,6 +1340,7 @@ export async function swapMatchupSides() {
 
 export async function resetMatchupScores() {
     if (!confirm('Reset current scores back to 0-0?')) return;
+    pushMatchupUndoSnapshot('Reset scores');
     if (isTournamentMatchActive()) {
         const activeMatch = getTourneyActiveMatch();
         if (!activeMatch) return;
@@ -1013,6 +1374,179 @@ export async function resetMatchupScores() {
     }
 }
 
+export async function crownWinnerAndAdvance(winnerIdx, loadNext = false) {
+    if (!activeMatchupData || !Array.isArray(activeMatchupData.competitors)) return;
+    const winnerComp = activeMatchupData.competitors[winnerIdx];
+    const winnerName = winnerComp?.name || `Player ${winnerIdx + 1}`;
+    pushMatchupUndoSnapshot(`Log winner (${winnerName})`);
+    syncCompetitorsFromDom();
+    recordCompetitorsToRoster(activeMatchupData.competitors);
+
+    try {
+        // Persist current matchup state with completed status & winner
+        await fetch('/api/matchup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title: ($('matchup-title')?.value || activeMatchupData.title || '').trim(),
+                phase: ($('matchup-phase')?.value || activeMatchupData.phase || '').trim(),
+                details: ($('matchup-details')?.value || activeMatchupData.details || '').trim(),
+                status: 'COMPLETED',
+                winner: winnerName,
+                competitors: activeMatchupData.competitors
+            })
+        });
+
+        // If this match is in the active Fight Card queue, mark it COMPLETED with final scores
+        const qIdx = activeMatchupData.activeQueueIndex ?? -1;
+        if (Array.isArray(activeMatchupData.queue) && qIdx >= 0 && qIdx < activeMatchupData.queue.length) {
+            const updatedQueue = activeMatchupData.queue.map((item, idx) => {
+                if (idx !== qIdx) return item;
+                return {
+                    ...item,
+                    status: 'COMPLETED',
+                    winner: winnerName,
+                    competitors: activeMatchupData.competitors.map(c => ({
+                        id: c.id,
+                        name: c.name,
+                        tag: c.tag || '',
+                        color: c.color || '#ffffff',
+                        score: Number(c.score) || 0
+                    }))
+                };
+            });
+            await fetch('/api/matchup/queue', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ queue: updatedQueue })
+            });
+        }
+
+        if (loadNext) {
+            const nextRes = await fetch('/api/matchup/queue/next', { method: 'POST' });
+            const nextData = await nextRes.json();
+            if (nextData.status === 'ok' && nextData.matchup) {
+                showLoadedExhibition(nextData.matchup);
+                toast(`Logged ${winnerName} & loaded next fight!`);
+            } else {
+                const resetRes = await fetch('/api/matchup/reset-scores', { method: 'POST' });
+                const resetData = await resetRes.json();
+                if (resetData.status === 'ok') renderMatchupStudio(resetData.matchup);
+                toast(`Logged ${winnerName} & reset scores`);
+            }
+        } else {
+            const resetRes = await fetch('/api/matchup/reset-scores', { method: 'POST' });
+            const resetData = await resetRes.json();
+            if (resetData.status === 'ok') {
+                renderMatchupStudio(resetData.matchup);
+                toast(`Logged ${winnerName} & reset scores`);
+            }
+        }
+        loadMatchupHistory();
+    } catch {
+        toast('Error logging match winner');
+    }
+}
+
+export function openMatchupInPromoCreator() {
+    const tourneyActive = isTournamentMatchActive();
+    const activeMatch = tourneyActive ? getTourneyActiveMatch() : null;
+    if (!tourneyActive) syncCompetitorsFromDom();
+
+    const comps = (tourneyActive && activeMatch)
+        ? [
+            { name: activeMatch.entrant1?.name || activeMatch.entrants?.[0] || 'Player 1' },
+            { name: activeMatch.entrant2?.name || activeMatch.entrants?.[1] || 'Player 2' }
+        ]
+        : (activeMatchupData?.competitors || []);
+
+    const matchupLine = comps.map(c => String(c?.name || '').trim()).filter(Boolean).join(' vs ') || 'Versus Showdown';
+    const eventTitle = tourneyActive
+        ? (activeTourneyData?.title || '')
+        : (($('matchup-title')?.value || activeMatchupData?.title || '').trim());
+    const phase = tourneyActive
+        ? (activeMatch?.roundName || '')
+        : (($('matchup-phase')?.value || activeMatchupData?.phase || '').trim());
+    const details = tourneyActive
+        ? (activeMatch?.matchDetails || '')
+        : (($('matchup-details')?.value || activeMatchupData?.details || '').trim());
+    const subtitleParts = [eventTitle, details].filter(Boolean);
+
+    const payload = {
+        name: eventTitle ? `${eventTitle} — ${matchupLine}` : matchupLine,
+        title: matchupLine,
+        subtitle: subtitleParts.join(' · ') || 'Live Matchup',
+        badge: phase || 'LIVE MATCH',
+        artwork: tourneyActive ? (activeTourneyData?.logo || '') : ''
+    };
+    try {
+        localStorage.setItem('streampulse:promo-handoff', JSON.stringify(payload));
+    } catch { /* ignore */ }
+    window.open('/promo-creator.html?handoff=versus', '_blank');
+    toast('Opening Promo Creator with matchup details');
+}
+
+// --- Fight Card Queue Drag-and-Drop Reordering ---
+let draggedQueueIdx = -1;
+
+export function handleQueueDragStart(e, idx) {
+    draggedQueueIdx = idx;
+    if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(idx));
+    }
+    if (e.currentTarget) e.currentTarget.classList.add('dragging');
+}
+
+export function handleQueueDragOver(e) {
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+    if (e.currentTarget) e.currentTarget.classList.add('drag-over');
+}
+
+export function handleQueueDragLeave(e) {
+    if (e.currentTarget) e.currentTarget.classList.remove('drag-over');
+}
+
+export function handleQueueDragEnd() {
+    draggedQueueIdx = -1;
+    document.querySelectorAll('#matchup-queue-container .matchup-queue-item').forEach(el => {
+        el.classList.remove('dragging', 'drag-over');
+    });
+}
+
+export async function handleQueueDrop(e, targetIdx) {
+    e.preventDefault();
+    if (e.currentTarget) e.currentTarget.classList.remove('drag-over');
+    const fallbackIdx = e.dataTransfer ? parseInt(e.dataTransfer.getData('text/plain'), 10) : -1;
+    const fromIdx = draggedQueueIdx >= 0 ? draggedQueueIdx : fallbackIdx;
+    handleQueueDragEnd();
+
+    if (isNaN(fromIdx) || fromIdx < 0 || fromIdx === targetIdx) return;
+    if (!activeMatchupData || !Array.isArray(activeMatchupData.queue)) return;
+    if (fromIdx >= activeMatchupData.queue.length || targetIdx >= activeMatchupData.queue.length) return;
+
+    const nextQueue = activeMatchupData.queue.slice();
+    const [moved] = nextQueue.splice(fromIdx, 1);
+    nextQueue.splice(targetIdx, 0, moved);
+
+    try {
+        const res = await fetch('/api/matchup/queue', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ queue: nextQueue })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            if (data.matchup) renderMatchupStudio(data.matchup);
+            else loadMatchup();
+            toast('Fight card order updated');
+        }
+    } catch {
+        toast('Error reordering fight card');
+    }
+}
+
 export function renderMatchupQueue(queue, activeQueueIndex) {
     const container = $('matchup-queue-container');
     if (!container) return;
@@ -1038,8 +1572,11 @@ export function renderMatchupQueue(queue, activeQueueIndex) {
         else statusBadge = '<span class="matchup-queue-status upcoming">Queued</span>';
 
         return `
-            <div class="matchup-queue-item${isActive ? ' active' : ''}">
+            <div class="matchup-queue-item${isActive ? ' active' : ''}" draggable="true" data-queue-idx="${idx}" data-queue-id="${esc(item.id)}" ondragstart="handleQueueDragStart(event, ${idx})" ondragover="handleQueueDragOver(event)" ondragleave="handleQueueDragLeave(event)" ondrop="handleQueueDrop(event, ${idx})" ondragend="handleQueueDragEnd(event)">
                 <div class="matchup-queue-meta">
+                    <span class="matchup-queue-drag-handle" title="Drag to reorder" style="cursor: grab; color: var(--text-muted); display: inline-flex; align-items: center; flex-shrink: 0;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>
+                    </span>
                     <span class="matchup-queue-idx">#${idx + 1}</span>
                     <div style="display: flex; flex-direction: column; min-width: 0;">
                         <div style="display: flex; align-items: center; gap: 0.4rem;">
@@ -1058,8 +1595,8 @@ export function renderMatchupQueue(queue, activeQueueIndex) {
                 </div>
                 <div style="display: flex; align-items: center; gap: 0.35rem;">
                     ${!isActive ? `
-                        <button type="button" class="btn-secondary btn-sm" onclick="selectMatchupQueue('${item.id}')" title="Load this match to overlay">
-                            Load
+                        <button type="button" class="btn-primary btn-sm" onclick="selectMatchupQueue('${item.id}')" title="Promote this match to live scoreboard">
+                            Load Live
                         </button>
                     ` : ''}
                     <button type="button" class="btn-secondary btn-sm" onclick="duplicateMatchupQueue('${item.id}')" title="Duplicate match in fight card">
