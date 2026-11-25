@@ -41,7 +41,8 @@ let previewAnimPositions = null;
 let pendingDeleteLayoutId = null;
 let pendingConfirmAction = null;
 let pendingItemIds = new Set();
-let motionPathDirty = false; // sceneItemId -> { left, top, width, height, opacity }
+let motionPathDirty = false;
+let transformClipboard = null; // sceneItemId -> { left, top, width, height, opacity }
 
 const $ = id => document.getElementById(id);
 
@@ -73,7 +74,7 @@ function closeDeleteLayoutModal() {
 }
 
 function openConfirmModal({ title, desc, lines = [], okLabel = "Confirm & Apply", onConfirm }) {
-    if (!$('ol-confirm-apply')?.checked) {
+    if ($('ol-live-sync')?.checked || !$('ol-confirm-apply')?.checked) {
         onConfirm?.();
         return;
     }
@@ -803,6 +804,24 @@ function renderInspector() {
     $('ol-zoom').value = String(cfg.zoom ?? 1);
     $('ol-zoom-val').textContent = String(Math.round((cfg.zoom ?? 1) * 100));
     $('ol-duration').value = String(cfg.durationMs ?? 400);
+    // Populate Swap With dropdown & clipboard status
+    const swapSel = $('ol-swap-target');
+    if (swapSel) {
+        const prev = swapSel.value;
+        const others = items.filter(i => i.sceneItemId !== item.sceneItemId && !i.locked);
+        swapSel.innerHTML = '<option value="">Swap with source…</option>' +
+            others.map(o => `<option value="${o.sceneItemId}">${esc(o.sourceName)}</option>`).join("");
+        if (others.some(o => String(o.sceneItemId) === prev)) swapSel.value = prev;
+    }
+    const hasClip = Boolean(transformClipboard);
+    const clipBadge = $('ol-clip-badge');
+    if (clipBadge) {
+        clipBadge.textContent = hasClip ? `${transformClipboard.sourceName} (${Math.round(transformClipboard.rect.width)}×${Math.round(transformClipboard.rect.height)})` : "Empty";
+        clipBadge.classList.toggle("beta", hasClip);
+    }
+    [$('ol-btn-paste-tx'), $('ol-btn-paste-pos'), $('ol-btn-paste-size')].forEach(b => {
+        if (b) b.disabled = !hasClip || item.locked;
+    });
     updateMotionModeUI();
 }
 
@@ -1292,6 +1311,12 @@ function bindEvents() {
         } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'y') {
             e.preventDefault();
             restoreHistoryIndex(historyIndex + 1);
+        } else if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'c') {
+            e.preventDefault();
+            copySelectedTransform();
+        } else if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'v') {
+            e.preventDefault();
+            pasteTransformToSelected('full');
         }
     });
 
@@ -1305,6 +1330,10 @@ function bindEvents() {
     });
     $('ol-show-guides')?.addEventListener('change', () => renderCanvas());
     $('ol-show-borders')?.addEventListener('change', () => renderCanvas());
+    $('ol-live-sync')?.addEventListener('change', () => {
+        const live = Boolean($('ol-live-sync')?.checked);
+        if ($('ol-confirm-apply')) $('ol-confirm-apply').disabled = live;
+    });
 
     $('ol-bounds-type')?.addEventListener('change', async () => {
         const sel = getSelectedItem();
@@ -1583,6 +1612,82 @@ function bindEvents() {
         if (!sel || sel.locked) return;
         await pushTransformNow(sel, { cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0 }, { refreshBackdrop: true });
         await loadScene(currentScene, { preserveHistory: true, historyLabel: `Reset Crop ${sel.sourceName}` });
+    });
+
+    function copySelectedTransform() {
+        const sel = getSelectedItem();
+        if (!sel) return;
+        transformClipboard = {
+            sourceName: sel.sourceName,
+            rect: { ...sel.rect },
+            rotation: Number(sel.transform?.rotation) || 0,
+            boundsType: sel.transform?.boundsType || 'OBS_BOUNDS_NONE'
+        };
+        renderInspector();
+        showNotice(`Copied transform from ${sel.sourceName} (${Math.round(sel.rect.width)}×${Math.round(sel.rect.height)})`);
+    }
+
+    async function pasteTransformToSelected(mode = 'full') {
+        const sel = getSelectedItem();
+        if (!sel || sel.locked || !transformClipboard) return;
+        const extra = {};
+        if (mode === 'full' || mode === 'pos') {
+            sel.rect.left = transformClipboard.rect.left;
+            sel.rect.top = transformClipboard.rect.top;
+        }
+        if (mode === 'full' || mode === 'size') {
+            sel.rect.width = transformClipboard.rect.width;
+            sel.rect.height = transformClipboard.rect.height;
+        }
+        if (mode === 'full') {
+            sel.rect.rotation = transformClipboard.rotation;
+            sel.transform.rotation = transformClipboard.rotation;
+            sel.transform.boundsType = transformClipboard.boundsType;
+            extra.boundsType = transformClipboard.boundsType;
+            if (transformClipboard.boundsType !== 'OBS_BOUNDS_NONE') {
+                extra.boundsWidth = Number(Math.max(8, sel.rect.width).toFixed(3));
+                extra.boundsHeight = Number(Math.max(8, sel.rect.height).toFixed(3));
+            }
+        }
+        renderCanvas();
+        renderInspector();
+        recordHistory(`Paste ${mode} (${transformClipboard.sourceName} → ${sel.sourceName})`);
+        await pushTransformNow(sel, extra, { refreshBackdrop: true });
+    }
+
+    $('ol-btn-copy-tx')?.addEventListener('click', () => copySelectedTransform());
+    $('ol-btn-paste-tx')?.addEventListener('click', () => pasteTransformToSelected('full'));
+    $('ol-btn-paste-pos')?.addEventListener('click', () => pasteTransformToSelected('pos'));
+    $('ol-btn-paste-size')?.addEventListener('click', () => pasteTransformToSelected('size'));
+
+    $('ol-btn-swap-tx')?.addEventListener('click', async () => {
+        const sel = getSelectedItem();
+        const partnerId = Number($('ol-swap-target')?.value);
+        const partner = items.find(i => i.sceneItemId === partnerId);
+        if (!sel || !partner || sel.locked || partner.locked) return;
+        const rectA = { ...sel.rect };
+        const rectB = { ...partner.rect };
+        const rotA = Number(sel.transform?.rotation) || 0;
+        const rotB = Number(partner.transform?.rotation) || 0;
+        const btA = sel.transform?.boundsType || 'OBS_BOUNDS_NONE';
+        const btB = partner.transform?.boundsType || 'OBS_BOUNDS_NONE';
+
+        sel.rect = rectB;
+        sel.rect.rotation = rotB;
+        sel.transform.rotation = rotB;
+        sel.transform.boundsType = btB;
+
+        partner.rect = rectA;
+        partner.rect.rotation = rotA;
+        partner.transform.rotation = rotA;
+        partner.transform.boundsType = btA;
+
+        renderCanvas();
+        renderInspector();
+        recordHistory(`Swap ${sel.sourceName} ↔ ${partner.sourceName}`);
+        await pushTransformNow(sel, { boundsType: btB }, { refreshBackdrop: false });
+        await pushTransformNow(partner, { boundsType: btA }, { refreshBackdrop: true });
+        showNotice(`Swapped ${sel.sourceName} ↔ ${partner.sourceName}${$('ol-live-sync')?.checked ? " in OBS" : " (staged — click Apply to OBS)"}`);
     });
 
     // Aspect ratio controls — clicking a ratio chip applies immediately!

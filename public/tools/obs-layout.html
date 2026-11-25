@@ -180,6 +180,23 @@
                         <button type="button" class="btn btn-secondary btn-sm" id="ol-align-fit">Fit Canvas</button>
                         <button type="button" class="btn btn-secondary btn-sm" id="ol-reset-crop">Reset Crop</button>
                     </div>
+
+                    <div class="ol-micro-head" style="padding-top:8px;border-top:1px solid var(--border);">
+                        <span>Transform Clipboard &amp; Swap</span>
+                        <span class="ol-pill" id="ol-clip-badge">Empty</span>
+                    </div>
+                    <div class="ol-grid2">
+                        <button type="button" class="btn btn-secondary btn-sm" id="ol-btn-copy-tx" title="Copy selected source transform (Cmd/Ctrl+Shift+C)">Copy Transform</button>
+                        <button type="button" class="btn btn-primary btn-sm" id="ol-btn-paste-tx" disabled title="Paste position, size, rotation &amp; bounds (Cmd/Ctrl+Shift+V)">Paste Full</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="ol-btn-paste-pos" disabled>Paste Position</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="ol-btn-paste-size" disabled>Paste Size</button>
+                    </div>
+                    <div style="display:flex;gap:6px;align-items:center;">
+                        <select id="ol-swap-target" class="input" style="flex:1;min-width:0;">
+                            <option value="">Swap with source…</option>
+                        </select>
+                        <button type="button" class="btn btn-secondary btn-sm" id="ol-btn-swap-tx">Swap</button>
+                    </div>
                 </div>
 
                 <!-- INSPECTOR SUB-TAB 2: ASPECT RATIO & ANCHOR MORPH -->
