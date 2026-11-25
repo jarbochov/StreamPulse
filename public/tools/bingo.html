@@ -164,57 +164,185 @@
     <section id="pane-overlay" data-pane="overlay" hidden>
         <div class="mpb-overlay-layout">
             <div class="mpb-panel">
-                <h2 style="margin:0;font-size:15px;">Broadcast Appearance</h2>
-                <div class="mpb-form-grid">
-                    <div class="mpb-field">
-                        <label for="app-theme">Theme Preset</label>
-                        <select id="app-theme" class="input">
-                            <option value="modern">Modern Glass</option>
-                            <option value="esports">Esports Dark</option>
-                            <option value="arcade">Retro Arcade</option>
-                            <option value="minimal">Minimal HUD</option>
-                            <option value="cozy">Cozy Warm</option>
-                        </select>
-                    </div>
-                    <div class="mpb-field">
-                        <label for="app-stamp">Stamp Style</label>
-                        <select id="app-stamp" class="input">
-                            <option value="dauber">Ink Dauber</option>
-                            <option value="check">Checkmark</option>
-                            <option value="x">Bold X</option>
-                            <option value="star">Star</option>
-                            <option value="fill">Solid Fill</option>
-                        </select>
-                    </div>
-                    <div class="mpb-field">
-                        <label for="app-default-view">Default Overlay View</label>
-                        <select id="app-default-view" class="input">
-                            <option value="multi">Multi-Card Grid (with Live Zoom)</option>
-                            <option value="lockout">Shared Lockout Master Board</option>
-                            <option value="standings">Compact Standings Strip</option>
-                            <option value="single">Single Player Card</option>
-                        </select>
-                    </div>
-                    <div class="mpb-field">
-                        <label for="app-font-size">Font Size (px)</label>
-                        <input type="number" id="app-font-size" class="input" min="9" max="28" value="13">
-                    </div>
-                    <div class="mpb-field">
-                        <label for="app-radius">Corner Radius (px)</label>
-                        <input type="number" id="app-radius" class="input" min="0" max="24" value="10">
-                    </div>
-                    <div class="mpb-field">
-                        <label for="app-bingo-color">BINGO Win Color</label>
-                        <input type="color" id="app-bingo-color" value="#22c55e" style="height:36px;width:100%;">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                    <h2 style="margin:0;font-size:15px;">Overlay Appearance</h2>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-reset-appearance">Reset Defaults</button>
+                </div>
+
+                <div class="mpb-section">
+                    <h3 class="mpb-section-title">Theme &amp; Layout</h3>
+                    <div class="mpb-form-grid">
+                        <div class="mpb-field">
+                            <label for="app-theme">Theme Preset</label>
+                            <select id="app-theme" class="input">
+                                <option value="modern">Modern Glass</option>
+                                <option value="esports">Esports Dark</option>
+                                <option value="sports">Broadcast Sports</option>
+                                <option value="arcade">Retro Arcade</option>
+                                <option value="minimal">Minimal Transparent HUD</option>
+                                <option value="cozy">Cozy Warm</option>
+                                <option value="synthwave">Neon Synthwave</option>
+                            </select>
+                        </div>
+                        <div class="mpb-field">
+                            <label for="app-stamp">Stamp Style</label>
+                            <select id="app-stamp" class="input">
+                                <option value="dauber">Ink Dauber</option>
+                                <option value="check">Checkmark</option>
+                                <option value="x">Bold X</option>
+                                <option value="star">Star</option>
+                                <option value="fill">Solid Fill</option>
+                            </select>
+                        </div>
+                        <div class="mpb-field">
+                            <label for="app-default-view">Default Overlay View</label>
+                            <select id="app-default-view" class="input">
+                                <option value="multi">Multi-Card Grid (with Live Zoom)</option>
+                                <option value="lockout">Shared Lockout Master Board</option>
+                                <option value="standings">Compact Standings Strip</option>
+                                <option value="single">Single Player Card</option>
+                            </select>
+                        </div>
+                        <div class="mpb-field">
+                            <label for="app-scale">Scale (<span id="app-scale-val">100%</span>)</label>
+                            <input type="range" id="app-scale" min="0.5" max="1.6" step="0.05" value="1">
+                        </div>
                     </div>
                 </div>
-                <div class="mpb-field">
-                    <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:13px;color:var(--text-main);cursor:pointer;">
-                        <input type="checkbox" id="app-show-multi-labels">
-                        Show prompt words in Multi-Card overview (Zoom &amp; Single always show words)
+
+                <div class="mpb-section">
+                    <h3 class="mpb-section-title">Colors &amp; Opacity</h3>
+                    <div class="mpb-field">
+                        <label>Board Background</label>
+                        <div class="mpb-color-alpha">
+                            <input type="color" id="app-board-bg" value="#0f172a">
+                            <input type="range" id="app-board-bg-alpha" min="0" max="100" value="85">
+                            <span id="app-board-bg-alpha-val">85%</span>
+                        </div>
+                    </div>
+                    <div class="mpb-field">
+                        <label>Cell Background</label>
+                        <div class="mpb-color-alpha">
+                            <input type="color" id="app-cell-bg" value="#1e293b">
+                            <input type="range" id="app-cell-bg-alpha" min="0" max="100" value="80">
+                            <span id="app-cell-bg-alpha-val">80%</span>
+                        </div>
+                    </div>
+                    <div class="mpb-field">
+                        <label>Border Color</label>
+                        <div class="mpb-color-alpha">
+                            <input type="color" id="app-border-color" value="#ffffff">
+                            <input type="range" id="app-border-alpha" min="0" max="100" value="15">
+                            <span id="app-border-alpha-val">15%</span>
+                        </div>
+                    </div>
+                    <div class="mpb-form-grid">
+                        <div class="mpb-field">
+                            <label for="app-text-color">Text Color</label>
+                            <input type="color" id="app-text-color" value="#f8fafc" style="height:34px;width:100%;">
+                        </div>
+                        <div class="mpb-field">
+                            <label for="app-bingo-color">BINGO Win Color</label>
+                            <input type="color" id="app-bingo-color" value="#22c55e" style="height:34px;width:100%;">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mpb-section">
+                    <h3 class="mpb-section-title">Typography</h3>
+                    <div class="mpb-form-grid">
+                        <div class="mpb-field">
+                            <label for="app-font-family">Font Family</label>
+                            <select id="app-font-family" class="input">
+                                <option value="system-ui">System Sans</option>
+                                <option value="Inter">Inter</option>
+                                <option value="Outfit">Outfit</option>
+                                <option value="Montserrat">Montserrat</option>
+                                <option value="Space Grotesk">Space Grotesk</option>
+                                <option value="Oswald">Oswald</option>
+                                <option value="Poppins">Poppins</option>
+                                <option value="Press Start 2P">Press Start 2P</option>
+                                <option value="monospace">Monospace</option>
+                            </select>
+                        </div>
+                        <div class="mpb-field">
+                            <label for="app-font-weight">Font Weight</label>
+                            <select id="app-font-weight" class="input">
+                                <option value="500">Medium (500)</option>
+                                <option value="600">SemiBold (600)</option>
+                                <option value="700">Bold (700)</option>
+                                <option value="800">ExtraBold (800)</option>
+                                <option value="900">Black (900)</option>
+                            </select>
+                        </div>
+                        <div class="mpb-field">
+                            <label for="app-font-size">Base Font Size (px)</label>
+                            <input type="number" id="app-font-size" class="input" min="9" max="32" value="13">
+                        </div>
+                    </div>
+                    <label class="mpb-check-item">
+                        <input type="checkbox" id="app-uppercase-headers">
+                        Uppercase player names &amp; headers
                     </label>
                 </div>
-                <div style="display:flex;justify-content:flex-end;">
+
+                <div class="mpb-section">
+                    <h3 class="mpb-section-title">Spacing &amp; Effects</h3>
+                    <div class="mpb-form-grid">
+                        <div class="mpb-field">
+                            <label for="app-radius">Corner Radius (px)</label>
+                            <input type="number" id="app-radius" class="input" min="0" max="28" value="10">
+                        </div>
+                        <div class="mpb-field">
+                            <label for="app-border-width">Border Width (px)</label>
+                            <input type="number" id="app-border-width" class="input" min="0" max="6" value="2">
+                        </div>
+                        <div class="mpb-field">
+                            <label for="app-cell-gap">Cell Gap (px)</label>
+                            <input type="number" id="app-cell-gap" class="input" min="2" max="18" value="6">
+                        </div>
+                        <div class="mpb-field">
+                            <label for="app-padding">Card Padding (px)</label>
+                            <input type="number" id="app-padding" class="input" min="4" max="36" value="12">
+                        </div>
+                        <div class="mpb-field">
+                            <label for="app-outer-margin">Outer Margin (px)</label>
+                            <input type="number" id="app-outer-margin" class="input" min="0" max="48" value="16">
+                        </div>
+                        <div class="mpb-field">
+                            <label for="app-backdrop-blur">Backdrop Blur (px)</label>
+                            <input type="number" id="app-backdrop-blur" class="input" min="0" max="24" value="8">
+                        </div>
+                    </div>
+                    <div class="mpb-field">
+                        <label for="app-shadow">Drop Shadow</label>
+                        <select id="app-shadow" class="input">
+                            <option value="none">None</option>
+                            <option value="soft">Soft Glass</option>
+                            <option value="medium">Medium Broadcast</option>
+                            <option value="heavy">Heavy Dark</option>
+                            <option value="neon">Neon Glow</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mpb-section">
+                    <h3 class="mpb-section-title">Element Visibility &amp; Animation</h3>
+                    <div class="mpb-check-list">
+                        <label class="mpb-check-item"><input type="checkbox" id="app-show-player-names" checked> Show player names</label>
+                        <label class="mpb-check-item"><input type="checkbox" id="app-show-scores" checked> Show square counts &amp; scores</label>
+                        <label class="mpb-check-item"><input type="checkbox" id="app-show-bingo-banner" checked> Show BINGO banner on winning cards</label>
+                        <label class="mpb-check-item"><input type="checkbox" id="app-show-multi-labels"> Show prompt words in Multi-Card overview</label>
+                        <label class="mpb-check-item"><input type="checkbox" id="app-show-free-marker" checked> Show center Free Space marker</label>
+                        <label class="mpb-check-item"><input type="checkbox" id="app-animate" checked> Animate zoom &amp; BINGO banner</label>
+                    </div>
+                    <div class="mpb-field">
+                        <label for="app-bingo-banner-text">BINGO Banner Text</label>
+                        <input type="text" id="app-bingo-banner-text" class="input" maxlength="32" value="BINGO!">
+                    </div>
+                </div>
+
+                <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:6px;">
                     <button type="button" class="btn btn-primary" id="btn-save-appearance">Save Appearance</button>
                 </div>
             </div>
@@ -228,7 +356,14 @@
                             <button type="button" class="btn btn-sm btn-secondary" data-preview-view="standings">Standings</button>
                             <button type="button" class="btn btn-sm btn-secondary" data-preview-view="single">Single</button>
                         </div>
-                        <button type="button" class="btn btn-secondary btn-sm" id="btn-copy-obs-url">Copy OBS URL</button>
+                        <div style="display:flex;gap:6px;">
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-copy-obs-url">Copy OBS URL</button>
+                            <a class="btn btn-secondary btn-sm" id="btn-open-obs-url" href="/overlays/multiplayer-bingo.html" target="_blank" rel="noopener">Open</a>
+                        </div>
+                    </div>
+                    <div id="mpb-single-card-picker" hidden style="display:flex;align-items:center;gap:8px;">
+                        <label for="mpb-preview-card-select" style="font-size:12px;color:var(--text-muted);font-weight:700;">Player Card:</label>
+                        <select id="mpb-preview-card-select" class="input" style="flex:1;"></select>
                     </div>
                     <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;">
                         <div style="display:flex;flex-wrap:wrap;gap:6px;" id="mpb-preview-res-chips">
@@ -237,12 +372,17 @@
                             <button type="button" class="btn btn-sm btn-secondary" data-res="1080x1920">1080×1920 (9:16)</button>
                             <button type="button" class="btn btn-sm btn-secondary" data-res="800x600">800×600</button>
                         </div>
-                        <span class="pill" id="mpb-preview-res-label">1920×1080</span>
+                        <div style="display:flex;align-items:center;gap:6px;" id="mpb-preview-bg-chips">
+                            <button type="button" class="btn btn-sm btn-primary" data-bg="dark">Dark</button>
+                            <button type="button" class="btn btn-sm btn-secondary" data-bg="checker">Checker</button>
+                            <button type="button" class="btn btn-sm btn-secondary" data-bg="chroma">Chroma</button>
+                            <span class="pill" id="mpb-preview-res-label">1920×1080</span>
+                        </div>
                     </div>
                     <div class="mpb-url-row">
                         <code id="mpb-obs-url"></code>
                     </div>
-                    <div class="mpb-preview-frame-wrap" id="mpb-preview-wrap">
+                    <div class="mpb-preview-frame-wrap" id="mpb-preview-wrap" data-backdrop="dark">
                         <div class="mpb-preview-stage" id="mpb-preview-stage">
                             <iframe id="mpb-preview-frame" title="Multiplayer Bingo Overlay Preview" src="/overlays/multiplayer-bingo.html?preview=true"></iframe>
                         </div>

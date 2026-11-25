@@ -115,8 +115,14 @@ function playerUrl(token) {
 function obsUrl() {
     const params = new URLSearchParams();
     if (previewView) params.set('view', previewView);
+    if (previewView === 'single' && $('mpb-preview-card-select')?.value) {
+        params.set('card', $('mpb-preview-card-select').value);
+    }
     const theme = $('app-theme')?.value;
     if (theme) params.set('theme', theme);
+    const scale = Number($('app-scale')?.value);
+    if (scale && scale !== 1) params.set('scale', String(scale));
+    if (previewView === 'multi' && $('app-show-multi-labels')?.checked) params.set('labels', '1');
     return `${location.origin}/overlays/multiplayer-bingo.html?${params.toString()}`;
 }
 
@@ -338,19 +344,125 @@ function updatePromptCount() {
     $('pack-prompt-count').textContent = `${lines.length} prompts (${needed} needed for ${size}×${size})`;
 }
 
-function renderAppearanceTab() {
-    if (!state) return;
-    const app = state.appearance || {};
+const THEME_PRESETS = {
+    modern: { boardBackground: '#0f172ad9', cellBackground: '#1e293bcc', textColor: '#f8fafc', borderColor: '#ffffff26', bingoColor: '#22c55e', shadow: 'soft', backdropBlur: 8 },
+    esports: { boardBackground: '#090d16eb', cellBackground: '#111827e6', textColor: '#f8fafc', borderColor: '#38bdf844', bingoColor: '#38bdf8', shadow: 'heavy', backdropBlur: 4 },
+    sports: { boardBackground: '#0b192ce8', cellBackground: '#152a45d9', textColor: '#ffffff', borderColor: '#fbbf2466', bingoColor: '#fbbf24', shadow: 'medium', backdropBlur: 0 },
+    arcade: { boardBackground: '#120724eb', cellBackground: '#1f0d3dd9', textColor: '#fdf4ff', borderColor: '#e879f955', bingoColor: '#facc15', shadow: 'neon', backdropBlur: 4 },
+    minimal: { boardBackground: '#00000000', cellBackground: '#0f172aa6', textColor: '#ffffff', borderColor: '#ffffff33', bingoColor: '#4ade80', shadow: 'none', backdropBlur: 0 },
+    cozy: { boardBackground: '#29201be6', cellBackground: '#3b2e26d9', textColor: '#fef3c7', borderColor: '#f59e0b44', bingoColor: '#84cc16', shadow: 'soft', backdropBlur: 6 },
+    synthwave: { boardBackground: '#16082be8', cellBackground: '#261147d9', textColor: '#f0abfc', borderColor: '#22d3ee66', bingoColor: '#22d3ee', shadow: 'neon', backdropBlur: 8 }
+};
+
+function splitHexAlpha(hex8, fallbackHex = '#0f172a', fallbackAlpha = 85) {
+    const s = String(hex8 || '').trim();
+    if (/^#[0-9a-f]{8}$/i.test(s)) {
+        return { hex: s.slice(0, 7), alpha: Math.round((parseInt(s.slice(7, 9), 16) / 255) * 100) };
+    }
+    if (/^#[0-9a-f]{6}$/i.test(s)) {
+        return { hex: s, alpha: 100 };
+    }
+    return { hex: fallbackHex, alpha: fallbackAlpha };
+}
+
+function joinHexAlpha(hex, alphaPct) {
+    const clean = /^#[0-9a-f]{6}$/i.test(hex) ? hex : '#0f172a';
+    const byte = Math.max(0, Math.min(255, Math.round((Number(alphaPct) / 100) * 255)));
+    return `${clean}${byte.toString(16).padStart(2, '0')}`;
+}
+
+function readAppearanceForm() {
+    return {
+        theme: $('app-theme').value,
+        stampStyle: $('app-stamp').value,
+        defaultView: $('app-default-view').value,
+        scale: Number($('app-scale').value) || 1,
+        boardBackground: joinHexAlpha($('app-board-bg').value, $('app-board-bg-alpha').value),
+        cellBackground: joinHexAlpha($('app-cell-bg').value, $('app-cell-bg-alpha').value),
+        borderColor: joinHexAlpha($('app-border-color').value, $('app-border-alpha').value),
+        textColor: $('app-text-color').value,
+        bingoColor: $('app-bingo-color').value,
+        fontFamily: $('app-font-family').value,
+        fontWeight: Number($('app-font-weight').value) || 700,
+        fontSize: Number($('app-font-size').value) || 13,
+        uppercaseHeaders: $('app-uppercase-headers').checked,
+        radius: Number($('app-radius').value) || 0,
+        borderWidth: Number($('app-border-width').value) || 0,
+        cellGap: Number($('app-cell-gap').value) || 6,
+        padding: Number($('app-padding').value) || 12,
+        outerMargin: Number($('app-outer-margin').value) || 0,
+        backdropBlur: Number($('app-backdrop-blur').value) || 0,
+        shadow: $('app-shadow').value,
+        showPlayerNames: $('app-show-player-names').checked,
+        showScores: $('app-show-scores').checked,
+        showBingoBanner: $('app-show-bingo-banner').checked,
+        showMultiLabels: $('app-show-multi-labels').checked,
+        showFreeMarker: $('app-show-free-marker').checked,
+        animate: $('app-animate').checked,
+        bingoBannerText: $('app-bingo-banner-text').value.trim() || 'BINGO!'
+    };
+}
+
+function writeAppearanceForm(app) {
     $('app-theme').value = app.theme || 'modern';
     $('app-stamp').value = app.stampStyle || 'dauber';
     $('app-default-view').value = app.defaultView || 'multi';
+    $('app-scale').value = String(app.scale ?? 1);
+    $('app-scale-val').textContent = `${Math.round((app.scale ?? 1) * 100)}%`;
+
+    const bbg = splitHexAlpha(app.boardBackground, '#0f172a', 85);
+    $('app-board-bg').value = bbg.hex;
+    $('app-board-bg-alpha').value = String(bbg.alpha);
+    $('app-board-bg-alpha-val').textContent = `${bbg.alpha}%`;
+
+    const cbg = splitHexAlpha(app.cellBackground, '#1e293b', 80);
+    $('app-cell-bg').value = cbg.hex;
+    $('app-cell-bg-alpha').value = String(cbg.alpha);
+    $('app-cell-bg-alpha-val').textContent = `${cbg.alpha}%`;
+
+    const brd = splitHexAlpha(app.borderColor, '#ffffff', 15);
+    $('app-border-color').value = brd.hex;
+    $('app-border-alpha').value = String(brd.alpha);
+    $('app-border-alpha-val').textContent = `${brd.alpha}%`;
+
+    $('app-text-color').value = (app.textColor || '#f8fafc').slice(0, 7);
+    $('app-bingo-color').value = (app.bingoColor || '#22c55e').slice(0, 7);
+    $('app-font-family').value = app.fontFamily || 'system-ui';
+    $('app-font-weight').value = String(app.fontWeight || 700);
     $('app-font-size').value = String(app.fontSize || 13);
-    $('app-radius').value = String(app.radius || 10);
-    if (app.bingoColor && app.bingoColor.startsWith('#')) {
-        $('app-bingo-color').value = app.bingoColor.slice(0, 7);
-    }
+    $('app-uppercase-headers').checked = Boolean(app.uppercaseHeaders);
+    $('app-radius').value = String(app.radius ?? 10);
+    $('app-border-width').value = String(app.borderWidth ?? 2);
+    $('app-cell-gap').value = String(app.cellGap ?? 6);
+    $('app-padding').value = String(app.padding ?? 12);
+    $('app-outer-margin').value = String(app.outerMargin ?? 16);
+    $('app-backdrop-blur').value = String(app.backdropBlur ?? 8);
+    $('app-shadow').value = app.shadow || 'soft';
+    $('app-show-player-names').checked = app.showPlayerNames !== false;
+    $('app-show-scores').checked = app.showScores !== false;
+    $('app-show-bingo-banner').checked = app.showBingoBanner !== false;
     $('app-show-multi-labels').checked = Boolean(app.showMultiLabels);
-    $('mpb-obs-url').textContent = obsUrl();
+    $('app-show-free-marker').checked = app.showFreeMarker !== false;
+    $('app-animate').checked = app.animate !== false;
+    $('app-bingo-banner-text').value = app.bingoBannerText || 'BINGO!';
+}
+
+function renderAppearanceTab() {
+    if (!state) return;
+    writeAppearanceForm(state.appearance || {});
+    const cards = state.session?.cards || [];
+    const sel = $('mpb-preview-card-select');
+    if (sel) {
+        const prevVal = sel.value;
+        sel.innerHTML = cards.length
+            ? cards.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')
+            : '<option value="">No players yet</option>';
+        if (prevVal && cards.some(c => c.id === prevVal)) sel.value = prevVal;
+    }
+    $('mpb-single-card-picker').hidden = previewView !== 'single';
+    const url = obsUrl();
+    $('mpb-obs-url').textContent = url;
+    if ($('btn-open-obs-url')) $('btn-open-obs-url').href = url;
     layoutPreviewStage();
     syncPreview();
 }
@@ -374,22 +486,26 @@ function layoutPreviewStage() {
 
 function syncPreview() {
     if (!state) return;
+    $('app-scale-val').textContent = `${Math.round((Number($('app-scale').value) || 1) * 100)}%`;
+    $('app-board-bg-alpha-val').textContent = `${$('app-board-bg-alpha').value}%`;
+    $('app-cell-bg-alpha-val').textContent = `${$('app-cell-bg-alpha').value}%`;
+    $('app-border-alpha-val').textContent = `${$('app-border-alpha').value}%`;
+    $('mpb-single-card-picker').hidden = previewView !== 'single';
+
+    const url = obsUrl();
+    $('mpb-obs-url').textContent = url;
+    if ($('btn-open-obs-url')) $('btn-open-obs-url').href = url;
+
     const frame = $('mpb-preview-frame');
-    $('mpb-obs-url').textContent = obsUrl();
     if (!frame || !frame.contentWindow) return;
+    const formApp = readAppearanceForm();
+    const previewSession = previewView === 'single' && $('mpb-preview-card-select')?.value
+        ? { ...state.session, focusedCardId: $('mpb-preview-card-select').value }
+        : state.session;
     const previewState = {
         activePack: state.activePack,
-        session: state.session,
-        appearance: {
-            ...state.appearance,
-            theme: $('app-theme').value,
-            stampStyle: $('app-stamp').value,
-            defaultView: previewView,
-            fontSize: Number($('app-font-size').value) || 13,
-            radius: Number($('app-radius').value) || 10,
-            bingoColor: $('app-bingo-color').value,
-            showMultiLabels: $('app-show-multi-labels').checked
-        }
+        session: previewSession,
+        appearance: { ...formApp, defaultView: previewView }
     };
     frame.contentWindow.postMessage({ type: 'mp-bingo-preview', state: previewState }, location.origin);
 }
@@ -660,23 +776,48 @@ function bindEvents() {
     });
 
     // Appearance tab + zero-reload postMessage preview
-    ['app-theme', 'app-stamp', 'app-default-view', 'app-font-size', 'app-radius', 'app-bingo-color', 'app-show-multi-labels'].forEach(id => {
-        $(id).addEventListener('input', syncPreview);
-        $(id).addEventListener('change', syncPreview);
+    $('app-theme').addEventListener('change', () => {
+        const preset = THEME_PRESETS[$('app-theme').value];
+        if (preset) {
+            writeAppearanceForm({ ...readAppearanceForm(), ...preset, theme: $('app-theme').value });
+        }
+        syncPreview();
+    });
+
+    [
+        'app-stamp', 'app-default-view', 'app-scale',
+        'app-board-bg', 'app-board-bg-alpha', 'app-cell-bg', 'app-cell-bg-alpha',
+        'app-border-color', 'app-border-alpha', 'app-text-color', 'app-bingo-color',
+        'app-font-family', 'app-font-weight', 'app-font-size', 'app-uppercase-headers',
+        'app-radius', 'app-border-width', 'app-cell-gap', 'app-padding', 'app-outer-margin',
+        'app-backdrop-blur', 'app-shadow',
+        'app-show-player-names', 'app-show-scores', 'app-show-bingo-banner',
+        'app-show-multi-labels', 'app-show-free-marker', 'app-animate', 'app-bingo-banner-text',
+        'mpb-preview-card-select'
+    ].forEach(id => {
+        const el = $(id);
+        if (!el) return;
+        el.addEventListener('input', syncPreview);
+        el.addEventListener('change', syncPreview);
+    });
+
+    $('btn-reset-appearance').addEventListener('click', () => {
+        writeAppearanceForm({
+            theme: 'modern', stampStyle: 'dauber', defaultView: 'multi', scale: 1,
+            ...THEME_PRESETS.modern,
+            fontFamily: 'system-ui', fontWeight: 700, fontSize: 13, uppercaseHeaders: false,
+            radius: 10, borderWidth: 2, cellGap: 6, padding: 12, outerMargin: 16,
+            showPlayerNames: true, showScores: true, showBingoBanner: true,
+            showMultiLabels: false, showFreeMarker: true, animate: true, bingoBannerText: 'BINGO!'
+        });
+        syncPreview();
+        showNotice('Reset appearance to defaults (click Save to persist)');
     });
 
     $('btn-save-appearance').addEventListener('click', async () => {
         const res = await api('/api/multiplayer-bingo/appearance', {
             method: 'POST',
-            body: JSON.stringify({
-                theme: $('app-theme').value,
-                stampStyle: $('app-stamp').value,
-                defaultView: $('app-default-view').value,
-                fontSize: Number($('app-font-size').value) || 13,
-                radius: Number($('app-radius').value) || 10,
-                bingoColor: $('app-bingo-color').value,
-                showMultiLabels: $('app-show-multi-labels').checked
-            })
+            body: JSON.stringify(readAppearanceForm())
         });
         state = { ...res.state, enabled: state.enabled };
         syncPreview();
@@ -692,6 +833,16 @@ function bindEvents() {
             b.classList.toggle('btn-secondary', b !== btn);
         });
         syncPreview();
+    });
+
+    $('mpb-preview-bg-chips').addEventListener('click', e => {
+        const btn = e.target.closest('[data-bg]');
+        if (!btn) return;
+        $('mpb-preview-wrap').dataset.backdrop = btn.dataset.bg;
+        $('mpb-preview-bg-chips').querySelectorAll('button').forEach(b => {
+            b.classList.toggle('btn-primary', b === btn);
+            b.classList.toggle('btn-secondary', b !== btn);
+        });
     });
 
     $('mpb-preview-res-chips').addEventListener('click', e => {

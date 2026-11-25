@@ -54,6 +54,11 @@ html, body {
     0% { transform: scale(0.92); opacity: 0.7; }
     100% { transform: scale(1); opacity: 1; }
 }
+@keyframes mp-banner-pop {
+    0% { transform: translate(-50%, -50%) scale(0.76); opacity: 0; }
+    70% { transform: translate(-50%, -50%) scale(1.06); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
 .mp-card-head {
     display: flex;
     align-items: center;
@@ -117,6 +122,22 @@ html, body {
 .mp-cell.is-winning {
     box-shadow: inset 0 0 0 2px var(--mp-win, #22c55e), 0 0 12px color-mix(in srgb, var(--mp-win, #22c55e) 50%, transparent);
 }
+.mp-bingo-banner {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 6;
+    padding: 6px 18px;
+    border-radius: 999px;
+    color: #090d16;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    pointer-events: none;
+    white-space: nowrap;
+    animation: mp-banner-pop 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
 .mp-claim-pill {
     position: relative;
     z-index: 2;
@@ -152,29 +173,19 @@ html, body {
     text-align: center;
     padding: 24px;
 }
-.mp-theme-modern .mp-card,
-.mp-theme-modern .mp-board {
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 10px 28px rgba(0, 0, 0, 0.36);
-}
-.mp-theme-esports .mp-card,
-.mp-theme-esports .mp-board {
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.48);
-}
-.mp-theme-minimal .mp-board {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-}
+.mp-no-anim .mp-card,
+.mp-no-anim .mp-card.is-zoomed,
+.mp-no-anim .mp-bingo-banner,
 html.sp-fx-paused .mp-card,
-html.sp-fx-paused .mp-card.is-zoomed {
+html.sp-fx-paused .mp-card.is-zoomed,
+html.sp-fx-paused .mp-bingo-banner {
     animation: none !important;
     transition: none !important;
 }
 @media (prefers-reduced-motion: reduce) {
     .mp-card,
-    .mp-card.is-zoomed {
+    .mp-card.is-zoomed,
+    .mp-bingo-banner {
         animation: none !important;
         transition: none !important;
     }
@@ -190,20 +201,47 @@ html.sp-fx-paused .mp-card.is-zoomed {
     const cardOverride = params.get('card') || '';
     const themeOverride = params.get('theme') || '';
     const stampOverride = params.get('stamp') || '';
-    const labelsParam = params.has('labels') ? params.get('labels') : null;
+    const shadowOverride = params.get('shadow') || '';
+    const scaleOverride = params.has('scale') ? Number(params.get('scale')) : null;
+    const boolParam = key => (params.has(key) ? (params.get(key) === '1' || params.get(key) === 'true') : null);
+    const labelsParam = boolParam('labels');
+    const namesParam = boolParam('names');
+    const scoresParam = boolParam('scores');
+    const bannerParam = boolParam('banner');
     const isPreview = params.get('preview') === 'true' || params.get('preview') === '1';
     const root = document.getElementById('root');
     const SVG_NS = 'http://www.w3.org/2000/svg';
+    const loadedFonts = new Set();
 
     const THEME_PRESETS = {
-        modern: { boardBackground: '#0f172ad9', cellBackground: '#1e293bcc', textColor: '#f8fafc', borderColor: '#ffffff26', bingoColor: '#22c55e' },
-        esports: { boardBackground: '#090d16eb', cellBackground: '#111827e6', textColor: '#f8fafc', borderColor: '#38bdf844', bingoColor: '#38bdf8' },
-        arcade: { boardBackground: '#120724eb', cellBackground: '#1f0d3dd9', textColor: '#fdf4ff', borderColor: '#e879f955', bingoColor: '#facc15' },
-        minimal: { boardBackground: '#00000000', cellBackground: '#0f172aa6', textColor: '#ffffff', borderColor: '#ffffff33', bingoColor: '#4ade80' },
-        cozy: { boardBackground: '#29201be6', cellBackground: '#3b2e26d9', textColor: '#fef3c7', borderColor: '#f59e0b44', bingoColor: '#84cc16' }
+        modern: { boardBackground: '#0f172ad9', cellBackground: '#1e293bcc', textColor: '#f8fafc', borderColor: '#ffffff26', bingoColor: '#22c55e', shadow: 'soft', backdropBlur: 8 },
+        esports: { boardBackground: '#090d16eb', cellBackground: '#111827e6', textColor: '#f8fafc', borderColor: '#38bdf844', bingoColor: '#38bdf8', shadow: 'heavy', backdropBlur: 4 },
+        sports: { boardBackground: '#0b192ce8', cellBackground: '#152a45d9', textColor: '#ffffff', borderColor: '#fbbf2466', bingoColor: '#fbbf24', shadow: 'medium', backdropBlur: 0 },
+        arcade: { boardBackground: '#120724eb', cellBackground: '#1f0d3dd9', textColor: '#fdf4ff', borderColor: '#e879f955', bingoColor: '#facc15', shadow: 'neon', backdropBlur: 4 },
+        minimal: { boardBackground: '#00000000', cellBackground: '#0f172aa6', textColor: '#ffffff', borderColor: '#ffffff33', bingoColor: '#4ade80', shadow: 'none', backdropBlur: 0 },
+        cozy: { boardBackground: '#29201be6', cellBackground: '#3b2e26d9', textColor: '#fef3c7', borderColor: '#f59e0b44', bingoColor: '#84cc16', shadow: 'soft', backdropBlur: 6 },
+        synthwave: { boardBackground: '#16082be8', cellBackground: '#261147d9', textColor: '#f0abfc', borderColor: '#22d3ee66', bingoColor: '#22d3ee', shadow: 'neon', backdropBlur: 8 }
     };
 
     let currentState = null;
+
+    function ensureGoogleFont(family) {
+        if (!family || /^(system-ui|sans-serif|serif|monospace|inherit)$/i.test(family)) return;
+        if (loadedFonts.has(family)) return;
+        loadedFonts.add(family);
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family).replace(/%20/g, '+')}:wght@400;600;700;800;900&display=swap`;
+        document.head.appendChild(link);
+    }
+
+    function shadowCss(kind, accent) {
+        if (kind === 'none') return 'none';
+        if (kind === 'medium') return '0 10px 26px rgba(0, 0, 0, 0.42)';
+        if (kind === 'heavy') return '0 16px 40px rgba(0, 0, 0, 0.62)';
+        if (kind === 'neon') return `0 0 22px color-mix(in srgb, ${accent} 45%, transparent), 0 10px 28px rgba(0, 0, 0, 0.48)`;
+        return 'inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 8px 22px rgba(0, 0, 0, 0.32)';
+    }
 
     function detectLines(size, stampedSet) {
         const lines = [];
@@ -224,7 +262,7 @@ html.sp-fx-paused .mp-card.is-zoomed {
         return lines;
     }
 
-    function resolveCard(pack, card, claims, cardsById) {
+    function resolveCard(pack, card, claims) {
         const size = pack.size || 5;
         const total = size * size;
         const centerIdx = size % 2 === 1 ? Math.floor(total / 2) : -1;
@@ -310,6 +348,7 @@ html.sp-fx-paused .mp-card.is-zoomed {
         const baseApp = data.appearance || {};
         const theme = THEME_PRESETS[themeOverride] ? themeOverride : (baseApp.theme || 'modern');
         const preset = THEME_PRESETS[theme] || THEME_PRESETS.modern;
+        const scale = Number.isFinite(scaleOverride) && scaleOverride > 0 ? scaleOverride : (Number(baseApp.scale) || 1);
         const app = {
             boardBackground: themeOverride ? preset.boardBackground : (baseApp.boardBackground || preset.boardBackground),
             cellBackground: themeOverride ? preset.cellBackground : (baseApp.cellBackground || preset.cellBackground),
@@ -317,29 +356,53 @@ html.sp-fx-paused .mp-card.is-zoomed {
             borderColor: themeOverride ? preset.borderColor : (baseApp.borderColor || preset.borderColor),
             bingoColor: themeOverride ? preset.bingoColor : (baseApp.bingoColor || preset.bingoColor),
             stampStyle: stampOverride || baseApp.stampStyle || 'dauber',
-            fontSize: Number(baseApp.fontSize) || 13,
-            radius: Number(baseApp.radius) || 10,
-            cellGap: Number(baseApp.cellGap) || 6,
-            padding: Number(baseApp.padding) || 12
+            fontFamily: baseApp.fontFamily || 'system-ui',
+            fontWeight: Number(baseApp.fontWeight) || 700,
+            fontSize: Math.round((Number(baseApp.fontSize) || 13) * scale),
+            uppercaseHeaders: Boolean(baseApp.uppercaseHeaders),
+            radius: Number(baseApp.radius ?? 10),
+            borderWidth: Number(baseApp.borderWidth ?? 2),
+            cellGap: Number(baseApp.cellGap ?? 6),
+            padding: Number(baseApp.padding ?? 12),
+            outerMargin: Number(baseApp.outerMargin ?? 16),
+            shadow: shadowOverride || baseApp.shadow || preset.shadow || 'soft',
+            backdropBlur: Number(baseApp.backdropBlur ?? preset.backdropBlur ?? 8),
+            showPlayerNames: namesParam !== null ? namesParam : (baseApp.showPlayerNames !== false),
+            showScores: scoresParam !== null ? scoresParam : (baseApp.showScores !== false),
+            showBingoBanner: bannerParam !== null ? bannerParam : (baseApp.showBingoBanner !== false),
+            bingoBannerText: baseApp.bingoBannerText || 'BINGO!',
+            showFreeMarker: baseApp.showFreeMarker !== false,
+            animate: baseApp.animate !== false
         };
+
+        ensureGoogleFont(app.fontFamily);
         const view = viewOverride || baseApp.defaultView || 'multi';
         const cards = Array.isArray(session.cards) ? session.cards : [];
         const claims = session.claims || {};
         const cardsById = Object.fromEntries(cards.map(c => [c.id, c]));
-        const resolvedCards = cards.map(c => resolveCard(pack, c, claims, cardsById));
+        const resolvedCards = cards.map(c => resolveCard(pack, c, claims));
 
-        root.className = `mp-theme-${theme}`;
+        root.className = `mp-theme-${theme}${app.animate ? '' : ' mp-no-anim'}`;
         root.dataset.bingoView = view;
         root.dataset.bingoFocused = session.focusedCardId || '';
         root.style.setProperty('--mp-win', app.bingoColor);
+        root.style.padding = `${app.outerMargin}px`;
+        root.style.fontFamily = app.fontFamily;
         root.innerHTML = '';
+
+        const blurStyle = app.backdropBlur > 0 ? `blur(${app.backdropBlur}px)` : 'none';
 
         if (session.hidden && view !== 'standings') {
             const box = document.createElement('div');
             box.className = 'mp-board mp-standby';
             Object.assign(box.style, {
-                background: app.boardBackground, border: `1px solid ${app.borderColor}`,
-                borderRadius: `${app.radius}px`, color: app.textColor
+                background: app.boardBackground,
+                border: app.borderWidth > 0 ? `${app.borderWidth}px solid ${app.borderColor}` : 'none',
+                borderRadius: `${app.radius}px`,
+                color: app.textColor,
+                boxShadow: shadowCss(app.shadow, app.bingoColor),
+                backdropFilter: blurStyle,
+                webkitBackdropFilter: blurStyle
             });
             box.innerHTML = `<div><div style="font-size:${Math.round(app.fontSize * 1.6)}px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;">${(pack.headerText || pack.name || 'BINGO').replace(/[<>&]/g, '')}</div><div style="opacity:.72;margin-top:8px;font-size:${app.fontSize}px;">Board hidden — waiting for reveal</div></div>`;
             root.appendChild(box);
@@ -354,21 +417,34 @@ html.sp-fx-paused .mp-card.is-zoomed {
                 const pill = document.createElement('div');
                 pill.className = 'mp-standing-pill';
                 Object.assign(pill.style, {
-                    borderRadius: `${app.radius}px`, background: app.boardBackground,
-                    border: `2px solid ${p.bingoCount > 0 ? app.bingoColor : p.color}`,
-                    color: app.textColor, fontSize: `${app.fontSize}px`
+                    borderRadius: `${app.radius}px`,
+                    background: app.boardBackground,
+                    border: app.borderWidth > 0 ? `${app.borderWidth}px solid ${p.bingoCount > 0 ? app.bingoColor : p.color}` : 'none',
+                    color: app.textColor,
+                    fontSize: `${app.fontSize}px`,
+                    fontWeight: String(app.fontWeight),
+                    boxShadow: shadowCss(app.shadow, p.bingoCount > 0 ? app.bingoColor : p.color),
+                    backdropFilter: blurStyle,
+                    webkitBackdropFilter: blurStyle
                 });
                 const dot = document.createElement('span');
                 dot.className = 'mp-dot';
                 dot.style.background = p.color;
                 dot.style.boxShadow = `0 0 8px ${p.color}`;
-                const nm = document.createElement('span');
-                nm.textContent = p.name;
-                const sc = document.createElement('span');
-                sc.className = 'mp-score';
-                sc.style.color = p.bingoCount > 0 ? app.bingoColor : app.textColor;
-                sc.textContent = p.bingoCount > 0 ? `${p.stampedCount}/${p.total} · BINGO` : `${p.stampedCount}/${p.total}`;
-                pill.append(dot, nm, sc);
+                pill.appendChild(dot);
+                if (app.showPlayerNames) {
+                    const nm = document.createElement('span');
+                    nm.textContent = p.name;
+                    if (app.uppercaseHeaders) nm.style.textTransform = 'uppercase';
+                    pill.appendChild(nm);
+                }
+                if (app.showScores) {
+                    const sc = document.createElement('span');
+                    sc.className = 'mp-score';
+                    sc.style.color = p.bingoCount > 0 ? app.bingoColor : app.textColor;
+                    sc.textContent = p.bingoCount > 0 ? `${p.stampedCount}/${p.total} · ${app.bingoBannerText}` : `${p.stampedCount}/${p.total}`;
+                    pill.appendChild(sc);
+                }
                 strip.appendChild(pill);
             }
             if (!sorted.length) {
@@ -385,8 +461,14 @@ html.sp-fx-paused .mp-card.is-zoomed {
             const board = document.createElement('div');
             board.className = 'mp-board';
             Object.assign(board.style, {
-                background: app.boardBackground, border: `1px solid ${app.borderColor}`,
-                borderRadius: `${app.radius}px`, padding: `${app.padding}px`, gap: `${app.cellGap}px`
+                background: app.boardBackground,
+                border: app.borderWidth > 0 ? `${app.borderWidth}px solid ${app.borderColor}` : 'none',
+                borderRadius: `${app.radius}px`,
+                padding: `${app.padding}px`,
+                gap: `${app.cellGap}px`,
+                boxShadow: shadowCss(app.shadow, app.bingoColor),
+                backdropFilter: blurStyle,
+                webkitBackdropFilter: blurStyle
             });
             const grid = document.createElement('div');
             grid.className = 'mp-grid';
@@ -404,13 +486,15 @@ html.sp-fx-paused .mp-card.is-zoomed {
                     background: owner ? `${owner.color}40` : app.cellBackground,
                     border: `1.5px solid ${owner ? owner.color : app.borderColor}`,
                     borderRadius: `${Math.max(4, Math.round(app.radius * 0.65))}px`,
-                    color: app.textColor, fontSize: `${app.fontSize}px`
+                    color: app.textColor,
+                    fontSize: `${app.fontSize}px`,
+                    fontWeight: String(app.fontWeight)
                 });
                 const lbl = document.createElement('span');
                 lbl.className = 'mp-cell-label';
                 lbl.textContent = (pack.prompts && pack.prompts[i]) || `Square ${i + 1}`;
                 cell.appendChild(lbl);
-                if (owner) {
+                if (owner && app.showPlayerNames) {
                     const pill = document.createElement('span');
                     pill.className = 'mp-claim-pill';
                     pill.textContent = owner.name;
@@ -436,8 +520,13 @@ html.sp-fx-paused .mp-card.is-zoomed {
             const empty = document.createElement('div');
             empty.className = 'mp-board mp-standby';
             Object.assign(empty.style, {
-                background: app.boardBackground, border: `1px solid ${app.borderColor}`,
-                borderRadius: `${app.radius}px`, color: app.textColor
+                background: app.boardBackground,
+                border: app.borderWidth > 0 ? `${app.borderWidth}px solid ${app.borderColor}` : 'none',
+                borderRadius: `${app.radius}px`,
+                color: app.textColor,
+                boxShadow: shadowCss(app.shadow, app.bingoColor),
+                backdropFilter: blurStyle,
+                webkitBackdropFilter: blurStyle
             });
             empty.innerHTML = `<div><div style="font-size:${Math.round(app.fontSize * 1.4)}px;font-weight:850;">${(pack.name || 'Multiplayer Bingo').replace(/[<>&]/g, '')}</div><div style="opacity:.72;margin-top:6px;font-size:${app.fontSize}px;">Add players in Multiplayer Bingo Studio to display cards</div></div>`;
             root.appendChild(empty);
@@ -449,47 +538,64 @@ html.sp-fx-paused .mp-card.is-zoomed {
         const cols = count === 1 ? 1 : isPortrait ? (count <= 3 ? 1 : 2) : (count <= 2 ? 2 : count <= 4 ? 2 : count <= 6 ? 3 : 4);
         const rows = Math.max(1, Math.ceil(count / cols));
         const showCellWords = count === 1
-            ? (labelsParam !== null ? (labelsParam === '1' || labelsParam === 'true') : true)
-            : (labelsParam !== null ? (labelsParam === '1' || labelsParam === 'true') : Boolean(baseApp.showMultiLabels));
+            ? (labelsParam !== null ? labelsParam : true)
+            : (labelsParam !== null ? labelsParam : Boolean(baseApp.showMultiLabels));
 
         const wrap = document.createElement('div');
         wrap.className = 'mp-multi-grid';
         wrap.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
         wrap.style.gridTemplateRows = `repeat(${rows}, minmax(0, 1fr))`;
+        wrap.style.gap = `${Math.max(8, app.cellGap * 2)}px`;
 
         for (const card of cardsToShow) {
             const isZoomed = Boolean(session.focusedCardId && session.focusedCardId === card.id);
             const shell = document.createElement('div');
             shell.className = `mp-card${isZoomed ? ' is-zoomed' : ''}`;
             shell.dataset.cardId = card.id;
+            const accent = card.bingoCount > 0 ? app.bingoColor : card.color;
             Object.assign(shell.style, {
                 background: app.boardBackground,
-                border: `2px solid ${card.bingoCount > 0 ? app.bingoColor : card.color}`,
+                border: app.borderWidth > 0 ? `${app.borderWidth}px solid ${accent}` : 'none',
                 borderRadius: `${app.radius}px`,
                 padding: `${Math.max(6, Math.round(app.padding * (count > 1 ? 0.75 : 0.9)))}px`,
-                gap: `${Math.max(4, Math.round(app.cellGap * 0.8))}px`
+                gap: `${Math.max(4, Math.round(app.cellGap * 0.8))}px`,
+                boxShadow: shadowCss(app.shadow, accent),
+                backdropFilter: blurStyle,
+                webkitBackdropFilter: blurStyle
             });
 
-            const head = document.createElement('div');
-            head.className = 'mp-card-head';
-            const who = document.createElement('div');
-            who.className = 'mp-player-who';
-            const dot = document.createElement('span');
-            dot.className = 'mp-dot';
-            dot.style.background = card.color;
-            const nm = document.createElement('span');
-            nm.className = 'mp-name';
-            nm.textContent = card.name;
-            nm.style.color = app.textColor;
-            nm.style.fontSize = `${Math.max(12, Math.round(app.fontSize * 1.05))}px`;
-            who.append(dot, nm);
-            const sc = document.createElement('span');
-            sc.className = 'mp-score';
-            sc.textContent = card.bingoCount > 0 ? `BINGO · ${card.stampedCount}/${card.total}` : `${card.stampedCount}/${card.total}`;
-            sc.style.color = card.bingoCount > 0 ? app.bingoColor : app.textColor;
-            sc.style.fontSize = `${Math.max(11, Math.round(app.fontSize * 0.9))}px`;
-            head.append(who, sc);
-            shell.appendChild(head);
+            if (app.showPlayerNames || app.showScores) {
+                const head = document.createElement('div');
+                head.className = 'mp-card-head';
+                if (app.showPlayerNames) {
+                    const who = document.createElement('div');
+                    who.className = 'mp-player-who';
+                    const dot = document.createElement('span');
+                    dot.className = 'mp-dot';
+                    dot.style.background = card.color;
+                    const nm = document.createElement('span');
+                    nm.className = 'mp-name';
+                    nm.textContent = card.name;
+                    nm.style.color = app.textColor;
+                    nm.style.fontWeight = String(Math.min(900, app.fontWeight + 100));
+                    nm.style.fontSize = `${Math.max(12, Math.round(app.fontSize * 1.05))}px`;
+                    if (app.uppercaseHeaders) {
+                        nm.style.textTransform = 'uppercase';
+                        nm.style.letterSpacing = '0.06em';
+                    }
+                    who.append(dot, nm);
+                    head.appendChild(who);
+                }
+                if (app.showScores) {
+                    const sc = document.createElement('span');
+                    sc.className = 'mp-score';
+                    sc.textContent = card.bingoCount > 0 ? `${app.bingoBannerText} · ${card.stampedCount}/${card.total}` : `${card.stampedCount}/${card.total}`;
+                    sc.style.color = card.bingoCount > 0 ? app.bingoColor : app.textColor;
+                    sc.style.fontSize = `${Math.max(11, Math.round(app.fontSize * 0.9))}px`;
+                    head.appendChild(sc);
+                }
+                shell.appendChild(head);
+            }
 
             const grid = document.createElement('div');
             grid.className = 'mp-grid';
@@ -509,6 +615,7 @@ html.sp-fx-paused .mp-card.is-zoomed {
                     borderRadius: `${Math.max(3, Math.round(app.radius * 0.55))}px`,
                     color: app.textColor,
                     fontSize: `${cellFont}px`,
+                    fontWeight: String(app.fontWeight),
                     opacity: c.lockedByOther ? '0.35' : '1'
                 });
                 if (showCellWords) {
@@ -516,11 +623,11 @@ html.sp-fx-paused .mp-card.is-zoomed {
                     lbl.className = 'mp-cell-label';
                     lbl.textContent = c.label;
                     el.appendChild(lbl);
-                } else if (c.isFree) {
+                } else if (c.isFree && app.showFreeMarker) {
                     const freeDot = document.createElement('span');
                     Object.assign(freeDot.style, {
                         width: '28%', height: '28%', borderRadius: '50%',
-                        background: 'rgba(255,255,255,0.75)', position: 'relative', zIndex: '1'
+                        background: 'rgba(255,255,255,0.8)', position: 'relative', zIndex: '1'
                     });
                     el.appendChild(freeDot);
                 }
@@ -531,6 +638,19 @@ html.sp-fx-paused .mp-card.is-zoomed {
                 grid.appendChild(el);
             }
             shell.appendChild(grid);
+
+            if (app.showBingoBanner && card.bingoCount > 0) {
+                const banner = document.createElement('div');
+                banner.className = 'mp-bingo-banner';
+                banner.textContent = card.bingoCount > 1 ? `${app.bingoBannerText} ×${card.bingoCount}` : app.bingoBannerText;
+                Object.assign(banner.style, {
+                    background: app.bingoColor,
+                    fontSize: `${Math.max(13, Math.round(app.fontSize * (count > 1 ? 1.15 : 1.55)))}px`,
+                    boxShadow: `0 8px 24px rgba(0,0,0,0.55), 0 0 16px ${app.bingoColor}`
+                });
+                shell.appendChild(banner);
+            }
+
             wrap.appendChild(shell);
         }
         root.appendChild(wrap);
