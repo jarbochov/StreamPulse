@@ -14,6 +14,8 @@ const SVG_DOWN = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" st
 const TAB_STORAGE_KEY = 'sp_obs_layout_top_tab';
 const INSP_STORAGE_KEY = 'sp_obs_layout_insp_tab';
 const SCENE_STORAGE_KEY = 'sp_obs_layout_scene';
+const CONFIRM_STORAGE_KEY = 'sp_obs_layout_confirm_apply';
+const LIVESYNC_STORAGE_KEY = 'sp_obs_layout_live_sync';
 const MAX_HISTORY = 40;
 
 let studioState = null;
@@ -1332,7 +1334,12 @@ function bindEvents() {
     $('ol-show-borders')?.addEventListener('change', () => renderCanvas());
     $('ol-live-sync')?.addEventListener('change', () => {
         const live = Boolean($('ol-live-sync')?.checked);
+        try { localStorage.setItem(LIVESYNC_STORAGE_KEY, live ? '1' : '0'); } catch { /* ignore */ }
         if ($('ol-confirm-apply')) $('ol-confirm-apply').disabled = live;
+    });
+    $('ol-confirm-apply')?.addEventListener('change', () => {
+        const on = Boolean($('ol-confirm-apply')?.checked);
+        try { localStorage.setItem(CONFIRM_STORAGE_KEY, on ? '1' : '0'); } catch { /* ignore */ }
     });
 
     $('ol-bounds-type')?.addEventListener('change', async () => {
@@ -2144,6 +2151,16 @@ function bindEvents() {
     }
 }
 
+// Restore persisted Live Sync & Confirm Apply preferences
+(() => {
+    try {
+        const savedConfirm = localStorage.getItem(CONFIRM_STORAGE_KEY);
+        if (savedConfirm !== null && $('ol-confirm-apply')) $('ol-confirm-apply').checked = savedConfirm === '1';
+        const savedLive = localStorage.getItem(LIVESYNC_STORAGE_KEY);
+        if (savedLive !== null && $('ol-live-sync')) $('ol-live-sync').checked = savedLive === '1';
+        if ($('ol-confirm-apply') && $('ol-live-sync')) $('ol-confirm-apply').disabled = $('ol-live-sync').checked;
+    } catch { /* ignore */ }
+})();
 bindEvents();
 switchTopTab((() => { try { return localStorage.getItem(TAB_STORAGE_KEY); } catch { return 'stage'; } })());
 switchInspectorTab((() => { try { return localStorage.getItem(INSP_STORAGE_KEY); } catch { return 'transform'; } })());
