@@ -211,15 +211,38 @@ function renderFieldCell(entry, f) {
     if (f.type === 'toggle') {
         return `<label class="op-check"><input type="checkbox" data-op-entry="${eid}" data-op-key="${fk}" data-op-type="toggle" ${val === 'true' ? 'checked' : ''}><span>${val === 'true' ? 'On' : 'Off'}</span></label>`;
     }
-    if (f.type === 'counter') {
+    if (f.type === 'counter' || f.type === 'number') {
+        const minAttr = f.min !== '' && f.min != null ? ` min="${esc(f.min)}"` : '';
+        const maxAttr = f.max !== '' && f.max != null ? ` max="${esc(f.max)}"` : '';
+        const stepVal = f.step !== '' && f.step != null && Number(f.step) > 0 ? Number(f.step) : 1;
+        const capHint = f.max !== '' && f.max != null ? `<span style="font-size:.75rem;color:var(--text-muted);white-space:nowrap;font-variant-numeric:tabular-nums;">/${esc(f.max)}</span>` : '';
         return `<div class="op-counter-group">
-            <button type="button" class="op-step-btn" data-op-step="${eid}" data-op-key="${fk}" data-op-delta="-1" aria-label="Decrement ${esc(f.label)}">-1</button>
-            <input type="number" step="any" class="op-cell-input" data-op-entry="${eid}" data-op-key="${fk}" data-op-type="counter" value="${esc(val)}">
-            <button type="button" class="op-step-btn" data-op-step="${eid}" data-op-key="${fk}" data-op-delta="1" aria-label="Increment ${esc(f.label)}">+1</button>
+            <button type="button" class="op-step-btn" data-op-step="${eid}" data-op-key="${fk}" data-op-delta="${-stepVal}" aria-label="Decrement ${esc(f.label)}">-${esc(stepVal)}</button>
+            <input type="number"${minAttr}${maxAttr} step="any" class="op-cell-input" data-op-entry="${eid}" data-op-key="${fk}" data-op-type="${esc(f.type)}" value="${esc(val)}">
+            ${capHint}
+            <button type="button" class="op-step-btn" data-op-step="${eid}" data-op-key="${fk}" data-op-delta="${stepVal}" aria-label="Increment ${esc(f.label)}">+${esc(stepVal)}</button>
         </div>`;
     }
-    if (f.type === 'number') {
-        return `<input type="number" step="any" class="op-cell-input" data-op-entry="${eid}" data-op-key="${fk}" data-op-type="number" value="${esc(val)}">`;
+    if (f.type === 'select') {
+        const opts = Array.isArray(f.options) ? f.options : [];
+        const cur = String(val || '').toLowerCase();
+        const activeOpt = opts.find(o => o.value.toLowerCase() === cur);
+        return `<div class="op-inline-group">
+            ${activeOpt?.color ? `<span style="width:10px;height:10px;border-radius:50%;background:${esc(activeOpt.color)};flex:none;"></span>` : ''}
+            <select class="op-cell-input" data-op-entry="${eid}" data-op-key="${fk}" data-op-type="select">
+                ${opts.length ? opts.map(o => `<option value="${esc(o.value)}"${o.value.toLowerCase() === cur ? ' selected' : ''}>${esc(o.label || o.value)}</option>`).join('') : '<option value="">No options</option>'}
+            </select>
+        </div>`;
+    }
+    if (f.type === 'tags') {
+        const opts = Array.isArray(f.options) ? f.options : [];
+        const activeSet = new Set((Array.isArray(val) ? val : String(val || '').split(',').map(s => s.trim()).filter(Boolean)).map(s => s.toLowerCase()));
+        if (!opts.length) return '<span style="font-size:.75rem;color:var(--text-muted);">No tags</span>';
+        return `<div style="display:flex;flex-wrap:wrap;gap:.25rem;">${opts.map(o => {
+            const active = activeSet.has(o.value.toLowerCase());
+            const style = o.color ? (active ? `background:${esc(o.color)};border-color:${esc(o.color)};color:#fff;` : `border-color:${esc(o.color)}55;`) : '';
+            return `<button type="button" class="op-slot-btn${active ? ' active' : ''}" data-op-tag-toggle="${eid}" data-op-key="${fk}" data-op-tag="${esc(o.value)}" aria-pressed="${active}" style="padding:.15rem .45rem;font-size:.72rem;border-radius:999px;${style}">${esc(o.label || o.value)}</button>`;
+        }).join('')}</div>`;
     }
     if (f.type === 'color') {
         const hex = /^#[0-9a-f]{6}/i.test(val) ? val.slice(0, 7) : '#3b82f6';
@@ -489,7 +512,10 @@ function renderOperator() {
         const isSorted = viewCfg.sort?.key === col.key;
         const icon = isSorted ? (viewCfg.sort.dir === 'asc' ? SVG_SORT_ASC : SVG_SORT_DESC) : SVG_SORT_NONE;
         const typeSuffix = col.field ? ` <span style="opacity:.6;font-weight:500;">(${esc(col.type)})</span>` : '';
-        return `<th><button type="button" class="op-sort-btn${isSorted ? ' active' : ''}" data-op-sort="${esc(col.key)}"><span>${esc(col.label)}${typeSuffix}</span>${icon}</button></th>`;
+        const resetBtn = col.field && ['counter', 'number', 'tags'].includes(col.type)
+            ? `<button type="button" class="op-btn sm" data-op-col-reset="${esc(col.key)}" title="Reset all ${esc(col.label)} values" style="padding:.1rem .35rem;font-size:.66rem;margin-left:.3rem;">Reset</button>`
+            : '';
+        return `<th><div style="display:inline-flex;align-items:center;"><button type="button" class="op-sort-btn${isSorted ? ' active' : ''}" data-op-sort="${esc(col.key)}"><span>${esc(col.label)}${typeSuffix}</span>${icon}</button>${resetBtn}</div></th>`;
     }).join('') + '<th></th>';
 
     const rowsHtml = visibleEntries.map(entry => {
@@ -1065,6 +1091,43 @@ function bindEvents() {
             return;
         }
 
+        const colReset = t.closest('[data-op-col-reset]');
+        if (colReset) {
+            const fieldKey = colReset.dataset.opColReset;
+            const field = (setObj.fields || []).find(f => f.key === fieldKey);
+            if (!field) return;
+            if (!window.confirm(`Reset "${field.label || field.key}" for all entries in "${setObj.name}"?`)) return;
+            try {
+                await api(`/api/variables/sets/${encodeURIComponent(setObj.id)}/column/reset`, 'POST', { field: fieldKey });
+                await loadData(false);
+                toast(`Reset ${field.label || field.key}`, 'success');
+            } catch (err) {
+                toast(err.message, 'error');
+            }
+            return;
+        }
+
+        const tagBtn = t.closest('[data-op-tag-toggle]');
+        if (tagBtn) {
+            await flushSaves();
+            if (saveError) return;
+            const entryId = tagBtn.dataset.opTagToggle;
+            const key = tagBtn.dataset.opKey;
+            const tagVal = tagBtn.dataset.opTag;
+            const entry = setObj.roster.find(r => r.id === entryId);
+            if (!entry) return;
+            const cur = Array.isArray(entry.values?.[key])
+                ? [...entry.values[key]]
+                : String(entry.values?.[key] || '').split(',').map(s => s.trim()).filter(Boolean);
+            const idx = cur.findIndex(v => v.toLowerCase() === tagVal.toLowerCase());
+            if (idx >= 0) cur.splice(idx, 1);
+            else cur.push(tagVal);
+            entry.values = { ...(entry.values || {}), [key]: cur };
+            renderOperator();
+            await persistRoster(setObj);
+            return;
+        }
+
         const stepBtn = t.closest('[data-op-step]');
         if (stepBtn) {
             await flushSaves();
@@ -1073,8 +1136,12 @@ function bindEvents() {
             const key = stepBtn.dataset.opKey;
             const delta = Number(stepBtn.dataset.opDelta) || 0;
             const entry = setObj.roster.find(r => r.id === entryId);
+            const field = (setObj.fields || []).find(f => f.key === key);
             if (!entry) return;
-            const next = String((Number(entry.values?.[key]) || 0) + delta);
+            let nextNum = (Number(entry.values?.[key]) || 0) + delta;
+            if (field?.min != null && Number.isFinite(Number(field.min))) nextNum = Math.max(Number(field.min), nextNum);
+            if (field?.max != null && Number.isFinite(Number(field.max))) nextNum = Math.min(Number(field.max), nextNum);
+            const next = String(nextNum);
             entry.values = { ...(entry.values || {}), [key]: next };
             const input = host.querySelector(`[data-op-entry="${CSS.escape(entryId)}"][data-op-key="${CSS.escape(key)}"]`);
             if (input) input.value = next;

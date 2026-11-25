@@ -3368,7 +3368,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     "shared/display-counter.cjs"(exports, module) {
       "use strict";
       var { resolveDisplayOwner: resolveDisplayOwner3 } = require_display_source();
-      var COUNTER_STYLES = ["pips", "hearts", "stars", "diamonds", "squares", "bars", "tally", "tally-chalk", "number"];
+      var COUNTER_STYLES = ["pips", "hearts", "stars", "diamonds", "squares", "bars", "icon", "tally", "tally-chalk", "number"];
       var COUNTER_THEMES = ["modern", "esports", "sports", "arcade", "minimal", "cozy", "chalkboard"];
       var SOURCE_MODES = ["variables", "set"];
       var COUNTER_THEME_PRESETS = {
@@ -3508,6 +3508,8 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           rowScope: "all",
           theme: "modern",
           style: "pips",
+          iconClass: "fa-solid fa-crown",
+          allowHalf: true,
           capMode: "auto",
           customCap: 5,
           overflowMode: "plus",
@@ -3562,6 +3564,8 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           rowScope: ROW_SCOPES.includes(input.rowScope) ? input.rowScope : def.rowScope,
           theme: COUNTER_THEMES.includes(input.theme) ? input.theme : def.theme,
           style: COUNTER_STYLES.includes(input.style) ? input.style : def.style,
+          iconClass: /^[a-z0-9 -]+$/i.test(String(input.iconClass || "").trim()) && /\bfa-[a-z0-9-]+/i.test(String(input.iconClass || "").trim()) ? String(input.iconClass).trim().slice(0, 80) : def.iconClass,
+          allowHalf: input.allowHalf !== false,
           capMode: CAP_MODES.includes(input.capMode) ? input.capMode : def.capMode,
           customCap: Math.round(bound(input.customCap, def.customCap, 1, 100)),
           overflowMode: OVERFLOW_MODES.includes(input.overflowMode) ? input.overflowMode : def.overflowMode,
@@ -3720,18 +3724,363 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     }
   });
 
+  // shared/display-meter.cjs
+  var require_display_meter = __commonJS({
+    "shared/display-meter.cjs"(exports, module) {
+      "use strict";
+      var { COUNTER_THEME_PRESETS, resolveCounterRows: resolveCounterRows2 } = require_display_counter();
+      var METER_STYLES = ["bar", "segmented", "ring", "vertical"];
+      var METER_THEMES = ["modern", "esports", "sports", "arcade", "minimal", "cozy"];
+      var METER_READOUTS = ["fraction", "percent", "both", "value", "none"];
+      var ROW_SCOPES = ["all", "active", "slots", "group", "group-slots"];
+      var VAR_TOKEN_RE = /^(?:\{\{[a-z0-9_.:-]{1,80}\}\}|@[a-z0-9_-]{1,60})$/i;
+      var cleanKey = (value) => String(value || "").replace(/[^a-z0-9_-]/gi, "_").slice(0, 60);
+      var cleanVarName = (value) => String(value || "").replace(/[^a-z0-9_.-]/gi, "").slice(0, 80);
+      var cleanText = (value, limit = 80) => String(value ?? "").trim().slice(0, limit);
+      var bound = (value, fallback, min, max) => Number.isFinite(Number(value)) && value !== "" && value != null ? Math.min(max, Math.max(min, Number(value))) : fallback;
+      var cleanColor = (value, fallback) => {
+        const str = String(value || "").trim();
+        if (/^#[a-f0-9]{6}(?:[a-f0-9]{2})?$/i.test(str) || VAR_TOKEN_RE.test(str)) return str;
+        return fallback;
+      };
+      function defaultDisplayMeter() {
+        return {
+          sourceMode: "variables",
+          variables: [],
+          valueField: "",
+          labelField: "$label",
+          rowScope: "all",
+          theme: "modern",
+          style: "bar",
+          capMode: "auto",
+          customCap: 100,
+          segments: 10,
+          direction: "vertical",
+          readout: "both",
+          showLabel: true,
+          trail: true,
+          useThresholds: false,
+          lowThreshold: 25,
+          midThreshold: 55,
+          fillColor: "#22c55e",
+          trackColor: "#ffffff1a",
+          trailColor: "#ffffff66",
+          lowColor: "#ef4444",
+          midColor: "#f59e0b",
+          labelColor: "#f8fafc",
+          readoutColor: "#e2e8f0",
+          rowBackground: "#0f172ad9",
+          rowBorderColor: "#ffffff24",
+          rowBorderWidth: 1,
+          rowRadius: 12,
+          rowPadding: 14,
+          barHeight: 16,
+          ringSize: 96,
+          rowGap: 10,
+          fontSize: 15,
+          fontFamily: "sans-serif",
+          maxRows: 12
+        };
+      }
+      function normalizeDisplayMeter2(input = {}) {
+        const def = defaultDisplayMeter();
+        const seen = /* @__PURE__ */ new Set();
+        const variables = (Array.isArray(input.variables) ? input.variables : []).slice(0, 16).flatMap((entry) => {
+          const raw = typeof entry === "string" ? { name: entry } : entry || {};
+          const name = cleanVarName(raw.name);
+          if (!name || seen.has(name)) return [];
+          seen.add(name);
+          const rawCap = raw.cap;
+          const cap = rawCap !== "" && rawCap != null && Number.isFinite(Number(rawCap)) && Number(rawCap) > 0 ? Math.min(1e6, Math.max(1, Number(rawCap))) : null;
+          return [{ name, label: cleanText(raw.label, 60), cap }];
+        });
+        const rawLabelField = String(input.labelField || "$label").trim();
+        const labelField = rawLabelField === "$label" ? "$label" : cleanKey(rawLabelField) || "$label";
+        return {
+          sourceMode: input.sourceMode === "set" ? "set" : "variables",
+          variables,
+          valueField: cleanKey(input.valueField),
+          labelField,
+          rowScope: ROW_SCOPES.includes(input.rowScope) ? input.rowScope : def.rowScope,
+          theme: METER_THEMES.includes(input.theme) ? input.theme : def.theme,
+          style: METER_STYLES.includes(input.style) ? input.style : def.style,
+          capMode: ["auto", "custom"].includes(input.capMode) ? input.capMode : def.capMode,
+          customCap: bound(input.customCap, def.customCap, 1, 1e6),
+          segments: Math.round(bound(input.segments, def.segments, 2, 40)),
+          direction: input.direction === "horizontal" ? "horizontal" : "vertical",
+          readout: METER_READOUTS.includes(input.readout) ? input.readout : def.readout,
+          showLabel: input.showLabel !== false,
+          trail: input.trail !== false,
+          useThresholds: input.useThresholds === true,
+          lowThreshold: Math.round(bound(input.lowThreshold, def.lowThreshold, 1, 99)),
+          midThreshold: Math.round(bound(input.midThreshold, def.midThreshold, 2, 99)),
+          fillColor: cleanColor(input.fillColor, def.fillColor),
+          trackColor: cleanColor(input.trackColor, def.trackColor),
+          trailColor: cleanColor(input.trailColor, def.trailColor),
+          lowColor: cleanColor(input.lowColor, def.lowColor),
+          midColor: cleanColor(input.midColor, def.midColor),
+          labelColor: cleanColor(input.labelColor, def.labelColor),
+          readoutColor: cleanColor(input.readoutColor, def.readoutColor),
+          rowBackground: cleanColor(input.rowBackground, def.rowBackground),
+          rowBorderColor: cleanColor(input.rowBorderColor, def.rowBorderColor),
+          rowBorderWidth: bound(input.rowBorderWidth, def.rowBorderWidth, 0, 8),
+          rowRadius: Math.round(bound(input.rowRadius, def.rowRadius, 0, 48)),
+          rowPadding: Math.round(bound(input.rowPadding, def.rowPadding, 0, 48)),
+          barHeight: Math.round(bound(input.barHeight, def.barHeight, 6, 64)),
+          ringSize: Math.round(bound(input.ringSize, def.ringSize, 48, 240)),
+          rowGap: Math.round(bound(input.rowGap, def.rowGap, 0, 48)),
+          fontSize: Math.round(bound(input.fontSize, def.fontSize, 10, 64)),
+          fontFamily: cleanText(input.fontFamily, 120).replace(/[;<>]/g, "") || def.fontFamily,
+          maxRows: Math.round(bound(input.maxRows, def.maxRows, 1, 50))
+        };
+      }
+      function resolveMeterRows2(definition, binding = {}, status = {}) {
+        const cfg = normalizeDisplayMeter2(definition?.meter);
+        const pseudoDef = {
+          ...definition,
+          counter: {
+            sourceMode: cfg.sourceMode,
+            variables: cfg.variables,
+            valueField: cfg.valueField,
+            labelField: cfg.labelField,
+            rowScope: cfg.rowScope,
+            capMode: cfg.capMode,
+            customCap: cfg.customCap,
+            maxRows: cfg.maxRows
+          }
+        };
+        return resolveCounterRows2(pseudoDef, binding, status).map((row) => {
+          const cap = row.cap != null && row.cap > 0 ? row.cap : cfg.customCap;
+          const min = row.min != null && Number.isFinite(Number(row.min)) ? Number(row.min) : 0;
+          const span = Math.max(1e-4, cap - min);
+          const pct = Math.max(0, Math.min(100, (row.value - min) / span * 100));
+          return { ...row, cap, min, pct };
+        });
+      }
+      function formatMeterReadout2(value, cap, pct, mode) {
+        if (mode === "none") return "";
+        const vText = Number.isInteger(value) ? String(value) : String(Math.round(value * 100) / 100);
+        const pText = `${Math.round(pct)}%`;
+        if (mode === "percent") return pText;
+        if (mode === "value") return vText;
+        if (mode === "both") return `${vText} / ${cap} \xB7 ${pText}`;
+        return `${vText} / ${cap}`;
+      }
+      module.exports = {
+        METER_STYLES,
+        METER_THEMES,
+        METER_READOUTS,
+        METER_THEME_PRESETS: COUNTER_THEME_PRESETS,
+        defaultDisplayMeter,
+        normalizeDisplayMeter: normalizeDisplayMeter2,
+        resolveMeterRows: resolveMeterRows2,
+        formatMeterReadout: formatMeterReadout2
+      };
+    }
+  });
+
+  // shared/display-ticker.cjs
+  var require_display_ticker = __commonJS({
+    "shared/display-ticker.cjs"(exports, module) {
+      "use strict";
+      var { resolveDisplayOwner: resolveDisplayOwner3 } = require_display_source();
+      var TICKER_THEMES = ["esports", "sports", "modern", "arcade", "minimal"];
+      var TICKER_SEPARATORS = ["dot", "diamond", "slash", "bar", "none"];
+      var ROW_SCOPES = ["all", "active", "slots", "group", "group-slots"];
+      var VAR_TOKEN_RE = /^(?:\{\{[a-z0-9_.:-]{1,80}\}\}|@[a-z0-9_-]{1,60})$/i;
+      var cleanKey = (value) => String(value || "").replace(/[^a-z0-9_-]/gi, "_").slice(0, 60);
+      var cleanVarName = (value) => String(value || "").replace(/[^a-z0-9_.-]/gi, "").slice(0, 80);
+      var cleanText = (value, limit = 80) => String(value ?? "").trim().slice(0, limit);
+      var bound = (value, fallback, min, max) => Number.isFinite(Number(value)) && value !== "" && value != null ? Math.min(max, Math.max(min, Number(value))) : fallback;
+      var cleanColor = (value, fallback) => {
+        const str = String(value || "").trim();
+        if (/^#[a-f0-9]{6}(?:[a-f0-9]{2})?$/i.test(str) || VAR_TOKEN_RE.test(str)) return str;
+        return fallback;
+      };
+      var TICKER_THEME_PRESETS = {
+        esports: {
+          label: "Esports Broadcast",
+          background: "#090d16eb",
+          textColor: "#f8fafc",
+          accentColor: "#38bdf8",
+          badgeBackground: "#38bdf8",
+          badgeTextColor: "#090d16",
+          borderColor: "#38bdf844",
+          borderWidth: 1,
+          radius: 4
+        },
+        sports: {
+          label: "Broadcast Sports",
+          background: "#0d1a33f2",
+          textColor: "#ffffff",
+          accentColor: "#f59e0b",
+          badgeBackground: "#f59e0b",
+          badgeTextColor: "#091122",
+          borderColor: "#f59e0b55",
+          borderWidth: 1,
+          radius: 4
+        },
+        modern: {
+          label: "Modern Glass",
+          background: "#0f172ad9",
+          textColor: "#f8fafc",
+          accentColor: "#818cf8",
+          badgeBackground: "#6366f1",
+          badgeTextColor: "#ffffff",
+          borderColor: "#ffffff24",
+          borderWidth: 1,
+          radius: 10
+        },
+        arcade: {
+          label: "Retro Arcade",
+          background: "#120824f2",
+          textColor: "#fef08a",
+          accentColor: "#e879f9",
+          badgeBackground: "#e879f9",
+          badgeTextColor: "#120824",
+          borderColor: "#22d3ee99",
+          borderWidth: 2,
+          radius: 3
+        },
+        minimal: {
+          label: "Minimal HUD",
+          background: "#00000000",
+          textColor: "#ffffff",
+          accentColor: "#38bdf8",
+          badgeBackground: "#ffffff22",
+          badgeTextColor: "#ffffff",
+          borderColor: "#00000000",
+          borderWidth: 0,
+          radius: 0
+        }
+      };
+      function defaultDisplayTicker() {
+        return {
+          sourceMode: "list",
+          listVariable: "",
+          labelField: "$label",
+          subField: "",
+          imageField: "",
+          rowScope: "all",
+          theme: "esports",
+          badgeText: "LIVE",
+          separator: "diamond",
+          direction: "left",
+          speed: 75,
+          itemGap: 40,
+          showImages: true,
+          background: "#090d16eb",
+          textColor: "#f8fafc",
+          accentColor: "#38bdf8",
+          badgeBackground: "#38bdf8",
+          badgeTextColor: "#090d16",
+          borderColor: "#38bdf844",
+          borderWidth: 1,
+          radius: 4,
+          height: 48,
+          fontSize: 16,
+          fontFamily: "sans-serif",
+          maxItems: 40
+        };
+      }
+      function normalizeDisplayTicker2(input = {}) {
+        const def = defaultDisplayTicker();
+        const rawLabelField = String(input.labelField || "$label").trim();
+        const labelField = rawLabelField === "$label" ? "$label" : cleanKey(rawLabelField) || "$label";
+        return {
+          sourceMode: input.sourceMode === "set" ? "set" : "list",
+          listVariable: cleanVarName(input.listVariable),
+          labelField,
+          subField: cleanKey(input.subField),
+          imageField: cleanKey(input.imageField),
+          rowScope: ROW_SCOPES.includes(input.rowScope) ? input.rowScope : def.rowScope,
+          theme: TICKER_THEMES.includes(input.theme) ? input.theme : def.theme,
+          badgeText: cleanText(input.badgeText ?? def.badgeText, 32),
+          separator: TICKER_SEPARATORS.includes(input.separator) ? input.separator : def.separator,
+          direction: input.direction === "right" ? "right" : "left",
+          speed: Math.round(bound(input.speed, def.speed, 15, 240)),
+          itemGap: Math.round(bound(input.itemGap, def.itemGap, 12, 160)),
+          showImages: input.showImages !== false,
+          background: cleanColor(input.background, def.background),
+          textColor: cleanColor(input.textColor, def.textColor),
+          accentColor: cleanColor(input.accentColor, def.accentColor),
+          badgeBackground: cleanColor(input.badgeBackground, def.badgeBackground),
+          badgeTextColor: cleanColor(input.badgeTextColor, def.badgeTextColor),
+          borderColor: cleanColor(input.borderColor, def.borderColor),
+          borderWidth: bound(input.borderWidth, def.borderWidth, 0, 8),
+          radius: Math.round(bound(input.radius, def.radius, 0, 48)),
+          height: Math.round(bound(input.height, def.height, 28, 120)),
+          fontSize: Math.round(bound(input.fontSize, def.fontSize, 10, 48)),
+          fontFamily: cleanText(input.fontFamily, 120).replace(/[;<>]/g, "") || def.fontFamily,
+          maxItems: Math.round(bound(input.maxItems, def.maxItems, 1, 100))
+        };
+      }
+      function resolveTickerItems2(definition, binding = {}, status = {}) {
+        const cfg = normalizeDisplayTicker2(definition?.ticker);
+        const customVars = Array.isArray(status.customVars) ? status.customVars : Array.isArray(status.variables) ? status.variables : [];
+        const sets = Array.isArray(status.variableSets) ? status.variableSets : Array.isArray(status.sets) ? status.sets : [];
+        if (binding?.variableName || cfg.sourceMode === "list") {
+          const varName = binding?.variableName || cfg.listVariable;
+          if (!varName) return [];
+          const v = customVars.find((item) => item.name === varName);
+          if (!v) return [];
+          const rawItems = Array.isArray(v.items) ? v.items : String(v.value ?? "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+          return rawItems.slice(0, cfg.maxItems).map((text, idx) => ({
+            key: `list:${varName}:${idx}`,
+            text: String(text),
+            sub: "",
+            image: "",
+            entry: null
+          }));
+        }
+        const targetSetId = binding?.setId || definition?.catalogId || "";
+        const setObj = sets.find((s) => s.id === targetSetId);
+        if (!setObj) return [];
+        const scope = binding?.rows || cfg.rowScope || "all";
+        let entries = [];
+        if (scope === "active") {
+          const owner = resolveDisplayOwner3(sets, { ...binding, setId: setObj.id }).entry;
+          entries = owner ? [owner] : [];
+        } else if (scope === "slots" || scope === "group-slots") {
+          const ids = setObj.slotsCount > 0 ? setObj.slots || [] : [setObj.activeEntry];
+          entries = [...new Set(ids)].map((id) => (setObj.roster || []).find((entry) => entry.id === id)).filter((entry) => entry && (scope !== "group-slots" || entry.inGroup !== false));
+        } else {
+          entries = (setObj.roster || []).filter((entry) => entry.enabled !== false && (scope !== "group" || entry.inGroup !== false));
+        }
+        const imgKey = cfg.imageField || (setObj.fields || []).find((f) => f.type === "image")?.key || "";
+        return entries.slice(0, cfg.maxItems).map((entry) => ({
+          key: `set:${setObj.id}:${entry.id}`,
+          text: cfg.labelField === "$label" ? entry.label || entry.id : String(entry.values?.[cfg.labelField] ?? entry.label ?? entry.id),
+          sub: cfg.subField ? String(entry.values?.[cfg.subField] ?? "").trim() : "",
+          image: cfg.showImages && imgKey ? String(entry.values?.[imgKey] ?? "").trim() : "",
+          entry
+        })).filter((item) => item.text);
+      }
+      module.exports = {
+        TICKER_THEMES,
+        TICKER_SEPARATORS,
+        TICKER_THEME_PRESETS,
+        defaultDisplayTicker,
+        normalizeDisplayTicker: normalizeDisplayTicker2,
+        resolveTickerItems: resolveTickerItems2
+      };
+    }
+  });
+
   // shared/variable-displays.cjs
   var require_variable_displays = __commonJS({
     "shared/variable-displays.cjs"(exports, module) {
       var { resolveDisplayOwner: resolveDisplayOwner3 } = require_display_source();
       var { normalizeDisplayTable } = require_display_table();
       var { normalizeDisplayCounter: normalizeDisplayCounter2 } = require_display_counter();
+      var { normalizeDisplayMeter: normalizeDisplayMeter2 } = require_display_meter();
+      var { normalizeDisplayTicker: normalizeDisplayTicker2 } = require_display_ticker();
       var key = (value) => String(value || "").replace(/[^a-z0-9_-]/gi, "_").slice(0, 60);
       var text = (value, limit = 80) => String(value ?? "").trim().slice(0, limit);
       var number = (value, fallback, min, max) => Number.isFinite(Number(value)) && value !== "" && value != null ? Math.max(min, Math.min(max, Number(value))) : fallback;
       var color = (value, fallback) => /^#[a-f0-9]{6}(?:[a-f0-9]{2})?$/i.test(value || "") ? value : fallback;
       function normalizeDisplay(input = {}, id = input.id) {
-        if (input.kind && !["inventory", "table", "badge", "counter"].includes(input.kind)) throw new Error("Unsupported display kind");
+        if (input.kind && !["inventory", "table", "badge", "counter", "meter", "ticker"].includes(input.kind)) throw new Error("Unsupported display kind");
         const seen = /* @__PURE__ */ new Set();
         const sections = (Array.isArray(input.sections) ? input.sections : []).slice(0, 20).map((section, index) => {
           const cells = /* @__PURE__ */ new Set();
@@ -3758,6 +4107,8 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           ...input.kind === "table" ? { table: normalizeDisplayTable(input.table) } : {},
           ...input.kind === "badge" ? { badge: JSON.parse(JSON.stringify(input.badge || {})) } : {},
           ...input.kind === "counter" ? { counter: normalizeDisplayCounter2(input.counter) } : {},
+          ...input.kind === "meter" ? { meter: normalizeDisplayMeter2(input.meter) } : {},
+          ...input.kind === "ticker" ? { ticker: normalizeDisplayTicker2(input.ticker) } : {},
           catalogId: key(input.catalogId),
           imageField: key(input.imageField) || "image",
           labelField: key(input.labelField) || "name",
@@ -4157,10 +4508,51 @@ html.sp-fx-paused .sp-tally-slash.is-pop {
     }
     return node;
   }
-  function createShapeMarker(style, state, cfg, pop) {
+  function createIconMarker(state, cfg, pop) {
+    if (typeof ensureFontAwesome === "function") ensureFontAwesome();
+    const cls = sanitizeIconClass ? sanitizeIconClass(cfg.iconClass || "fa-solid fa-crown") : cfg.iconClass || "fa-solid fa-crown";
+    const size = Math.max(12, Number(cfg.markerSize) || 26);
     const isFilled = state !== "empty";
-    const fill = state === "overflow" ? cfg.overflowColor : state === "cap" ? cfg.capReachedColor || cfg.filledColor : isFilled ? cfg.filledColor : cfg.emptyColor;
-    const stroke = state === "overflow" ? cfg.overflowColor : state === "cap" ? cfg.capReachedColor || cfg.filledColor : isFilled ? cfg.filledColor : cfg.outlineColor;
+    const color = state === "overflow" ? cfg.overflowColor : state === "cap" ? cfg.capReachedColor || cfg.filledColor : isFilled ? cfg.filledColor : cfg.outlineColor;
+    const span = document.createElement("span");
+    span.className = `sp-counter-marker sp-counter-icon-marker${pop ? " is-pop" : ""}`;
+    span.dataset.markerState = state;
+    span.dataset.markerStyle = "icon";
+    span.setAttribute("aria-hidden", "true");
+    Object.assign(span.style, {
+      position: "relative",
+      display: "inline-grid",
+      placeItems: "center",
+      width: `${size}px`,
+      height: `${size}px`,
+      fontSize: `${Math.round(size * 0.85)}px`,
+      lineHeight: "1",
+      color,
+      opacity: state === "empty" ? "0.28" : "1",
+      flex: "none"
+    });
+    if (state === "half") {
+      const bg = document.createElement("i");
+      bg.className = cls || "fa-solid fa-crown";
+      Object.assign(bg.style, { position: "absolute", opacity: "0.28", color: cfg.outlineColor });
+      const fg = document.createElement("i");
+      fg.className = cls || "fa-solid fa-crown";
+      Object.assign(fg.style, { position: "absolute", color: cfg.filledColor, clipPath: "inset(0 50% 0 0)" });
+      span.append(bg, fg);
+    } else {
+      const icon = document.createElement("i");
+      icon.className = cls || "fa-solid fa-crown";
+      span.appendChild(icon);
+    }
+    return span;
+  }
+  function createShapeMarker(style, state, cfg, pop) {
+    if (style === "icon") return createIconMarker(state, cfg, pop);
+    const isHalf = state === "half";
+    const isFilled = state !== "empty" && !isHalf;
+    const activeFill = state === "overflow" ? cfg.overflowColor : state === "cap" ? cfg.capReachedColor || cfg.filledColor : cfg.filledColor;
+    const fill = isFilled ? activeFill : cfg.emptyColor;
+    const stroke = state === "overflow" ? cfg.overflowColor : state === "cap" ? cfg.capReachedColor || cfg.filledColor : isFilled || isHalf ? activeFill : cfg.outlineColor;
     const sw = Math.max(0.5, Number(cfg.strokeWidth) || 2);
     const size = Math.max(10, Number(cfg.markerSize) || 26);
     const svg = svgEl("svg", {
@@ -4175,67 +4567,51 @@ html.sp-fx-paused .sp-tally-slash.is-pop {
     svg.style.display = "block";
     svg.style.flex = "none";
     svg.style.overflow = "visible";
-    if (style === "pips") {
-      svg.appendChild(svgEl("circle", {
-        cx: 12,
-        cy: 12,
-        r: 8.5,
-        fill,
-        stroke,
-        "stroke-width": sw
-      }));
-      if (isFilled) {
-        svg.appendChild(svgEl("ellipse", {
-          cx: 9.4,
-          cy: 8.8,
-          rx: 2.8,
-          ry: 1.8,
-          fill: "#ffffff",
-          opacity: "0.32",
-          transform: "rotate(-28 9.4 8.8)"
-        }));
+    const buildPrimitive = (primitiveFill, primitiveStroke) => {
+      if (style === "pips") {
+        return svgEl("circle", { cx: 12, cy: 12, r: 8.5, fill: primitiveFill, stroke: primitiveStroke, "stroke-width": sw });
       }
-    } else if (style === "squares") {
-      svg.appendChild(svgEl("rect", {
-        x: 3.5,
-        y: 3.5,
-        width: 17,
-        height: 17,
-        rx: 3.5,
-        fill,
-        stroke,
-        "stroke-width": sw
+      if (style === "squares") {
+        return svgEl("rect", { x: 3.5, y: 3.5, width: 17, height: 17, rx: 3.5, fill: primitiveFill, stroke: primitiveStroke, "stroke-width": sw });
+      }
+      if (style === "bars") {
+        return svgEl("rect", { x: 6, y: 3, width: 12, height: 18, rx: 3, fill: primitiveFill, stroke: primitiveStroke, "stroke-width": sw });
+      }
+      return svgEl("path", { d: SHAPE_PATHS[style] || SHAPE_PATHS.hearts, fill: primitiveFill, stroke: primitiveStroke, "stroke-width": sw, "stroke-linejoin": "round", "stroke-linecap": "round" });
+    };
+    if (isHalf) {
+      const cid = `sp-half-${++clipIdCounter}`;
+      const defs = svgEl("defs");
+      const cp = svgEl("clipPath", { id: cid });
+      cp.appendChild(svgEl("rect", { x: 0, y: 0, width: 12, height: 24 }));
+      defs.appendChild(cp);
+      svg.appendChild(defs);
+      svg.appendChild(buildPrimitive(cfg.emptyColor, cfg.outlineColor));
+      const halfFill = buildPrimitive(activeFill, activeFill);
+      halfFill.setAttribute("clip-path", `url(#${cid})`);
+      svg.appendChild(halfFill);
+      return svg;
+    }
+    svg.appendChild(buildPrimitive(fill, stroke));
+    if (isFilled && style === "pips") {
+      svg.appendChild(svgEl("ellipse", {
+        cx: 9.4,
+        cy: 8.8,
+        rx: 2.8,
+        ry: 1.8,
+        fill: "#ffffff",
+        opacity: "0.32",
+        transform: "rotate(-28 9.4 8.8)"
       }));
-    } else if (style === "bars") {
-      svg.appendChild(svgEl("rect", {
-        x: 6,
-        y: 3,
-        width: 12,
-        height: 18,
-        rx: 3,
-        fill,
-        stroke,
-        "stroke-width": sw
-      }));
-    } else {
+    } else if (isFilled && style === "hearts") {
       svg.appendChild(svgEl("path", {
-        d: SHAPE_PATHS[style] || SHAPE_PATHS.hearts,
-        fill,
-        stroke,
-        "stroke-width": sw,
-        "stroke-linejoin": "round",
-        "stroke-linecap": "round"
+        d: "M6.6 9.1c0-1.6 1.1-2.8 2.5-2.8",
+        fill: "none",
+        stroke: "#ffffff",
+        "stroke-width": "1.6",
+        "stroke-linecap": "round",
+        opacity: "0.42"
       }));
-      if (isFilled && style === "hearts") {
-        svg.appendChild(svgEl("path", {
-          d: "M6.6 9.1c0-1.6 1.1-2.8 2.5-2.8",
-          fill: "none",
-          stroke: "#ffffff",
-          "stroke-width": "1.6",
-          "stroke-linecap": "round",
-          opacity: "0.42"
-        }));
-      }
     }
     return svg;
   }
@@ -4371,16 +4747,25 @@ html.sp-fx-paused .sp-tally-slash.is-pop {
       }
       return wrap;
     }
-    const baseSlots = cap != null ? Math.min(MAX_RENDER_MARKERS, cap) : Math.min(MAX_RENDER_MARKERS, clampedCount);
-    const extraOverflowSlots = cap != null && cfg.overflowMode === "overflow" && rawCount > cap ? Math.min(MAX_RENDER_MARKERS - baseSlots, rawCount - cap) : 0;
+    const numericVal = Math.max(0, Number(value) || 0);
+    const frac = numericVal - Math.floor(numericVal);
+    const hasHalf = cfg.allowHalf !== false && frac >= 0.25 && frac < 0.75;
+    const effectiveFull = frac >= 0.75 ? Math.ceil(numericVal) : Math.floor(numericVal);
+    const effectiveSlotsNeeded = effectiveFull + (hasHalf ? 1 : 0);
+    const baseSlots = cap != null ? Math.min(MAX_RENDER_MARKERS, cap) : Math.min(MAX_RENDER_MARKERS, effectiveSlotsNeeded);
+    const extraOverflowSlots = cap != null && cfg.overflowMode === "overflow" && effectiveFull > cap ? Math.min(MAX_RENDER_MARKERS - baseSlots, effectiveFull - cap) : 0;
     if (baseSlots === 0 && extraOverflowSlots === 0) {
       wrap.appendChild(createShapeMarker(cfg.style, "empty", cfg, false));
       return wrap;
     }
     for (let i = 0; i < baseSlots; i++) {
-      const isFilled = i < clampedCount;
-      const state = !isFilled ? "empty" : isCapReached && cfg.capReachedColor ? "cap" : "filled";
-      const pop = isFilled && popFromIndex >= 0 && i >= popFromIndex;
+      let state = "empty";
+      if (i < effectiveFull) {
+        state = isCapReached && cfg.capReachedColor ? "cap" : "filled";
+      } else if (hasHalf && i === effectiveFull) {
+        state = "half";
+      }
+      const pop = state !== "empty" && popFromIndex >= 0 && i >= popFromIndex;
       wrap.appendChild(createShapeMarker(cfg.style, state, cfg, pop));
     }
     for (let j = 0; j < extraOverflowSlots; j++) {
@@ -4580,12 +4965,14 @@ html.sp-fx-paused .sp-tally-slash.is-pop {
     wrapper.appendChild(node);
     return wrapper.innerHTML;
   }
-  var import_display_counter, SVG_NS, MAX_RENDER_MARKERS, SHAPE_PATHS;
+  var import_display_counter, clipIdCounter, SVG_NS, MAX_RENDER_MARKERS, SHAPE_PATHS;
   var init_display_counter = __esm({
     "public/js/overlay/display-counter.js"() {
       import_display_counter = __toESM(require_display_counter());
       init_variables();
       init_fonts();
+      init_icons();
+      clipIdCounter = 0;
       SVG_NS = "http://www.w3.org/2000/svg";
       MAX_RENDER_MARKERS = 100;
       SHAPE_PATHS = {
@@ -4593,6 +4980,629 @@ html.sp-fx-paused .sp-tally-slash.is-pop {
         stars: "M12 2.6l2.85 5.78 6.38.93-4.62 4.5 1.09 6.36L12 17.16l-5.7 3.01 1.09-6.36-4.62-4.5 6.38-.93z",
         diamonds: "M12 2.5L21 12l-9 9.5L3 12z"
       };
+    }
+  });
+
+  // public/js/overlay/display-meter.js
+  function ensureMeterStyles() {
+    if (typeof document === "undefined" || document.getElementById("sp-meter-display-styles")) return;
+    const style = document.createElement("style");
+    style.id = "sp-meter-display-styles";
+    style.textContent = `
+.sp-meter-bar-fill {
+    transition: width 320ms cubic-bezier(0.22, 1, 0.36, 1), height 320ms cubic-bezier(0.22, 1, 0.36, 1), background-color 220ms ease;
+}
+.sp-meter-bar-trail {
+    transition: width 760ms ease-out, height 760ms ease-out;
+}
+.sp-meter-ring-fg {
+    transition: stroke-dashoffset 360ms cubic-bezier(0.22, 1, 0.36, 1), stroke 220ms ease;
+}
+.sp-meter-display[data-meter-theme="modern"] .sp-meter-row {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 8px 22px rgba(0, 0, 0, 0.28);
+}
+.sp-meter-display[data-meter-theme="esports"] .sp-meter-row {
+    box-shadow: inset 4px 0 0 var(--mtr-accent, #38bdf8), 0 8px 22px rgba(0, 0, 0, 0.42);
+}
+.sp-meter-display[data-meter-theme="esports"] .sp-meter-label {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 800;
+}
+.sp-meter-display[data-meter-theme="sports"] .sp-meter-row {
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0) 48%, rgba(0, 0, 0, 0.22) 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 6px 18px rgba(0, 0, 0, 0.36);
+}
+.sp-meter-display[data-meter-theme="sports"] .sp-meter-label {
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 800;
+}
+.sp-meter-display[data-meter-theme="arcade"] .sp-meter-row {
+    box-shadow: 0 0 12px color-mix(in srgb, var(--mtr-accent, #e879f9) 32%, transparent), inset 0 0 12px color-mix(in srgb, var(--mtr-accent, #e879f9) 14%, transparent);
+}
+.sp-meter-display[data-meter-theme="arcade"] .sp-meter-label {
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 800;
+}
+.sp-meter-display[data-meter-theme="minimal"] .sp-meter-row {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+.sp-meter-display[data-meter-theme="minimal"] .sp-meter-label,
+.sp-meter-display[data-meter-theme="minimal"] .sp-meter-readout {
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.88);
+}
+html.sp-fx-paused .sp-meter-bar-fill,
+html.sp-fx-paused .sp-meter-bar-trail,
+html.sp-fx-paused .sp-meter-ring-fg {
+    transition: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+    .sp-meter-bar-fill,
+    .sp-meter-bar-trail,
+    .sp-meter-ring-fg {
+        transition: none !important;
+    }
+}`;
+    document.head.appendChild(style);
+  }
+  function resolveMeterRowConfig(cfg, status, member, pct) {
+    const col = (raw, fallback) => {
+      if (!raw) return fallback;
+      const str = String(raw).trim();
+      if (member) {
+        const m = /^\{\{member\.([a-z0-9_-]+)\}\}$/i.exec(str);
+        if (m) return String(member.values?.[m[1]] ?? member[m[1]] ?? "").trim() || fallback;
+      }
+      if (!str.includes("{{") && !str.startsWith("@")) return str;
+      return resolveColorToken(str, status, {}, member) || fallback;
+    };
+    const fontRaw = String(cfg.fontFamily || "sans-serif").trim();
+    const fontFamily = fontRaw.includes("{{") || fontRaw.startsWith("@") ? resolveColorToken(fontRaw, status, {}, member) || "sans-serif" : fontRaw;
+    if (typeof loadGoogleFont === "function" && fontFamily && !/^(sans-serif|serif|monospace|system-ui|inherit)$/i.test(fontFamily)) {
+      loadGoogleFont(fontFamily);
+    }
+    let fillColor = col(cfg.fillColor, "#22c55e");
+    if (cfg.useThresholds) {
+      if (pct <= cfg.lowThreshold) fillColor = col(cfg.lowColor, "#ef4444");
+      else if (pct <= cfg.midThreshold) fillColor = col(cfg.midColor, "#f59e0b");
+    }
+    return {
+      ...cfg,
+      fillColor,
+      trackColor: col(cfg.trackColor, "#ffffff1a"),
+      trailColor: col(cfg.trailColor, "#ffffff66"),
+      labelColor: col(cfg.labelColor, "#f8fafc"),
+      readoutColor: col(cfg.readoutColor, "#e2e8f0"),
+      rowBackground: col(cfg.rowBackground, "#0f172ad9"),
+      rowBorderColor: col(cfg.rowBorderColor, "#ffffff24"),
+      fontFamily
+    };
+  }
+  function createRingVisual(row, cfg) {
+    const size = Math.max(48, Number(cfg.ringSize) || 96);
+    const stroke = Math.max(6, Math.round(size * 0.11));
+    const r = (size - stroke) / 2;
+    const circ = 2 * Math.PI * r;
+    const offset = circ * (1 - row.pct / 100);
+    const wrap = document.createElement("div");
+    Object.assign(wrap.style, { position: "relative", width: `${size}px`, height: `${size}px`, flex: "none", display: "grid", placeItems: "center" });
+    const svg = document.createElementNS(SVG_NS2, "svg");
+    svg.setAttribute("viewBox", `0 0 ${size} ${size}`);
+    svg.setAttribute("width", String(size));
+    svg.setAttribute("height", String(size));
+    svg.style.transform = "rotate(-90deg)";
+    const bg = document.createElementNS(SVG_NS2, "circle");
+    bg.setAttribute("cx", String(size / 2));
+    bg.setAttribute("cy", String(size / 2));
+    bg.setAttribute("r", String(r));
+    bg.setAttribute("fill", "none");
+    bg.setAttribute("stroke", cfg.trackColor);
+    bg.setAttribute("stroke-width", String(stroke));
+    const fg = document.createElementNS(SVG_NS2, "circle");
+    fg.setAttribute("cx", String(size / 2));
+    fg.setAttribute("cy", String(size / 2));
+    fg.setAttribute("r", String(r));
+    fg.setAttribute("fill", "none");
+    fg.setAttribute("stroke", cfg.fillColor);
+    fg.setAttribute("stroke-width", String(stroke));
+    fg.setAttribute("stroke-linecap", "round");
+    fg.setAttribute("stroke-dasharray", String(circ));
+    fg.setAttribute("stroke-dashoffset", String(offset));
+    fg.setAttribute("class", "sp-meter-ring-fg");
+    fg.style.filter = `drop-shadow(0 0 6px color-mix(in srgb, ${cfg.fillColor} 50%, transparent))`;
+    svg.append(bg, fg);
+    wrap.appendChild(svg);
+    if (cfg.readout !== "none") {
+      const center = document.createElement("span");
+      center.className = "sp-meter-readout";
+      center.textContent = cfg.readout === "percent" || cfg.readout === "both" ? `${Math.round(row.pct)}%` : (0, import_display_meter.formatMeterReadout)(row.value, row.cap, row.pct, cfg.readout);
+      Object.assign(center.style, {
+        position: "absolute",
+        fontWeight: "800",
+        fontSize: `${Math.max(12, Math.round(size * 0.22))}px`,
+        fontVariantNumeric: "tabular-nums",
+        color: cfg.readoutColor
+      });
+      wrap.appendChild(center);
+    }
+    return wrap;
+  }
+  function renderDisplayMeter(host, element, status = {}, definition) {
+    ensureMeterStyles();
+    const baseCfg = (0, import_display_meter.normalizeDisplayMeter)(definition?.meter);
+    const binding = element?.display || {};
+    const rows = (0, import_display_meter.resolveMeterRows)(definition, binding, status);
+    if (!rows.length) return false;
+    const prevMap = host._meterPrevPct instanceof Map ? host._meterPrevPct : /* @__PURE__ */ new Map();
+    const nextMap = /* @__PURE__ */ new Map();
+    const root2 = document.createElement("div");
+    root2.className = "sp-variable-display sp-meter-display";
+    root2.dataset.meterStyle = baseCfg.style;
+    root2.dataset.meterTheme = baseCfg.theme || "modern";
+    Object.assign(root2.style, {
+      width: "100%",
+      height: "100%",
+      padding: "6px",
+      boxSizing: "border-box",
+      display: "flex",
+      flexDirection: baseCfg.direction === "horizontal" || baseCfg.style === "ring" || baseCfg.style === "vertical" ? "row" : "column",
+      flexWrap: baseCfg.direction === "horizontal" || baseCfg.style === "ring" || baseCfg.style === "vertical" ? "wrap" : "nowrap",
+      alignItems: baseCfg.style === "vertical" ? "stretch" : "center",
+      justifyContent: "center",
+      gap: `${baseCfg.rowGap}px`,
+      fontFamily: baseCfg.fontFamily,
+      fontSize: `${baseCfg.fontSize}px`,
+      overflow: "hidden"
+    });
+    for (const row of rows) {
+      const cfg = resolveMeterRowConfig(baseCfg, status, row.entry || null, row.pct);
+      const prevPct = prevMap.has(row.key) ? prevMap.get(row.key) : row.pct;
+      nextMap.set(row.key, row.pct);
+      const rowEl = document.createElement("div");
+      rowEl.className = "sp-meter-row";
+      rowEl.dataset.meterKey = row.key;
+      rowEl.dataset.meterPct = String(Math.round(row.pct));
+      rowEl.style.setProperty("--mtr-accent", cfg.fillColor);
+      const isVertical = cfg.style === "vertical";
+      const isRing = cfg.style === "ring";
+      Object.assign(rowEl.style, {
+        display: "flex",
+        flexDirection: "column",
+        alignItems: isRing || isVertical ? "center" : "stretch",
+        gap: "8px",
+        width: isRing || isVertical ? "auto" : "100%",
+        minWidth: isRing ? `${cfg.ringSize + cfg.rowPadding * 2}px` : isVertical ? "76px" : "0",
+        padding: `${cfg.rowPadding}px`,
+        borderRadius: `${cfg.rowRadius}px`,
+        background: cfg.rowBackground,
+        border: cfg.rowBorderWidth > 0 ? `${cfg.rowBorderWidth}px solid ${cfg.rowBorderColor}` : "none",
+        boxSizing: "border-box",
+        fontFamily: cfg.fontFamily
+      });
+      const readoutText = (0, import_display_meter.formatMeterReadout)(row.value, row.cap, row.pct, cfg.readout);
+      if (isRing) {
+        rowEl.appendChild(createRingVisual(row, cfg));
+        if (cfg.showLabel) {
+          const lbl = document.createElement("span");
+          lbl.className = "sp-meter-label";
+          lbl.textContent = row.label;
+          Object.assign(lbl.style, { color: cfg.labelColor, fontWeight: "700", fontSize: `${cfg.fontSize}px`, textAlign: "center" });
+          rowEl.appendChild(lbl);
+        }
+        if (cfg.readout === "both") {
+          const sub = document.createElement("span");
+          sub.className = "sp-meter-readout";
+          sub.textContent = `${row.value} / ${row.cap}`;
+          Object.assign(sub.style, { color: cfg.readoutColor, fontSize: `${Math.max(11, Math.round(cfg.fontSize * 0.85))}px`, fontVariantNumeric: "tabular-nums", opacity: "0.85" });
+          rowEl.appendChild(sub);
+        }
+      } else if (isVertical) {
+        const track = document.createElement("div");
+        Object.assign(track.style, {
+          position: "relative",
+          width: `${Math.max(16, cfg.barHeight)}px`,
+          height: `${Math.max(80, cfg.ringSize)}px`,
+          borderRadius: `${Math.round(cfg.barHeight / 2)}px`,
+          background: cfg.trackColor,
+          overflow: "hidden"
+        });
+        const fill = document.createElement("div");
+        fill.className = "sp-meter-bar-fill";
+        Object.assign(fill.style, {
+          position: "absolute",
+          left: "0",
+          right: "0",
+          bottom: "0",
+          height: `${row.pct}%`,
+          background: cfg.fillColor,
+          boxShadow: `0 0 10px color-mix(in srgb, ${cfg.fillColor} 55%, transparent)`
+        });
+        track.appendChild(fill);
+        rowEl.appendChild(track);
+        if (cfg.showLabel) {
+          const lbl = document.createElement("span");
+          lbl.className = "sp-meter-label";
+          lbl.textContent = row.label;
+          Object.assign(lbl.style, { color: cfg.labelColor, fontWeight: "700", fontSize: `${cfg.fontSize}px` });
+          rowEl.appendChild(lbl);
+        }
+        if (readoutText) {
+          const rd = document.createElement("span");
+          rd.className = "sp-meter-readout";
+          rd.textContent = readoutText;
+          Object.assign(rd.style, { color: cfg.readoutColor, fontSize: `${Math.max(11, Math.round(cfg.fontSize * 0.85))}px`, fontVariantNumeric: "tabular-nums", fontWeight: "700" });
+          rowEl.appendChild(rd);
+        }
+      } else {
+        if (cfg.showLabel || readoutText) {
+          const header = document.createElement("div");
+          Object.assign(header.style, { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" });
+          if (cfg.showLabel) {
+            const lbl = document.createElement("span");
+            lbl.className = "sp-meter-label";
+            lbl.textContent = row.label;
+            Object.assign(lbl.style, { color: cfg.labelColor, fontWeight: "700", fontSize: `${cfg.fontSize}px`, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" });
+            header.appendChild(lbl);
+          }
+          if (readoutText) {
+            const rd = document.createElement("span");
+            rd.className = "sp-meter-readout";
+            rd.textContent = readoutText;
+            Object.assign(rd.style, { color: cfg.readoutColor, fontWeight: "700", fontSize: `${Math.max(12, Math.round(cfg.fontSize * 0.9))}px`, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" });
+            header.appendChild(rd);
+          }
+          rowEl.appendChild(header);
+        }
+        if (cfg.style === "segmented") {
+          const segs = Math.max(2, Math.min(40, Number(cfg.segments) || 10));
+          const segWrap = document.createElement("div");
+          Object.assign(segWrap.style, { display: "grid", gridTemplateColumns: `repeat(${segs}, minmax(0, 1fr))`, gap: "4px", height: `${cfg.barHeight}px` });
+          const filledSegs = row.pct / 100 * segs;
+          for (let i = 0; i < segs; i++) {
+            const cell = document.createElement("div");
+            const segFill = Math.max(0, Math.min(1, filledSegs - i));
+            Object.assign(cell.style, {
+              position: "relative",
+              borderRadius: "3px",
+              background: cfg.trackColor,
+              overflow: "hidden"
+            });
+            if (segFill > 0) {
+              const inner = document.createElement("div");
+              Object.assign(inner.style, {
+                width: `${segFill * 100}%`,
+                height: "100%",
+                background: cfg.fillColor,
+                boxShadow: `0 0 8px color-mix(in srgb, ${cfg.fillColor} 45%, transparent)`
+              });
+              cell.appendChild(inner);
+            }
+            segWrap.appendChild(cell);
+          }
+          rowEl.appendChild(segWrap);
+        } else {
+          const track = document.createElement("div");
+          Object.assign(track.style, {
+            position: "relative",
+            width: "100%",
+            height: `${cfg.barHeight}px`,
+            borderRadius: `${Math.round(cfg.barHeight / 2)}px`,
+            background: cfg.trackColor,
+            overflow: "hidden"
+          });
+          if (cfg.trail && prevPct > row.pct) {
+            const trail = document.createElement("div");
+            trail.className = "sp-meter-bar-trail";
+            Object.assign(trail.style, {
+              position: "absolute",
+              inset: "0 auto 0 0",
+              width: `${prevPct}%`,
+              background: cfg.trailColor,
+              borderRadius: "inherit"
+            });
+            track.appendChild(trail);
+            requestAnimationFrame(() => {
+              trail.style.width = `${row.pct}%`;
+            });
+          }
+          const fill = document.createElement("div");
+          fill.className = "sp-meter-bar-fill";
+          Object.assign(fill.style, {
+            position: "relative",
+            width: `${row.pct}%`,
+            height: "100%",
+            background: cfg.fillColor,
+            borderRadius: "inherit",
+            boxShadow: `0 0 10px color-mix(in srgb, ${cfg.fillColor} 50%, transparent)`
+          });
+          track.appendChild(fill);
+          rowEl.appendChild(track);
+        }
+      }
+      root2.appendChild(rowEl);
+    }
+    host._meterPrevPct = nextMap;
+    host.appendChild(root2);
+    return true;
+  }
+  var import_display_meter, SVG_NS2;
+  var init_display_meter = __esm({
+    "public/js/overlay/display-meter.js"() {
+      import_display_meter = __toESM(require_display_meter());
+      init_variables();
+      init_fonts();
+      SVG_NS2 = "http://www.w3.org/2000/svg";
+    }
+  });
+
+  // public/js/overlay/display-ticker.js
+  function ensureTickerStyles() {
+    if (typeof document === "undefined" || document.getElementById("sp-ticker-display-styles")) return;
+    const style = document.createElement("style");
+    style.id = "sp-ticker-display-styles";
+    style.textContent = `
+@keyframes sp-ticker-left {
+    0% { transform: translate3d(0, 0, 0); }
+    100% { transform: translate3d(-50%, 0, 0); }
+}
+@keyframes sp-ticker-right {
+    0% { transform: translate3d(-50%, 0, 0); }
+    100% { transform: translate3d(0, 0, 0); }
+}
+.sp-ticker-track {
+    display: flex;
+    align-items: center;
+    width: max-content;
+    will-change: transform;
+}
+.sp-ticker-display[data-ticker-dir="left"] .sp-ticker-track {
+    animation: sp-ticker-left var(--sp-ticker-dur, 20s) linear infinite;
+}
+.sp-ticker-display[data-ticker-dir="right"] .sp-ticker-track {
+    animation: sp-ticker-right var(--sp-ticker-dur, 20s) linear infinite;
+}
+.sp-ticker-viewport {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+}
+.sp-ticker-display[data-ticker-theme="modern"] .sp-ticker-shell {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 8px 22px rgba(0, 0, 0, 0.28);
+}
+.sp-ticker-display[data-ticker-theme="esports"] .sp-ticker-shell {
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.42);
+}
+.sp-ticker-display[data-ticker-theme="sports"] .sp-ticker-shell {
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, 0.2) 100%);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.36);
+}
+.sp-ticker-display[data-ticker-theme="arcade"] .sp-ticker-shell {
+    box-shadow: 0 0 12px color-mix(in srgb, var(--tkr-accent, #e879f9) 35%, transparent);
+}
+.sp-ticker-display[data-ticker-theme="minimal"] .sp-ticker-shell {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+.sp-ticker-display[data-ticker-theme="minimal"] .sp-ticker-item {
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.88);
+}
+html.sp-fx-paused .sp-ticker-track {
+    animation-play-state: paused !important;
+}
+@media (prefers-reduced-motion: reduce) {
+    .sp-ticker-track {
+        animation: none !important;
+    }
+}`;
+    document.head.appendChild(style);
+  }
+  function createSeparator(kind, color) {
+    if (kind === "none") return null;
+    const svg = document.createElementNS(SVG_NS3, "svg");
+    svg.setAttribute("viewBox", "0 0 12 12");
+    svg.setAttribute("width", "10");
+    svg.setAttribute("height", "10");
+    svg.setAttribute("aria-hidden", "true");
+    svg.style.flex = "none";
+    svg.style.opacity = "0.75";
+    if (kind === "dot") {
+      const c = document.createElementNS(SVG_NS3, "circle");
+      c.setAttribute("cx", "6");
+      c.setAttribute("cy", "6");
+      c.setAttribute("r", "3");
+      c.setAttribute("fill", color);
+      svg.appendChild(c);
+    } else if (kind === "diamond") {
+      const p = document.createElementNS(SVG_NS3, "path");
+      p.setAttribute("d", "M6 1.5L10.5 6 6 10.5 1.5 6z");
+      p.setAttribute("fill", color);
+      svg.appendChild(p);
+    } else if (kind === "slash") {
+      const l = document.createElementNS(SVG_NS3, "line");
+      l.setAttribute("x1", "3");
+      l.setAttribute("y1", "10.5");
+      l.setAttribute("x2", "9");
+      l.setAttribute("y2", "1.5");
+      l.setAttribute("stroke", color);
+      l.setAttribute("stroke-width", "2");
+      l.setAttribute("stroke-linecap", "round");
+      svg.appendChild(l);
+    } else {
+      const r = document.createElementNS(SVG_NS3, "rect");
+      r.setAttribute("x", "5");
+      r.setAttribute("y", "1.5");
+      r.setAttribute("width", "2");
+      r.setAttribute("height", "9");
+      r.setAttribute("rx", "1");
+      r.setAttribute("fill", color);
+      svg.appendChild(r);
+    }
+    return svg;
+  }
+  function resolveColor(raw, fallback, status, member = null) {
+    if (!raw) return fallback;
+    const str = String(raw).trim();
+    if (member) {
+      const m = /^\{\{member\.([a-z0-9_-]+)\}\}$/i.exec(str);
+      if (m) return String(member.values?.[m[1]] ?? member[m[1]] ?? "").trim() || fallback;
+    }
+    if (!str.includes("{{") && !str.startsWith("@")) return str;
+    return resolveColorToken(str, status, {}, member) || fallback;
+  }
+  function renderDisplayTicker(host, element, status = {}, definition) {
+    ensureTickerStyles();
+    const cfg = (0, import_display_ticker.normalizeDisplayTicker)(definition?.ticker);
+    const binding = element?.display || {};
+    const items = (0, import_display_ticker.resolveTickerItems)(definition, binding, status);
+    if (!items.length) return false;
+    const bg = resolveColor(cfg.background, "#090d16eb", status);
+    const textColor = resolveColor(cfg.textColor, "#f8fafc", status);
+    const accentColor = resolveColor(cfg.accentColor, "#38bdf8", status);
+    const badgeBg = resolveColor(cfg.badgeBackground, "#38bdf8", status);
+    const badgeText = resolveColor(cfg.badgeTextColor, "#090d16", status);
+    const borderColor = resolveColor(cfg.borderColor, "#38bdf844", status);
+    const fontRaw = String(cfg.fontFamily || "sans-serif").trim();
+    const fontFamily = fontRaw.includes("{{") || fontRaw.startsWith("@") ? resolveColorToken(fontRaw, status, {}) || "sans-serif" : fontRaw;
+    if (typeof loadGoogleFont === "function" && fontFamily && !/^(sans-serif|serif|monospace|system-ui|inherit)$/i.test(fontFamily)) {
+      loadGoogleFont(fontFamily);
+    }
+    const root2 = document.createElement("div");
+    root2.className = "sp-variable-display sp-ticker-display";
+    root2.dataset.tickerTheme = cfg.theme;
+    root2.dataset.tickerDir = cfg.direction;
+    root2.style.setProperty("--tkr-accent", accentColor);
+    Object.assign(root2.style, {
+      width: "100%",
+      height: "100%",
+      display: "flex",
+      alignItems: "center",
+      padding: "4px",
+      boxSizing: "border-box",
+      overflow: "hidden",
+      fontFamily
+    });
+    const shell = document.createElement("div");
+    shell.className = "sp-ticker-shell";
+    Object.assign(shell.style, {
+      display: "flex",
+      alignItems: "center",
+      width: "100%",
+      height: `${cfg.height}px`,
+      background: bg,
+      border: cfg.borderWidth > 0 ? `${cfg.borderWidth}px solid ${borderColor}` : "none",
+      borderRadius: `${cfg.radius}px`,
+      overflow: "hidden",
+      boxSizing: "border-box"
+    });
+    if (cfg.badgeText) {
+      const badge = document.createElement("div");
+      badge.className = "sp-ticker-badge";
+      badge.textContent = cfg.badgeText;
+      Object.assign(badge.style, {
+        display: "inline-flex",
+        alignItems: "center",
+        height: "100%",
+        padding: "0 14px",
+        background: badgeBg,
+        color: badgeText,
+        fontSize: `${Math.max(11, Math.round(cfg.fontSize * 0.82))}px`,
+        fontWeight: "850",
+        letterSpacing: "0.09em",
+        textTransform: "uppercase",
+        whiteSpace: "nowrap",
+        flex: "none"
+      });
+      shell.appendChild(badge);
+    }
+    const viewport = document.createElement("div");
+    viewport.className = "sp-ticker-viewport";
+    const track = document.createElement("div");
+    track.className = "sp-ticker-track";
+    const buildPass = () => {
+      const pass = document.createElement("div");
+      Object.assign(pass.style, {
+        display: "flex",
+        alignItems: "center",
+        gap: `${cfg.itemGap}px`,
+        paddingRight: `${cfg.itemGap}px`,
+        flex: "none"
+      });
+      for (const item of items) {
+        const itemAccent = resolveColor(cfg.accentColor, accentColor, status, item.entry);
+        const node = document.createElement("span");
+        node.className = "sp-ticker-item";
+        node.dataset.tickerItem = item.key;
+        Object.assign(node.style, {
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "8px",
+          color: textColor,
+          fontSize: `${cfg.fontSize}px`,
+          fontWeight: "650",
+          whiteSpace: "nowrap"
+        });
+        if (item.image) {
+          const img = document.createElement("img");
+          img.src = item.image;
+          img.alt = "";
+          img.referrerPolicy = "no-referrer";
+          const imgSize = Math.max(18, Math.round(cfg.height * 0.62));
+          Object.assign(img.style, { width: `${imgSize}px`, height: `${imgSize}px`, borderRadius: "4px", objectFit: "cover", flex: "none" });
+          node.appendChild(img);
+        }
+        const mainText = document.createElement("span");
+        mainText.textContent = item.text;
+        node.appendChild(mainText);
+        if (item.sub) {
+          const sub = document.createElement("span");
+          sub.textContent = item.sub;
+          Object.assign(sub.style, { opacity: "0.72", fontWeight: "500", fontSize: `${Math.max(11, Math.round(cfg.fontSize * 0.88))}px` });
+          node.appendChild(sub);
+        }
+        pass.appendChild(node);
+        const sep = createSeparator(cfg.separator, itemAccent);
+        if (sep) pass.appendChild(sep);
+      }
+      return pass;
+    };
+    const pass1 = buildPass();
+    const pass2 = buildPass();
+    pass2.setAttribute("aria-hidden", "true");
+    track.append(pass1, pass2);
+    const estPx = items.reduce((sum, it) => sum + (it.text.length + it.sub.length) * (cfg.fontSize * 0.62) + cfg.itemGap + 24, 0);
+    const estSec = Math.max(4, Math.round(estPx / Math.max(15, cfg.speed) * 10) / 10);
+    track.style.setProperty("--sp-ticker-dur", `${estSec}s`);
+    viewport.appendChild(track);
+    shell.appendChild(viewport);
+    root2.appendChild(shell);
+    host.appendChild(root2);
+    requestAnimationFrame(() => {
+      const measured = pass1.getBoundingClientRect().width;
+      if (measured > 20) {
+        const dur = Math.max(3, Math.round(measured / Math.max(15, cfg.speed) * 10) / 10);
+        track.style.setProperty("--sp-ticker-dur", `${dur}s`);
+      }
+    });
+    return true;
+  }
+  var import_display_ticker, SVG_NS3;
+  var init_display_ticker = __esm({
+    "public/js/overlay/display-ticker.js"() {
+      import_display_ticker = __toESM(require_display_ticker());
+      init_variables();
+      init_fonts();
+      SVG_NS3 = "http://www.w3.org/2000/svg";
     }
   });
 
@@ -4645,6 +5655,16 @@ html.sp-fx-paused .sp-tally-slash.is-pop {
       const needsSets = definition.counter?.sourceMode === "set" && !binding.variableName;
       if (needsSets && status.modules?.variableSets === false) return false;
       return renderDisplayCounter(host, element, status, definition);
+    }
+    if (definition.kind === "meter") {
+      const needsSets = definition.meter?.sourceMode === "set" && !binding.variableName;
+      if (needsSets && status.modules?.variableSets === false) return false;
+      return renderDisplayMeter(host, element, status, definition);
+    }
+    if (definition.kind === "ticker") {
+      const needsSets = definition.ticker?.sourceMode === "set" && !binding.variableName;
+      if (needsSets && status.modules?.variableSets === false) return false;
+      return renderDisplayTicker(host, element, status, definition);
     }
     if (!catalog || status.modules?.variableSets === false) return false;
     if (definition.kind === "table") return renderDisplayTable(host, element, status, definition);
@@ -4736,6 +5756,8 @@ html.sp-fx-paused .sp-tally-slash.is-pop {
       init_display_table();
       init_display_badges();
       init_display_counter();
+      init_display_meter();
+      init_display_ticker();
       init_lifecycle();
       library = null;
       revision = null;
@@ -10916,6 +11938,8 @@ html.sp-fx-paused .sp-tally-slash.is-pop {
       var import_variable_displays2 = __toESM(require_variable_displays());
       var import_display_table4 = __toESM(require_display_table());
       var import_display_counter3 = __toESM(require_display_counter());
+      var import_display_meter3 = __toESM(require_display_meter());
+      var import_display_ticker3 = __toESM(require_display_ticker());
       var import_variable_paths2 = __toESM(require_variable_paths());
       var import_border_catalog2 = __toESM(require_border_catalog());
       init_displays();
@@ -10928,6 +11952,8 @@ html.sp-fx-paused .sp-tally-slash.is-pop {
       Object.assign(root.OverlayShared, import_variable_displays2.default, { renderVariableDisplay, setDisplayLibrary });
       Object.assign(root.OverlayShared, import_display_table4.default);
       Object.assign(root.OverlayShared, import_display_counter3.default, { renderMiniCounterHtml });
+      Object.assign(root.OverlayShared, import_display_meter3.default);
+      Object.assign(root.OverlayShared, import_display_ticker3.default);
       Object.assign(root.OverlayShared, { variableKey: import_variable_paths2.default.variableKey, blurFillShadowCss, normalizeBlurFill, syncBlurFillMedia });
       Object.assign(root.OverlayShared, import_border_catalog2.default);
       Object.defineProperty(root.OverlayShared, Symbol.for("StreamPulse.OverlayShared"), { value: true });

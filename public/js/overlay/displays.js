@@ -3,6 +3,8 @@ import { trackerMax } from '../../../shared/variable-links.cjs';
 import { renderDisplayTable } from './display-table.js';
 import { renderSavedBadge } from './display-badges.js';
 import { renderDisplayCounter } from './display-counter.js';
+import { renderDisplayMeter } from './display-meter.js';
+import { renderDisplayTicker } from './display-ticker.js';
 import { cleanupNode } from './lifecycle.js';
 
 let library = null, revision = null, pending = null;
@@ -50,6 +52,16 @@ export function renderVariableDisplay(host, element, status = {}) {
         const needsSets = definition.counter?.sourceMode === 'set' && !binding.variableName;
         if (needsSets && status.modules?.variableSets === false) return false;
         return renderDisplayCounter(host, element, status, definition);
+    }
+    if (definition.kind === 'meter') {
+        const needsSets = definition.meter?.sourceMode === 'set' && !binding.variableName;
+        if (needsSets && status.modules?.variableSets === false) return false;
+        return renderDisplayMeter(host, element, status, definition);
+    }
+    if (definition.kind === 'ticker') {
+        const needsSets = definition.ticker?.sourceMode === 'set' && !binding.variableName;
+        if (needsSets && status.modules?.variableSets === false) return false;
+        return renderDisplayTicker(host, element, status, definition);
     }
     if (!catalog || status.modules?.variableSets === false) return false;
     if (definition.kind === 'table') return renderDisplayTable(host, element, status, definition);

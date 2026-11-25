@@ -637,7 +637,7 @@
             section: 'Saved Displays',
             items: [
                 { method: 'GET', path: '/api/variable-displays', desc: 'List reusable display designs',
-                    details: 'Returns { displays: [definition], revision }. Supported kinds: inventory, table, badge, counter. Definitions are stored in data/variable-displays.json and included in full backups. No query parameters. GET /api/status exposes only variableDisplaysRevision; WebSocket variable-displays-update carries { displays, revision }. Existing variables-update carries row/progress/role changes; no new variable tokens are generated.' },
+                    details: 'Returns { displays: [definition], revision, usageCounts }. Supported kinds: inventory, table, badge, counter, meter, ticker. Definitions are stored in data/variable-displays.json and included in full backups. No query parameters. GET /api/status exposes only variableDisplaysRevision; WebSocket variable-displays-update carries { displays, revision }. Existing variables-update carries row/progress/role changes; no new variable tokens are generated.' },
                 { method: 'GET', path: '/api/variable-displays/:id', desc: 'Read one display design',
                     details: 'Returns one complete normalized definition or HTTP 404 { error }. IDs: letters, numbers, underscore, hyphen; maximum 60 characters.' },
                 { method: 'POST', path: '/api/variable-displays', desc: 'Create or replace a display',

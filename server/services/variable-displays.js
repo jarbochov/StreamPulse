@@ -42,7 +42,10 @@ module.exports = function createVariableDisplays({ dataDir, onChange = () => {},
         },
         save(input, id = input.id || randomUUID()) {
             const display = normalize(input, id);
-            const needsCatalog = display.kind !== 'counter' || display.counter?.sourceMode === 'set';
+            const needsCatalog = (display.kind === 'counter' && display.counter?.sourceMode === 'set')
+                || (display.kind === 'meter' && display.meter?.sourceMode === 'set')
+                || (display.kind === 'ticker' && display.ticker?.sourceMode === 'set')
+                || !['counter', 'meter', 'ticker'].includes(display.kind);
             if (!display.id || (needsCatalog && !display.catalogId)) throw new Error('Choose an item catalog and a display ID');
             if (display.id !== id) throw new Error('Invalid display ID');
             if (!displays.some(item => item.id === display.id) && displays.length >= 100) throw new Error('Display library is full');

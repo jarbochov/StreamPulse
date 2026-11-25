@@ -73,6 +73,26 @@ function renderVarControls(v) {
             </button>
         `;
     }
+    if (v.type === 'select') {
+        const opts = Array.isArray(v.options) ? v.options : [];
+        if (!opts.length) return '<span class="muted" style="font-size:.78rem;">No options — click name to add</span>';
+        const cur = String(v.value || '').toLowerCase();
+        return `<div style="display:flex;flex-wrap:wrap;gap:.3rem;align-items:center;">${opts.map(opt => {
+            const active = opt.value.toLowerCase() === cur;
+            const style = opt.color ? (active ? `background:${esc(opt.color)};border-color:${esc(opt.color)};color:#fff;` : `border-color:${esc(opt.color)}66;`) : '';
+            return `<button type="button" class="b sm${active ? ' primary' : ''}" data-act="select-opt" data-opt-val="${esc(opt.value)}" aria-pressed="${active}" style="${style}">${opt.icon ? `<i class="${esc(opt.icon)}" aria-hidden="true"></i> ` : ''}${esc(opt.label || opt.value)}</button>`;
+        }).join('')}<button type="button" class="b sm" data-act="next" title="Cycle to next option">Next</button></div>`;
+    }
+    if (v.type === 'tags') {
+        const opts = Array.isArray(v.options) ? v.options : [];
+        if (!opts.length) return '<span class="muted" style="font-size:.78rem;">No tags — click name to add</span>';
+        const activeSet = new Set((Array.isArray(v.items) ? v.items : []).map(s => String(s).toLowerCase()));
+        return `<div style="display:flex;flex-wrap:wrap;gap:.3rem;align-items:center;">${opts.map(opt => {
+            const active = activeSet.has(opt.value.toLowerCase());
+            const style = opt.color ? (active ? `background:${esc(opt.color)};border-color:${esc(opt.color)};color:#fff;` : `border-color:${esc(opt.color)}55;`) : '';
+            return `<button type="button" class="b sm${active ? ' primary' : ''}" data-act="toggle-tag" data-opt-val="${esc(opt.value)}" aria-pressed="${active}" style="border-radius:999px;${style}">${opt.icon ? `<i class="${esc(opt.icon)}" aria-hidden="true"></i> ` : ''}${esc(opt.label || opt.value)}</button>`;
+        }).join('')}${activeSet.size ? '<button type="button" class="b sm" data-act="clear" title="Clear all active tags">Clear</button>' : ''}</div>`;
+    }
     return '';
 }
 
@@ -138,7 +158,7 @@ export function renderVars() {
         `<div class="var-row variable-studio-row${variableInspector?.selected() === variable.name ? ' is-selected' : ''}" data-n="${esc(variable.name)}" data-type="${esc(variable.type)}">
             <button type="button" class="variable-name" data-select-variable="${esc(variable.name)}"${variable.setId ? '' : ` draggable="true" data-drag-variable="${esc(variable.name)}"`} title="Open variable inspector${variable.setId ? '' : '; drag to a group'}">${esc(S.variableKey(variable))}${variable.group && !q.hasGroup ? `<small>${esc(variable.group)}</small>` : ''}</button>
             <span class="variable-type">${esc(variable.type === 'counter' ? 'number' : variable.type === 'datetime' ? 'date & time' : variable.type)}</span>
-            <div class="var-controls">${variable.type === 'toggle' ? renderVarControls(variable) : inlineValue(variable)}${['number', 'counter'].includes(variable.type) ? numberControls(variable) : variable.type === 'list' ? '<button type="button" class="b sm" data-act="roll">Next</button>' : ''}<button type="button" class="b sm" data-act="bookmark-var" title="Copy direct bookmark link">#</button></div>
+            <div class="var-controls">${['toggle', 'select', 'tags'].includes(variable.type) ? renderVarControls(variable) : inlineValue(variable)}${['number', 'counter'].includes(variable.type) ? numberControls(variable) : variable.type === 'list' ? '<button type="button" class="b sm" data-act="roll">Next</button>' : ''}<button type="button" class="b sm" data-act="bookmark-var" title="Copy direct bookmark link">#</button></div>
         </div>`).join('') : '<p class="muted">This group is empty. Drag a variable here or use Manage members.</p>');
     const quickForm = $('var-quick-add-form');
     if (quickForm && focusedVar) {
@@ -519,8 +539,18 @@ function bindEvents() {
         const url = `/api/variables/${encodeURIComponent(name)}`;
 
         try {
+            if (act === 'select-opt') {
+                await api(url, 'PUT', { value: btn.dataset.optVal || '' });
+                await loadAllVars();
+                return;
+            }
+            if (act === 'toggle-tag') {
+                await api(`${url}/toggle`, 'POST', { value: btn.dataset.optVal || '' });
+                await loadAllVars();
+                return;
+            }
             if (['increment', 'decrement', 'reset'].includes(act)) await inlineEditor.flush();
-            if (!['increment', 'decrement', 'reset', 'toggle', 'roll'].includes(act)) return;
+            if (!['increment', 'decrement', 'reset', 'toggle', 'roll', 'next', 'prev', 'clear'].includes(act)) return;
             await api(`${url}/${act}`, 'POST', {});
             await loadAllVars();
         } catch (e) {

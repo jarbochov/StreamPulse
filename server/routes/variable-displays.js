@@ -12,9 +12,18 @@ module.exports = function createVariableDisplayRoutes(service) {
                 return true;
             }
             if (req.method === 'GET') {
-                const data = id ? service.get(id) : service.getState();
-                if (!data) sendError(res, 'Display not found', 404);
-                else sendJson(res, data);
+                if (id) {
+                    const data = service.get(id);
+                    if (!data) sendError(res, 'Display not found', 404);
+                    else sendJson(res, data);
+                } else {
+                    const data = service.getState();
+                    const usageCounts = {};
+                    for (const d of data.displays || []) {
+                        try { usageCounts[d.id] = service.dependencies(d.id).length; } catch { usageCounts[d.id] = 0; }
+                    }
+                    sendJson(res, { ...data, usageCounts });
+                }
             } else if (['POST', 'PUT'].includes(req.method)) {
                 sendJson(res, service.save(JSON.parse(await readRequestBody(req, 256 * 1024) || '{}'), id));
             } else if (req.method === 'DELETE' && id) {

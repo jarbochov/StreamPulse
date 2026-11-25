@@ -1,6 +1,6 @@
-# Reusable inventories, tables, badges and counters
+# Reusable inventories, tables, badges, counters, meters and tickers
 
-Build a display once in **Library → Display Library**, then place it in any Custom Overlay. Choose **Inventory**, **Table**, **Badge** or **Counter & Pips**. Each placement can follow different live data while sharing the same arrangement and appearance.
+Build a display once in **Library → Display Library**, then place it in any Custom Overlay. Choose **Inventory**, **Table**, **Badge**, **Counter & Pips**, **Meter & Gauge**, or **News Ticker**. Each placement can follow different live data while sharing the same arrangement and appearance.
 
 <div class="doc-gallery doc-gallery--2">
   <figure>

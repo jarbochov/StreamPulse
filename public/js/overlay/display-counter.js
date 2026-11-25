@@ -5,6 +5,9 @@ import {
 } from '../../../shared/display-counter.cjs';
 import { resolveColorToken } from './variables.js';
 import { loadGoogleFont } from './fonts.js';
+import { ensureFontAwesome, sanitizeIconClass } from './icons.js';
+
+let clipIdCounter = 0;
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const MAX_RENDER_MARKERS = 100;
@@ -165,22 +168,69 @@ function svgEl(tag, attrs = {}) {
     return node;
 }
 
-function createShapeMarker(style, state, cfg, pop) {
-    // state: 'filled' | 'empty' | 'overflow' | 'cap'
+function createIconMarker(state, cfg, pop) {
+    if (typeof ensureFontAwesome === 'function') ensureFontAwesome();
+    const cls = sanitizeIconClass ? sanitizeIconClass(cfg.iconClass || 'fa-solid fa-crown') : (cfg.iconClass || 'fa-solid fa-crown');
+    const size = Math.max(12, Number(cfg.markerSize) || 26);
     const isFilled = state !== 'empty';
-    const fill = state === 'overflow'
+    const color = state === 'overflow'
         ? cfg.overflowColor
         : state === 'cap'
             ? (cfg.capReachedColor || cfg.filledColor)
             : isFilled
                 ? cfg.filledColor
-                : cfg.emptyColor;
+                : cfg.outlineColor;
+
+    const span = document.createElement('span');
+    span.className = `sp-counter-marker sp-counter-icon-marker${pop ? ' is-pop' : ''}`;
+    span.dataset.markerState = state;
+    span.dataset.markerStyle = 'icon';
+    span.setAttribute('aria-hidden', 'true');
+    Object.assign(span.style, {
+        position: 'relative',
+        display: 'inline-grid',
+        placeItems: 'center',
+        width: `${size}px`,
+        height: `${size}px`,
+        fontSize: `${Math.round(size * 0.85)}px`,
+        lineHeight: '1',
+        color,
+        opacity: state === 'empty' ? '0.28' : '1',
+        flex: 'none'
+    });
+    if (state === 'half') {
+        const bg = document.createElement('i');
+        bg.className = cls || 'fa-solid fa-crown';
+        Object.assign(bg.style, { position: 'absolute', opacity: '0.28', color: cfg.outlineColor });
+        const fg = document.createElement('i');
+        fg.className = cls || 'fa-solid fa-crown';
+        Object.assign(fg.style, { position: 'absolute', color: cfg.filledColor, clipPath: 'inset(0 50% 0 0)' });
+        span.append(bg, fg);
+    } else {
+        const icon = document.createElement('i');
+        icon.className = cls || 'fa-solid fa-crown';
+        span.appendChild(icon);
+    }
+    return span;
+}
+
+function createShapeMarker(style, state, cfg, pop) {
+    if (style === 'icon') return createIconMarker(state, cfg, pop);
+    // state: 'filled' | 'half' | 'empty' | 'overflow' | 'cap'
+    const isHalf = state === 'half';
+    const isFilled = state !== 'empty' && !isHalf;
+    const activeFill = state === 'overflow'
+        ? cfg.overflowColor
+        : state === 'cap'
+            ? (cfg.capReachedColor || cfg.filledColor)
+            : cfg.filledColor;
+    const fill = isFilled ? activeFill : cfg.emptyColor;
     const stroke = state === 'overflow'
         ? cfg.overflowColor
         : state === 'cap'
             ? (cfg.capReachedColor || cfg.filledColor)
-            : isFilled
-                ? cfg.filledColor
+            : (isFilled || isHalf)
+                ? activeFill
                 : cfg.outlineColor;
     const sw = Math.max(0.5, Number(cfg.strokeWidth) || 2);
     const size = Math.max(10, Number(cfg.markerSize) || 26);
@@ -198,67 +248,44 @@ function createShapeMarker(style, state, cfg, pop) {
     svg.style.flex = 'none';
     svg.style.overflow = 'visible';
 
-    if (style === 'pips') {
-        svg.appendChild(svgEl('circle', {
-            cx: 12,
-            cy: 12,
-            r: 8.5,
-            fill,
-            stroke,
-            'stroke-width': sw
-        }));
-        if (isFilled) {
-            svg.appendChild(svgEl('ellipse', {
-                cx: 9.4,
-                cy: 8.8,
-                rx: 2.8,
-                ry: 1.8,
-                fill: '#ffffff',
-                opacity: '0.32',
-                transform: 'rotate(-28 9.4 8.8)'
-            }));
+    const buildPrimitive = (primitiveFill, primitiveStroke) => {
+        if (style === 'pips') {
+            return svgEl('circle', { cx: 12, cy: 12, r: 8.5, fill: primitiveFill, stroke: primitiveStroke, 'stroke-width': sw });
         }
-    } else if (style === 'squares') {
-        svg.appendChild(svgEl('rect', {
-            x: 3.5,
-            y: 3.5,
-            width: 17,
-            height: 17,
-            rx: 3.5,
-            fill,
-            stroke,
-            'stroke-width': sw
+        if (style === 'squares') {
+            return svgEl('rect', { x: 3.5, y: 3.5, width: 17, height: 17, rx: 3.5, fill: primitiveFill, stroke: primitiveStroke, 'stroke-width': sw });
+        }
+        if (style === 'bars') {
+            return svgEl('rect', { x: 6, y: 3, width: 12, height: 18, rx: 3, fill: primitiveFill, stroke: primitiveStroke, 'stroke-width': sw });
+        }
+        return svgEl('path', { d: SHAPE_PATHS[style] || SHAPE_PATHS.hearts, fill: primitiveFill, stroke: primitiveStroke, 'stroke-width': sw, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' });
+    };
+
+    if (isHalf) {
+        const cid = `sp-half-${++clipIdCounter}`;
+        const defs = svgEl('defs');
+        const cp = svgEl('clipPath', { id: cid });
+        cp.appendChild(svgEl('rect', { x: 0, y: 0, width: 12, height: 24 }));
+        defs.appendChild(cp);
+        svg.appendChild(defs);
+        // Empty base + outline
+        svg.appendChild(buildPrimitive(cfg.emptyColor, cfg.outlineColor));
+        // Left 50% filled
+        const halfFill = buildPrimitive(activeFill, activeFill);
+        halfFill.setAttribute('clip-path', `url(#${cid})`);
+        svg.appendChild(halfFill);
+        return svg;
+    }
+
+    svg.appendChild(buildPrimitive(fill, stroke));
+    if (isFilled && style === 'pips') {
+        svg.appendChild(svgEl('ellipse', {
+            cx: 9.4, cy: 8.8, rx: 2.8, ry: 1.8, fill: '#ffffff', opacity: '0.32', transform: 'rotate(-28 9.4 8.8)'
         }));
-    } else if (style === 'bars') {
-        svg.appendChild(svgEl('rect', {
-            x: 6,
-            y: 3,
-            width: 12,
-            height: 18,
-            rx: 3,
-            fill,
-            stroke,
-            'stroke-width': sw
-        }));
-    } else {
+    } else if (isFilled && style === 'hearts') {
         svg.appendChild(svgEl('path', {
-            d: SHAPE_PATHS[style] || SHAPE_PATHS.hearts,
-            fill,
-            stroke,
-            'stroke-width': sw,
-            'stroke-linejoin': 'round',
-            'stroke-linecap': 'round'
+            d: 'M6.6 9.1c0-1.6 1.1-2.8 2.5-2.8', fill: 'none', stroke: '#ffffff', 'stroke-width': '1.6', 'stroke-linecap': 'round', opacity: '0.42'
         }));
-        if (isFilled && style === 'hearts') {
-            svg.appendChild(svgEl('path', {
-                d: 'M6.6 9.1c0-1.6 1.1-2.8 2.5-2.8',
-                fill: 'none',
-                stroke: '#ffffff',
-                'stroke-width': '1.6',
-                'stroke-linecap': 'round',
-                opacity: '0.42'
-            }));
-        }
     }
     return svg;
 }
@@ -420,10 +447,15 @@ function buildMarkersNode(value, cap, cfg, prevValue) {
         return wrap;
     }
 
-    // Shape markers (pips, hearts, stars, diamonds, squares, bars)
-    const baseSlots = cap != null ? Math.min(MAX_RENDER_MARKERS, cap) : Math.min(MAX_RENDER_MARKERS, clampedCount);
-    const extraOverflowSlots = cap != null && cfg.overflowMode === 'overflow' && rawCount > cap
-        ? Math.min(MAX_RENDER_MARKERS - baseSlots, rawCount - cap)
+    // Shape & icon markers (pips, hearts, stars, diamonds, squares, bars, icon)
+    const numericVal = Math.max(0, Number(value) || 0);
+    const frac = numericVal - Math.floor(numericVal);
+    const hasHalf = cfg.allowHalf !== false && frac >= 0.25 && frac < 0.75;
+    const effectiveFull = frac >= 0.75 ? Math.ceil(numericVal) : Math.floor(numericVal);
+    const effectiveSlotsNeeded = effectiveFull + (hasHalf ? 1 : 0);
+    const baseSlots = cap != null ? Math.min(MAX_RENDER_MARKERS, cap) : Math.min(MAX_RENDER_MARKERS, effectiveSlotsNeeded);
+    const extraOverflowSlots = cap != null && cfg.overflowMode === 'overflow' && effectiveFull > cap
+        ? Math.min(MAX_RENDER_MARKERS - baseSlots, effectiveFull - cap)
         : 0;
 
     if (baseSlots === 0 && extraOverflowSlots === 0) {
@@ -433,11 +465,13 @@ function buildMarkersNode(value, cap, cfg, prevValue) {
     }
 
     for (let i = 0; i < baseSlots; i++) {
-        const isFilled = i < clampedCount;
-        const state = !isFilled
-            ? 'empty'
-            : (isCapReached && cfg.capReachedColor ? 'cap' : 'filled');
-        const pop = isFilled && popFromIndex >= 0 && i >= popFromIndex;
+        let state = 'empty';
+        if (i < effectiveFull) {
+            state = isCapReached && cfg.capReachedColor ? 'cap' : 'filled';
+        } else if (hasHalf && i === effectiveFull) {
+            state = 'half';
+        }
+        const pop = (state !== 'empty') && popFromIndex >= 0 && i >= popFromIndex;
         wrap.appendChild(createShapeMarker(cfg.style, state, cfg, pop));
     }
 

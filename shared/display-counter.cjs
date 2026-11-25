@@ -2,7 +2,7 @@
 
 const { resolveDisplayOwner } = require('./display-source.cjs');
 
-const COUNTER_STYLES = ['pips', 'hearts', 'stars', 'diamonds', 'squares', 'bars', 'tally', 'tally-chalk', 'number'];
+const COUNTER_STYLES = ['pips', 'hearts', 'stars', 'diamonds', 'squares', 'bars', 'icon', 'tally', 'tally-chalk', 'number'];
 const COUNTER_THEMES = ['modern', 'esports', 'sports', 'arcade', 'minimal', 'cozy', 'chalkboard'];
 const SOURCE_MODES = ['variables', 'set'];
 
@@ -149,6 +149,8 @@ function defaultDisplayCounter() {
         rowScope: 'all',
         theme: 'modern',
         style: 'pips',
+        iconClass: 'fa-solid fa-crown',
+        allowHalf: true,
         capMode: 'auto',
         customCap: 5,
         overflowMode: 'plus',
@@ -210,6 +212,10 @@ function normalizeDisplayCounter(input = {}) {
         rowScope: ROW_SCOPES.includes(input.rowScope) ? input.rowScope : def.rowScope,
         theme: COUNTER_THEMES.includes(input.theme) ? input.theme : def.theme,
         style: COUNTER_STYLES.includes(input.style) ? input.style : def.style,
+        iconClass: /^[a-z0-9 -]+$/i.test(String(input.iconClass || '').trim()) && /\bfa-[a-z0-9-]+/i.test(String(input.iconClass || '').trim())
+            ? String(input.iconClass).trim().slice(0, 80)
+            : def.iconClass,
+        allowHalf: input.allowHalf !== false,
         capMode: CAP_MODES.includes(input.capMode) ? input.capMode : def.capMode,
         customCap: Math.round(bound(input.customCap, def.customCap, 1, 100)),
         overflowMode: OVERFLOW_MODES.includes(input.overflowMode) ? input.overflowMode : def.overflowMode,

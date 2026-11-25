@@ -256,8 +256,8 @@ body { min-width: 320px; background: var(--bg-page); color: var(--text); font-fa
 .display-section-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 0 0 12px; }
 .display-section-heading h3 { margin: 0; color: var(--text-muted); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .display-section-heading > span { color: var(--text-muted); font-size: 11px; }
-.display-create-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-@media (max-width: 1120px) { .display-create-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.display-create-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 1020px) { .display-create-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .display-create-card { display: flex; gap: 13px; align-items: center; min-width: 0; padding: 21px 18px; border: 1px solid var(--border); border-radius: 10px; text-align: left; background: var(--bg-card); color: var(--text); cursor: pointer; transition: background .15s, border-color .15s; }
 .display-create-card:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 5%, var(--bg-card)); }
 .display-create-icon { display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px; border-radius: 10px; color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 16%, transparent); }
@@ -289,6 +289,12 @@ body { min-width: 320px; background: var(--bg-page); color: var(--text); font-fa
 .mini-counter { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent); border-radius: 10px; background: var(--bg-card); box-shadow: 0 5px 16px #00000012; }
 .mini-counter i { width: 16px; height: 16px; border-radius: 50%; background: currentColor; border: 2px solid currentColor; opacity: .82; }
 .mini-counter i.is-empty { background: transparent; opacity: .35; }
+.mini-meter { display: grid; gap: 6px; width: 68%; padding: 12px; border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent); border-radius: 8px; background: var(--bg-card); box-shadow: 0 5px 16px #00000012; }
+.mini-meter i { display: block; height: 9px; border-radius: 999px; background: linear-gradient(90deg, currentColor 68%, color-mix(in srgb, currentColor 18%, transparent) 68%); opacity: .85; }
+.mini-meter i:last-child { background: linear-gradient(90deg, currentColor 38%, color-mix(in srgb, currentColor 18%, transparent) 38%); opacity: .6; }
+.mini-ticker { display: flex; align-items: center; gap: 8px; width: 74%; height: 28px; padding-right: 10px; border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent); border-radius: 6px; background: var(--bg-card); overflow: hidden; box-shadow: 0 5px 16px #00000012; }
+.mini-ticker b { flex: none; width: 26%; height: 100%; background: currentColor; opacity: .75; }
+.mini-ticker i { flex: 1; height: 6px; border-radius: 3px; background: currentColor; opacity: .28; }
 .counter-theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 8px; }
 .counter-theme-swatch { display: grid; justify-items: center; gap: 6px; padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-inset); color: var(--text-muted); font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; transition: border-color .15s, background .15s, color .15s; }
 .counter-theme-swatch:hover { border-color: var(--border-strong); color: var(--text); }

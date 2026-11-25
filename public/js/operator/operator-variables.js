@@ -91,6 +91,21 @@ function renderReadOnlyVarHtml(v, head) {
         const on = val === 'true';
         return `${head}<div class="op-panel-row"><span class="op-pill ${on ? 'is-ok' : ''}">${on ? 'On (true)' : 'Off (false)'}</span></div>`;
     }
+    if (v.type === 'select') {
+        const opts = Array.isArray(v.options) ? v.options : [];
+        const match = opts.find(o => o.value.toLowerCase() === val.toLowerCase());
+        const style = match?.color ? `background:${esc(match.color)}22;border-color:${esc(match.color)};color:${esc(match.color)};` : '';
+        return `${head}<div class="op-panel-row"><span class="op-pill" style="${style}">${match?.icon ? `<i class="${esc(match.icon)}" aria-hidden="true"></i> ` : ''}${esc(match?.label || val || '—')}</span></div>`;
+    }
+    if (v.type === 'tags') {
+        const items = Array.isArray(v.items) ? v.items : [];
+        const opts = Array.isArray(v.options) ? v.options : [];
+        return `${head}<div style="display:flex;flex-wrap:wrap;gap:.3rem;">${items.length ? items.map(item => {
+            const match = opts.find(o => o.value.toLowerCase() === String(item).toLowerCase());
+            const style = match?.color ? `background:${esc(match.color)}22;border-color:${esc(match.color)};` : '';
+            return `<span class="op-pill" style="${style}">${match?.icon ? `<i class="${esc(match.icon)}" aria-hidden="true"></i> ` : ''}${esc(match?.label || item)}</span>`;
+        }).join('') : '<span style="font-size:.8rem;color:var(--text-muted);">No active tags</span>'}</div>`;
+    }
     if (v.type === 'counter' || v.type === 'number') {
         const capHtml = v.max !== undefined && v.max !== '' && v.max !== null
             ? `<span style="color:var(--text-muted);font-size:.95rem;font-weight:600;"> / ${esc(v.max)}</span>`
@@ -154,6 +169,32 @@ function renderBoardVarControlHtml(v, showHeader = true) {
         return `${head}<div class="op-panel-row">
             <span class="op-pill ${on ? 'is-ok' : ''}">${on ? 'Enabled' : 'Disabled'}</span>
             <button type="button" class="op-btn sm ${on ? 'active' : ''}" data-card-var-toggle="${name}">${on ? 'On (true)' : 'Off (false)'}</button>
+        </div>`;
+    }
+
+    if (v.type === 'select') {
+        const opts = Array.isArray(v.options) ? v.options : [];
+        const cur = val.toLowerCase();
+        return `${head}<div style="display:flex;flex-wrap:wrap;gap:.3rem;align-items:center;">
+            ${opts.map(opt => {
+                const active = opt.value.toLowerCase() === cur;
+                const style = opt.color ? (active ? `background:${esc(opt.color)};border-color:${esc(opt.color)};color:#fff;` : `border-color:${esc(opt.color)}55;`) : '';
+                return `<button type="button" class="op-slot-btn ${active ? 'active' : ''}" data-card-var-select="${name}" data-opt-val="${esc(opt.value)}" aria-pressed="${active}" style="${style}">${opt.icon ? `<i class="${esc(opt.icon)}" aria-hidden="true"></i> ` : ''}${esc(opt.label || opt.value)}</button>`;
+            }).join('') || '<span style="font-size:.78rem;color:var(--text-muted);">No options configured.</span>'}
+            ${opts.length > 1 ? `<button type="button" class="op-btn sm" data-card-var-next="${name}" title="Cycle option">Next</button>` : ''}
+        </div>`;
+    }
+
+    if (v.type === 'tags') {
+        const opts = Array.isArray(v.options) ? v.options : [];
+        const activeSet = new Set((Array.isArray(v.items) ? v.items : []).map(s => String(s).toLowerCase()));
+        return `${head}<div style="display:flex;flex-wrap:wrap;gap:.3rem;align-items:center;">
+            ${opts.map(opt => {
+                const active = activeSet.has(opt.value.toLowerCase());
+                const style = opt.color ? (active ? `background:${esc(opt.color)};border-color:${esc(opt.color)};color:#fff;` : `border-color:${esc(opt.color)}55;`) : '';
+                return `<button type="button" class="op-slot-btn ${active ? 'active' : ''}" data-card-var-tag="${name}" data-opt-val="${esc(opt.value)}" aria-pressed="${active}" style="border-radius:999px;${style}">${opt.icon ? `<i class="${esc(opt.icon)}" aria-hidden="true"></i> ` : ''}${esc(opt.label || opt.value)}</button>`;
+            }).join('') || '<span style="font-size:.78rem;color:var(--text-muted);">No tags configured.</span>'}
+            ${activeSet.size ? `<button type="button" class="op-btn sm" data-card-var-clear-tags="${name}">Clear</button>` : ''}
         </div>`;
     }
 
@@ -367,6 +408,35 @@ function bindBoardVarEvents(el, onRefresh) {
             const name = tog.dataset.cardVarToggle;
             const next = tog.classList.contains('active') ? 'false' : 'true';
             await api(`/api/variables/${encodeURIComponent(name)}`, 'PUT', { value: next });
+            await fetchVariablesData(true);
+            onRefresh();
+            return;
+        }
+        const sel = e.target.closest('[data-card-var-select]');
+        if (sel) {
+            const name = sel.dataset.cardVarSelect;
+            await api(`/api/variables/${encodeURIComponent(name)}`, 'PUT', { value: sel.dataset.optVal || '' });
+            await fetchVariablesData(true);
+            onRefresh();
+            return;
+        }
+        const nextBtn = e.target.closest('[data-card-var-next]');
+        if (nextBtn) {
+            await api(`/api/variables/${encodeURIComponent(nextBtn.dataset.cardVarNext)}/next`, 'POST', {});
+            await fetchVariablesData(true);
+            onRefresh();
+            return;
+        }
+        const tagBtn = e.target.closest('[data-card-var-tag]');
+        if (tagBtn) {
+            await api(`/api/variables/${encodeURIComponent(tagBtn.dataset.cardVarTag)}/toggle`, 'POST', { value: tagBtn.dataset.optVal || '' });
+            await fetchVariablesData(true);
+            onRefresh();
+            return;
+        }
+        const clearTagsBtn = e.target.closest('[data-card-var-clear-tags]');
+        if (clearTagsBtn) {
+            await api(`/api/variables/${encodeURIComponent(clearTagsBtn.dataset.cardVarClearTags)}/clear`, 'POST', {});
             await fetchVariablesData(true);
             onRefresh();
             return;

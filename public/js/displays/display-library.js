@@ -2,6 +2,8 @@ import { displaySourceFields, displaySourceSummary, updateDisplaySource } from '
 import { createTableDesigner, defaultTable, tableFieldOptions } from './table-designer.js';
 import { createBadgeDesigner } from './badge-designer.js';
 import { createCounterDesigner, defaultCounter } from './counter-designer.js';
+import { createMeterDesigner, defaultMeter } from './meter-designer.js';
+import { createTickerDesigner, defaultTicker } from './ticker-designer.js';
 import { defaultImageGroupConfig } from './badge-model.js';
 import { badgeVisualControls, bindBadgeControls, pickBadgeAsset, uploadBadgeAsset } from './badge-controls.js';
 import { setDisplayFormContext, refreshBoundDisplayNumbers } from './display-form.js';
@@ -22,7 +24,7 @@ const defaults = () => ({
     sections: [{ id: 'section_1', title: '', items: [] }]
 });
 const state = {
-    displays: [], sets: [], variables: [], draft: null, baseline: '', previewBinding: null,
+    displays: [], usageCounts: {}, sets: [], variables: [], draft: null, baseline: '', previewBinding: null,
     previewBackdrop: '#111827', previewResolution: 'native', dragged: null, previewFrame: 0, loaded: false, busy: false,
     libraryFilter: 'all', builderView: 'design', counterPreviewDelta: 0
 };
@@ -40,15 +42,28 @@ setDisplayFormContext(() => state.draft?.kind === 'badge' ? { badge: state.draft
 const tableDesigner = createTableDesigner($('#table-design-controls'), {
     getDraft: () => state.draft, getSets: () => state.sets, onChange: () => { markDirty(); schedulePreview(); }
 });
+const openFontPicker = ({ onSelect }) => window.PlaceholderPicker?.open({
+    filter: 'font',
+    getStatus: () => ({ customVars: state.variables, variableSets: state.sets }),
+    onPick: (token, meta) => onSelect(meta?.raw ? token : `{{${token}}}`)
+});
 const counterDesigner = createCounterDesigner($('#counter-design-controls'), $('#counter-appearance-controls'), {
     getDraft: () => state.draft, getSets: () => state.sets, getVariables: () => state.variables,
     onChange: () => { markDirty(); renderPreviewControls(); schedulePreview(); },
     pickColor: openBadgeColorPicker,
-    pickFont: ({ onSelect }) => window.PlaceholderPicker?.open({
-        filter: 'font',
-        getStatus: () => ({ customVars: state.variables, variableSets: state.sets }),
-        onPick: (token, meta) => onSelect(meta?.raw ? token : `{{${token}}}`)
-    })
+    pickFont: openFontPicker
+});
+const meterDesigner = createMeterDesigner($('#meter-design-controls'), $('#meter-appearance-controls'), {
+    getDraft: () => state.draft, getSets: () => state.sets, getVariables: () => state.variables,
+    onChange: () => { markDirty(); renderPreviewControls(); schedulePreview(); },
+    pickColor: openBadgeColorPicker,
+    pickFont: openFontPicker
+});
+const tickerDesigner = createTickerDesigner($('#ticker-design-controls'), $('#ticker-appearance-controls'), {
+    getDraft: () => state.draft, getSets: () => state.sets, getVariables: () => state.variables,
+    onChange: () => { markDirty(); renderPreviewControls(); schedulePreview(); },
+    pickColor: openBadgeColorPicker,
+    pickFont: openFontPicker
 });
 const badgeDesigner = createBadgeDesigner($('#badge-designer'), {
     getDraft: () => state.draft, getStatus: () => ({ variableSets: state.sets, customVars: state.variables }),
@@ -98,6 +113,7 @@ async function loadLibrary() {
         request('/api/variables')
     ]);
     state.displays = Array.isArray(library.displays) ? library.displays : [];
+    state.usageCounts = library.usageCounts && typeof library.usageCounts === 'object' ? library.usageCounts : {};
     state.sets = Array.isArray(variables.sets) ? variables.sets : [];
     state.variables = Array.isArray(variables.variables) ? variables.variables : [];
     state.loaded = true;
@@ -117,6 +133,17 @@ function displaySummary(display) {
         if (c.sourceMode === 'set') return [set?.name || 'Set unavailable', c.valueField || 'Auto field', styleLabel];
         const varCount = (c.variables || []).length;
         return [`${varCount} ${varCount === 1 ? 'counter' : 'counters'}`, styleLabel, c.capMode === 'custom' ? `Cap ${c.customCap}` : c.capMode === 'none' ? 'Uncapped' : 'Auto cap'];
+    }
+    if (display.kind === 'meter') {
+        const m = display.meter || {};
+        const styleLabel = m.style === 'ring' ? 'Radial Ring' : m.style === 'segmented' ? 'Segmented' : m.style === 'vertical' ? 'Vertical' : 'HP Bar';
+        if (m.sourceMode === 'set') return [set?.name || 'Set unavailable', m.valueField || 'Auto field', styleLabel];
+        const varCount = (m.variables || []).length;
+        return [`${varCount} ${varCount === 1 ? 'meter' : 'meters'}`, styleLabel];
+    }
+    if (display.kind === 'ticker') {
+        const t = display.ticker || {};
+        return [t.sourceMode === 'set' ? (set?.name || 'Set unavailable') : (t.listVariable || 'No list'), t.badgeText || 'News Ticker'];
     }
     return [
         set?.name || 'Catalog unavailable',
@@ -152,12 +179,12 @@ function renderLibrary() {
     }
     $('#display-list').innerHTML = filtered.map(display => `
         <article class="display-list-card" data-display-kind="${esc(display.kind || 'inventory')}">
-            <div class="display-card-illustration" aria-hidden="true">${display.kind === 'table' ? '<div class="mini-table"><i></i><i></i><i></i><i></i></div>' : display.kind === 'badge' ? '<div class="mini-badge"><i></i><span><b></b><b></b></span></div>' : display.kind === 'counter' ? '<div class="mini-counter"><i></i><i></i><i></i><i class="is-empty"></i><i class="is-empty"></i></div>' : '<div class="mini-inventory"><i></i><i></i><i></i><i></i><i></i><i></i></div>'}</div>
+            <div class="display-card-illustration" aria-hidden="true">${display.kind === 'table' ? '<div class="mini-table"><i></i><i></i><i></i><i></i></div>' : display.kind === 'badge' ? '<div class="mini-badge"><i></i><span><b></b><b></b></span></div>' : display.kind === 'counter' ? '<div class="mini-counter"><i></i><i></i><i></i><i class="is-empty"></i><i class="is-empty"></i></div>' : display.kind === 'meter' ? '<div class="mini-meter"><i></i><i></i></div>' : display.kind === 'ticker' ? '<div class="mini-ticker"><b></b><i></i></div>' : '<div class="mini-inventory"><i></i><i></i><i></i><i></i><i></i><i></i></div>'}</div>
             <div class="display-list-head">
                 <h3>${esc(display.name)}</h3>
-                <span class="display-tag">${esc(display.kind === 'table' ? 'Table' : display.kind === 'badge' ? 'Badge' : display.kind === 'counter' ? 'Counter' : 'Inventory')}</span>
+                <span class="display-tag">${esc(display.kind === 'table' ? 'Table' : display.kind === 'badge' ? 'Badge' : display.kind === 'counter' ? 'Counter' : display.kind === 'meter' ? 'Meter' : display.kind === 'ticker' ? 'Ticker' : 'Inventory')}</span>
             </div>
-            <div class="display-list-meta">${displaySummary(display).map(value => `<span class="display-tag">${esc(value)}</span>`).join('')}</div>
+            <div class="display-list-meta">${[...displaySummary(display), ...(state.usageCounts[display.id] ? [`Used in ${state.usageCounts[display.id]} ${state.usageCounts[display.id] === 1 ? 'overlay' : 'overlays'}`] : [])].map(value => `<span class="display-tag">${esc(value)}</span>`).join('')}</div>
             <div class="display-list-actions">
                 <button class="btn btn-sm btn-primary" type="button" data-action="edit" data-id="${esc(display.id)}">Edit</button>
                 <details class="display-card-menu"><summary aria-label="More actions for ${esc(display.name)}"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></summary><div><button type="button" data-action="duplicate" data-id="${esc(display.id)}">Duplicate design</button><button type="button" data-action="delete" data-id="${esc(display.id)}">Delete design</button></div></details>
@@ -203,6 +230,8 @@ function beginDraft(display = defaults()) {
     state.counterPreviewDelta = 0;
     if (state.draft.kind === 'table') state.draft.table = { ...defaultTable(), ...state.draft.table };
     if (state.draft.kind === 'counter') state.draft.counter = { ...defaultCounter(), ...state.draft.counter };
+    if (state.draft.kind === 'meter') state.draft.meter = { ...defaultMeter(), ...state.draft.meter };
+    if (state.draft.kind === 'ticker') state.draft.ticker = { ...defaultTicker(), ...state.draft.ticker };
     if (state.draft.kind === 'badge') {
         const set = state.sets.find(set => set.id === state.draft.catalogId);
         state.draft.badge ||= {
@@ -421,25 +450,31 @@ function renderBuilder() {
     const kind = state.draft.kind || 'inventory';
     builderView.dataset.kind = kind;
     document.querySelectorAll('[data-kinds]').forEach(node => { node.hidden = !node.dataset.kinds.split(' ').includes(kind); });
-    $('#builder-kind-label').textContent = `${kind === 'table' ? 'Table' : kind === 'badge' ? 'Badge' : kind === 'counter' ? 'Counter & Pips' : 'Inventory'} designer`;
+    $('#builder-kind-label').textContent = `${kind === 'table' ? 'Table' : kind === 'badge' ? 'Badge' : kind === 'counter' ? 'Counter & Pips' : kind === 'meter' ? 'Meter & Gauge' : kind === 'ticker' ? 'News Ticker' : 'Inventory'} designer`;
     $('#builder-intro').textContent = kind === 'inventory'
         ? 'Arrange catalog items into reusable sections. Bind each player’s tracker in the overlay placement.'
         : kind === 'table'
             ? 'Choose columns, linked fields and row ordering. The preview source is local to this device; each placement chooses its own live rows.'
             : kind === 'counter'
-                ? 'Visualize counters and scores as pips, filled & outlined hearts, stars, bars, or 5-count slashed tally marks. Bind standalone variables or Variable Set numeric fields.'
-                : 'Design member badges and strips using fields, images, icons, fonts, zones and animated frames. Reuse this design with independent sources in any overlay.';
+                ? 'Visualize counters and scores as pips, filled & outlined hearts, custom icons, or 5-count slashed tally marks.'
+                : kind === 'meter'
+                    ? 'Build RPG HP bars, segmented meters, radial ring gauges, and vertical bars with optional damage trails and color thresholds.'
+                    : kind === 'ticker'
+                        ? 'Create smooth GPU-composited broadcast news ribbons from any List variable or Variable Set.'
+                        : 'Design member badges and strips using fields, images, icons, fonts, zones and animated frames. Reuse this design with independent sources in any overlay.';
     $('#display-name').value = state.draft.name || '';
     $('#duplicate-display').disabled = !state.draft.id || state.displays.length >= 100;
-    if (kind !== 'counter') renderCatalogControls();
+    if (!['counter', 'meter', 'ticker'].includes(kind)) renderCatalogControls();
     else {
-        $('#preview-binding-help').textContent = 'Each overlay placement can use the saved counters or override with a specific counter variable or Variable Set.';
-        $('#placement-source-step').textContent = 'Use the saved counters as-is, or override the bound variable/set for this placement.';
+        $('#preview-binding-help').textContent = 'Each overlay placement can use the saved source or override with a specific variable or Variable Set.';
+        $('#placement-source-step').textContent = 'Use the saved source as-is, or override the bound variable/set for this placement.';
     }
     if (kind === 'inventory') { renderCatalogItems(); renderSections(); }
     if (kind === 'table') tableDesigner.render();
     if (kind === 'badge') badgeDesigner.render();
     if (kind === 'counter') counterDesigner.render();
+    if (kind === 'meter') meterDesigner.render();
+    if (kind === 'ticker') tickerDesigner.render();
     renderLayoutControls();
     renderPreviewControls();
     applyBuilderView();
@@ -467,8 +502,8 @@ function schedulePreview() {
             summary.innerHTML = `<strong>${esc(source.chain)}</strong><p>${esc(source.message)}</p>`;
         }
         const stage = $('#display-preview');
-        const isCounter = state.draft.kind === 'counter';
-        const existingCounterHost = isCounter ? stage.querySelector(':scope > .counter-preview-host') : null;
+        const isNumericPreview = state.draft.kind === 'counter' || state.draft.kind === 'meter';
+        const existingCounterHost = isNumericPreview ? stage.querySelector(':scope > .counter-preview-host') : null;
         if (!existingCounterHost) {
             window.OverlayShared?.cleanupNode?.(stage);
             stage.replaceChildren();
@@ -478,9 +513,17 @@ function schedulePreview() {
             return;
         }
         const host = existingCounterHost || document.createElement('div');
-        if (isCounter) host.className = 'counter-preview-host';
+        if (isNumericPreview) host.className = 'counter-preview-host';
         host.style.cssText = 'width:100%;height:100%;min-width:0;min-height:0;';
-        const native = state.draft.kind === 'badge' ? [state.draft.badge.width || 640, state.draft.badge.height || 360] : state.draft.kind === 'table' ? [1280, 720] : state.draft.kind === 'counter' ? [560, 220] : [640, 360];
+        const native = state.draft.kind === 'badge'
+            ? [state.draft.badge.width || 640, state.draft.badge.height || 360]
+            : state.draft.kind === 'table'
+                ? [1280, 720]
+                : state.draft.kind === 'ticker'
+                    ? [960, 88]
+                    : isNumericPreview
+                        ? [560, 220]
+                        : [640, 360];
         const [width, height] = state.previewResolution === 'native' ? native : state.previewResolution.split('x').map(Number);
         stage.classList.add('is-aspect-preview');
         stage.style.aspectRatio = `${width} / ${height}`;
@@ -493,8 +536,9 @@ function schedulePreview() {
         const display = { ...state.draft, id: displayPreviewId() };
         let previewVars = state.variables;
         let previewSets = state.sets;
-        if (isCounter && state.counterPreviewDelta !== 0) {
+        if (isNumericPreview && state.counterPreviewDelta !== 0) {
             const delta = state.counterPreviewDelta;
+            const cfgKey = state.draft.kind === 'meter' ? 'meter' : 'counter';
             previewVars = state.variables.map(v => (v.type === 'counter' || v.type === 'number')
                 ? { ...v, value: Math.max(0, (Number(v.value) || 0) + delta) }
                 : v);
@@ -502,7 +546,7 @@ function schedulePreview() {
                 ? {
                     ...s,
                     roster: (s.roster || []).map(r => {
-                        const key = state.draft.counter?.valueField || (s.fields || []).find(f => f.type === 'number' || f.type === 'counter')?.key;
+                        const key = state.draft[cfgKey]?.valueField || (s.fields || []).find(f => f.type === 'number' || f.type === 'counter')?.key;
                         if (!key) return r;
                         return { ...r, values: { ...(r.values || {}), [key]: Math.max(0, (Number(r.values?.[key]) || 0) + delta) } };
                     })
@@ -748,14 +792,24 @@ function addNewDisplay() {
     }
     const draft = defaults();
     draft.kind = $('#display-kind').value || 'inventory';
-    draft.name = `${draft.kind === 'table' ? 'Table' : draft.kind === 'badge' ? 'Badge' : draft.kind === 'counter' ? 'Counter' : 'Inventory'} display`;
-    draft.catalogId = draft.kind === 'counter' ? '' : (state.sets.find(set => set.roster?.length)?.id || '');
+    draft.name = `${draft.kind === 'table' ? 'Table' : draft.kind === 'badge' ? 'Badge' : draft.kind === 'counter' ? 'Counter' : draft.kind === 'meter' ? 'Meter' : draft.kind === 'ticker' ? 'News Ticker' : 'Inventory'} display`;
+    draft.catalogId = ['counter', 'meter', 'ticker'].includes(draft.kind) ? '' : (state.sets.find(set => set.roster?.length)?.id || '');
     const requestedCatalog = new URLSearchParams(location.search).get('catalog');
     if (state.sets.some(set => set.id === requestedCatalog)) draft.catalogId = requestedCatalog;
     if (draft.kind === 'counter') {
         draft.counter = defaultCounter();
         const firstCounter = state.variables.find(v => !v.setId && (v.type === 'counter' || v.type === 'number'));
         if (firstCounter) draft.counter.variables = [{ name: firstCounter.name, label: '', cap: null }];
+    }
+    if (draft.kind === 'meter') {
+        draft.meter = defaultMeter();
+        const firstCounter = state.variables.find(v => !v.setId && (v.type === 'counter' || v.type === 'number'));
+        if (firstCounter) draft.meter.variables = [{ name: firstCounter.name, label: '', cap: null }];
+    }
+    if (draft.kind === 'ticker') {
+        draft.ticker = defaultTicker();
+        const firstList = state.variables.find(v => !v.setId && v.type === 'list');
+        if (firstList) draft.ticker.listVariable = firstList.name;
     }
     if (draft.kind === 'table') {
         draft.table = defaultTable();
@@ -797,12 +851,21 @@ async function deleteDisplay(id) {
 
 function validateDraft() {
     if (!state.draft.name.trim()) throw new Error('Enter a display name.');
-    if (state.draft.kind === 'counter') {
-        const cfg = state.draft.counter || {};
+    if (state.draft.kind === 'counter' || state.draft.kind === 'meter') {
+        const cfg = state.draft[state.draft.kind] || {};
         if (cfg.sourceMode === 'set') {
-            if (!catalogSet()) throw new Error('Choose a Variable Set for this counter display.');
+            if (!catalogSet()) throw new Error('Choose a Variable Set for this display.');
         } else if (!Array.isArray(cfg.variables) || !cfg.variables.length) {
             throw new Error('Add at least one Counter or Number variable.');
+        }
+        return;
+    }
+    if (state.draft.kind === 'ticker') {
+        const cfg = state.draft.ticker || {};
+        if (cfg.sourceMode === 'set') {
+            if (!catalogSet()) throw new Error('Choose a Variable Set for this ticker.');
+        } else if (!cfg.listVariable) {
+            throw new Error('Choose a List variable for this ticker.');
         }
         return;
     }
@@ -1093,7 +1156,7 @@ async function start() {
     installEvents();
     try {
         const filter = localStorage.getItem('streampulse:display-library:filter');
-        if (['all', 'inventory', 'table', 'badge', 'counter'].includes(filter)) state.libraryFilter = filter;
+        if (['all', 'inventory', 'table', 'badge', 'counter', 'meter', 'ticker'].includes(filter)) state.libraryFilter = filter;
         state.builderView = localStorage.getItem('streampulse:display-library:view') === 'appearance' ? 'appearance' : 'design';
         $('#display-library-search').value = localStorage.getItem('streampulse:display-library:search') || '';
     } catch { /* Optional preferences. */ }
@@ -1101,7 +1164,7 @@ async function start() {
         await loadLibrary();
         const requestedId = new URLSearchParams(location.search).get('id');
         const requestedKind = new URLSearchParams(location.search).get('kind');
-        if (['inventory', 'table', 'badge', 'counter'].includes(requestedKind)) $('#display-kind').value = requestedKind;
+        if (['inventory', 'table', 'badge', 'counter', 'meter', 'ticker'].includes(requestedKind)) $('#display-kind').value = requestedKind;
         if (requestedId) {
             const display = state.displays.find(candidate => candidate.id === requestedId);
             if (!display) showAlert('That saved display could not be found.');

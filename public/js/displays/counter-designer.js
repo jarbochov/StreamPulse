@@ -64,6 +64,7 @@ const STYLE_OPTIONS = [
     ['diamonds', 'Diamonds', '<svg viewBox="0 0 44 16" width="38" height="14" aria-hidden="true"><path d="M8 2l5.5 6L8 14 2.5 8z" fill="currentColor"/><path d="M22 2l5.5 6-5.5 6-5.5-6z" fill="currentColor"/><path d="M36 2l5.5 6-5.5 6-5.5-6z" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".55"/></svg>'],
     ['squares', 'Squares', '<svg viewBox="0 0 44 16" width="38" height="14" aria-hidden="true"><rect x="3" y="3" width="10" height="10" rx="2.5" fill="currentColor"/><rect x="17" y="3" width="10" height="10" rx="2.5" fill="currentColor"/><rect x="31" y="3" width="10" height="10" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".55"/></svg>'],
     ['bars', 'Bars', '<svg viewBox="0 0 44 16" width="38" height="14" aria-hidden="true"><rect x="5" y="2" width="6" height="12" rx="1.8" fill="currentColor"/><rect x="15" y="2" width="6" height="12" rx="1.8" fill="currentColor"/><rect x="25" y="2" width="6" height="12" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".55"/></svg>'],
+    ['icon', 'Custom Icon', '<svg viewBox="0 0 44 16" width="38" height="14" aria-hidden="true"><path d="M5 12h10l1.5-6-3.5 2.5L10 4 7 8.5 3.5 6z" fill="currentColor"/><path d="M27 12h10l1.5-6-3.5 2.5L32 4l-3 4.5-3.5-2.5z" fill="none" stroke="currentColor" stroke-width="1.3" opacity=".55"/></svg>'],
     ['tally', 'Tally Marks', '<svg viewBox="0 0 44 16" width="38" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 2v12M10 2v12M15 2v12M20 2v12M2.5 12l20-8"/><path d="M30 2v12M35 2v12" opacity=".7"/></svg>'],
     ['tally-chalk', 'Tally (Chalk)', '<svg viewBox="0 0 44 16" width="38" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M5.5 2L4.5 14M10 2.4l.7 11.2M15.4 2l-.8 12M19.7 2.3l.8 11.4M2 12.4l21-8.8"/><path d="M30.5 2.2l-.6 11.5M35.2 2.4l.7 11.2" opacity=".7"/></svg>'],
     ['number', 'Number', '<svg viewBox="0 0 44 16" width="38" height="14" aria-hidden="true"><text x="22" y="12.5" text-anchor="middle" fill="currentColor" font-size="12" font-weight="700" font-family="system-ui,sans-serif">3/5</text></svg>']
@@ -229,6 +230,14 @@ export function createCounterDesigner(designRoot, appearanceRoot, { getDraft, ge
                     </button>
                 `).join('')}
             </div>
+            ${cfg.style === 'icon' ? `
+                <div class="control-field" style="margin-top:10px;max-width:340px;">
+                    <label for="counter-icon-class">Custom icon class</label>
+                    <span class="display-color-pair">
+                        <input id="counter-icon-class" class="input" type="text" maxlength="80" value="${esc(cfg.iconClass || 'fa-solid fa-crown')}" placeholder="fa-solid fa-crown" data-counter-field="iconClass">
+                        <button type="button" class="btn btn-sm" data-counter-pick-icon="1">Pick Icon</button>
+                    </span>
+                </div>` : ''}
 
             <div class="builder-card-heading" style="margin-top:20px;">
                 <div>
@@ -346,8 +355,9 @@ export function createCounterDesigner(designRoot, appearanceRoot, { getDraft, ge
                     return `<div class="control-field">
                         <label for="counter-color-${key}">${esc(label)}</label>
                         <span class="display-color-pair">
-                            <input type="color" data-counter-color="${key}" value="${esc(pickerVal)}" aria-label="${esc(label)} picker">
+                            <input type="color" data-counter-color="${key}" value="${esc(pickerVal)}"${isVar ? ' disabled style="opacity:.35;"' : ''} aria-label="${esc(label)} picker">
                             <input id="counter-color-${key}" class="input" type="text" maxlength="90" placeholder="${optional ? 'Default' : '#RRGGBBAA, @color, or {{var}}'}" value="${esc(val)}" data-counter-field="${key}">
+                            ${isVar ? `<button type="button" class="btn btn-sm counter-var-btn" data-counter-unbind-color="${key}" title="Clear variable binding" aria-label="Unbind ${esc(label)}">&times;</button>` : ''}
                             <button type="button" class="btn btn-sm counter-var-btn${isVar ? ' active' : ''}" data-counter-pick-color="${key}" title="Bind color variable or Variable Set member color" aria-label="Bind variable for ${esc(label)}">{}</button>
                         </span>
                     </div>`;
@@ -391,6 +401,27 @@ export function createCounterDesigner(designRoot, appearanceRoot, { getDraft, ge
                 cfg.sourceMode = sourceBtn.dataset.counterSource === 'set' ? 'set' : 'variables';
                 renderDesign();
                 onChange();
+                return;
+            }
+            const unbindBtn = event.target.closest('[data-counter-unbind-color]');
+            if (unbindBtn) {
+                const key = unbindBtn.dataset.counterUnbindColor;
+                const def = defaultCounter();
+                cfg[key] = def[key] ?? '';
+                renderAppearance();
+                onChange();
+                return;
+            }
+            const pickIconBtn = event.target.closest('[data-counter-pick-icon]');
+            if (pickIconBtn) {
+                window.IconPicker?.open({
+                    value: cfg.iconClass || 'fa-solid fa-crown',
+                    onPick: cls => {
+                        cfg.iconClass = cls || 'fa-solid fa-crown';
+                        renderDesign();
+                        onChange();
+                    }
+                });
                 return;
             }
             const pickColorBtn = event.target.closest('[data-counter-pick-color]');

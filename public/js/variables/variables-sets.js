@@ -765,7 +765,14 @@ export function openSetModal(existing = null) {
                         <label title="Default increment/decrement step">Step<input type="number" step="any" min="0.01" data-f-prop="step" value="${f.step ?? ''}" placeholder="1"></label>
                         <p class="muted" style="grid-column:1 / -1;margin:0;">Leave Cap / Max blank to grow dynamically. Counter &amp; Pips displays automatically inherit this cap.</p>
                     </div>`
-                    : '';
+                    : ['select', 'tags'].includes(f.type)
+                        ? `<div class="vp-link-config">
+                            <label>Preset options (one per line · optional <code>| #color | fa-solid fa-star</code>)
+                                <textarea rows="3" data-f-prop="optionsText" placeholder="Ready | #22c55e&#10;Away | #f59e0b&#10;Eliminated | #ef4444">${esc(f.optionsText !== undefined ? f.optionsText : (Array.isArray(f.options) ? f.options.map(o => [o.label || o.value, o.color || '', o.icon || ''].filter(Boolean).join(' | ')).join('\n') : ''))}</textarea>
+                            </label>
+                            <p class="muted" style="margin:0;">${f.type === 'select' ? 'One active choice per entry. Operator Mode renders clean quick-select controls.' : 'Multiple active tags per entry. Operator Mode renders clickable toggle chips.'}</p>
+                        </div>`
+                        : '';
             return `
             <div class="vp-field-row" data-f-idx="${idx}">
                 <input type="text" data-f-prop="label" value="${esc(f.label)}" placeholder="Label (e.g. Name)">
@@ -774,6 +781,8 @@ export function openSetModal(existing = null) {
                     <option value="text" ${f.type === 'text' ? 'selected' : ''}>Text</option>
                     <option value="number" ${f.type === 'number' ? 'selected' : ''}>Number</option>
                     <option value="counter" ${f.type === 'counter' ? 'selected' : ''}>Counter</option>
+                    <option value="select" ${f.type === 'select' ? 'selected' : ''}>Select (preset options)</option>
+                    <option value="tags" ${f.type === 'tags' ? 'selected' : ''}>Tags (multi-select)</option>
                     <option value="image" ${f.type === 'image' ? 'selected' : ''}>Image</option>
                     <option value="icon" ${f.type === 'icon' ? 'selected' : ''}>Icon</option>
                     <option value="color" ${f.type === 'color' ? 'selected' : ''}>Color</option>
@@ -897,6 +906,19 @@ export function openSetModal(existing = null) {
                         if (f.min !== '' && f.min != null && Number.isFinite(Number(f.min))) base.min = Number(f.min);
                         if (f.max !== '' && f.max != null && Number.isFinite(Number(f.max))) base.max = Number(f.max);
                         if (f.step !== '' && f.step != null && Number.isFinite(Number(f.step)) && Number(f.step) > 0) base.step = Number(f.step);
+                    } else if (f.type === 'select' || f.type === 'tags') {
+                        if (f.optionsText !== undefined) {
+                            base.options = String(f.optionsText || '').split(/\r?\n/).map(line => {
+                                const parts = line.split('|').map(s => s.trim()).filter(Boolean);
+                                if (!parts.length) return null;
+                                const label = parts[0];
+                                const color = parts.find(p => /^#[0-9a-f]{3,8}$/i.test(p)) || '';
+                                const icon = parts.find(p => /\bfa-[a-z0-9-]+/i.test(p)) || '';
+                                return { value: label, label, ...(color ? { color } : {}), ...(icon ? { icon } : {}) };
+                            }).filter(Boolean);
+                        } else if (Array.isArray(f.options)) {
+                            base.options = f.options;
+                        }
                     }
                     return base;
                 })
@@ -948,6 +970,30 @@ function openEntryModal(setObj, existingEntry = null) {
                         <button type="button" class="b sm" data-entry-pick-icon="${esc(f.key)}">Pick Icon</button>
                     </div>
                 </label>
+            `;
+        }
+        if (f.type === 'select') {
+            const opts = Array.isArray(f.options) ? f.options : [];
+            const cur = String(val || '').toLowerCase();
+            return `
+                <label data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">
+                    ${head}
+                    <select data-entry-field="${esc(f.key)}">
+                        ${opts.length ? opts.map(opt => `<option value="${esc(opt.value)}"${opt.value.toLowerCase() === cur ? ' selected' : ''}>${esc(opt.label || opt.value)}</option>`).join('') : '<option value="">No options defined</option>'}
+                    </select>
+                </label>
+            `;
+        }
+        if (f.type === 'tags') {
+            const opts = Array.isArray(f.options) ? f.options : [];
+            const activeSet = new Set((Array.isArray(val) ? val : String(val || '').split(',').map(s => s.trim()).filter(Boolean)).map(s => s.toLowerCase()));
+            return `
+                <div data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}" class="${spanCls}">
+                    <span class="muted" style="display:block;font-size:.78rem;margin-bottom:.3rem;">${head}</span>
+                    <div style="display:flex;flex-wrap:wrap;gap:.35rem;">
+                        ${opts.length ? opts.map(opt => `<label style="display:inline-flex;align-items:center;gap:.3rem;padding:.2rem .55rem;border:1px solid ${opt.color ? esc(opt.color) : 'var(--border)'};border-radius:999px;font-size:.8rem;cursor:pointer;"><input type="checkbox" data-entry-tag="${esc(f.key)}" value="${esc(opt.value)}"${activeSet.has(opt.value.toLowerCase()) ? ' checked' : ''}>${opt.color ? `<span style="width:8px;height:8px;border-radius:50%;background:${esc(opt.color)};display:inline-block;"></span>` : ''}${esc(opt.label || opt.value)}</label>`).join('') : '<span class="muted" style="font-size:.78rem;">No tag options defined on this set.</span>'}
+                    </div>
+                </div>
             `;
         }
         if (f.type === 'counter' || f.type === 'number') {
@@ -1218,6 +1264,8 @@ function openEntryModal(setObj, existingEntry = null) {
                     nextValues[f.key] = modal.querySelector(`[data-entry-toggle="${CSS.escape(f.key)}"]`).checked ? 'true' : 'false';
                 } else if (f.type === 'checklist') {
                     nextValues[f.key] = parseChecklistMap(modal.querySelector(`[data-entry-field="${CSS.escape(f.key)}"]`).value);
+                } else if (f.type === 'tags') {
+                    nextValues[f.key] = [...modal.querySelectorAll(`[data-entry-tag="${CSS.escape(f.key)}"]:checked`)].map(cb => cb.value);
                 } else if (f.type === 'ref_list') {
                     try { nextValues[f.key] = JSON.parse(modal.querySelector(`[data-entry-field="${CSS.escape(f.key)}"]`).value || '[]'); } catch { nextValues[f.key] = []; }
                 } else {

@@ -570,6 +570,40 @@ test('counter display schema, cap resolution, and service persistence', () => {
         assert.equal(steppedUp.roster[0].values.hearts, '3', 'stepping respects Variable Set field max cap');
         const steppedDown = varsSvc.mutateEntry('boss_tracker', 'step', { entry: 'b1', field: 'hearts', delta: -10 });
         assert.equal(steppedDown.roster[0].values.hearts, '0', 'stepping respects Variable Set field min bound');
+
+        // Verify select & tags standalone variables + derived tokens + cycle/toggle/clear
+        varsSvc.set('phase', {
+            type: 'select',
+            options: [
+                { value: 'Live', label: 'Live Now', color: '#22c55e', icon: 'fa-solid fa-signal' },
+                { value: 'BRB', label: 'Be Right Back', color: '#f59e0b', icon: 'fa-solid fa-mug-hot' }
+            ],
+            value: 'Live'
+        });
+        assert.equal(varsSvc.values().phase, 'Live Now');
+        assert.equal(varsSvc.values().phase_color, '#22c55e');
+        assert.equal(varsSvc.values().phase_icon, 'fa-solid fa-signal');
+        varsSvc.cycleSelect('phase', 1);
+        assert.equal(varsSvc.values().phase, 'Be Right Back');
+        assert.equal(varsSvc.values().phase_color, '#f59e0b');
+
+        varsSvc.set('modifiers', {
+            type: 'tags',
+            options: [{ value: 'Hardcore', color: '#ef4444' }, { value: 'NoHit', label: 'No Hit', color: '#a855f7' }],
+            items: ['Hardcore']
+        });
+        assert.equal(varsSvc.values().modifiers, 'Hardcore');
+        assert.equal(varsSvc.values().modifiers_count, '1');
+        varsSvc.toggleVar('modifiers', 'NoHit');
+        assert.equal(varsSvc.values().modifiers, 'Hardcore, No Hit');
+        assert.equal(varsSvc.values().modifiers_count, '2');
+        varsSvc.clearTags('modifiers');
+        assert.equal(varsSvc.values().modifiers_count, '0');
+
+        // Verify Variable Set resetSetColumn
+        varsSvc.mutateEntry('boss_tracker', 'set', { entry: 'b1', field: 'hearts', value: '3' });
+        const resetRes = varsSvc.resetSetColumn('boss_tracker', 'hearts');
+        assert.equal(resetRes.roster[0].values.hearts, '0');
     } finally {
         fs.rmSync(dir, { recursive: true, force: true });
     }
@@ -717,6 +751,55 @@ test('counter display builder renders hearts, 5-count slashed tallies, caps, and
         return fills;
     });
     assert.deepEqual(memberColors, ['#ef4444', '#3b82f6'], 'Variable Set {{member.color}} gives each player their own pip color');
+
+    // Verify half-hearts (2.5 / 3), custom icon style, meter display, and ticker display rendering
+    const extraChecks = await page.evaluate(() => {
+        const host = document.createElement('div');
+        host.style.cssText = 'width:600px;height:200px';
+        document.body.append(host);
+
+        // Half-hearts: 2.5 / 3 -> 2 filled + 1 half
+        const halfDef = {
+            id: 'half_hearts', name: 'Half Hearts', kind: 'counter',
+            counter: { sourceMode: 'variables', variables: [{ name: 'hp' }], style: 'hearts', capMode: 'custom', customCap: 3 }
+        };
+        window.OverlayShared.renderVariableDisplay(host, { display: { displayId: 'half_hearts' } }, {
+            variableDisplays: [halfDef], customVars: [{ name: 'hp', type: 'counter', value: '2.5', max: '3' }]
+        });
+        const halfCounts = {
+            filled: host.querySelectorAll('[data-marker-state="filled"]').length,
+            half: host.querySelectorAll('[data-marker-state="half"]').length
+        };
+
+        // Meter display (HP bar + thresholds)
+        const meterDef = {
+            id: 'boss_hp', name: 'Boss HP', kind: 'meter',
+            meter: { sourceMode: 'variables', variables: [{ name: 'boss_hp' }], style: 'bar', capMode: 'custom', customCap: 100, useThresholds: true, lowThreshold: 25, lowColor: '#ef4444' }
+        };
+        window.OverlayShared.renderVariableDisplay(host, { display: { displayId: 'boss_hp' } }, {
+            variableDisplays: [meterDef], customVars: [{ name: 'boss_hp', type: 'number', value: '20', max: '100' }]
+        });
+        const meterPct = host.querySelector('.sp-meter-row')?.dataset.meterPct;
+
+        // Ticker display
+        const tickerDef = {
+            id: 'news_bar', name: 'News', kind: 'ticker',
+            ticker: { sourceMode: 'list', listVariable: 'headlines', badgeText: 'BREAKING', separator: 'diamond' }
+        };
+        window.OverlayShared.renderVariableDisplay(host, { display: { displayId: 'news_bar' } }, {
+            variableDisplays: [tickerDef], customVars: [{ name: 'headlines', type: 'list', items: ['Match starts at 8 PM', 'New merch drop'] }]
+        });
+        const tickerBadge = host.querySelector('.sp-ticker-badge')?.textContent;
+        const tickerItems = host.querySelectorAll('.sp-ticker-item').length; // duplicated seamless track -> 4
+        host.remove();
+        return { halfCounts, meterPct, tickerBadge, tickerItems };
+    });
+    assert.deepEqual(extraChecks, {
+        halfCounts: { filled: 2, half: 1 },
+        meterPct: '20',
+        tickerBadge: 'BREAKING',
+        tickerItems: 4
+    }, 'half-hearts, meter threshold rendering, and seamless duplicated news ticker render cleanly');
 
     // Responsive check
     for (const width of [1366, 390]) {

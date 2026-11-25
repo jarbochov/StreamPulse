@@ -6,17 +6,24 @@ const { isDeepStrictEqual } = require('node:util');
 const { variableKey, variableGroupKey } = require('../../shared/variable-paths.cjs');
 
 const NAME_RE = /^[a-z0-9_]{1,40}$/;
-const VALID_TYPES = ['counter', 'number', 'text', 'list', 'image', 'icon', 'toggle', 'color', 'template', 'font', 'date', 'time', 'datetime', 'duration'];
+const VALID_TYPES = ['counter', 'number', 'text', 'list', 'select', 'tags', 'image', 'icon', 'toggle', 'color', 'template', 'font', 'date', 'time', 'datetime', 'duration'];
 const normalizeNumber = require('./variable-numbers');
 const { trackerMax } = require('../../shared/variable-links.cjs');
-const VALID_SET_FIELD_TYPES = ['text', 'number', 'counter', 'image', 'icon', 'color', 'toggle', 'font', 'list', 'template', 'date', 'time', 'datetime', 'duration', 'ref', 'ref_list', 'checklist'];
+const {
+    normalizeOptions,
+    normalizeSelectValue,
+    resolveSelectMeta,
+    normalizeTagsValue,
+    formatTagsValue
+} = require('../../shared/variable-options.cjs');
+const VALID_SET_FIELD_TYPES = ['text', 'number', 'counter', 'select', 'tags', 'image', 'icon', 'color', 'toggle', 'font', 'list', 'template', 'date', 'time', 'datetime', 'duration', 'ref', 'ref_list', 'checklist'];
 
 function defaultSetFieldValue(type) {
     if (type === 'toggle') return 'false';
     if (type === 'color') return '#3b82f6';
     if (type === 'counter' || type === 'number') return '0';
     if (type === 'checklist') return '{}';
-    if (type === 'ref_list') return '[]';
+    if (type === 'ref_list' || type === 'tags') return '[]';
     return '';
 }
 
@@ -31,6 +38,12 @@ function resolveSetFieldValue(field, entry) {
         if (Array.isArray(raw)) return JSON.stringify(raw);
         if (typeof raw === 'string' && raw.trim()) return raw.trim();
         return '[]';
+    }
+    if (field.type === 'select') {
+        return resolveSelectMeta(raw, field.options || []).label;
+    }
+    if (field.type === 'tags') {
+        return formatTagsValue(raw, field.options || []);
     }
     if (field.type === 'template') {
         const tpl = String(raw || '');
@@ -119,7 +132,21 @@ module.exports = function createVariables({ dataDir, onChange = null, getDepende
     // Group-qualified keys are derived; names remain the stable API/storage identity.
     function values() {
         const records = new Map(list().map(v => [v.key, v]));
-        const out = Object.fromEntries([...records].map(([key, v]) => [key, v.value]));
+        const out = {};
+        for (const [key, v] of records) {
+            if (v.type === 'select') {
+                const meta = resolveSelectMeta(v.value, v.options || []);
+                out[key] = meta.label;
+                out[`${key}_value`] = meta.value;
+                if (meta.color) out[`${key}_color`] = meta.color;
+                if (meta.icon) out[`${key}_icon`] = meta.icon;
+            } else if (v.type === 'tags') {
+                out[key] = v.value ?? formatTagsValue(v.items || [], v.options || []);
+                out[`${key}_count`] = String(Array.isArray(v.items) ? v.items.length : 0);
+            } else {
+                out[key] = v.value;
+            }
+        }
         const resolving = new Set();
         const resolved = new Map();
         const resolve = (name, depth) => {
@@ -185,6 +212,22 @@ module.exports = function createVariables({ dataDir, onChange = null, getDepende
             if (persist) save();
             return { name, ...vars[name], key: variableKey({ name, ...vars[name] }) };
         }
+        if (type === 'select') {
+            const options = normalizeOptions(patch.options !== undefined ? patch.options : (cur?.options || []));
+            const value = normalizeSelectValue(patch.value !== undefined ? patch.value : cur?.value, options);
+            vars[name] = { type, options, value, ...(setId ? { setId } : {}), ...(group ? { group } : {}), ...(icon ? { icon } : {}), ...(isHidden ? { hidden: true } : {}), updatedAt: Date.now() };
+            if (persist) save();
+            return { name, ...vars[name], key: variableKey({ name, ...vars[name] }) };
+        }
+        if (type === 'tags') {
+            const options = normalizeOptions(patch.options !== undefined ? patch.options : (cur?.options || []));
+            const rawItems = patch.items !== undefined ? patch.items : (patch.value !== undefined ? patch.value : (cur?.items ?? cur?.value ?? []));
+            const items = normalizeTagsValue(rawItems, options);
+            const value = formatTagsValue(items, options);
+            vars[name] = { type, options, items, value, ...(setId ? { setId } : {}), ...(group ? { group } : {}), ...(icon ? { icon } : {}), ...(isHidden ? { hidden: true } : {}), updatedAt: Date.now() };
+            if (persist) save();
+            return { name, ...vars[name], key: variableKey({ name, ...vars[name] }) };
+        }
         let value = patch.value ?? cur?.value ?? (type === 'counter' ? 0 : type === 'toggle' ? 'false' : type === 'color' ? '#3b82f6' : '');
         if (type === 'counter') {
             value = Number.isFinite(Number(value)) ? Number(value) : 0;
@@ -220,6 +263,10 @@ module.exports = function createVariables({ dataDir, onChange = null, getDepende
     function change(name, action, amount) {
         name = normName(name);
         const cur = vars[name] || { type: 'counter', value: 0, initial: 0 };
+        if (action === 'set' && (cur.type === 'select' || cur.type === 'tags')) {
+            if (amount === undefined || amount === null) throw new Error('Value is required');
+            return set(name, cur.type === 'tags' ? { type: 'tags', items: amount } : { type: 'select', value: amount });
+        }
         if (!['number', 'counter'].includes(cur.type)) throw new Error('Not a Number variable');
         const supplied = amount !== '' && amount !== undefined && amount !== null;
         if (action === 'set' && !supplied) throw new Error('Value is required');
@@ -233,9 +280,39 @@ module.exports = function createVariables({ dataDir, onChange = null, getDepende
     function toggleVar(name, explicitValue = undefined) {
         name = normName(name);
         const cur = vars[name] || { type: 'toggle', value: 'false' };
+        if (cur.type === 'tags') {
+            const tag = String(explicitValue ?? '').trim();
+            if (!tag) throw new Error('Tag value is required');
+            const options = cur.options || [];
+            const current = Array.isArray(cur.items) ? [...cur.items] : normalizeTagsValue(cur.value, options);
+            const normalizedTag = normalizeTagsValue([tag], options)[0];
+            if (!normalizedTag) throw new Error(`Unknown tag option "${tag}"`);
+            const idx = current.findIndex(item => item.toLowerCase() === normalizedTag.toLowerCase());
+            if (idx >= 0) current.splice(idx, 1);
+            else current.push(normalizedTag);
+            return set(name, { type: 'tags', items: current });
+        }
         if (cur.type !== 'toggle') throw new Error('Not a toggle variable');
         const next = explicitValue !== undefined ? normalizeBool(explicitValue) : (normalizeBool(cur.value) === 'true' ? 'false' : 'true');
         return set(name, { type: 'toggle', value: next });
+    }
+
+    function cycleSelect(name, delta = 1) {
+        name = normName(name);
+        const cur = vars[name];
+        if (!cur || cur.type !== 'select') throw new Error('Not a select variable');
+        const options = cur.options || [];
+        if (!options.length) return { name, ...cur, key: variableKey({ name, ...cur }) };
+        const idx = options.findIndex(opt => opt.value.toLowerCase() === String(cur.value || '').toLowerCase());
+        const nextIdx = idx < 0 ? 0 : (idx + (delta < 0 ? -1 : 1) + options.length) % options.length;
+        return set(name, { type: 'select', value: options[nextIdx].value });
+    }
+
+    function clearTags(name) {
+        name = normName(name);
+        const cur = vars[name];
+        if (!cur || cur.type !== 'tags') throw new Error('Not a tags variable');
+        return set(name, { type: 'tags', items: [] });
     }
 
     function roll(name) {
@@ -312,6 +389,9 @@ module.exports = function createVariables({ dataDir, onChange = null, getDepende
                 if (maxVal !== null) extra.max = maxVal;
                 if (stepVal !== null && stepVal > 0) extra.step = stepVal;
             }
+            if (type === 'select' || type === 'tags') {
+                extra.options = normalizeOptions(f?.options || []);
+            }
             fields.push({
                 key,
                 label: String(f?.label || key).trim().slice(0, 40) || key,
@@ -345,6 +425,8 @@ module.exports = function createVariables({ dataDir, onChange = null, getDepende
                     valuesMap[f.key] = [...new Set((Array.isArray(arr) ? arr : []).map(x => normSetId(x)).filter(Boolean))].slice(0, 60);
                 }
                 else if (f.type === 'checklist') valuesMap[f.key] = normalizeChecklistMap(rawVal, f, deferTrackerLimits);
+                else if (f.type === 'select') valuesMap[f.key] = normalizeSelectValue(rawVal, f.options || []);
+                else if (f.type === 'tags') valuesMap[f.key] = normalizeTagsValue(rawVal, f.options || []);
                 else valuesMap[f.key] = String(rawVal).slice(0, 500);
             }
             const firstVal = valuesMap[fields[0].key];
@@ -685,6 +767,33 @@ module.exports = function createVariables({ dataDir, onChange = null, getDepende
     }
 
     const mutateEntry = (...args) => atomic(() => mutateEntryRaw(...args));
+
+    function resetSetColumnRaw(setId, fieldKey, resetValue = undefined) {
+        const cleanId = normSetId(setId);
+        const setObj = sets[cleanId];
+        if (!setObj) throw new Error('Set not found');
+        const field = (setObj.fields || []).find(f => f.key === fieldKey);
+        if (!field) throw new Error('Field not found');
+        const roster = globalThis.structuredClone(setObj.roster || []);
+        for (const entry of roster) {
+            if (!entry.values) entry.values = {};
+            if (field.type === 'counter' || field.type === 'number') {
+                const fallback = field.min != null && Number.isFinite(Number(field.min)) ? Number(field.min) : 0;
+                const val = resetValue !== undefined && resetValue !== '' && Number.isFinite(Number(resetValue)) ? Number(resetValue) : fallback;
+                entry.values[field.key] = String(val);
+            } else if (field.type === 'tags') {
+                entry.values[field.key] = [];
+            } else if (field.type === 'toggle') {
+                entry.values[field.key] = 'false';
+            } else if (field.type === 'select') {
+                entry.values[field.key] = field.options?.[0]?.value || '';
+            } else {
+                entry.values[field.key] = '';
+            }
+        }
+        return upsertSetRaw(setObj.id, { roster });
+    }
+    const resetSetColumn = (...args) => atomic(() => resetSetColumnRaw(...args));
 
     function parseSlotIndex(setObj, rawSlot) {
         const str = String(rawSlot ?? '').trim();
@@ -1473,6 +1582,9 @@ module.exports = function createVariables({ dataDir, onChange = null, getDepende
                     if (action === 'rewind') return json(200, advanceSetQueue(setId, -1, query.mode ?? body.mode ?? 'shift')), true;
                     if (action === 'entry/toggle') return json(200, toggleSetEntry(setId, query.entry ?? body.entry ?? '', query.enabled ?? body.enabled)), true;
                     if (action === 'entry/group-toggle') return json(200, toggleEntryGroup(setId, query.entry ?? body.entry ?? '', query.inGroup ?? body.inGroup)), true;
+                    if (action === 'entry/step') return json(200, mutateEntry(setId, 'step', { entry: query.entry ?? body.entry, field: query.field ?? body.field, delta: query.delta ?? body.delta })), true;
+                    if (action === 'entry/set') return json(200, mutateEntry(setId, 'set', { entry: query.entry ?? body.entry, field: query.field ?? body.field, value: query.value ?? body.value })), true;
+                    if (action === 'column/reset') return json(200, resetSetColumn(setId, query.field ?? body.field, query.value ?? body.value)), true;
                     if (action.startsWith('checklist/')) {
                         const checklistOpts = {
                             entry: query.entry ?? body.entry,
@@ -1494,11 +1606,14 @@ module.exports = function createVariables({ dataDir, onChange = null, getDepende
                 return json(405, { error: 'Method not allowed' }), true;
             }
 
-            const m = pathname.match(/^\/api\/variables\/([^/]+)(?:\/(increment|decrement|reset|set|roll|toggle))?$/);
+            const m = pathname.match(/^\/api\/variables\/([^/]+)(?:\/(increment|decrement|reset|set|roll|toggle|next|prev|clear))?$/);
             if (!m) return json(404, { error: 'Unknown variables endpoint' }), true;
             const name = decodeURIComponent(m[1]);
             if (m[2] === 'roll' && (req.method === 'POST' || req.method === 'GET')) return json(200, roll(name)), true;
             if (m[2] === 'toggle' && (req.method === 'POST' || req.method === 'GET')) return json(200, toggleVar(name, query.value ?? body.value)), true;
+            if (m[2] === 'next' && (req.method === 'POST' || req.method === 'GET')) return json(200, cycleSelect(name, 1)), true;
+            if (m[2] === 'prev' && (req.method === 'POST' || req.method === 'GET')) return json(200, cycleSelect(name, -1)), true;
+            if (m[2] === 'clear' && (req.method === 'POST' || req.method === 'GET')) return json(200, clearTags(name)), true;
             if (m[2] && (req.method === 'POST' || req.method === 'GET')) return json(200, change(name, m[2], m[2] === 'set' ? query.value ?? body.value : query.amount ?? body.amount)), true;
             if (req.method === 'PUT' || req.method === 'POST') return json(200, set(name, body)), true;
             if (req.method === 'DELETE') { delete vars[normName(name)]; save(); return json(200, { variables: list(), sets: listSets() }), true; }
@@ -1529,11 +1644,14 @@ module.exports = function createVariables({ dataDir, onChange = null, getDepende
         set,
         change,
         toggleVar,
+        cycleSelect,
+        clearTags,
         roll,
         upsertSet,
         deleteSet,
         dependencies,
         mutateEntry,
+        resetSetColumn,
         assignSetSlot,
         clearSetSlot,
         cycleSetSlot,
