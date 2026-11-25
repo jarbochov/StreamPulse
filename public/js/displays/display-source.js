@@ -19,7 +19,43 @@ function selectedField(set, fieldKey) {
     return set?.fields?.find(field => field.key === fieldKey && field.type === 'ref');
 }
 
-export function displaySourceFields(binding = {}, sets = [], catalogId = '', kind = 'inventory') {
+export function displaySourceFields(binding = {}, sets = [], catalogId = '', kind = 'inventory', variables = [], definition = null) {
+    if (kind === 'counter') {
+        const cfg = definition?.counter || {};
+        if (cfg.sourceMode === 'set') {
+            const fields = [
+                {
+                    path: 'setId',
+                    label: 'Source Variable Set',
+                    value: binding.setId || '',
+                    options: [['', 'Design Variable Set'], ...sets.map(set => [set.id, set.name || 'Unnamed set'])]
+                },
+                {
+                    path: 'rows',
+                    label: 'Rows',
+                    value: binding.rows || cfg.rowScope || 'all',
+                    options: [
+                        ['all', 'All enabled entries'],
+                        ['active', 'Active entry'],
+                        ['slots', 'Live slots'],
+                        ['group', 'In Group entries'],
+                        ['group-slots', 'In Group live slots']
+                    ]
+                }
+            ];
+            return fields;
+        }
+        const numericVars = (Array.isArray(variables) ? variables : []).filter(v => !v.setId && (v.type === 'counter' || v.type === 'number'));
+        return [{
+            path: 'variableName',
+            label: 'Override counter variable (optional)',
+            value: binding.variableName || '',
+            options: [
+                ['', 'Use design counters'],
+                ...numericVars.map(v => [v.name, `${v.name} (${v.value ?? 0}${v.max !== '' && v.max != null ? ` / ${v.max}` : ''})`])
+            ]
+        }];
+    }
     const inventory = kind === 'inventory', tracks = inventory || kind === 'badge';
     const sourceOptions = [['', inventory ? 'Whole catalog (no tracker)' : 'Design catalog'], ...sets.map(set => [set.id, set.name || 'Unnamed set'])];
     const fields = [{
@@ -108,9 +144,28 @@ export function updateDisplaySource(binding, path, value) {
     return binding;
 }
 
-export function displaySourceSummary(binding = {}, sets = [], definition, enabled = true) {
-    if (!enabled) return { ok: false, chain: 'Variable Sets disabled', message: 'Enable Variable Sets in System Config to use live data displays.' };
+export function displaySourceSummary(binding = {}, sets = [], definition, enabled = true, variables = []) {
     if (!definition) return { ok: false, chain: 'Saved design', message: 'Choose an available saved design.' };
+    if (definition.kind === 'counter') {
+        const cfg = definition.counter || {};
+        if (binding?.variableName) {
+            const found = (variables || []).find(v => v.name === binding.variableName);
+            return found
+                ? { ok: true, chain: `${definition.name} → ${found.name}`, message: `Tracking live variable "${found.name}" (${found.value ?? 0}${found.max !== '' && found.max != null ? ` / ${found.max}` : ''}).` }
+                : { ok: false, chain: `${definition.name} → ${binding.variableName}`, message: `Variable "${binding.variableName}" was not found.` };
+        }
+        if (cfg.sourceMode === 'set') {
+            if (!enabled) return { ok: false, chain: 'Variable Sets disabled', message: 'Enable Variable Sets in System Config to track Variable Set counters.' };
+            const setObj = sets.find(s => s.id === (binding.setId || definition.catalogId));
+            if (!setObj) return { ok: false, chain: definition.name, message: 'Choose a Variable Set with a numeric field to track.' };
+            const rows = (setObj.roster || []).filter(r => r.enabled !== false).length;
+            return { ok: rows > 0, chain: `${setObj.name || setObj.id} → ${cfg.valueField || 'auto numeric field'}`, message: rows ? `Showing ${rows} enabled ${rows === 1 ? 'entry' : 'entries'} from ${setObj.name || setObj.id}.` : 'This Variable Set has no enabled entries yet.' };
+        }
+        const count = (cfg.variables || []).length;
+        if (!count) return { ok: false, chain: definition.name, message: 'Add at least one Counter or Number variable in Step 1.' };
+        return { ok: true, chain: `${definition.name} · ${count} ${count === 1 ? 'counter' : 'counters'}`, message: `Tracking ${cfg.variables.map(v => v.label || v.name).join(', ')}.` };
+    }
+    if (!enabled) return { ok: false, chain: 'Variable Sets disabled', message: 'Enable Variable Sets in System Config to use live data displays.' };
     const catalog = sets.find(set => set.id === definition.catalogId);
     if (!catalog) return { ok: false, chain: definition.name, message: 'The design catalog is missing. Choose another catalog in Display Library.' };
     const shared = window.OverlayShared;

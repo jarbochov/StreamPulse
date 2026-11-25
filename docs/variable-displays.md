@@ -1,6 +1,6 @@
-# Reusable inventories, tables and badges
+# Reusable inventories, tables, badges and counters
 
-Build a display once in **Library → Display Library**, then place it in any Custom Overlay. Choose **Inventory**, **Table** or **Badge**. Each placement can follow different live data while sharing the same arrangement and appearance.
+Build a display once in **Library → Display Library**, then place it in any Custom Overlay. Choose **Inventory**, **Table**, **Badge** or **Counter & Pips**. Each placement can follow different live data while sharing the same arrangement and appearance.
 
 <div class="doc-gallery doc-gallery--2">
   <figure>
@@ -75,3 +75,22 @@ Deleting a display first checks saved overlays and presets and names the placeme
 Saved displays, placements, and uploaded artwork are all included together when you create a **full backup** in **System → Backups**. (Standalone overlay export bundles cannot include external Saved Display references; use a full backup when transferring linked displays between setups.)
 
 For developer details and dependency-check contracts, see [Variable Operations](variable-operations.md) and the [API Reference](api-reference.md) under **The Project → Technical**.
+
+
+## Counter & Pips displays
+
+Use **Counter & Pips** to visualize live **Counter** / **Number** variables or numeric fields in a **Variable Set** as:
+
+- **Markers**: Pips, **Hearts** (solid filled + crisp outlined empty hearts), Stars, Diamonds, Squares, or Bars.
+- **Tally Marks**: Classic 5-count tallies (`||||` with a diagonal slash through every 5th mark) in clean vector (`tally`) or organic chalk (`tally-chalk`) styles.
+- **Numeric Readout**: Optional fraction (`2 / 3`), value (`7`), or text (`2 of 3`) readout alongside or instead of markers.
+
+### Caps & dynamic growth
+
+- **Auto**: Uses the counter variable's configured `max` when set (rendering empty outlined slots up to the cap); uncapped variables grow dynamically as counts increase.
+- **Custom cap**: Forces a fixed slot cap (`1`–`100`) with configurable overflow behavior (`+N` badge, extra overflow-colored markers, or clamped at cap).
+- **Uncapped**: Always grows dynamically, wrapping cleanly at your configured markers-per-row limit.
+
+### Operating live counters
+
+Pin any saved Counter & Pips display directly onto an **Operator Mode** Live Board using the **Counter & Pips Display** card type for one-click `-1` / `+1` / `Reset` controls with a live mini pip/heart/tally preview (supporting both standalone variables and Variable Set roster fields), or drive them from Bitfocus Companion and Chat Bot commands.

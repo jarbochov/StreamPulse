@@ -8,6 +8,7 @@ const puppeteer = require('puppeteer');
 const { WebSocketServer } = require('ws');
 const { normalizeDisplay, normalizeDisplayBinding, resolveDisplayOwner } = require('../shared/variable-displays.cjs');
 const { getDisplayRows, displayFieldValue } = require('../shared/display-table.cjs');
+const { normalizeDisplayCounter, resolveCounterCap, formatCounterReadout, resolveCounterRows } = require('../shared/display-counter.cjs');
 const createDisplays = require('../server/services/variable-displays');
 const createRoutes = require('../server/routes/variable-displays');
 const { normalizeCustomOverlay } = require('../server/services/overlays');
@@ -255,6 +256,7 @@ test('saved inventories render independently in production/editor and update liv
     assert.deepEqual(errors, []);
 });
 
+
 test('table library, overlay editor and production share ordered typed rows and live field updates', { timeout: 60000 }, async t => {
     const sets = globalThis.structuredClone(fixture.sets);
     let table = globalThis.structuredClone(fixture.table);
@@ -340,6 +342,7 @@ test('table library, overlay editor and production share ordered typed rows and 
     assert.equal(await builder.$eval('.sp-display-table thead th:nth-child(2)', cell => cell.textContent), 'Goes live');
     assert.deepEqual(errors, []);
 });
+
 
 test('badge library uses persistent active navigation and keeps placement effects out of its appearance controls', { timeout: 60000 }, async t => {
     const router = createStaticRouter({ rootDir: path.resolve(__dirname, '..'), publicDir: path.resolve(__dirname, '../public') });
@@ -455,5 +458,199 @@ test('badge library uses persistent active navigation and keeps placement effect
     }, { definition: fixture.badge, sets: fixture.sets }), {
         opacity: '0.4', background: 'rgb(17, 34, 51)', border: '5px', disconnected: false, unchanged: true, resized: true
     }, 'badge rendering preserves outer placement styling and observers while invalidating size-dependent content');
+    assert.deepEqual(errors, []);
+});
+
+test('counter display schema, cap resolution, and service persistence', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-counter-displays-'));
+    try {
+        const service = createDisplays({ dataDir: dir });
+        // Standalone counter display saves without catalogId
+        const saved = service.save({
+            name: 'Boss Hearts',
+            kind: 'counter',
+            counter: {
+                sourceMode: 'variables',
+                variables: [{ name: 'lives', label: 'Lives', cap: null }, { name: 'deaths', label: 'Deaths', cap: 5 }],
+                style: 'hearts',
+                capMode: 'auto',
+                readout: 'fraction'
+            }
+        }, 'boss_hearts');
+        assert.equal(saved.kind, 'counter');
+        assert.equal(saved.counter.style, 'hearts');
+        assert.equal(saved.counter.variables.length, 2);
+        assert.equal(saved.catalogId, '');
+
+        // Variable Set counter display requires catalogId
+        assert.throws(() => service.save({
+            name: 'Set Scores',
+            kind: 'counter',
+            counter: { sourceMode: 'set', valueField: 'wins', style: 'tally' }
+        }, 'set_scores'), /Choose an item catalog/);
+
+        // Cap resolution: auto uses variable max, none grows dynamically, custom overrides
+        const autoCfg = normalizeDisplayCounter({ capMode: 'auto', customCap: 5 });
+        const customCfg = normalizeDisplayCounter({ capMode: 'custom', customCap: 3 });
+        const noneCfg = normalizeDisplayCounter({ capMode: 'none', customCap: 5 });
+        assert.equal(resolveCounterCap(3, autoCfg), 3);
+        assert.equal(resolveCounterCap('', autoCfg), null);
+        assert.equal(resolveCounterCap(null, customCfg), 3);
+        assert.equal(resolveCounterCap(10, noneCfg), null);
+        assert.equal(resolveCounterCap(10, noneCfg, 4), 4);
+
+        // Readout formatting
+        assert.equal(formatCounterReadout(2, 3, 'fraction'), '2 / 3');
+        assert.equal(formatCounterReadout(2, 3, 'of'), '2 of 3');
+        assert.equal(formatCounterReadout(7, null, 'fraction'), '7');
+        assert.equal(formatCounterReadout(2, 3, 'none'), '');
+
+        // Row resolution: standalone variables + placement override
+        const customVars = [
+            { name: 'lives', type: 'counter', value: '2', max: '3', step: 1, resetValue: 3 },
+            { name: 'deaths', type: 'counter', value: '7', max: '', step: 1, resetValue: 0 }
+        ];
+        const rows = resolveCounterRows(saved, {}, { customVars });
+        assert.equal(rows.length, 2);
+        assert.equal(rows[0].value, 2);
+        assert.equal(rows[0].cap, 3);
+        assert.equal(rows[1].value, 7);
+        assert.equal(rows[1].cap, 5);
+
+        const overrideBinding = normalizeDisplayBinding({ displayId: 'boss_hearts', variableName: 'deaths' });
+        assert.equal(overrideBinding.variableName, 'deaths');
+        const overrideRows = resolveCounterRows(saved, overrideBinding, { customVars });
+        assert.equal(overrideRows.length, 1);
+        assert.equal(overrideRows[0].variableName, 'deaths');
+        assert.equal(overrideRows[0].cap, null);
+
+        // Row resolution: Variable Set numeric field
+        const setDef = normalizeDisplay({
+            id: 'set_wins',
+            name: 'Player Wins',
+            kind: 'counter',
+            catalogId: 'players',
+            counter: { sourceMode: 'set', valueField: 'wins', style: 'tally', capMode: 'custom', customCap: 5 }
+        });
+        const setRows = resolveCounterRows(setDef, {}, {
+            variableSets: [{
+                id: 'players',
+                name: 'Players',
+                fields: [{ key: 'wins', label: 'Wins', type: 'number' }],
+                roster: [
+                    { id: 'p1', label: 'Nova', enabled: true, values: { wins: 3 } },
+                    { id: 'p2', label: 'Echo', enabled: true, values: { wins: 5 } },
+                    { id: 'p3', label: 'Bench', enabled: false, values: { wins: 1 } }
+                ]
+            }]
+        });
+        assert.equal(setRows.length, 2);
+        assert.equal(setRows[0].label, 'Nova');
+        assert.equal(setRows[0].value, 3);
+        assert.equal(setRows[0].cap, 5);
+        assert.equal(setRows[1].label, 'Echo');
+        assert.equal(setRows[1].value, 5);
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+});
+
+test('counter display builder renders hearts, 5-count slashed tallies, caps, and overflow cleanly', { timeout: 60000 }, async t => {
+    const sets = globalThis.structuredClone(fixture.sets);
+    const variables = [
+        { name: 'hearts', type: 'counter', value: '2', max: '3', step: 1, resetValue: 3 },
+        { name: 'deaths', type: 'counter', value: '7', max: '', step: 1, resetValue: 0 }
+    ];
+    let displays = [];
+    const router = createStaticRouter({ rootDir: path.resolve(__dirname, '..'), publicDir: path.resolve(__dirname, '../public') });
+    const server = http.createServer(async (req, res) => {
+        const url = new URL(req.url, 'http://fixture.local');
+        if (url.pathname.startsWith('/api/')) {
+            if (url.pathname.startsWith('/api/variable-displays') && ['POST', 'PUT'].includes(req.method)) {
+                let body = '';
+                for await (const chunk of req) body += chunk;
+                const saved = normalizeDisplay(JSON.parse(body), 'counter_1');
+                displays = [saved];
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ display: saved }));
+                return;
+            }
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(
+                url.pathname === '/api/variable-displays' ? { displays, revision: 1 }
+                    : url.pathname === '/api/variables' ? { sets, variables, variableSetsEnabled: true }
+                        : url.pathname === '/api/status' ? { modules: { variableSets: true, variableSettings: true }, variableDisplaysRevision: 1 }
+                            : {}
+            ));
+        } else if (!router.handleRequest(req, res)) { res.writeHead(404); res.end(); }
+    });
+    const sockets = new WebSocketServer({ server });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
+    t.after(async () => {
+        await browser.close();
+        sockets.clients.forEach(socket => socket.terminate());
+        await new Promise(resolve => sockets.close(resolve));
+        await new Promise(resolve => server.close(resolve));
+    });
+    const origin = `http://127.0.0.1:${server.address().port}`;
+    const errors = [];
+    const page = await browser.newPage();
+    page.on('pageerror', error => errors.push(error.message));
+    await page.setRequestInterception(true);
+    page.on('request', request => request.url().startsWith(origin) || request.url().startsWith('data:')
+        ? request.continue() : request.respond({ status: 200, body: '' }));
+
+    await page.goto(`${origin}/variable-displays.html?kind=counter`);
+    await page.waitForSelector('#counter-design-controls [data-counter-style="hearts"]');
+
+    // Switch to hearts: hearts var has value 2, max 3 -> 2 filled hearts + 1 outlined empty heart
+    await page.click('[data-counter-style="hearts"]');
+    await page.waitForSelector('.sp-counter-display[data-counter-style="hearts"]');
+    const heartStats = await page.evaluate(() => ({
+        filled: document.querySelectorAll('.sp-counter-marker[data-marker-style="hearts"][data-marker-state="filled"]').length,
+        empty: document.querySelectorAll('.sp-counter-marker[data-marker-style="hearts"][data-marker-state="empty"]').length,
+        readout: document.querySelector('.sp-counter-readout')?.textContent
+    }));
+    assert.deepEqual(heartStats, { filled: 2, empty: 1, readout: '2 / 3' });
+
+    // Test interactive +1 preview button: 2 -> 3 (cap reached) -> 4 (+1 overflow badge)
+    await page.click('[data-counter-preview="+1"]');
+    await page.click('[data-counter-preview="+1"]');
+    await page.waitForSelector('.sp-counter-overflow-badge');
+    assert.equal(await page.$eval('.sp-counter-overflow-badge', el => el.textContent), '+1');
+
+    // Add uncapped 'deaths' (value 7) and switch to tally marks -> 1 slashed 5-group + 2 verticals
+    await page.click('[data-counter-preview="reset"]');
+    await page.select('#counter-var-select', 'deaths');
+    await page.click('[data-counter-act="add-var"]');
+    await page.click('[data-counter-style="tally"]');
+    await page.waitForSelector('.sp-counter-display[data-counter-style="tally"]');
+    const tallyStats = await page.evaluate(() => {
+        const deathRow = document.querySelector('[data-counter-key="var:deaths"]');
+        return {
+            groups: deathRow.querySelectorAll('.sp-counter-tally-group').length,
+            slashes: deathRow.querySelectorAll('.sp-tally-slash[data-marker-state="filled"]').length,
+            readout: deathRow.querySelector('.sp-counter-readout')?.textContent
+        };
+    });
+    assert.deepEqual(tallyStats, { groups: 2, slashes: 1, readout: '7' });
+
+    // Save the display without needing a catalogId
+    await page.click('#save-display');
+    await page.waitForFunction(() => document.querySelector('#dirty-state')?.textContent === 'Saved');
+    assert.equal(displays.length, 1);
+    assert.equal(displays[0].kind, 'counter');
+
+    // Verify Operator Mode mini counter HTML helper
+    const miniHtml = await page.evaluate(() => window.OverlayShared.renderMiniCounterHtml(2, 3, { style: 'hearts' }));
+    assert.match(miniHtml, /data-marker-style="hearts"/);
+    assert.match(miniHtml, /data-marker-state="empty"/);
+
+    // Responsive check
+    for (const width of [1366, 390]) {
+        await page.setViewport({ width, height: 768 });
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true, `Counter builder fits ${width}px viewport`);
+    }
     assert.deepEqual(errors, []);
 });

@@ -1,6 +1,7 @@
 import { displaySourceFields, displaySourceSummary, updateDisplaySource } from './display-source.js';
 import { createTableDesigner, defaultTable, tableFieldOptions } from './table-designer.js';
 import { createBadgeDesigner } from './badge-designer.js';
+import { createCounterDesigner, defaultCounter } from './counter-designer.js';
 import { defaultImageGroupConfig } from './badge-model.js';
 import { badgeVisualControls, bindBadgeControls, pickBadgeAsset, uploadBadgeAsset } from './badge-controls.js';
 import { setDisplayFormContext, refreshBoundDisplayNumbers } from './display-form.js';
@@ -23,7 +24,7 @@ const defaults = () => ({
 const state = {
     displays: [], sets: [], variables: [], draft: null, baseline: '', previewBinding: null,
     previewBackdrop: '#111827', previewResolution: 'native', dragged: null, previewFrame: 0, loaded: false, busy: false,
-    libraryFilter: 'all', builderView: 'design'
+    libraryFilter: 'all', builderView: 'design', counterPreviewDelta: 0
 };
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -38,6 +39,10 @@ const displayPreviewId = () => state.draft.id || 'display-preview-draft';
 setDisplayFormContext(() => state.draft?.kind === 'badge' ? { badge: state.draft.badge, variables: state.variables } : null);
 const tableDesigner = createTableDesigner($('#table-design-controls'), {
     getDraft: () => state.draft, getSets: () => state.sets, onChange: () => { markDirty(); schedulePreview(); }
+});
+const counterDesigner = createCounterDesigner($('#counter-design-controls'), $('#counter-appearance-controls'), {
+    getDraft: () => state.draft, getSets: () => state.sets, getVariables: () => state.variables,
+    onChange: () => { markDirty(); renderPreviewControls(); schedulePreview(); }
 });
 const badgeDesigner = createBadgeDesigner($('#badge-designer'), {
     getDraft: () => state.draft, getStatus: () => ({ variableSets: state.sets, customVars: state.variables }),
@@ -100,6 +105,13 @@ function displaySummary(display) {
     const columnCount = display.table?.columns?.length || 0, fieldCount = display.badge?.imageGroup?.fields?.length || 0;
     if (display.kind === 'table') return [set?.name || 'Catalog unavailable', `${columnCount} ${columnCount === 1 ? 'column' : 'columns'}`, 'Table'];
     if (display.kind === 'badge') return [set?.name || 'Catalog unavailable', `${fieldCount} ${fieldCount === 1 ? 'field' : 'fields'}`, 'Badge / strip'];
+    if (display.kind === 'counter') {
+        const c = display.counter || {};
+        const styleLabel = c.style === 'tally-chalk' ? 'Tally (Chalk)' : c.style ? c.style.charAt(0).toUpperCase() + c.style.slice(1) : 'Pips';
+        if (c.sourceMode === 'set') return [set?.name || 'Set unavailable', c.valueField || 'Auto field', styleLabel];
+        const varCount = (c.variables || []).length;
+        return [`${varCount} ${varCount === 1 ? 'counter' : 'counters'}`, styleLabel, c.capMode === 'custom' ? `Cap ${c.customCap}` : c.capMode === 'none' ? 'Uncapped' : 'Auto cap'];
+    }
     return [
         set?.name || 'Catalog unavailable',
         `${items} ${items === 1 ? 'item' : 'items'}`,
@@ -134,10 +146,10 @@ function renderLibrary() {
     }
     $('#display-list').innerHTML = filtered.map(display => `
         <article class="display-list-card" data-display-kind="${esc(display.kind || 'inventory')}">
-            <div class="display-card-illustration" aria-hidden="true">${display.kind === 'table' ? '<div class="mini-table"><i></i><i></i><i></i><i></i></div>' : display.kind === 'badge' ? '<div class="mini-badge"><i></i><span><b></b><b></b></span></div>' : '<div class="mini-inventory"><i></i><i></i><i></i><i></i><i></i><i></i></div>'}</div>
+            <div class="display-card-illustration" aria-hidden="true">${display.kind === 'table' ? '<div class="mini-table"><i></i><i></i><i></i><i></i></div>' : display.kind === 'badge' ? '<div class="mini-badge"><i></i><span><b></b><b></b></span></div>' : display.kind === 'counter' ? '<div class="mini-counter"><i></i><i></i><i></i><i class="is-empty"></i><i class="is-empty"></i></div>' : '<div class="mini-inventory"><i></i><i></i><i></i><i></i><i></i><i></i></div>'}</div>
             <div class="display-list-head">
                 <h3>${esc(display.name)}</h3>
-                <span class="display-tag">${esc(display.kind === 'table' ? 'Table' : display.kind === 'badge' ? 'Badge' : 'Inventory')}</span>
+                <span class="display-tag">${esc(display.kind === 'table' ? 'Table' : display.kind === 'badge' ? 'Badge' : display.kind === 'counter' ? 'Counter' : 'Inventory')}</span>
             </div>
             <div class="display-list-meta">${displaySummary(display).map(value => `<span class="display-tag">${esc(value)}</span>`).join('')}</div>
             <div class="display-list-actions">
@@ -182,7 +194,9 @@ function confirmDiscard() {
 
 function beginDraft(display = defaults()) {
     state.draft = { ...defaults(), ...clone(display) };
+    state.counterPreviewDelta = 0;
     if (state.draft.kind === 'table') state.draft.table = { ...defaultTable(), ...state.draft.table };
+    if (state.draft.kind === 'counter') state.draft.counter = { ...defaultCounter(), ...state.draft.counter };
     if (state.draft.kind === 'badge') {
         const set = state.sets.find(set => set.id === state.draft.catalogId);
         state.draft.badge ||= {
@@ -386,8 +400,8 @@ function renderLayoutControls() {
 }
 
 function renderPreviewControls() {
-    const fields = displaySourceFields(state.previewBinding, state.sets, state.draft.catalogId, state.draft.kind);
-    const source = displaySourceSummary(state.previewBinding, state.sets, state.draft);
+    const fields = displaySourceFields(state.previewBinding, state.sets, state.draft.catalogId, state.draft.kind, state.variables, state.draft);
+    const source = displaySourceSummary(state.previewBinding, state.sets, state.draft, true, state.variables);
     $('#preview-controls').innerHTML = `
         ${controlsForFields(fields)}
         <div class="control-field"><label for="preview-backdrop">Preview backdrop</label><input id="preview-backdrop" class="input" type="text" maxlength="9" pattern="#[a-fA-F0-9]{6}([a-fA-F0-9]{2})?" value="${esc(state.previewBackdrop)}" aria-describedby="preview-backdrop-help"><small id="preview-backdrop-help">Local preview only · #RRGGBB or #RRGGBBAA</small></div>
@@ -401,14 +415,25 @@ function renderBuilder() {
     const kind = state.draft.kind || 'inventory';
     builderView.dataset.kind = kind;
     document.querySelectorAll('[data-kinds]').forEach(node => { node.hidden = !node.dataset.kinds.split(' ').includes(kind); });
-    $('#builder-kind-label').textContent = `${kind === 'table' ? 'Table' : kind === 'badge' ? 'Badge' : 'Inventory'} designer`;
-    $('#builder-intro').textContent = kind === 'inventory' ? 'Arrange catalog items into reusable sections. Bind each player’s tracker in the overlay placement.' : kind === 'table' ? 'Choose columns, linked fields and row ordering. The preview source is local to this device; each placement chooses its own live rows.' : 'Design member badges and strips using fields, images, icons, fonts, zones and animated frames. Reuse this design with independent sources in any overlay.';
+    $('#builder-kind-label').textContent = `${kind === 'table' ? 'Table' : kind === 'badge' ? 'Badge' : kind === 'counter' ? 'Counter & Pips' : 'Inventory'} designer`;
+    $('#builder-intro').textContent = kind === 'inventory'
+        ? 'Arrange catalog items into reusable sections. Bind each player’s tracker in the overlay placement.'
+        : kind === 'table'
+            ? 'Choose columns, linked fields and row ordering. The preview source is local to this device; each placement chooses its own live rows.'
+            : kind === 'counter'
+                ? 'Visualize counters and scores as pips, filled & outlined hearts, stars, bars, or 5-count slashed tally marks. Bind standalone variables or Variable Set numeric fields.'
+                : 'Design member badges and strips using fields, images, icons, fonts, zones and animated frames. Reuse this design with independent sources in any overlay.';
     $('#display-name').value = state.draft.name || '';
     $('#duplicate-display').disabled = !state.draft.id || state.displays.length >= 100;
-    renderCatalogControls();
+    if (kind !== 'counter') renderCatalogControls();
+    else {
+        $('#preview-binding-help').textContent = 'Each overlay placement can use the saved counters or override with a specific counter variable or Variable Set.';
+        $('#placement-source-step').textContent = 'Use the saved counters as-is, or override the bound variable/set for this placement.';
+    }
     if (kind === 'inventory') { renderCatalogItems(); renderSections(); }
     if (kind === 'table') tableDesigner.render();
     if (kind === 'badge') badgeDesigner.render();
+    if (kind === 'counter') counterDesigner.render();
     renderLayoutControls();
     renderPreviewControls();
     applyBuilderView();
@@ -431,20 +456,25 @@ function schedulePreview() {
         state.previewFrame = 0;
         const summary = $('#preview-source-summary');
         if (summary) {
-            const source = displaySourceSummary(state.previewBinding, state.sets, state.draft);
+            const source = displaySourceSummary(state.previewBinding, state.sets, state.draft, true, state.variables);
             summary.dataset.displaySourceState = source.ok ? 'ready' : 'empty';
             summary.innerHTML = `<strong>${esc(source.chain)}</strong><p>${esc(source.message)}</p>`;
         }
         const stage = $('#display-preview');
-        window.OverlayShared?.cleanupNode?.(stage);
-        stage.replaceChildren();
+        const isCounter = state.draft.kind === 'counter';
+        const existingCounterHost = isCounter ? stage.querySelector(':scope > .counter-preview-host') : null;
+        if (!existingCounterHost) {
+            window.OverlayShared?.cleanupNode?.(stage);
+            stage.replaceChildren();
+        }
         if (!window.OverlayShared?.renderVariableDisplay) {
             stage.innerHTML = '<div class="preview-empty">The shared overlay renderer is unavailable. Reload the page to try again.</div>';
             return;
         }
-        const host = document.createElement('div');
+        const host = existingCounterHost || document.createElement('div');
+        if (isCounter) host.className = 'counter-preview-host';
         host.style.cssText = 'width:100%;height:100%;min-width:0;min-height:0;';
-        const native = state.draft.kind === 'badge' ? [state.draft.badge.width || 640, state.draft.badge.height || 360] : state.draft.kind === 'table' ? [1280, 720] : [640, 360];
+        const native = state.draft.kind === 'badge' ? [state.draft.badge.width || 640, state.draft.badge.height || 360] : state.draft.kind === 'table' ? [1280, 720] : state.draft.kind === 'counter' ? [560, 220] : [640, 360];
         const [width, height] = state.previewResolution === 'native' ? native : state.previewResolution.split('x').map(Number);
         stage.classList.add('is-aspect-preview');
         stage.style.aspectRatio = `${width} / ${height}`;
@@ -453,14 +483,32 @@ function schedulePreview() {
         host.style.cssText = `width:${width}px;height:${height}px;min-width:0;min-height:0;transform:scale(${scale});transform-origin:center;flex:none;`;
         $('#preview-dimensions').textContent = `${width} × ${height}`;
         document.querySelectorAll('[data-preview-resolution]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.previewResolution === state.previewResolution)));
-        stage.append(host);
+        if (!existingCounterHost) stage.append(host);
         const display = { ...state.draft, id: displayPreviewId() };
+        let previewVars = state.variables;
+        let previewSets = state.sets;
+        if (isCounter && state.counterPreviewDelta !== 0) {
+            const delta = state.counterPreviewDelta;
+            previewVars = state.variables.map(v => (v.type === 'counter' || v.type === 'number')
+                ? { ...v, value: Math.max(0, (Number(v.value) || 0) + delta) }
+                : v);
+            previewSets = state.sets.map(s => s.id === (state.previewBinding?.setId || state.draft.catalogId)
+                ? {
+                    ...s,
+                    roster: (s.roster || []).map(r => {
+                        const key = state.draft.counter?.valueField || (s.fields || []).find(f => f.type === 'number' || f.type === 'counter')?.key;
+                        if (!key) return r;
+                        return { ...r, values: { ...(r.values || {}), [key]: Math.max(0, (Number(r.values?.[key]) || 0) + delta) } };
+                    })
+                }
+                : s);
+        }
         const rendered = window.OverlayShared.renderVariableDisplay(host, {
             type: 'data-display',
             display: { ...state.previewBinding, displayId: display.id }
-        }, { variableDisplays: [display], variableSets: state.sets, customVars: state.variables });
+        }, { variableDisplays: [display], variableSets: previewSets, customVars: previewVars });
         if (!rendered) {
-            stage.innerHTML = `<div class="preview-empty">${esc(displaySourceSummary(state.previewBinding, state.sets, state.draft).message)}</div>`;
+            stage.innerHTML = `<div class="preview-empty">${esc(displaySourceSummary(state.previewBinding, state.sets, state.draft, true, state.variables).message)}</div>`;
         }
     });
 }
@@ -694,10 +742,15 @@ function addNewDisplay() {
     }
     const draft = defaults();
     draft.kind = $('#display-kind').value || 'inventory';
-    draft.name = `${draft.kind === 'table' ? 'Table' : draft.kind === 'badge' ? 'Badge' : 'Inventory'} display`;
-    draft.catalogId = state.sets.find(set => set.roster?.length)?.id || '';
+    draft.name = `${draft.kind === 'table' ? 'Table' : draft.kind === 'badge' ? 'Badge' : draft.kind === 'counter' ? 'Counter' : 'Inventory'} display`;
+    draft.catalogId = draft.kind === 'counter' ? '' : (state.sets.find(set => set.roster?.length)?.id || '');
     const requestedCatalog = new URLSearchParams(location.search).get('catalog');
     if (state.sets.some(set => set.id === requestedCatalog)) draft.catalogId = requestedCatalog;
+    if (draft.kind === 'counter') {
+        draft.counter = defaultCounter();
+        const firstCounter = state.variables.find(v => !v.setId && (v.type === 'counter' || v.type === 'number'));
+        if (firstCounter) draft.counter.variables = [{ name: firstCounter.name, label: '', cap: null }];
+    }
     if (draft.kind === 'table') {
         draft.table = defaultTable();
         const catalog = state.sets.find(set => set.id === draft.catalogId);
@@ -738,6 +791,15 @@ async function deleteDisplay(id) {
 
 function validateDraft() {
     if (!state.draft.name.trim()) throw new Error('Enter a display name.');
+    if (state.draft.kind === 'counter') {
+        const cfg = state.draft.counter || {};
+        if (cfg.sourceMode === 'set') {
+            if (!catalogSet()) throw new Error('Choose a Variable Set for this counter display.');
+        } else if (!Array.isArray(cfg.variables) || !cfg.variables.length) {
+            throw new Error('Add at least one Counter or Number variable.');
+        }
+        return;
+    }
     if (!catalogSet()) throw new Error('Choose a Variable Set catalog.');
     if (state.draft.kind === 'badge') return;
     if (state.draft.kind === 'table') {
@@ -958,6 +1020,12 @@ function installEvents() {
         savePreviewPreferences();
         schedulePreview();
     }));
+    document.querySelectorAll('[data-counter-preview]').forEach(button => button.addEventListener('click', () => {
+        const act = button.dataset.counterPreview;
+        if (act === 'reset') state.counterPreviewDelta = 0;
+        else state.counterPreviewDelta += Number(act) || 0;
+        schedulePreview();
+    }));
     $('#display-library-search').addEventListener('input', () => {
         try { localStorage.setItem('streampulse:display-library:search', $('#display-library-search').value); } catch { /* Optional preference. */ }
         renderLibrary();
@@ -1019,7 +1087,7 @@ async function start() {
     installEvents();
     try {
         const filter = localStorage.getItem('streampulse:display-library:filter');
-        if (['all', 'inventory', 'table', 'badge'].includes(filter)) state.libraryFilter = filter;
+        if (['all', 'inventory', 'table', 'badge', 'counter'].includes(filter)) state.libraryFilter = filter;
         state.builderView = localStorage.getItem('streampulse:display-library:view') === 'appearance' ? 'appearance' : 'design';
         $('#display-library-search').value = localStorage.getItem('streampulse:display-library:search') || '';
     } catch { /* Optional preferences. */ }
@@ -1027,7 +1095,7 @@ async function start() {
         await loadLibrary();
         const requestedId = new URLSearchParams(location.search).get('id');
         const requestedKind = new URLSearchParams(location.search).get('kind');
-        if (['inventory', 'table', 'badge'].includes(requestedKind)) $('#display-kind').value = requestedKind;
+        if (['inventory', 'table', 'badge', 'counter'].includes(requestedKind)) $('#display-kind').value = requestedKind;
         if (requestedId) {
             const display = state.displays.find(candidate => candidate.id === requestedId);
             if (!display) showAlert('That saved display could not be found.');

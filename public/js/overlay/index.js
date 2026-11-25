@@ -22,9 +22,11 @@ import numericBindings from '../../../shared/numeric-bindings.cjs';
 import variableLinks from '../../../shared/variable-links.cjs';
 import variableDisplays from '../../../shared/variable-displays.cjs';
 import displayTable from '../../../shared/display-table.cjs';
+import displayCounter from '../../../shared/display-counter.cjs';
 import variablePaths from '../../../shared/variable-paths.cjs';
 import borderCatalog from '../../../shared/border-catalog.cjs';
 import { renderVariableDisplay, setDisplayLibrary } from './displays.js';
+import { renderMiniCounterHtml } from './display-counter.js';
 
 
 root.OverlayShared = Object.assign(root.OverlayShared || {}, { cleanupMedia, cleanupNode, alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, TEXT_ANIM_TYPES, applyBorderGradient, applyTextAnimation, resolveBorderRadius, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, pruneSourceCaches, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, playSoundValue, resolveSoundUrl, zzfxSamples, BUILTIN_SOUNDS, renderGameList, renderSpeakerBadge, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, mountPattern, mountTextCycle, resolveCycleLines, createVarRotationEngine, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, resolveColorToken, resolveStyleVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, renderImageGroupStrip, applyMediaFilter: root.OverlayFilters?.applyMediaFilter || applyMediaFilter, shadowClipStyle });
@@ -34,6 +36,7 @@ Object.assign(root.OverlayShared, numericBindings);
 Object.assign(root.OverlayShared, variableLinks);
 Object.assign(root.OverlayShared, variableDisplays, { renderVariableDisplay, setDisplayLibrary });
 Object.assign(root.OverlayShared, displayTable);
+Object.assign(root.OverlayShared, displayCounter, { renderMiniCounterHtml });
 Object.assign(root.OverlayShared, { variableKey: variablePaths.variableKey, blurFillShadowCss, normalizeBlurFill, syncBlurFillMedia });
 Object.assign(root.OverlayShared, borderCatalog);
 Object.defineProperty(root.OverlayShared, Symbol.for('StreamPulse.OverlayShared'), { value: true });

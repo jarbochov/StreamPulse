@@ -3363,17 +3363,253 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     }
   });
 
+  // shared/display-counter.cjs
+  var require_display_counter = __commonJS({
+    "shared/display-counter.cjs"(exports, module) {
+      "use strict";
+      var { resolveDisplayOwner: resolveDisplayOwner3 } = require_display_source();
+      var COUNTER_STYLES = ["pips", "hearts", "stars", "diamonds", "squares", "bars", "tally", "tally-chalk", "number"];
+      var SOURCE_MODES = ["variables", "set"];
+      var CAP_MODES = ["auto", "custom", "none"];
+      var OVERFLOW_MODES = ["clamp", "overflow", "plus"];
+      var READOUT_MODES = ["none", "fraction", "value", "of"];
+      var LABEL_POSITIONS = ["left", "top", "bottom", "none"];
+      var READOUT_POSITIONS = ["right", "left", "top", "bottom"];
+      var ROW_SCOPES = ["all", "active", "slots", "group", "group-slots"];
+      var cleanKey = (value) => String(value || "").replace(/[^a-z0-9_-]/gi, "_").slice(0, 60);
+      var cleanVarName = (value) => String(value || "").replace(/[^a-z0-9_.-]/gi, "").slice(0, 80);
+      var cleanText = (value, limit = 80) => String(value ?? "").trim().slice(0, limit);
+      var bound = (value, fallback, min, max) => Number.isFinite(Number(value)) && value !== "" && value != null ? Math.min(max, Math.max(min, Number(value))) : fallback;
+      var cleanColor = (value, fallback) => /^#[a-f0-9]{6}(?:[a-f0-9]{2})?$/i.test(value || "") ? value : fallback;
+      var optionalColor = (value) => /^#[a-f0-9]{6}(?:[a-f0-9]{2})?$/i.test(value || "") ? value : "";
+      function defaultDisplayCounter() {
+        return {
+          sourceMode: "variables",
+          variables: [],
+          valueField: "",
+          labelField: "$label",
+          rowScope: "all",
+          style: "pips",
+          capMode: "auto",
+          customCap: 5,
+          overflowMode: "plus",
+          perRow: 10,
+          direction: "vertical",
+          align: "left",
+          showLabel: true,
+          labelPosition: "left",
+          readout: "fraction",
+          readoutPosition: "right",
+          filledColor: "#f43f5e",
+          emptyColor: "#ffffff1f",
+          outlineColor: "#ffffff66",
+          capReachedColor: "",
+          overflowColor: "#fbbf24",
+          labelColor: "#f8fafc",
+          readoutColor: "#cbd5e1",
+          rowBackground: "#0f172acc",
+          rowBorderColor: "#ffffff1a",
+          rowBorderWidth: 1,
+          rowRadius: 10,
+          rowPadding: 12,
+          markerSize: 26,
+          strokeWidth: 2,
+          markerGap: 6,
+          rowGap: 10,
+          fontSize: 16,
+          fontFamily: "sans-serif",
+          animate: "pop",
+          maxRows: 12
+        };
+      }
+      function normalizeDisplayCounter2(input = {}) {
+        const def = defaultDisplayCounter();
+        const seen = /* @__PURE__ */ new Set();
+        const variables = (Array.isArray(input.variables) ? input.variables : []).slice(0, 16).flatMap((entry) => {
+          const raw = typeof entry === "string" ? { name: entry } : entry || {};
+          const name = cleanVarName(raw.name);
+          if (!name || seen.has(name)) return [];
+          seen.add(name);
+          const rawCap = raw.cap;
+          const cap = rawCap !== "" && rawCap != null && Number.isFinite(Number(rawCap)) && Number(rawCap) > 0 ? Math.round(Math.min(100, Math.max(1, Number(rawCap)))) : null;
+          return [{ name, label: cleanText(raw.label, 60), cap }];
+        });
+        const rawLabelField = String(input.labelField || "$label").trim();
+        const labelField = rawLabelField === "$label" ? "$label" : cleanKey(rawLabelField) || "$label";
+        return {
+          sourceMode: SOURCE_MODES.includes(input.sourceMode) ? input.sourceMode : def.sourceMode,
+          variables,
+          valueField: cleanKey(input.valueField),
+          labelField,
+          rowScope: ROW_SCOPES.includes(input.rowScope) ? input.rowScope : def.rowScope,
+          style: COUNTER_STYLES.includes(input.style) ? input.style : def.style,
+          capMode: CAP_MODES.includes(input.capMode) ? input.capMode : def.capMode,
+          customCap: Math.round(bound(input.customCap, def.customCap, 1, 100)),
+          overflowMode: OVERFLOW_MODES.includes(input.overflowMode) ? input.overflowMode : def.overflowMode,
+          perRow: Math.round(bound(input.perRow, def.perRow, 0, 50)),
+          direction: input.direction === "horizontal" ? "horizontal" : "vertical",
+          align: ["left", "center", "right"].includes(input.align) ? input.align : def.align,
+          showLabel: input.showLabel !== false,
+          labelPosition: LABEL_POSITIONS.includes(input.labelPosition) ? input.labelPosition : def.labelPosition,
+          readout: READOUT_MODES.includes(input.readout) ? input.readout : def.readout,
+          readoutPosition: READOUT_POSITIONS.includes(input.readoutPosition) ? input.readoutPosition : def.readoutPosition,
+          filledColor: cleanColor(input.filledColor, def.filledColor),
+          emptyColor: cleanColor(input.emptyColor, def.emptyColor),
+          outlineColor: cleanColor(input.outlineColor, def.outlineColor),
+          capReachedColor: optionalColor(input.capReachedColor),
+          overflowColor: cleanColor(input.overflowColor, def.overflowColor),
+          labelColor: cleanColor(input.labelColor, def.labelColor),
+          readoutColor: cleanColor(input.readoutColor, def.readoutColor),
+          rowBackground: cleanColor(input.rowBackground, def.rowBackground),
+          rowBorderColor: cleanColor(input.rowBorderColor, def.rowBorderColor),
+          rowBorderWidth: bound(input.rowBorderWidth, def.rowBorderWidth, 0, 8),
+          rowRadius: Math.round(bound(input.rowRadius, def.rowRadius, 0, 48)),
+          rowPadding: Math.round(bound(input.rowPadding, def.rowPadding, 0, 48)),
+          markerSize: Math.round(bound(input.markerSize, def.markerSize, 10, 96)),
+          strokeWidth: bound(input.strokeWidth, def.strokeWidth, 0.5, 6),
+          markerGap: Math.round(bound(input.markerGap, def.markerGap, 0, 32)),
+          rowGap: Math.round(bound(input.rowGap, def.rowGap, 0, 48)),
+          fontSize: Math.round(bound(input.fontSize, def.fontSize, 10, 64)),
+          fontFamily: cleanText(input.fontFamily, 120).replace(/[;{}<>]/g, "") || def.fontFamily,
+          animate: input.animate === "none" ? "none" : "pop",
+          maxRows: Math.round(bound(input.maxRows, def.maxRows, 1, 50))
+        };
+      }
+      function resolveCounterCap(variableMax, cfg, rowCapOverride = null) {
+        if (rowCapOverride != null && Number.isFinite(Number(rowCapOverride)) && Number(rowCapOverride) > 0) {
+          return Math.round(Math.min(100, Number(rowCapOverride)));
+        }
+        if (cfg.capMode === "none") return null;
+        if (cfg.capMode === "custom") return Math.round(Math.min(100, Math.max(1, Number(cfg.customCap) || 5)));
+        if (variableMax !== "" && variableMax != null && Number.isFinite(Number(variableMax)) && Number(variableMax) > 0) {
+          return Math.round(Math.min(100, Number(variableMax)));
+        }
+        return null;
+      }
+      function parseNumericValue(raw) {
+        if (raw === "" || raw == null) return 0;
+        const n = Number(raw);
+        return Number.isFinite(n) ? n : 0;
+      }
+      function formatCounterReadout2(value, cap, mode) {
+        if (mode === "none") return "";
+        const vText = Number.isInteger(value) ? String(value) : String(Math.round(value * 100) / 100);
+        if (mode === "value" || cap == null) return vText;
+        if (mode === "of") return `${vText} of ${cap}`;
+        return `${vText} / ${cap}`;
+      }
+      function resolveCounterRows2(definition, binding = {}, status = {}) {
+        const cfg = normalizeDisplayCounter2(definition?.counter);
+        const customVars = Array.isArray(status.customVars) ? status.customVars : Array.isArray(status.variables) ? status.variables : [];
+        const sets = Array.isArray(status.variableSets) ? status.variableSets : Array.isArray(status.sets) ? status.sets : [];
+        if (binding?.variableName) {
+          const found = customVars.find((v) => v.name === binding.variableName);
+          if (!found) return [];
+          const value = parseNumericValue(found.value);
+          const cap = resolveCounterCap(found.max, cfg, null);
+          return [{
+            key: `var:${found.name}`,
+            kind: "variable",
+            variableName: found.name,
+            label: found.name,
+            value,
+            cap,
+            min: found.min ?? null,
+            max: found.max ?? null,
+            step: Number(found.step) || 1,
+            resetValue: found.resetValue ?? 0
+          }];
+        }
+        if (cfg.sourceMode === "set") {
+          const targetSetId = binding?.setId || definition?.catalogId || "";
+          const setObj = sets.find((s) => s.id === targetSetId);
+          if (!setObj) return [];
+          const scope = binding?.rows || cfg.rowScope || "all";
+          let entries = [];
+          if (scope === "active") {
+            const owner = resolveDisplayOwner3(sets, { ...binding, setId: setObj.id }).entry;
+            entries = owner ? [owner] : [];
+          } else if (scope === "slots" || scope === "group-slots") {
+            const ids = setObj.slotsCount > 0 ? setObj.slots || [] : [setObj.activeEntry];
+            entries = [...new Set(ids)].map((id) => (setObj.roster || []).find((entry) => entry.id === id)).filter((entry) => entry && (scope !== "group-slots" || entry.inGroup !== false));
+          } else {
+            entries = (setObj.roster || []).filter((entry) => entry.enabled !== false && (scope !== "group" || entry.inGroup !== false));
+          }
+          const valueFieldKey = cfg.valueField || (setObj.fields || []).find((f) => f.type === "number" || f.type === "counter")?.key || "";
+          const fieldDef = (setObj.fields || []).find((f) => f.key === valueFieldKey);
+          return entries.slice(0, cfg.maxRows).map((entry) => {
+            const rawVal = valueFieldKey ? entry.values?.[valueFieldKey] : 0;
+            const value = parseNumericValue(rawVal);
+            const label = cfg.labelField === "$label" ? entry.label || entry.id : String(entry.values?.[cfg.labelField] ?? entry.label ?? entry.id);
+            const cap = resolveCounterCap(fieldDef?.max, cfg, null);
+            return {
+              key: `set:${setObj.id}:${entry.id}:${valueFieldKey}`,
+              kind: "set-entry",
+              setId: setObj.id,
+              entryId: entry.id,
+              valueField: valueFieldKey,
+              label,
+              value,
+              cap,
+              min: fieldDef?.min ?? null,
+              max: fieldDef?.max ?? null,
+              step: 1,
+              resetValue: 0
+            };
+          });
+        }
+        const varMap = new Map(customVars.map((v) => [v.name, v]));
+        const rows = [];
+        for (const item of cfg.variables.slice(0, cfg.maxRows)) {
+          const found = varMap.get(item.name);
+          const value = found ? parseNumericValue(found.value) : 0;
+          const cap = resolveCounterCap(found?.max, cfg, item.cap);
+          rows.push({
+            key: `var:${item.name}`,
+            kind: "variable",
+            variableName: item.name,
+            label: item.label || item.name,
+            value,
+            cap,
+            min: found?.min ?? null,
+            max: found?.max ?? null,
+            step: Number(found?.step) || 1,
+            resetValue: found?.resetValue ?? 0,
+            missing: !found
+          });
+        }
+        return rows;
+      }
+      module.exports = {
+        COUNTER_STYLES,
+        SOURCE_MODES,
+        CAP_MODES,
+        OVERFLOW_MODES,
+        READOUT_MODES,
+        LABEL_POSITIONS,
+        READOUT_POSITIONS,
+        ROW_SCOPES,
+        defaultDisplayCounter,
+        normalizeDisplayCounter: normalizeDisplayCounter2,
+        resolveCounterCap,
+        formatCounterReadout: formatCounterReadout2,
+        resolveCounterRows: resolveCounterRows2
+      };
+    }
+  });
+
   // shared/variable-displays.cjs
   var require_variable_displays = __commonJS({
     "shared/variable-displays.cjs"(exports, module) {
       var { resolveDisplayOwner: resolveDisplayOwner3 } = require_display_source();
       var { normalizeDisplayTable } = require_display_table();
+      var { normalizeDisplayCounter: normalizeDisplayCounter2 } = require_display_counter();
       var key = (value) => String(value || "").replace(/[^a-z0-9_-]/gi, "_").slice(0, 60);
       var text = (value, limit = 80) => String(value ?? "").trim().slice(0, limit);
       var number = (value, fallback, min, max) => Number.isFinite(Number(value)) && value !== "" && value != null ? Math.max(min, Math.min(max, Number(value))) : fallback;
       var color = (value, fallback) => /^#[a-f0-9]{6}(?:[a-f0-9]{2})?$/i.test(value || "") ? value : fallback;
       function normalizeDisplay(input = {}, id = input.id) {
-        if (input.kind && !["inventory", "table", "badge"].includes(input.kind)) throw new Error("Unsupported display kind");
+        if (input.kind && !["inventory", "table", "badge", "counter"].includes(input.kind)) throw new Error("Unsupported display kind");
         const seen = /* @__PURE__ */ new Set();
         const sections = (Array.isArray(input.sections) ? input.sections : []).slice(0, 20).map((section, index) => {
           const cells = /* @__PURE__ */ new Set();
@@ -3399,6 +3635,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           kind: input.kind || "inventory",
           ...input.kind === "table" ? { table: normalizeDisplayTable(input.table) } : {},
           ...input.kind === "badge" ? { badge: JSON.parse(JSON.stringify(input.badge || {})) } : {},
+          ...input.kind === "counter" ? { counter: normalizeDisplayCounter2(input.counter) } : {},
           catalogId: key(input.catalogId),
           imageField: key(input.imageField) || "image",
           labelField: key(input.labelField) || "name",
@@ -3452,7 +3689,8 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           tracker: key(input.tracker),
           showMode: input.showMode === "active" ? "active" : "dim",
           rows: ["all", "active", "slots", "group", "group-slots", "ordered"].includes(input.rows) ? input.rows : "all",
-          fields: [...new Set((input.listField ? [input.listField] : Array.isArray(input.fields) ? input.fields : []).slice(0, 10).map(key).filter(Boolean))]
+          fields: [...new Set((input.listField ? [input.listField] : Array.isArray(input.fields) ? input.fields : []).slice(0, 10).map(key).filter(Boolean))],
+          ...input.variableName ? { variableName: String(input.variableName).replace(/[^a-z0-9_.-]/gi, "").slice(0, 80) } : {}
         };
       }
       module.exports = { normalizeDisplay, normalizeDisplayBinding, resolveDisplayOwner: resolveDisplayOwner3 };
@@ -3648,6 +3886,421 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     }
   });
 
+  // public/js/overlay/display-counter.js
+  function ensureCounterStyles() {
+    if (typeof document === "undefined" || document.getElementById("sp-counter-display-styles")) return;
+    const style = document.createElement("style");
+    style.id = "sp-counter-display-styles";
+    style.textContent = `
+@keyframes sp-counter-pop {
+    0% { transform: scale(0.55); opacity: 0.35; }
+    65% { transform: scale(1.16); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+}
+@keyframes sp-tally-slash {
+    0% { stroke-dashoffset: 40; opacity: 0.25; }
+    100% { stroke-dashoffset: 0; opacity: 1; }
+}
+.sp-counter-marker.is-pop {
+    animation: sp-counter-pop 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.sp-tally-slash.is-pop {
+    stroke-dasharray: 40;
+    animation: sp-tally-slash 240ms ease-out both;
+}
+html.sp-fx-paused .sp-counter-marker.is-pop,
+html.sp-fx-paused .sp-tally-slash.is-pop {
+    animation: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+    .sp-counter-marker.is-pop,
+    .sp-tally-slash.is-pop {
+        animation: none !important;
+    }
+}`;
+    document.head.appendChild(style);
+  }
+  function svgEl(tag, attrs = {}) {
+    const node = document.createElementNS(SVG_NS, tag);
+    for (const [key, val] of Object.entries(attrs)) {
+      if (val !== void 0 && val !== null) node.setAttribute(key, String(val));
+    }
+    return node;
+  }
+  function createShapeMarker(style, state, cfg, pop) {
+    const isFilled = state !== "empty";
+    const fill = state === "overflow" ? cfg.overflowColor : state === "cap" ? cfg.capReachedColor || cfg.filledColor : isFilled ? cfg.filledColor : cfg.emptyColor;
+    const stroke = state === "overflow" ? cfg.overflowColor : state === "cap" ? cfg.capReachedColor || cfg.filledColor : isFilled ? cfg.filledColor : cfg.outlineColor;
+    const sw = Math.max(0.5, Number(cfg.strokeWidth) || 2);
+    const size = Math.max(10, Number(cfg.markerSize) || 26);
+    const svg = svgEl("svg", {
+      viewBox: "0 0 24 24",
+      width: size,
+      height: size,
+      "aria-hidden": "true",
+      class: `sp-counter-marker${pop ? " is-pop" : ""}`,
+      "data-marker-state": state,
+      "data-marker-style": style
+    });
+    svg.style.display = "block";
+    svg.style.flex = "none";
+    svg.style.overflow = "visible";
+    if (style === "pips") {
+      svg.appendChild(svgEl("circle", {
+        cx: 12,
+        cy: 12,
+        r: 8.5,
+        fill,
+        stroke,
+        "stroke-width": sw
+      }));
+    } else if (style === "squares") {
+      svg.appendChild(svgEl("rect", {
+        x: 3.5,
+        y: 3.5,
+        width: 17,
+        height: 17,
+        rx: 3.5,
+        fill,
+        stroke,
+        "stroke-width": sw
+      }));
+    } else if (style === "bars") {
+      svg.appendChild(svgEl("rect", {
+        x: 6,
+        y: 3,
+        width: 12,
+        height: 18,
+        rx: 3,
+        fill,
+        stroke,
+        "stroke-width": sw
+      }));
+    } else {
+      svg.appendChild(svgEl("path", {
+        d: SHAPE_PATHS[style] || SHAPE_PATHS.hearts,
+        fill,
+        stroke,
+        "stroke-width": sw,
+        "stroke-linejoin": "round",
+        "stroke-linecap": "round"
+      }));
+    }
+    return svg;
+  }
+  function createTallyGroup(filledInGroup, totalInGroup, isChalk, color, emptyStrokeColor, cfg, popFromIndex = -1, groupStartIndex = 0) {
+    const size = Math.max(12, Number(cfg.markerSize) || 26);
+    const width = Math.round(size * 1.42);
+    const height = size;
+    const sw = Math.max(1.5, Number(cfg.strokeWidth) || 2.4);
+    const svg = svgEl("svg", {
+      viewBox: "0 0 38 28",
+      width,
+      height,
+      fill: "none",
+      "aria-hidden": "true",
+      class: "sp-counter-tally-group",
+      "data-tally-filled": filledInGroup,
+      "data-tally-total": totalInGroup
+    });
+    svg.style.display = "block";
+    svg.style.flex = "none";
+    svg.style.overflow = "visible";
+    const xs = [6, 13, 20, 27];
+    const chalkOffsets = [
+      { x1: 6.6, y1: 3.6, x2: 5.4, y2: 24.4 },
+      { x1: 12.8, y1: 4.2, x2: 13.5, y2: 23.8 },
+      { x1: 20.5, y1: 3.8, x2: 19.6, y2: 24.3 },
+      { x1: 26.8, y1: 4.3, x2: 27.6, y2: 23.9 }
+    ];
+    const verticals = Math.min(4, totalInGroup);
+    for (let i = 0; i < verticals; i++) {
+      const isFilled = i < filledInGroup;
+      const globalIdx = groupStartIndex + i;
+      const pop = isFilled && popFromIndex >= 0 && globalIdx >= popFromIndex;
+      const coords = isChalk ? chalkOffsets[i] : { x1: xs[i], y1: 4, x2: xs[i], y2: 24 };
+      svg.appendChild(svgEl("line", {
+        ...coords,
+        stroke: isFilled ? color : emptyStrokeColor,
+        "stroke-width": sw,
+        "stroke-linecap": "round",
+        opacity: isFilled ? 1 : 0.45,
+        class: `sp-counter-marker${pop ? " is-pop" : ""}`,
+        "data-marker-state": isFilled ? "filled" : "empty"
+      }));
+    }
+    if (totalInGroup >= 5) {
+      const isFilled = filledInGroup >= 5;
+      const globalIdx = groupStartIndex + 4;
+      const pop = isFilled && popFromIndex >= 0 && globalIdx >= popFromIndex;
+      const slashCoords = isChalk ? { x1: 2.2, y1: 21.6, x2: 32.4, y2: 6.4 } : { x1: 2.5, y1: 21, x2: 31.5, y2: 7 };
+      svg.appendChild(svgEl("line", {
+        ...slashCoords,
+        stroke: isFilled ? color : emptyStrokeColor,
+        "stroke-width": sw * 1.08,
+        "stroke-linecap": "round",
+        opacity: isFilled ? 1 : 0.35,
+        class: `sp-tally-slash${pop ? " is-pop" : ""}`,
+        "data-marker-state": isFilled ? "filled" : "empty"
+      }));
+    }
+    return svg;
+  }
+  function buildMarkersNode(value, cap, cfg, prevValue) {
+    const wrap = document.createElement("div");
+    wrap.className = "sp-counter-markers";
+    const isTally = cfg.style === "tally" || cfg.style === "tally-chalk";
+    const gap = Math.max(0, Number(cfg.markerGap) || 6);
+    const perRow = Math.max(0, Math.round(Number(cfg.perRow) || 0));
+    const rawCount = Math.max(0, Math.floor(Number(value) || 0));
+    const clampedCount = cap != null && cfg.overflowMode === "clamp" ? Math.min(rawCount, cap) : rawCount;
+    const isCapReached = cap != null && rawCount >= cap;
+    const animate = cfg.animate === "pop" && prevValue !== void 0 && rawCount > prevValue;
+    const popFromIndex = animate ? Math.max(0, Math.floor(prevValue)) : -1;
+    Object.assign(wrap.style, {
+      display: "flex",
+      flexWrap: "wrap",
+      alignItems: "center",
+      gap: `${isTally ? Math.max(gap, 10) : gap}px`,
+      justifyContent: cfg.align === "center" ? "center" : cfg.align === "right" ? "flex-end" : "flex-start"
+    });
+    if (cfg.style === "number") {
+      const num = document.createElement("span");
+      num.className = `sp-counter-number-only${animate ? " sp-counter-marker is-pop" : ""}`;
+      const readoutMode = cfg.readout === "none" ? cap != null ? "fraction" : "value" : cfg.readout;
+      num.textContent = (0, import_display_counter.formatCounterReadout)(value, cap, readoutMode);
+      Object.assign(num.style, {
+        fontSize: `${Math.max(14, Math.round(cfg.markerSize * 1.15))}px`,
+        fontWeight: "750",
+        fontVariantNumeric: "tabular-nums",
+        lineHeight: "1.1",
+        color: isCapReached && cfg.capReachedColor ? cfg.capReachedColor : cfg.filledColor
+      });
+      wrap.appendChild(num);
+      return wrap;
+    }
+    if (perRow > 0 && !isTally) {
+      const maxWidth = perRow * cfg.markerSize + Math.max(0, perRow - 1) * gap;
+      wrap.style.maxWidth = `${maxWidth}px`;
+    } else if (perRow > 0 && isTally) {
+      const groupsPerRow = Math.max(1, Math.ceil(perRow / 5));
+      const groupWidth = Math.round(cfg.markerSize * 1.42);
+      const tallyGap = Math.max(gap, 10);
+      wrap.style.maxWidth = `${groupsPerRow * groupWidth + Math.max(0, groupsPerRow - 1) * tallyGap}px`;
+    }
+    if (isTally) {
+      const isChalk = cfg.style === "tally-chalk";
+      const baseTotal = cap != null ? cap : clampedCount;
+      const renderTotal = cap != null && cfg.overflowMode === "overflow" ? Math.min(MAX_RENDER_MARKERS, Math.max(cap, clampedCount)) : Math.min(MAX_RENDER_MARKERS, baseTotal);
+      const displayFilled = Math.min(clampedCount, renderTotal);
+      const activeColor = isCapReached && cfg.capReachedColor ? cfg.capReachedColor : cfg.filledColor;
+      const emptyStroke = cfg.outlineColor || cfg.emptyColor;
+      if (renderTotal === 0) {
+        wrap.appendChild(createTallyGroup(0, 1, isChalk, activeColor, emptyStroke, cfg, -1, 0));
+      } else {
+        for (let start = 0; start < renderTotal; start += 5) {
+          const totalInGroup = Math.min(5, renderTotal - start);
+          const filledInGroup = Math.max(0, Math.min(totalInGroup, displayFilled - start));
+          const groupIsOverflow = cap != null && start >= cap;
+          wrap.appendChild(createTallyGroup(
+            filledInGroup,
+            totalInGroup,
+            isChalk,
+            groupIsOverflow ? cfg.overflowColor : activeColor,
+            emptyStroke,
+            cfg,
+            popFromIndex,
+            start
+          ));
+        }
+      }
+      const overflowCount = cap != null && cfg.overflowMode === "plus" && rawCount > cap ? rawCount - cap : rawCount > renderTotal && cfg.overflowMode !== "clamp" ? rawCount - renderTotal : 0;
+      if (overflowCount > 0) {
+        wrap.appendChild(createOverflowPill(overflowCount, cfg, animate));
+      }
+      return wrap;
+    }
+    const baseSlots = cap != null ? Math.min(MAX_RENDER_MARKERS, cap) : Math.min(MAX_RENDER_MARKERS, clampedCount);
+    const extraOverflowSlots = cap != null && cfg.overflowMode === "overflow" && rawCount > cap ? Math.min(MAX_RENDER_MARKERS - baseSlots, rawCount - cap) : 0;
+    if (baseSlots === 0 && extraOverflowSlots === 0) {
+      wrap.appendChild(createShapeMarker(cfg.style, "empty", cfg, false));
+      return wrap;
+    }
+    for (let i = 0; i < baseSlots; i++) {
+      const isFilled = i < clampedCount;
+      const state = !isFilled ? "empty" : isCapReached && cfg.capReachedColor ? "cap" : "filled";
+      const pop = isFilled && popFromIndex >= 0 && i >= popFromIndex;
+      wrap.appendChild(createShapeMarker(cfg.style, state, cfg, pop));
+    }
+    for (let j = 0; j < extraOverflowSlots; j++) {
+      const globalIdx = baseSlots + j;
+      const pop = popFromIndex >= 0 && globalIdx >= popFromIndex;
+      wrap.appendChild(createShapeMarker(cfg.style, "overflow", cfg, pop));
+    }
+    const overflowBadgeCount = cap != null && cfg.overflowMode === "plus" && rawCount > cap ? rawCount - cap : rawCount > baseSlots + extraOverflowSlots && cfg.overflowMode !== "clamp" ? rawCount - (baseSlots + extraOverflowSlots) : 0;
+    if (overflowBadgeCount > 0) {
+      wrap.appendChild(createOverflowPill(overflowBadgeCount, cfg, animate));
+    }
+    return wrap;
+  }
+  function createOverflowPill(count, cfg, pop) {
+    const badge = document.createElement("span");
+    badge.className = `sp-counter-overflow-badge${pop ? " sp-counter-marker is-pop" : ""}`;
+    badge.textContent = `+${count}`;
+    Object.assign(badge.style, {
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "2px 7px",
+      borderRadius: "999px",
+      fontSize: `${Math.max(11, Math.round(cfg.markerSize * 0.52))}px`,
+      fontWeight: "700",
+      fontVariantNumeric: "tabular-nums",
+      lineHeight: "1.2",
+      color: cfg.overflowColor,
+      border: `1px solid ${cfg.overflowColor}`,
+      background: "rgba(0, 0, 0, 0.25)",
+      flex: "none"
+    });
+    return badge;
+  }
+  function renderDisplayCounter(host, element, status = {}, definition) {
+    ensureCounterStyles();
+    const cfg = (0, import_display_counter.normalizeDisplayCounter)(definition?.counter);
+    const binding = element?.display || {};
+    const rows = (0, import_display_counter.resolveCounterRows)(definition, binding, status);
+    if (!rows.length) return false;
+    const prevMap = host._counterPrevValues instanceof Map ? host._counterPrevValues : /* @__PURE__ */ new Map();
+    const nextMap = /* @__PURE__ */ new Map();
+    const root2 = document.createElement("div");
+    root2.className = "sp-variable-display sp-counter-display";
+    root2.dataset.counterStyle = cfg.style;
+    Object.assign(root2.style, {
+      width: "100%",
+      height: "100%",
+      boxSizing: "border-box",
+      display: "flex",
+      flexDirection: cfg.direction === "horizontal" ? "row" : "column",
+      flexWrap: cfg.direction === "horizontal" ? "wrap" : "nowrap",
+      alignItems: cfg.direction === "horizontal" ? "center" : cfg.align === "center" ? "center" : cfg.align === "right" ? "flex-end" : "stretch",
+      justifyContent: cfg.align === "center" ? "center" : cfg.align === "right" ? "flex-end" : "flex-start",
+      gap: `${cfg.rowGap}px`,
+      fontFamily: cfg.fontFamily,
+      fontSize: `${cfg.fontSize}px`,
+      overflow: "hidden"
+    });
+    for (const row of rows) {
+      const prevVal = prevMap.has(row.key) ? prevMap.get(row.key) : void 0;
+      nextMap.set(row.key, row.value);
+      const rowEl = document.createElement("div");
+      rowEl.className = "sp-counter-row";
+      rowEl.dataset.counterKey = row.key;
+      rowEl.dataset.counterValue = String(row.value);
+      if (row.cap != null) rowEl.dataset.counterCap = String(row.cap);
+      const labelPos = cfg.showLabel ? cfg.labelPosition : "none";
+      const isStacked = labelPos === "top" || labelPos === "bottom";
+      Object.assign(rowEl.style, {
+        display: "flex",
+        flexDirection: isStacked ? "column" : "row",
+        alignItems: isStacked ? cfg.align === "center" ? "center" : cfg.align === "right" ? "flex-end" : "flex-start" : "center",
+        justifyContent: !isStacked && cfg.align === "center" ? "center" : !isStacked && cfg.align === "right" ? "flex-end" : "space-between",
+        gap: isStacked ? "6px" : "12px",
+        padding: `${cfg.rowPadding}px`,
+        borderRadius: `${cfg.rowRadius}px`,
+        background: cfg.rowBackground,
+        border: cfg.rowBorderWidth > 0 ? `${cfg.rowBorderWidth}px solid ${cfg.rowBorderColor}` : "none",
+        boxSizing: "border-box",
+        maxWidth: "100%"
+      });
+      const labelEl = labelPos !== "none" ? document.createElement("span") : null;
+      if (labelEl) {
+        labelEl.className = "sp-counter-label";
+        labelEl.textContent = row.label;
+        Object.assign(labelEl.style, {
+          color: cfg.labelColor,
+          fontWeight: "650",
+          fontSize: `${cfg.fontSize}px`,
+          lineHeight: "1.2",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          minWidth: "0"
+        });
+      }
+      const markersGroup = document.createElement("div");
+      markersGroup.className = "sp-counter-track";
+      const showReadout = cfg.style !== "number" && cfg.readout !== "none";
+      const readoutStacked = showReadout && (cfg.readoutPosition === "top" || cfg.readoutPosition === "bottom");
+      Object.assign(markersGroup.style, {
+        display: "flex",
+        flexDirection: readoutStacked ? "column" : "row",
+        alignItems: "center",
+        gap: readoutStacked ? "4px" : "10px",
+        minWidth: "0",
+        flexWrap: "nowrap"
+      });
+      const markersNode = buildMarkersNode(row.value, row.cap, cfg, prevVal);
+      let readoutEl = null;
+      if (showReadout) {
+        readoutEl = document.createElement("span");
+        readoutEl.className = "sp-counter-readout";
+        readoutEl.textContent = (0, import_display_counter.formatCounterReadout)(row.value, row.cap, cfg.readout);
+        Object.assign(readoutEl.style, {
+          color: cfg.readoutColor,
+          fontWeight: "700",
+          fontSize: `${Math.max(12, Math.round(cfg.fontSize * 0.92))}px`,
+          fontVariantNumeric: "tabular-nums",
+          whiteSpace: "nowrap",
+          flex: "none"
+        });
+      }
+      if (readoutEl && (cfg.readoutPosition === "left" || cfg.readoutPosition === "top")) {
+        markersGroup.append(readoutEl, markersNode);
+      } else if (readoutEl) {
+        markersGroup.append(markersNode, readoutEl);
+      } else {
+        markersGroup.append(markersNode);
+      }
+      if (labelEl && labelPos === "bottom") {
+        rowEl.append(markersGroup, labelEl);
+      } else if (labelEl) {
+        rowEl.append(labelEl, markersGroup);
+      } else {
+        rowEl.append(markersGroup);
+      }
+      root2.appendChild(rowEl);
+    }
+    host._counterPrevValues = nextMap;
+    host.appendChild(root2);
+    return true;
+  }
+  function renderMiniCounterHtml(value, cap, counterCfg = {}) {
+    const cfg = (0, import_display_counter.normalizeDisplayCounter)({
+      ...counterCfg,
+      markerSize: Math.min(18, Math.max(14, Number(counterCfg.markerSize) || 16)),
+      markerGap: 3,
+      perRow: 0,
+      animate: "none"
+    });
+    const node = buildMarkersNode(value, cap, cfg, void 0);
+    const wrapper = document.createElement("div");
+    wrapper.appendChild(node);
+    return wrapper.innerHTML;
+  }
+  var import_display_counter, SVG_NS, MAX_RENDER_MARKERS, SHAPE_PATHS;
+  var init_display_counter = __esm({
+    "public/js/overlay/display-counter.js"() {
+      import_display_counter = __toESM(require_display_counter());
+      SVG_NS = "http://www.w3.org/2000/svg";
+      MAX_RENDER_MARKERS = 100;
+      SHAPE_PATHS = {
+        hearts: "M12 20.6C12 20.6 3.5 15.1 3.5 9.1C3.5 6.2 5.7 4 8.4 4C10.1 4 11.4 4.9 12 6.2C12.6 4.9 13.9 4 15.6 4C18.3 4 20.5 6.2 20.5 9.1C20.5 15.1 12 20.6 12 20.6Z",
+        stars: "M12 2.6l2.85 5.78 6.38.93-4.62 4.5 1.09 6.36L12 17.16l-5.7 3.01 1.09-6.36-4.62-4.5 6.38-.93z",
+        diamonds: "M12 2.5L21 12l-9 9.5L3 12z"
+      };
+    }
+  });
+
   // public/js/overlay/displays.js
   function setDisplayLibrary(data) {
     library = Array.isArray(data.displays) ? data.displays : [];
@@ -3692,7 +4345,13 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     host._displaySignature = signature;
     for (const child of host.querySelectorAll(":scope > .sp-variable-display")) cleanupNode(child);
     host.replaceChildren();
-    if (!definition || !catalog || status.modules?.variableSets === false) return false;
+    if (!definition) return false;
+    if (definition.kind === "counter") {
+      const needsSets = definition.counter?.sourceMode === "set" && !binding.variableName;
+      if (needsSets && status.modules?.variableSets === false) return false;
+      return renderDisplayCounter(host, element, status, definition);
+    }
+    if (!catalog || status.modules?.variableSets === false) return false;
     if (definition.kind === "table") return renderDisplayTable(host, element, status, definition);
     if (definition.kind === "badge") return renderSavedBadge(host, element, status, definition);
     if (tracks && (!owner || !tracker)) return false;
@@ -3781,6 +4440,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       import_variable_links = __toESM(require_variable_links());
       init_display_table();
       init_display_badges();
+      init_display_counter();
       init_lifecycle();
       library = null;
       revision = null;
@@ -5173,11 +5833,11 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     const pts = GROUP_POLY_POINTS[shape];
     if (!pts || width <= 0 || typeof document === "undefined") return;
     const ns = "http://www.w3.org/2000/svg";
-    const svgEl = document.createElementNS(ns, "svg");
-    svgEl.setAttribute("viewBox", "0 0 100 100");
-    svgEl.setAttribute("preserveAspectRatio", "none");
-    svgEl.setAttribute("aria-hidden", "true");
-    svgEl.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:3;overflow:visible;";
+    const svgEl2 = document.createElementNS(ns, "svg");
+    svgEl2.setAttribute("viewBox", "0 0 100 100");
+    svgEl2.setAttribute("preserveAspectRatio", "none");
+    svgEl2.setAttribute("aria-hidden", "true");
+    svgEl2.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:3;overflow:visible;";
     const poly = document.createElementNS(ns, "polygon");
     poly.setAttribute("points", pts);
     poly.setAttribute("fill", "none");
@@ -5186,8 +5846,8 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     poly.setAttribute("vector-effect", "non-scaling-stroke");
     if (borderStyle === "dashed") poly.setAttribute("stroke-dasharray", `${width * 3} ${width * 2}`);
     else if (borderStyle === "dotted") poly.setAttribute("stroke-dasharray", `${width} ${width * 1.6}`);
-    svgEl.appendChild(poly);
-    avBox.appendChild(svgEl);
+    svgEl2.appendChild(poly);
+    avBox.appendChild(svgEl2);
   }
   function looksLikeImageSource(val) {
     const s = String(val || "").trim();
@@ -9960,9 +10620,11 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       var import_variable_links4 = __toESM(require_variable_links());
       var import_variable_displays2 = __toESM(require_variable_displays());
       var import_display_table4 = __toESM(require_display_table());
+      var import_display_counter3 = __toESM(require_display_counter());
       var import_variable_paths2 = __toESM(require_variable_paths());
       var import_border_catalog2 = __toESM(require_border_catalog());
       init_displays();
+      init_display_counter();
       root.OverlayShared = Object.assign(root.OverlayShared || {}, { cleanupMedia, cleanupNode, alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, TEXT_ANIM_TYPES, applyBorderGradient, applyTextAnimation, resolveBorderRadius, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, pruneSourceCaches, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, playSoundValue, resolveSoundUrl, zzfxSamples, BUILTIN_SOUNDS, renderGameList, renderSpeakerBadge, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, mountPattern, mountTextCycle, resolveCycleLines, createVarRotationEngine, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, resolveColorToken, resolveStyleVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, renderImageGroupStrip, applyMediaFilter: root.OverlayFilters?.applyMediaFilter || applyMediaFilter, shadowClipStyle });
       root.OverlayShared.borderPlacement = borderPlacement;
       Object.assign(root.OverlayShared, { ALERT_PRESENTATION_KEYS, resolveAlertLook, renderInlineText, sanitizeIconClass });
@@ -9970,6 +10632,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       Object.assign(root.OverlayShared, import_variable_links4.default);
       Object.assign(root.OverlayShared, import_variable_displays2.default, { renderVariableDisplay, setDisplayLibrary });
       Object.assign(root.OverlayShared, import_display_table4.default);
+      Object.assign(root.OverlayShared, import_display_counter3.default, { renderMiniCounterHtml });
       Object.assign(root.OverlayShared, { variableKey: import_variable_paths2.default.variableKey, blurFillShadowCss, normalizeBlurFill, syncBlurFillMedia });
       Object.assign(root.OverlayShared, import_border_catalog2.default);
       Object.defineProperty(root.OverlayShared, Symbol.for("StreamPulse.OverlayShared"), { value: true });

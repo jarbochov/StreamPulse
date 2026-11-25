@@ -12,11 +12,18 @@ import { isEditLocked } from './operator-state.js';
 
 let mounted = false;
 let varCache = null;
+let displaysCache = null;
 
 async function fetchVariablesData(force = false) {
     if (!force && varCache) return varCache;
     varCache = await api('/api/variables');
     return varCache;
+}
+
+async function fetchDisplaysData(force = false) {
+    if (!force && displaysCache) return displaysCache;
+    displaysCache = await api('/api/variable-displays');
+    return displaysCache;
 }
 
 function getVarLines(v) {
@@ -85,7 +92,10 @@ function renderReadOnlyVarHtml(v, head) {
         return `${head}<div class="op-panel-row"><span class="op-pill ${on ? 'is-ok' : ''}">${on ? 'On (true)' : 'Off (false)'}</span></div>`;
     }
     if (v.type === 'counter' || v.type === 'number') {
-        return `${head}<div class="op-ro-value" style="font-size:1.25rem;font-variant-numeric:tabular-nums;">${esc(val || '0')}</div>`;
+        const capHtml = v.max !== undefined && v.max !== '' && v.max !== null
+            ? `<span style="color:var(--text-muted);font-size:.95rem;font-weight:600;"> / ${esc(v.max)}</span>`
+            : '';
+        return `${head}<div class="op-ro-value" style="font-size:1.25rem;font-variant-numeric:tabular-nums;">${esc(val || '0')}${capHtml}</div>`;
     }
     if (v.type === 'list') {
         const lines = getVarLines(v);
@@ -151,8 +161,14 @@ function renderBoardVarControlHtml(v, showHeader = true) {
         const minAttr = v.min !== undefined && v.min !== '' ? ` min="${esc(v.min)}"` : '';
         const maxAttr = v.max !== undefined && v.max !== '' ? ` max="${esc(v.max)}"` : '';
         const stepAttr = v.step !== undefined && v.step !== '' ? ` step="${esc(v.step)}"` : ' step="any"';
+        const capHint = v.max !== undefined && v.max !== '' && v.max !== null
+            ? `<span style="font-size:.8rem;color:var(--text-muted);font-variant-numeric:tabular-nums;">/ ${esc(v.max)}</span>`
+            : '';
         return `${head}<div class="op-panel-row">
-            <input type="number"${minAttr}${maxAttr}${stepAttr} class="op-cell-input" style="width:78px;min-width:64px;text-align:center;font-weight:700;font-variant-numeric:tabular-nums;" data-card-var-direct="${name}" value="${esc(val || '0')}" aria-label="${name} value">
+            <div style="display:inline-flex;align-items:center;gap:.3rem;">
+                <input type="number"${minAttr}${maxAttr}${stepAttr} class="op-cell-input" style="width:78px;min-width:64px;text-align:center;font-weight:700;font-variant-numeric:tabular-nums;" data-card-var-direct="${name}" value="${esc(val || '0')}" aria-label="${name} value">
+                ${capHint}
+            </div>
             <div class="op-btn-row">
                 <button type="button" class="op-btn sm" data-card-var-step="${name}" data-delta="-1">-1</button>
                 <button type="button" class="op-btn sm" data-card-var-step="${name}" data-delta="1">+1</button>
@@ -677,6 +693,129 @@ registerCardType({
     onSocket(el, card, type) {
         if (type === 'variables' || type === 'variables-update') {
             varCache = null;
+            el._opRefresh?.();
+        }
+    },
+    unmount(el) {
+        el._opCleanup?.();
+    }
+});
+
+// --- Live Board Card: Counter & Pips Display ---
+async function renderCounterDisplayCard(el, card) {
+    const displayId = card.config?.displayId || '';
+    const [displaysRes, varsRes] = await Promise.all([fetchDisplaysData(), fetchVariablesData()]);
+    const display = (displaysRes.displays || []).find(d => d.id === displayId && d.kind === 'counter');
+    if (!display) {
+        el.innerHTML = '<div style="color:var(--text-muted);font-size:.8rem;">Saved Counter &amp; Pips display not found.</div>';
+        return;
+    }
+    const shared = window.OverlayShared;
+    const rows = shared?.resolveCounterRows
+        ? shared.resolveCounterRows(display, {}, { customVars: varsRes.variables || [], variableSets: varsRes.sets || [] })
+        : [];
+    if (!rows.length) {
+        el.innerHTML = '<div style="color:var(--text-muted);font-size:.8rem;">No counter variables or set entries bound to this display.</div>';
+        return;
+    }
+    const readOnly = isEditLocked();
+    const cfg = display.counter || {};
+    el.innerHTML = `<div style="display:grid;gap:.55rem;">${rows.map(row => {
+        const previewHtml = shared?.renderMiniCounterHtml
+            ? shared.renderMiniCounterHtml(row.value, row.cap, cfg)
+            : '';
+        const readout = shared?.formatCounterReadout
+            ? shared.formatCounterReadout(row.value, row.cap, cfg.readout === 'none' ? (row.cap != null ? 'fraction' : 'value') : cfg.readout)
+            : `${row.value}${row.cap != null ? ` / ${row.cap}` : ''}`;
+        const rowAttrs = row.kind === 'set-entry'
+            ? `data-ctr-kind="set-entry" data-ctr-set="${esc(row.setId)}" data-ctr-entry="${esc(row.entryId)}" data-ctr-field="${esc(row.valueField)}"`
+            : `data-ctr-kind="variable" data-ctr-var="${esc(row.variableName)}"`;
+        return `<div class="op-group-var-row" style="display:grid;gap:.35rem;padding:.45rem .55rem;border:1px solid var(--border);border-radius:7px;background:var(--bg-inset);">
+            <div class="op-panel-row" style="gap:.5rem;">
+                <span style="font-size:.82rem;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(row.label)}</span>
+                <span class="op-pill" style="font-variant-numeric:tabular-nums;">${esc(readout)}</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap;">
+                <div style="display:flex;align-items:center;min-height:20px;">${previewHtml}</div>
+                ${readOnly ? '' : `<div class="op-btn-row">
+                    <button type="button" class="op-btn sm" data-ctr-act="step" data-delta="-1" ${rowAttrs} aria-label="Decrement ${esc(row.label)}">-1</button>
+                    <button type="button" class="op-btn sm" data-ctr-act="step" data-delta="1" ${rowAttrs} aria-label="Increment ${esc(row.label)}">+1</button>
+                    <button type="button" class="op-btn sm" data-ctr-act="reset" ${rowAttrs} aria-label="Reset ${esc(row.label)}">Reset</button>
+                </div>`}
+            </div>
+        </div>`;
+    }).join('')}</div>`;
+}
+
+registerCardType({
+    type: 'counter-display',
+    moduleId: 'variables',
+    label: 'Counter & Pips Display',
+    description: 'Live pips, hearts, and tally controls for a saved Counter display.',
+    iconSvg: OP_ICONS.variables,
+    isEnabled: status => status?.modules?.variableSettings !== false || Boolean(status?.modules?.variableSets),
+    async getPickerItems() {
+        const res = await fetchDisplaysData(true);
+        return (res.displays || [])
+            .filter(d => d.kind === 'counter')
+            .map(d => {
+                const c = d.counter || {};
+                const styleLabel = c.style === 'tally-chalk' ? 'Tally (Chalk)' : (c.style || 'pips');
+                const detail = c.sourceMode === 'set'
+                    ? `Variable Set · ${styleLabel}`
+                    : `${(c.variables || []).length} counters · ${styleLabel}`;
+                return {
+                    title: d.name,
+                    subtitle: detail,
+                    defaultTitle: d.name,
+                    config: { displayId: d.id }
+                };
+            });
+    },
+    mount(el, card) {
+        const refresh = () => renderCounterDisplayCard(el, card).catch(err => { el.textContent = err.message; });
+        const onClick = async e => {
+            if (isEditLocked()) return;
+            const btn = e.target.closest('[data-ctr-act]');
+            if (!btn) return;
+            const act = btn.dataset.ctrAct;
+            const kind = btn.dataset.ctrKind;
+            try {
+                if (kind === 'variable') {
+                    const name = btn.dataset.ctrVar;
+                    if (act === 'reset') {
+                        await api(`/api/variables/${encodeURIComponent(name)}/reset`, 'POST', {});
+                    } else {
+                        const delta = Number(btn.dataset.delta) || 1;
+                        await api(`/api/variables/${encodeURIComponent(name)}/increment`, 'POST', { delta });
+                    }
+                } else if (kind === 'set-entry') {
+                    const setId = btn.dataset.ctrSet;
+                    const entry = btn.dataset.ctrEntry;
+                    const field = btn.dataset.ctrField;
+                    if (!setId || !entry || !field) return;
+                    if (act === 'reset') {
+                        await api(`/api/variables/sets/${encodeURIComponent(setId)}/entry/set`, 'PATCH', { entry, field, value: 0 });
+                    } else {
+                        const delta = Number(btn.dataset.delta) || 1;
+                        await api(`/api/variables/sets/${encodeURIComponent(setId)}/entry/step`, 'PATCH', { entry, field, delta });
+                    }
+                }
+                await fetchVariablesData(true);
+                refresh();
+            } catch (err) {
+                toast(err.message || 'Counter update failed', 'error');
+            }
+        };
+        el.addEventListener('click', onClick);
+        el._opRefresh = refresh;
+        el._opCleanup = () => el.removeEventListener('click', onClick);
+        refresh();
+    },
+    onSocket(el, card, type) {
+        if (type === 'variables' || type === 'variables-update' || type === 'variable-displays') {
+            varCache = null;
+            if (type === 'variable-displays') displaysCache = null;
             el._opRefresh?.();
         }
     },

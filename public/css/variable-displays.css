@@ -256,7 +256,8 @@ body { min-width: 320px; background: var(--bg-page); color: var(--text); font-fa
 .display-section-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 0 0 12px; }
 .display-section-heading h3 { margin: 0; color: var(--text-muted); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .display-section-heading > span { color: var(--text-muted); font-size: 11px; }
-.display-create-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.display-create-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 1120px) { .display-create-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .display-create-card { display: flex; gap: 13px; align-items: center; min-width: 0; padding: 21px 18px; border: 1px solid var(--border); border-radius: 10px; text-align: left; background: var(--bg-card); color: var(--text); cursor: pointer; transition: background .15s, border-color .15s; }
 .display-create-card:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 5%, var(--bg-card)); }
 .display-create-icon { display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px; border-radius: 10px; color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 16%, transparent); }
@@ -285,6 +286,28 @@ body { min-width: 320px; background: var(--bg-page); color: var(--text); font-fa
 .mini-inventory { display: grid; grid-template-columns: repeat(3, 30px); gap: 7px; }
 .mini-inventory i { width: 30px; height: 30px; border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); border-radius: 6px; background: color-mix(in srgb, var(--accent) 11%, transparent); }
 .mini-inventory i:nth-child(3n) { opacity: .4; }
+.mini-counter { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent); border-radius: 10px; background: var(--bg-card); box-shadow: 0 5px 16px #00000012; }
+.mini-counter i { width: 16px; height: 16px; border-radius: 50%; background: currentColor; border: 2px solid currentColor; opacity: .82; }
+.mini-counter i.is-empty { background: transparent; opacity: .35; }
+.counter-style-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
+.counter-style-chip { display: grid; justify-items: center; gap: 6px; padding: 10px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-inset); color: var(--text-muted); font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; transition: border-color .15s, background .15s, color .15s; }
+.counter-style-chip:hover { border-color: var(--border-strong); color: var(--text); }
+.counter-style-chip.active { border-color: var(--accent); background: var(--accent-bg); color: var(--accent); }
+.counter-style-icon { display: grid; place-items: center; height: 18px; }
+.counter-var-picker { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+.counter-var-picker select { flex: 1; min-width: 0; }
+.counter-var-list { display: grid; gap: 8px; }
+.counter-var-row { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(110px, 1fr) 92px auto; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-inset); }
+.counter-var-info { display: grid; gap: 2px; min-width: 0; }
+.counter-var-info strong { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.counter-var-info small { font-size: 10px; color: var(--text-muted); }
+.counter-var-cap { width: 100%; }
+.counter-var-actions { display: flex; gap: 4px; flex-wrap: nowrap; }
+.counter-preview-test { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg-inset); }
+.counter-preview-test-btns { display: flex; gap: 5px; }
+@media (max-width: 720px) {
+    .counter-var-row { grid-template-columns: minmax(0, 1fr); }
+}
 .display-list-head h3 { font-size: 14px; line-height: 1.5; }
 .display-list-head > .display-tag { color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent); border-color: color-mix(in srgb, var(--accent) 18%, transparent); font-size: 10px; }
 .display-list-meta { margin: 9px 0 16px; gap: 4px 8px; }

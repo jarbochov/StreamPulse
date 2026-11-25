@@ -1,12 +1,13 @@
 const { resolveDisplayOwner } = require('./display-source.cjs');
 const { normalizeDisplayTable } = require('./display-table.cjs');
+const { normalizeDisplayCounter } = require('./display-counter.cjs');
 const key = value => String(value || '').replace(/[^a-z0-9_-]/gi, '_').slice(0, 60);
 const text = (value, limit = 80) => String(value ?? '').trim().slice(0, limit);
 const number = (value, fallback, min, max) => Number.isFinite(Number(value)) && value !== '' && value != null ? Math.max(min, Math.min(max, Number(value))) : fallback;
 const color = (value, fallback) => /^#[a-f0-9]{6}(?:[a-f0-9]{2})?$/i.test(value || '') ? value : fallback;
 
 function normalizeDisplay(input = {}, id = input.id) {
-    if (input.kind && !['inventory', 'table', 'badge'].includes(input.kind)) throw new Error('Unsupported display kind');
+    if (input.kind && !['inventory', 'table', 'badge', 'counter'].includes(input.kind)) throw new Error('Unsupported display kind');
     const seen = new Set();
     const sections = (Array.isArray(input.sections) ? input.sections : []).slice(0, 20).map((section, index) => {
         const cells = new Set();
@@ -30,6 +31,7 @@ function normalizeDisplay(input = {}, id = input.id) {
         id: key(id), name: text(input.name) || `${input.kind || 'inventory'} display`, kind: input.kind || 'inventory',
         ...(input.kind === 'table' ? { table: normalizeDisplayTable(input.table) } : {}),
         ...(input.kind === 'badge' ? { badge: JSON.parse(JSON.stringify(input.badge || {})) } : {}),
+        ...(input.kind === 'counter' ? { counter: normalizeDisplayCounter(input.counter) } : {}),
         catalogId: key(input.catalogId), imageField: key(input.imageField) || 'image', labelField: key(input.labelField) || 'name',
         layout: {
             mode: input.layout?.mode === 'fixed' ? 'fixed' : 'flow',
@@ -70,7 +72,8 @@ function normalizeDisplayBinding(input = {}) {
         path: (Array.isArray(input.path) ? input.path : []).slice(0, 4).map(key).filter(Boolean),
         tracker: key(input.tracker), showMode: input.showMode === 'active' ? 'active' : 'dim',
         rows: ['all', 'active', 'slots', 'group', 'group-slots', 'ordered'].includes(input.rows) ? input.rows : 'all',
-        fields: [...new Set((input.listField ? [input.listField] : Array.isArray(input.fields) ? input.fields : []).slice(0, 10).map(key).filter(Boolean))]
+        fields: [...new Set((input.listField ? [input.listField] : Array.isArray(input.fields) ? input.fields : []).slice(0, 10).map(key).filter(Boolean))],
+        ...(input.variableName ? { variableName: String(input.variableName).replace(/[^a-z0-9_.-]/gi, '').slice(0, 80) } : {})
     };
 }
 

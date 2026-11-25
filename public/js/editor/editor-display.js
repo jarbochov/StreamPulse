@@ -8,10 +8,10 @@ export function savedDisplaySection(element) {
     const display = displays.find(item => item.id === binding.displayId);
     const controls = F.select('display.displayId', 'Saved design', binding.displayId || '', [
         ['', 'Choose a display'], ...displays.map(item => [item.id, item.name])
-    ]) + (display ? displaySourceFields(binding, state.liveStatus.variableSets || [], display.catalogId, display.kind)
+    ]) + (display ? displaySourceFields(binding, state.liveStatus.variableSets || [], display.catalogId, display.kind, state.liveStatus.customVars || [], display)
         .map(field => field.multiple ? `<fieldset class="field"><legend>${esc(field.label)}</legend>${field.options.map(([value, label]) => `<label class="check"><input type="checkbox" data-display-field value="${esc(value)}"${field.value.includes(value) ? ' checked' : ''}>${esc(label)}</label>`).join('')}</fieldset>`
             : F.select(`display.${field.path}`, field.label, field.value, field.options)).join('') : '');
-    const source = displaySourceSummary(binding, state.liveStatus.variableSets || [], display, state.liveStatus.modules?.variableSets !== false);
+    const source = displaySourceSummary(binding, state.liveStatus.variableSets || [], display, state.liveStatus.modules?.variableSets !== false, state.liveStatus.customVars || []);
     return F.section('savedDisplay', 'Saved Display', controls
         + `<div class="hint" data-display-source-state="${source.ok ? 'ready' : 'empty'}"><strong>${esc(source.chain)}</strong><p>${esc(source.message)}</p></div>`
         + `<p class="hint">The saved design controls items, arrangement and item-specific appearance. Choose live data here; use this placement's Layout and Style tabs for positioning and overall effects.</p>
@@ -30,7 +30,7 @@ export function refreshDisplaySourceStatus() {
     const element = state.overlay?.elements?.find(element => state.selectedIds.has(element.id));
     if (!node || element?.type !== 'data-display') return;
     const definition = state.liveStatus.variableDisplays?.find(display => display.id === element.display?.displayId);
-    const source = displaySourceSummary(element.display, state.liveStatus.variableSets || [], definition, state.liveStatus.modules?.variableSets !== false);
+    const source = displaySourceSummary(element.display, state.liveStatus.variableSets || [], definition, state.liveStatus.modules?.variableSets !== false, state.liveStatus.customVars || []);
     node.dataset.displaySourceState = source.ok ? 'ready' : 'empty';
     node.innerHTML = `<strong>${esc(source.chain)}</strong><p>${esc(source.message)}</p>`;
 }

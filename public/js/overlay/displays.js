@@ -2,6 +2,7 @@ import { resolveDisplayOwner } from '../../../shared/variable-displays.cjs';
 import { trackerMax } from '../../../shared/variable-links.cjs';
 import { renderDisplayTable } from './display-table.js';
 import { renderSavedBadge } from './display-badges.js';
+import { renderDisplayCounter } from './display-counter.js';
 import { cleanupNode } from './lifecycle.js';
 
 let library = null, revision = null, pending = null;
@@ -44,7 +45,13 @@ export function renderVariableDisplay(host, element, status = {}) {
     host._displaySignature = signature;
     for (const child of host.querySelectorAll(':scope > .sp-variable-display')) cleanupNode(child);
     host.replaceChildren();
-    if (!definition || !catalog || status.modules?.variableSets === false) return false;
+    if (!definition) return false;
+    if (definition.kind === 'counter') {
+        const needsSets = definition.counter?.sourceMode === 'set' && !binding.variableName;
+        if (needsSets && status.modules?.variableSets === false) return false;
+        return renderDisplayCounter(host, element, status, definition);
+    }
+    if (!catalog || status.modules?.variableSets === false) return false;
     if (definition.kind === 'table') return renderDisplayTable(host, element, status, definition);
     if (definition.kind === 'badge') return renderSavedBadge(host, element, status, definition);
     if (tracks && (!owner || !tracker)) return false;
