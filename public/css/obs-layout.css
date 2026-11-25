@@ -93,7 +93,7 @@
 
 .ol-workspace {
     display: grid;
-    grid-template-columns: 245px minmax(0, 1fr) 360px;
+    grid-template-columns: 275px minmax(0, 1fr) 355px;
     gap: 0.85rem;
     align-items: start;
 }
@@ -657,7 +657,16 @@
     }
 }
 
-/* Dedicated Saved Layouts Deck Tab */
+/* Left Sidebar Compact Layout Cards */
+.ol-side-layouts {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    overflow-y: auto;
+    max-height: calc(100vh - 300px);
+    padding-right: 2px;
+}
+
 .ol-layouts-toolbar {
     display: flex;
     flex-wrap: wrap;
