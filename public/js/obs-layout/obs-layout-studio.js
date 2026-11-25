@@ -38,7 +38,10 @@ let customControlPoint = null;
 let itemMotionDrafts = {}; // sourceName -> { pathType, delayMs, waypoints: [{x,y}] }
 let previewAnimRaf = null;
 let previewAnimPositions = null;
-let pendingDeleteLayoutId = null; // sceneItemId -> { left, top, width, height, opacity }
+let pendingDeleteLayoutId = null;
+let pendingConfirmAction = null;
+let pendingItemIds = new Set();
+let motionPathDirty = false; // sceneItemId -> { left, top, width, height, opacity }
 
 const $ = id => document.getElementById(id);
 
@@ -67,6 +70,73 @@ function closeDeleteLayoutModal() {
     pendingDeleteLayoutId = null;
     const modal = $('ol-delete-modal');
     if (modal) modal.hidden = true;
+}
+
+function openConfirmModal({ title, desc, lines = [], okLabel = "Confirm & Apply", onConfirm }) {
+    if (!$('ol-confirm-apply')?.checked) {
+        onConfirm?.();
+        return;
+    }
+    pendingConfirmAction = onConfirm || null;
+    if ($('ol-confirm-modal-title')) $('ol-confirm-modal-title').textContent = title || "Confirm Changes to OBS?";
+    if ($('ol-confirm-modal-desc')) $('ol-confirm-modal-desc').textContent = desc || "Review the changes below before applying to live OBS.";
+    if ($('ol-confirm-ok')) $('ol-confirm-ok').textContent = okLabel;
+    const ul = $('ol-confirm-modal-list');
+    if (ul) {
+        ul.innerHTML = lines.map(l => `<li>${esc(l)}</li>`).join("");
+        ul.hidden = lines.length === 0;
+    }
+    const modal = $('ol-confirm-modal');
+    if (modal) modal.hidden = false;
+    $('ol-confirm-ok')?.focus();
+}
+
+function closeConfirmModal() {
+    pendingConfirmAction = null;
+    const modal = $('ol-confirm-modal');
+    if (modal) modal.hidden = true;
+}
+
+function updatePendingBar() {
+    const bar = $('ol-pending-bar');
+    const lbl = $('ol-pending-label');
+    const count = pendingItemIds.size;
+    if (bar) bar.hidden = count === 0;
+    if (lbl) lbl.textContent = `${count} source${count === 1 ? "" : "s"} modified (not yet pushed to OBS)`;
+}
+
+function markMotionDirty(dirty = true) {
+    motionPathDirty = Boolean(dirty);
+    const btn = $('ol-btn-save-path');
+    if (btn) btn.textContent = motionPathDirty ? "Save Path *" : "Save Path";
+}
+
+async function applyPendingChangesToObs() {
+    if (!pendingItemIds.size || !currentScene) return;
+    const toPush = items.filter(it => pendingItemIds.has(it.sceneItemId));
+    for (const item of toPush) {
+        const patch = {
+            ...rectToObsPatch(item, item.rect),
+            ...(item.transform?.boundsType ? { boundsType: item.transform.boundsType } : {})
+        };
+        await api('/api/obs-layout/transform', {
+            method: 'POST',
+            body: JSON.stringify({
+                sceneName: currentScene,
+                sceneItemId: item.sceneItemId,
+                transform: patch,
+                visible: item.visible,
+                locked: item.locked
+            })
+        }).catch(() => {});
+        item._origRect = { ...item.rect };
+        item._origVisible = item.visible;
+        item._origLocked = item.locked;
+    }
+    pendingItemIds.clear();
+    updatePendingBar();
+    scheduleBackdropRefresh(140);
+    showNotice(`Applied ${toPush.length} source change${toPush.length === 1 ? "" : "s"} to live OBS.`);
 }
 
 function showNotice(msg) {
@@ -171,8 +241,14 @@ function scheduleBackdropRefresh(delayMs = 180) {
     }, delayMs);
 }
 
-async function pushTransformNow(item, extraPatch = {}, { refreshBackdrop = false } = {}) {
+async function pushTransformNow(item, extraPatch = {}, { refreshBackdrop = false, force = false } = {}) {
     if (!item || !currentScene) return;
+    if (!force && !$('ol-live-sync')?.checked) {
+        pendingItemIds.add(item.sceneItemId);
+        updatePendingBar();
+        showNotice(`Staged edit for ${item.sourceName} — click "Apply to OBS" when ready.`);
+        return;
+    }
     const patch = { ...rectToObsPatch(item, item.rect), ...extraPatch };
     try {
         await api('/api/obs-layout/transform', {
@@ -183,6 +259,7 @@ async function pushTransformNow(item, extraPatch = {}, { refreshBackdrop = false
                 transform: patch
             })
         });
+        item._origRect = { ...item.rect };
         if (refreshBackdrop) scheduleBackdropRefresh(160);
     } catch (err) {
         showNotice(`OBS sync error: ${err.message}`);
@@ -362,9 +439,11 @@ function renderMotionPathOverlay(canvas) {
 
         const isSel = cur.sceneItemId === selectedItemId;
 
-        // Ghost Destination Box (State B)
+        // Ghost Destination Box (State B) — click to select this source
         const ghost = document.createElement("div");
         ghost.className = "ol-ghost-box";
+        ghost.dataset.ghostId = String(cur.sceneItemId);
+        ghost.title = `Click to select ${cur.sourceName} and edit its motion path`;
         ghost.style.left = `${targetRect.left * canvasScale}px`;
         ghost.style.top = `${targetRect.top * canvasScale}px`;
         ghost.style.width = `${Math.max(4, targetRect.width * canvasScale)}px`;
@@ -397,20 +476,21 @@ function renderMotionPathOverlay(canvas) {
             pts.push(`${pt.x.toFixed(1)},${pt.y.toFixed(1)}`);
         }
 
-        // Tangent guide polygon for selected source in custom mode
-        if (isSel && effPathType === "custom" && draft.waypoints.length) {
-            const polyPts = [{ x: x0, y: y0 }, ...draft.waypoints, { x: x1, y: y1 }]
-                .map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
-            const guide = document.createElementNS(svgNS, "polyline");
-            guide.setAttribute("points", polyPts);
-            guide.setAttribute("fill", "none");
-            guide.setAttribute("stroke", "rgba(245, 158, 11, 0.35)");
-            guide.setAttribute("stroke-width", "2.5");
-            guide.setAttribute("stroke-dasharray", "6 6");
-            svg.appendChild(guide);
-
+        // Keep ALL custom waypoints visible (selected = amber + tangent guides; inactive = clickable teal dots)
+        if (effPathType === "custom" && draft.waypoints.length) {
+            if (isSel) {
+                const polyPts = [{ x: x0, y: y0 }, ...draft.waypoints, { x: x1, y: y1 }]
+                    .map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+                const guide = document.createElementNS(svgNS, "polyline");
+                guide.setAttribute("points", polyPts);
+                guide.setAttribute("fill", "none");
+                guide.setAttribute("stroke", "rgba(245, 158, 11, 0.42)");
+                guide.setAttribute("stroke-width", "2.5");
+                guide.setAttribute("stroke-dasharray", "6 6");
+                svg.appendChild(guide);
+            }
             draft.waypoints.forEach((wp, idx) => {
-                handlesToRender.push({ sourceName: cur.sourceName, wpIndex: idx, x: wp.x, y: wp.y });
+                handlesToRender.push({ sourceName: cur.sourceName, sceneItemId: cur.sceneItemId, wpIndex: idx, x: wp.x, y: wp.y, isSel });
             });
         }
 
@@ -434,8 +514,9 @@ function renderMotionPathOverlay(canvas) {
 
     for (const h of handlesToRender) {
         const handle = document.createElement("div");
-        handle.className = "ol-cp-handle";
-        handle.textContent = String(h.wpIndex + 1);
+        handle.className = `ol-cp-handle${h.isSel ? "" : " is-inactive"}`;
+        handle.textContent = h.isSel ? String(h.wpIndex + 1) : "";
+        handle.dataset.cpItemId = String(h.sceneItemId);
         handle.title = `Drag Waypoint ${h.wpIndex + 1} for ${h.sourceName} (Right-click to remove)`;
         handle.style.left = `${h.x * canvasScale}px`;
         handle.style.top = `${h.y * canvasScale}px`;
@@ -1051,7 +1132,9 @@ async function loadScene(sceneName, { preserveHistory = false, historyLabel = ''
     const data = await api(`/api/obs-layout/scene?name=${encodeURIComponent(sceneName)}`);
     baseWidth = data.baseWidth || 1920;
     baseHeight = data.baseHeight || 1080;
-    items = (data.items || []).map(it => ({ ...it, _origRect: { ...it.rect } }));
+    items = (data.items || []).map(it => ({ ...it, _origRect: { ...it.rect }, _origVisible: it.visible, _origLocked: it.locked }));
+    pendingItemIds.clear();
+    updatePendingBar();
     if (!items.some(i => i.sceneItemId === selectedItemId)) {
         selectedItemId = items.length ? items[items.length - 1].sceneItemId : null;
     }
@@ -1313,6 +1396,12 @@ function bindEvents() {
             e.preventDefault();
             const sName = cpEl.dataset.cpSource;
             const wpIndex = Number(cpEl.dataset.cpIndex);
+            const cpItemId = Number(cpEl.dataset.cpItemId);
+            if (Number.isFinite(cpItemId) && cpItemId !== selectedItemId) {
+                selectedItemId = cpItemId;
+                renderLayers();
+                renderInspector();
+            }
             const draft = itemMotionDrafts[sName];
             const wp = draft?.waypoints?.[wpIndex];
             if (!wp) return;
@@ -1325,6 +1414,14 @@ function bindEvents() {
             };
             window.addEventListener('pointermove', onCpPointerMove);
             window.addEventListener('pointerup', onCpPointerUp, { once: true });
+            return;
+        }
+        const ghostEl = e.target.closest('[data-ghost-id]');
+        if (ghostEl) {
+            selectedItemId = Number(ghostEl.dataset.ghostId);
+            renderLayers();
+            renderInspector();
+            renderCanvas();
             return;
         }
         const box = e.target.closest('.ol-item-box');
@@ -1366,8 +1463,9 @@ function bindEvents() {
     function onCpPointerUp() {
         window.removeEventListener('pointermove', onCpPointerMove);
         if (cpDragState) {
+            markMotionDirty(true);
             const wp = itemMotionDrafts[cpDragState.sourceName]?.waypoints?.[cpDragState.wpIndex];
-            if (wp) showNotice(`Moved ${cpDragState.sourceName} waypoint ${cpDragState.wpIndex + 1} to (${wp.x}, ${wp.y})`);
+            if (wp) showNotice(`Moved ${cpDragState.sourceName} waypoint ${cpDragState.wpIndex + 1} to (${wp.x}, ${wp.y}) — click Save Path to persist.`);
         }
         cpDragState = null;
     }
@@ -1544,16 +1642,18 @@ function bindEvents() {
         if (!layout || !sel) return;
         const draft = getOrInitItemMotion(sel.sourceName, layout);
         draft.pathType = $('ol-item-path-type').value || "";
+        markMotionDirty(true);
         updateMotionModeUI();
         renderCanvas();
     });
 
-    $('ol-item-delay')?.addEventListener('change', () => {
+    $('ol-item-delay')?.addEventListener('input', () => {
         const layout = getTargetLayout();
         const sel = getSelectedItem();
         if (!layout || !sel) return;
         const draft = getOrInitItemMotion(sel.sourceName, layout);
         draft.delayMs = Math.max(0, Math.min(2000, Number($('ol-item-delay').value) || 0));
+        markMotionDirty(true);
     });
 
     $('ol-btn-play-preview')?.addEventListener('click', () => playOffAirPreview());
@@ -1580,6 +1680,7 @@ function bindEvents() {
             x: Math.round((last.x + x1) * 0.5),
             y: Math.round(Math.max(40, (last.y + y1) * 0.5 - 80))
         });
+        markMotionDirty(true);
         updateMotionModeUI();
         renderCanvas();
         showNotice(`Added waypoint ${draft.waypoints.length} for ${sel.sourceName} — drag it on stage!`);
@@ -1625,6 +1726,7 @@ function bindEvents() {
                 })
             });
             studioState = { ...studioState, ...res.state };
+            markMotionDirty(false);
             renderLayoutsList();
             showNotice(`Saved custom motion paths to "${layout.name}"`);
         } catch (err) {
@@ -1722,18 +1824,29 @@ function bindEvents() {
         if (!layout) return;
 
         if (act === 'apply') {
-            try {
-                await api('/api/obs-layout/layouts/apply', {
-                    method: 'POST',
-                    body: JSON.stringify({ id })
-                });
-                showNotice(`Applied layout "${layout.name}"`);
-                if (layout.sceneName === currentScene) {
-                    await loadScene(currentScene, { preserveHistory: true, historyLabel: `Layout: ${layout.name}` });
+            openConfirmModal({
+                title: `Apply "${layout.name}" to Live OBS?`,
+                desc: `This will animate ${(layout.items || []).length} source(s) in "${layout.sceneName}" on OBS.`,
+                lines: [
+                    `Transition: ${layout.transitionType || "move"} · Path: ${layout.pathType || "direct"}`,
+                    `Duration: ${layout.durationMs ?? 450}ms · Easing: ${layout.easing || "ease-in-out"}`
+                ],
+                okLabel: "Confirm & Apply to OBS",
+                onConfirm: async () => {
+                    try {
+                        await api('/api/obs-layout/layouts/apply', {
+                            method: 'POST',
+                            body: JSON.stringify({ id })
+                        });
+                        showNotice(`Applied layout "${layout.name}"`);
+                        if (layout.sceneName === currentScene) {
+                            await loadScene(currentScene, { preserveHistory: true, historyLabel: `Layout: ${layout.name}` });
+                        }
+                    } catch (err) {
+                        showNotice(err.message);
+                    }
                 }
-            } catch (err) {
-                showNotice(err.message);
-            }
+            });
         } else if (act === 'stage') {
             switchTopTab('stage');
             switchInspectorTab('motion');
@@ -1783,25 +1896,36 @@ function bindEvents() {
         const applyBtn = e.target.closest('[data-apply-layout]');
         if (applyBtn) {
             const id = applyBtn.dataset.applyLayout;
-            try {
-                const payload = {
-                    id,
-                    durationMs: Number($('ol-trans-dur')?.value),
-                    transitionType: $('ol-trans-type')?.value || 'move',
-                    pathType: $('ol-path-type')?.value || 'direct',
-                    pathCurve: (Number($('ol-path-curve')?.value) || 28) / 100,
-                    easing: $('ol-easing')?.value || 'ease-in-out',
-                    ...($('ol-path-type')?.value === 'custom' && customControlPoint ? { pathControlPoint: customControlPoint } : {})
-                };
-                await api('/api/obs-layout/layouts/apply', {
-                    method: 'POST',
-                    body: JSON.stringify(payload)
-                });
-                showNotice(`Applied layout snapshot (${payload.transitionType} · ${payload.pathType} · ${payload.durationMs}ms)`);
-                await loadScene(currentScene, { preserveHistory: true, historyLabel: 'Applied Layout Snapshot' });
-            } catch (err) {
-                showNotice(err.message);
-            }
+            const layout = (studioState?.layouts || []).find(l => l.id === id);
+            const payload = {
+                id,
+                durationMs: Number($('ol-trans-dur')?.value),
+                transitionType: $('ol-trans-type')?.value || 'move',
+                pathType: $('ol-path-type')?.value || 'direct',
+                pathCurve: (Number($('ol-path-curve')?.value) || 28) / 100,
+                easing: $('ol-easing')?.value || 'ease-in-out'
+            };
+            openConfirmModal({
+                title: `Apply "${layout?.name || "Layout"}" to Live OBS?`,
+                desc: `This will animate "${currentScene}" in live OBS using your current transition settings.`,
+                lines: [
+                    `Transition: ${payload.transitionType} · Path: ${payload.pathType}`,
+                    `Duration: ${payload.durationMs}ms · Easing: ${payload.easing}`
+                ],
+                okLabel: "Confirm & Apply to OBS",
+                onConfirm: async () => {
+                    try {
+                        await api('/api/obs-layout/layouts/apply', {
+                            method: 'POST',
+                            body: JSON.stringify(payload)
+                        });
+                        showNotice(`Applied layout snapshot (${payload.transitionType} · ${payload.pathType} · ${payload.durationMs}ms)`);
+                        await loadScene(currentScene, { preserveHistory: true, historyLabel: 'Applied Layout Snapshot' });
+                    } catch (err) {
+                        showNotice(err.message);
+                    }
+                }
+            });
             return;
         }
         const prevBtn = e.target.closest('[data-preview-layout]');
@@ -1833,6 +1957,46 @@ function bindEvents() {
             const layout = (studioState?.layouts || []).find(l => l.id === delBtn.dataset.delLayout);
             if (layout) openDeleteLayoutModal(layout);
         }
+    });
+
+    // Staged Pending Changes Bar & Confirm Modal handlers
+    $('ol-btn-apply-pending')?.addEventListener('click', () => {
+        const names = items.filter(it => pendingItemIds.has(it.sceneItemId)).map(it => `${it.sourceName} (${Math.round(it.rect.left)}, ${Math.round(it.rect.top)} · ${Math.round(it.rect.width)}×${Math.round(it.rect.height)})`);
+        openConfirmModal({
+            title: `Apply ${names.length} Staged Change${names.length === 1 ? "" : "s"} to OBS?`,
+            desc: `Push these staged transforms to live OBS scene "${currentScene}".`,
+            lines: names,
+            okLabel: "Confirm & Apply to OBS",
+            onConfirm: () => applyPendingChangesToObs()
+        });
+    });
+
+    $('ol-btn-discard-pending')?.addEventListener('click', () => {
+        for (const it of items) {
+            if (!pendingItemIds.has(it.sceneItemId)) continue;
+            if (it._origRect) it.rect = { ...it._origRect };
+            if (it._origVisible !== undefined) it.visible = it._origVisible;
+            if (it._origLocked !== undefined) it.locked = it._origLocked;
+        }
+        pendingItemIds.clear();
+        updatePendingBar();
+        renderLayers();
+        renderInspector();
+        renderCanvas();
+        showNotice("Discarded staged draft changes.");
+    });
+
+    $('ol-confirm-cancel')?.addEventListener('click', () => closeConfirmModal());
+    $('ol-confirm-modal')?.addEventListener('click', e => {
+        if (e.target === $('ol-confirm-modal')) closeConfirmModal();
+    });
+    $('ol-confirm-ok')?.addEventListener('click', async () => {
+        const fn = pendingConfirmAction;
+        closeConfirmModal();
+        if (typeof fn === 'function') await fn();
+    });
+    window.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && pendingConfirmAction) closeConfirmModal();
     });
 
     // Delete confirmation modal handlers

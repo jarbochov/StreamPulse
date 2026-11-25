@@ -75,7 +75,8 @@
                 <button type="button" class="btn btn-secondary btn-sm" id="ol-btn-revert" disabled title="Revert edits back to initial scene load">Revert</button>
             </div>
             <div class="ol-toolbar-group">
-                <label class="ol-check"><input type="checkbox" id="ol-live-sync" checked> Live Sync</label>
+                <label class="ol-check" title="Push edits to OBS immediately on drag"><input type="checkbox" id="ol-live-sync"> Live Sync</label>
+                <label class="ol-check" title="Ask confirmation before applying staged changes or layouts to OBS"><input type="checkbox" id="ol-confirm-apply" checked> Confirm Apply</label>
                 <label class="ol-check"><input type="checkbox" id="ol-snap-edges" checked> Snap</label>
                 <label class="ol-check"><input type="checkbox" id="ol-show-guides" checked> Guides</label>
                 <label class="ol-check"><input type="checkbox" id="ol-show-borders" checked> Borders</label>
@@ -97,6 +98,16 @@
 
             <!-- CENTER COLUMN: LARGE INTERACTIVE STAGE -->
             <div class="ol-panel" style="padding:0.7rem;">
+                <div class="ol-pending-bar" id="ol-pending-bar" hidden>
+                    <div class="ol-toolbar-group">
+                        <strong style="color:#38bdf8;">Staged Draft Changes</strong>
+                        <span id="ol-pending-label" style="color:var(--text-main);font-weight:600;">0 modified</span>
+                    </div>
+                    <div class="ol-toolbar-group">
+                        <button type="button" class="btn btn-primary btn-sm" id="ol-btn-apply-pending">Apply to OBS</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="ol-btn-discard-pending">Discard</button>
+                    </div>
+                </div>
                 <div class="ol-motion-bar" id="ol-motion-bar" hidden>
                     <div class="ol-toolbar-group">
                         <strong style="color:#fbbf24;">Motion Path Mode</strong>
@@ -375,6 +386,22 @@
             <div class="ol-code-box"><code>GET /api/obs-layout/layouts/apply?id=&lt;layoutId&gt;&amp;transitionType=move&amp;pathType=arc-up&amp;durationMs=550</code></div>
         </div>
     </section>
+</div>
+
+<!-- Confirm Apply Changes Modal -->
+<div class="ol-modal-backdrop" id="ol-confirm-modal" hidden role="dialog" aria-modal="true" aria-labelledby="ol-confirm-modal-title">
+    <div class="ol-modal is-confirm">
+        <div class="ol-modal-head is-confirm">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span id="ol-confirm-modal-title">Confirm Changes to OBS?</span>
+        </div>
+        <p class="ol-modal-body" id="ol-confirm-modal-desc">Review the changes below before applying to live OBS.</p>
+        <ul class="ol-confirm-list" id="ol-confirm-modal-list"></ul>
+        <div class="ol-modal-actions">
+            <button type="button" class="btn btn-secondary btn-sm" id="ol-confirm-cancel">Cancel</button>
+            <button type="button" class="btn btn-primary btn-sm" id="ol-confirm-ok">Confirm &amp; Apply</button>
+        </div>
+    </div>
 </div>
 
 <!-- Delete Layout Confirmation Warning Modal -->

@@ -828,3 +828,59 @@
     gap: 8px;
     padding-top: 4px;
 }
+
+/* Clickable Ghost Boxes & Inactive Waypoints (stay visible when clicking off) */
+.ol-ghost-box {
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+.ol-ghost-box:hover {
+    border-color: #fbbf24;
+    background: rgba(245, 158, 11, 0.16);
+}
+
+.ol-cp-handle.is-inactive {
+    width: 12px;
+    height: 12px;
+    margin-left: -6px;
+    margin-top: -6px;
+    background: #38bdf8;
+    border-color: #090d16;
+    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.35);
+    font-size: 0;
+    opacity: 0.85;
+}
+
+.ol-pending-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    font-size: 12px;
+}
+
+.ol-modal.is-confirm {
+    border-color: rgba(56, 189, 248, 0.45);
+}
+
+.ol-modal-head.is-confirm {
+    color: #38bdf8;
+}
+
+.ol-confirm-list {
+    margin: 0;
+    padding-left: 1.15rem;
+    font-size: 0.82rem;
+    color: var(--text-main);
+    max-height: 180px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
