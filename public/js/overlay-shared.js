@@ -3369,7 +3369,115 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       "use strict";
       var { resolveDisplayOwner: resolveDisplayOwner3 } = require_display_source();
       var COUNTER_STYLES = ["pips", "hearts", "stars", "diamonds", "squares", "bars", "tally", "tally-chalk", "number"];
+      var COUNTER_THEMES = ["modern", "esports", "sports", "arcade", "minimal", "cozy", "chalkboard"];
       var SOURCE_MODES = ["variables", "set"];
+      var COUNTER_THEME_PRESETS = {
+        modern: {
+          label: "Modern Glass",
+          filledColor: "#f43f5e",
+          emptyColor: "#ffffff1a",
+          outlineColor: "#ffffff59",
+          capReachedColor: "#22c55e",
+          overflowColor: "#fbbf24",
+          labelColor: "#f8fafc",
+          readoutColor: "#e2e8f0",
+          rowBackground: "#0f172ad9",
+          rowBorderColor: "#ffffff24",
+          rowBorderWidth: 1,
+          rowRadius: 12,
+          rowPadding: 14
+        },
+        esports: {
+          label: "Esports Broadcast",
+          filledColor: "#38bdf8",
+          emptyColor: "#ffffff12",
+          outlineColor: "#94a3b866",
+          capReachedColor: "#fbbf24",
+          overflowColor: "#f43f5e",
+          labelColor: "#ffffff",
+          readoutColor: "#38bdf8",
+          rowBackground: "#090d16eb",
+          rowBorderColor: "#38bdf844",
+          rowBorderWidth: 1,
+          rowRadius: 4,
+          rowPadding: 14
+        },
+        sports: {
+          label: "Broadcast Sports",
+          filledColor: "#f59e0b",
+          emptyColor: "#ffffff14",
+          outlineColor: "#cbd5e159",
+          capReachedColor: "#22c55e",
+          overflowColor: "#ef4444",
+          labelColor: "#f8fafc",
+          readoutColor: "#fde68a",
+          rowBackground: "#0d1a33f0",
+          rowBorderColor: "#f59e0b55",
+          rowBorderWidth: 1,
+          rowRadius: 6,
+          rowPadding: 13
+        },
+        arcade: {
+          label: "Retro Arcade",
+          filledColor: "#e879f9",
+          emptyColor: "#1e1038aa",
+          outlineColor: "#22d3ee88",
+          capReachedColor: "#22d3ee",
+          overflowColor: "#facc15",
+          labelColor: "#fef08a",
+          readoutColor: "#22d3ee",
+          rowBackground: "#120824f2",
+          rowBorderColor: "#e879f9cc",
+          rowBorderWidth: 2,
+          rowRadius: 3,
+          rowPadding: 14
+        },
+        minimal: {
+          label: "Minimal HUD",
+          filledColor: "#f8fafc",
+          emptyColor: "#00000033",
+          outlineColor: "#ffffff99",
+          capReachedColor: "#4ade80",
+          overflowColor: "#fbbf24",
+          labelColor: "#ffffff",
+          readoutColor: "#f1f5f9",
+          rowBackground: "#00000000",
+          rowBorderColor: "#00000000",
+          rowBorderWidth: 0,
+          rowRadius: 0,
+          rowPadding: 6
+        },
+        cozy: {
+          label: "RPG Hearts",
+          filledColor: "#f43f5e",
+          emptyColor: "#3b152666",
+          outlineColor: "#fda4af88",
+          capReachedColor: "#fb7185",
+          overflowColor: "#fbbf24",
+          labelColor: "#fff1f2",
+          readoutColor: "#fecdd3",
+          rowBackground: "#1c1124e8",
+          rowBorderColor: "#fb718544",
+          rowBorderWidth: 1,
+          rowRadius: 16,
+          rowPadding: 14
+        },
+        chalkboard: {
+          label: "Chalkboard",
+          filledColor: "#f5f2e6",
+          emptyColor: "#ffffff0a",
+          outlineColor: "#f5f2e655",
+          capReachedColor: "#fde047",
+          overflowColor: "#fb923c",
+          labelColor: "#f5f2e6",
+          readoutColor: "#e7e2ce",
+          rowBackground: "#13201ae8",
+          rowBorderColor: "#d6c7a14d",
+          rowBorderWidth: 2,
+          rowRadius: 8,
+          rowPadding: 14
+        }
+      };
       var CAP_MODES = ["auto", "custom", "none"];
       var OVERFLOW_MODES = ["clamp", "overflow", "plus"];
       var READOUT_MODES = ["none", "fraction", "value", "of"];
@@ -3380,8 +3488,17 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       var cleanVarName = (value) => String(value || "").replace(/[^a-z0-9_.-]/gi, "").slice(0, 80);
       var cleanText = (value, limit = 80) => String(value ?? "").trim().slice(0, limit);
       var bound = (value, fallback, min, max) => Number.isFinite(Number(value)) && value !== "" && value != null ? Math.min(max, Math.max(min, Number(value))) : fallback;
-      var cleanColor = (value, fallback) => /^#[a-f0-9]{6}(?:[a-f0-9]{2})?$/i.test(value || "") ? value : fallback;
-      var optionalColor = (value) => /^#[a-f0-9]{6}(?:[a-f0-9]{2})?$/i.test(value || "") ? value : "";
+      var VAR_TOKEN_RE = /^(?:\{\{[a-z0-9_.:-]{1,80}\}\}|@[a-z0-9_-]{1,60})$/i;
+      var cleanColor = (value, fallback) => {
+        const str = String(value || "").trim();
+        if (/^#[a-f0-9]{6}(?:[a-f0-9]{2})?$/i.test(str) || VAR_TOKEN_RE.test(str)) return str;
+        return fallback;
+      };
+      var optionalColor = (value) => {
+        const str = String(value || "").trim();
+        if (/^#[a-f0-9]{6}(?:[a-f0-9]{2})?$/i.test(str) || VAR_TOKEN_RE.test(str)) return str;
+        return "";
+      };
       function defaultDisplayCounter() {
         return {
           sourceMode: "variables",
@@ -3389,6 +3506,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           valueField: "",
           labelField: "$label",
           rowScope: "all",
+          theme: "modern",
           style: "pips",
           capMode: "auto",
           customCap: 5,
@@ -3442,6 +3560,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           valueField: cleanKey(input.valueField),
           labelField,
           rowScope: ROW_SCOPES.includes(input.rowScope) ? input.rowScope : def.rowScope,
+          theme: COUNTER_THEMES.includes(input.theme) ? input.theme : def.theme,
           style: COUNTER_STYLES.includes(input.style) ? input.style : def.style,
           capMode: CAP_MODES.includes(input.capMode) ? input.capMode : def.capMode,
           customCap: Math.round(bound(input.customCap, def.customCap, 1, 100)),
@@ -3470,7 +3589,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           markerGap: Math.round(bound(input.markerGap, def.markerGap, 0, 32)),
           rowGap: Math.round(bound(input.rowGap, def.rowGap, 0, 48)),
           fontSize: Math.round(bound(input.fontSize, def.fontSize, 10, 64)),
-          fontFamily: cleanText(input.fontFamily, 120).replace(/[;{}<>]/g, "") || def.fontFamily,
+          fontFamily: cleanText(input.fontFamily, 120).replace(/[;<>]/g, "") || def.fontFamily,
           animate: input.animate === "none" ? "none" : "pop",
           maxRows: Math.round(bound(input.maxRows, def.maxRows, 1, 50))
         };
@@ -3547,6 +3666,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
               kind: "set-entry",
               setId: setObj.id,
               entryId: entry.id,
+              entry,
               valueField: valueFieldKey,
               label,
               value,
@@ -3582,6 +3702,8 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       }
       module.exports = {
         COUNTER_STYLES,
+        COUNTER_THEMES,
+        COUNTER_THEME_PRESETS,
         SOURCE_MODES,
         CAP_MODES,
         OVERFLOW_MODES,
@@ -3908,6 +4030,114 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     stroke-dasharray: 40;
     animation: sp-tally-slash 240ms ease-out both;
 }
+.sp-counter-display .sp-counter-row {
+    transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+.sp-counter-display .sp-counter-marker[data-marker-state="filled"],
+.sp-counter-display .sp-counter-marker[data-marker-state="cap"],
+.sp-counter-display .sp-counter-marker[data-marker-state="overflow"] {
+    filter: drop-shadow(0 0 5px color-mix(in srgb, var(--ctr-accent, #f43f5e) 45%, transparent));
+}
+.sp-counter-display .sp-counter-readout {
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    letter-spacing: 0.02em;
+}
+/* Theme: Modern Glass */
+.sp-counter-display[data-counter-theme="modern"] .sp-counter-row {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 8px 22px rgba(0, 0, 0, 0.28);
+}
+/* Theme: Esports Broadcast */
+.sp-counter-display[data-counter-theme="esports"] .sp-counter-row {
+    box-shadow: inset 4px 0 0 var(--ctr-accent, #38bdf8), 0 8px 22px rgba(0, 0, 0, 0.42);
+}
+.sp-counter-display[data-counter-theme="esports"] .sp-counter-label {
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    font-weight: 800;
+}
+.sp-counter-display[data-counter-theme="esports"] .sp-counter-readout {
+    border-radius: 3px;
+    background: rgba(0, 0, 0, 0.45);
+    border-color: color-mix(in srgb, var(--ctr-accent, #38bdf8) 45%, transparent);
+    font-weight: 800;
+}
+/* Theme: Broadcast Sports Ticker */
+.sp-counter-display[data-counter-theme="sports"] .sp-counter-row {
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0) 48%, rgba(0, 0, 0, 0.22) 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 6px 18px rgba(0, 0, 0, 0.36);
+}
+.sp-counter-display[data-counter-theme="sports"] .sp-counter-label {
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 800;
+    padding-right: 12px;
+    border-right: 1px solid rgba(255, 255, 255, 0.18);
+}
+.sp-counter-display[data-counter-theme="sports"] .sp-counter-readout {
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.35);
+    border-color: color-mix(in srgb, var(--ctr-accent, #f59e0b) 40%, transparent);
+}
+/* Theme: Retro Arcade */
+.sp-counter-display[data-counter-theme="arcade"] .sp-counter-row {
+    box-shadow: 0 0 12px color-mix(in srgb, var(--ctr-accent, #e879f9) 32%, transparent), inset 0 0 12px color-mix(in srgb, var(--ctr-accent, #e879f9) 14%, transparent);
+}
+.sp-counter-display[data-counter-theme="arcade"] .sp-counter-label {
+    text-transform: uppercase;
+    letter-spacing: 0.11em;
+    font-weight: 800;
+    text-shadow: 0 0 8px color-mix(in srgb, var(--ctr-accent, #e879f9) 55%, transparent);
+}
+.sp-counter-display[data-counter-theme="arcade"] .sp-counter-readout {
+    border-radius: 2px;
+    background: rgba(0, 0, 0, 0.55);
+    border-color: color-mix(in srgb, var(--ctr-accent, #e879f9) 65%, transparent);
+    text-shadow: 0 0 6px currentColor;
+}
+/* Theme: Minimal Transparent HUD */
+.sp-counter-display[data-counter-theme="minimal"] .sp-counter-row {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+.sp-counter-display[data-counter-theme="minimal"] .sp-counter-label,
+.sp-counter-display[data-counter-theme="minimal"] .sp-counter-readout {
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.88), 0 0 2px rgba(0, 0, 0, 0.9);
+    background: transparent;
+    border: none;
+    padding: 0;
+}
+.sp-counter-display[data-counter-theme="minimal"] .sp-counter-marker,
+.sp-counter-display[data-counter-theme="minimal"] .sp-counter-tally-group {
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.78));
+}
+/* Theme: RPG / Cozy Hearts */
+.sp-counter-display[data-counter-theme="cozy"] .sp-counter-row {
+    box-shadow: inset 0 1px 0 rgba(255, 228, 230, 0.14), 0 8px 20px rgba(15, 5, 22, 0.42);
+}
+.sp-counter-display[data-counter-theme="cozy"] .sp-counter-readout {
+    background: rgba(251, 113, 133, 0.16);
+    border-color: rgba(251, 113, 133, 0.35);
+}
+/* Theme: Chalkboard */
+.sp-counter-display[data-counter-theme="chalkboard"] .sp-counter-row {
+    box-shadow: inset 0 0 0 1px rgba(245, 242, 230, 0.14), 0 8px 20px rgba(0, 0, 0, 0.38);
+}
+.sp-counter-display[data-counter-theme="chalkboard"] .sp-counter-marker[data-marker-state="filled"] {
+    filter: drop-shadow(0 0 2px rgba(245, 242, 230, 0.35));
+}
+.sp-counter-display[data-counter-theme="chalkboard"] .sp-counter-readout {
+    background: rgba(245, 242, 230, 0.08);
+    border-color: rgba(245, 242, 230, 0.22);
+}
+.sp-counter-display .sp-counter-row.is-cap-reached:not([data-counter-theme="minimal"]) {
+    border-color: color-mix(in srgb, var(--ctr-accent, #22c55e) 70%, transparent);
+}
 html.sp-fx-paused .sp-counter-marker.is-pop,
 html.sp-fx-paused .sp-tally-slash.is-pop {
     animation: none !important;
@@ -3954,6 +4184,17 @@ html.sp-fx-paused .sp-tally-slash.is-pop {
         stroke,
         "stroke-width": sw
       }));
+      if (isFilled) {
+        svg.appendChild(svgEl("ellipse", {
+          cx: 9.4,
+          cy: 8.8,
+          rx: 2.8,
+          ry: 1.8,
+          fill: "#ffffff",
+          opacity: "0.32",
+          transform: "rotate(-28 9.4 8.8)"
+        }));
+      }
     } else if (style === "squares") {
       svg.appendChild(svgEl("rect", {
         x: 3.5,
@@ -3985,6 +4226,16 @@ html.sp-fx-paused .sp-tally-slash.is-pop {
         "stroke-linejoin": "round",
         "stroke-linecap": "round"
       }));
+      if (isFilled && style === "hearts") {
+        svg.appendChild(svgEl("path", {
+          d: "M6.6 9.1c0-1.6 1.1-2.8 2.5-2.8",
+          fill: "none",
+          stroke: "#ffffff",
+          "stroke-width": "1.6",
+          "stroke-linecap": "round",
+          opacity: "0.42"
+        }));
+      }
     }
     return svg;
   }
@@ -4164,39 +4415,80 @@ html.sp-fx-paused .sp-tally-slash.is-pop {
     });
     return badge;
   }
+  function resolveRowConfig(cfg, status, member) {
+    const col = (raw, fallback) => {
+      if (!raw) return fallback;
+      const str = String(raw).trim();
+      if (member) {
+        const memberMatch = /^\{\{member\.([a-z0-9_-]+)\}\}$/i.exec(str);
+        if (memberMatch) {
+          const mv = String(member.values?.[memberMatch[1]] ?? member[memberMatch[1]] ?? "").trim();
+          return mv || fallback;
+        }
+      }
+      if (!str.includes("{{") && !str.startsWith("@")) return str;
+      return resolveColorToken(str, status, {}, member) || fallback;
+    };
+    const fontRaw = String(cfg.fontFamily || "sans-serif").trim();
+    const fontFamily = fontRaw.includes("{{") || fontRaw.startsWith("@") ? resolveColorToken(fontRaw, status, {}, member) || "sans-serif" : fontRaw;
+    if (typeof loadGoogleFont === "function" && fontFamily && !/^(sans-serif|serif|monospace|system-ui|inherit)$/i.test(fontFamily)) {
+      loadGoogleFont(fontFamily);
+    }
+    return {
+      ...cfg,
+      filledColor: col(cfg.filledColor, "#f43f5e"),
+      emptyColor: col(cfg.emptyColor, "#ffffff1f"),
+      outlineColor: col(cfg.outlineColor, "#ffffff66"),
+      capReachedColor: cfg.capReachedColor ? col(cfg.capReachedColor, "") : "",
+      overflowColor: col(cfg.overflowColor, "#fbbf24"),
+      labelColor: col(cfg.labelColor, "#f8fafc"),
+      readoutColor: col(cfg.readoutColor, "#cbd5e1"),
+      rowBackground: col(cfg.rowBackground, "#0f172acc"),
+      rowBorderColor: col(cfg.rowBorderColor, "#ffffff1a"),
+      fontFamily
+    };
+  }
   function renderDisplayCounter(host, element, status = {}, definition) {
     ensureCounterStyles();
-    const cfg = (0, import_display_counter.normalizeDisplayCounter)(definition?.counter);
+    const baseCfg = (0, import_display_counter.normalizeDisplayCounter)(definition?.counter);
     const binding = element?.display || {};
     const rows = (0, import_display_counter.resolveCounterRows)(definition, binding, status);
     if (!rows.length) return false;
     const prevMap = host._counterPrevValues instanceof Map ? host._counterPrevValues : /* @__PURE__ */ new Map();
     const nextMap = /* @__PURE__ */ new Map();
+    const rootCfg = resolveRowConfig(baseCfg, status, null);
     const root2 = document.createElement("div");
     root2.className = "sp-variable-display sp-counter-display";
-    root2.dataset.counterStyle = cfg.style;
+    root2.dataset.counterStyle = baseCfg.style;
+    root2.dataset.counterTheme = baseCfg.theme || "modern";
+    root2.style.setProperty("--ctr-accent", rootCfg.filledColor);
     Object.assign(root2.style, {
       width: "100%",
       height: "100%",
+      padding: "6px",
       boxSizing: "border-box",
       display: "flex",
-      flexDirection: cfg.direction === "horizontal" ? "row" : "column",
-      flexWrap: cfg.direction === "horizontal" ? "wrap" : "nowrap",
-      alignItems: cfg.direction === "horizontal" ? "center" : cfg.align === "center" ? "center" : cfg.align === "right" ? "flex-end" : "stretch",
-      justifyContent: cfg.align === "center" ? "center" : cfg.align === "right" ? "flex-end" : "flex-start",
-      gap: `${cfg.rowGap}px`,
-      fontFamily: cfg.fontFamily,
-      fontSize: `${cfg.fontSize}px`,
+      flexDirection: baseCfg.direction === "horizontal" ? "row" : "column",
+      flexWrap: baseCfg.direction === "horizontal" ? "wrap" : "nowrap",
+      alignItems: baseCfg.direction === "horizontal" ? "center" : baseCfg.align === "center" ? "center" : baseCfg.align === "right" ? "flex-end" : "stretch",
+      justifyContent: baseCfg.align === "center" ? "center" : baseCfg.align === "right" ? "flex-end" : "flex-start",
+      gap: `${baseCfg.rowGap}px`,
+      fontFamily: rootCfg.fontFamily,
+      fontSize: `${baseCfg.fontSize}px`,
       overflow: "hidden"
     });
     for (const row of rows) {
+      const cfg = resolveRowConfig(baseCfg, status, row.entry || null);
       const prevVal = prevMap.has(row.key) ? prevMap.get(row.key) : void 0;
       nextMap.set(row.key, row.value);
+      const isCapReached = row.cap != null && row.value >= row.cap;
       const rowEl = document.createElement("div");
-      rowEl.className = "sp-counter-row";
+      rowEl.className = `sp-counter-row${isCapReached ? " is-cap-reached" : ""}`;
       rowEl.dataset.counterKey = row.key;
       rowEl.dataset.counterValue = String(row.value);
       if (row.cap != null) rowEl.dataset.counterCap = String(row.cap);
+      rowEl.style.setProperty("--ctr-accent", isCapReached && cfg.capReachedColor ? cfg.capReachedColor : cfg.filledColor);
+      if (cfg.fontFamily && cfg.fontFamily !== rootCfg.fontFamily) rowEl.style.fontFamily = cfg.fontFamily;
       const labelPos = cfg.showLabel ? cfg.labelPosition : "none";
       const isStacked = labelPos === "top" || labelPos === "bottom";
       Object.assign(rowEl.style, {
@@ -4274,14 +4566,15 @@ html.sp-fx-paused .sp-tally-slash.is-pop {
     host.appendChild(root2);
     return true;
   }
-  function renderMiniCounterHtml(value, cap, counterCfg = {}) {
-    const cfg = (0, import_display_counter.normalizeDisplayCounter)({
-      ...counterCfg,
+  function renderMiniCounterHtml(value, cap, counterCfg = {}, status = {}, member = null) {
+    const resolved = resolveRowConfig((0, import_display_counter.normalizeDisplayCounter)(counterCfg), status, member);
+    const cfg = {
+      ...resolved,
       markerSize: Math.min(18, Math.max(14, Number(counterCfg.markerSize) || 16)),
       markerGap: 3,
       perRow: 0,
       animate: "none"
-    });
+    };
     const node = buildMarkersNode(value, cap, cfg, void 0);
     const wrapper = document.createElement("div");
     wrapper.appendChild(node);
@@ -4291,6 +4584,8 @@ html.sp-fx-paused .sp-tally-slash.is-pop {
   var init_display_counter = __esm({
     "public/js/overlay/display-counter.js"() {
       import_display_counter = __toESM(require_display_counter());
+      init_variables();
+      init_fonts();
       SVG_NS = "http://www.w3.org/2000/svg";
       MAX_RENDER_MARKERS = 100;
       SHAPE_PATHS = {

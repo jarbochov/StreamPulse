@@ -42,7 +42,13 @@ const tableDesigner = createTableDesigner($('#table-design-controls'), {
 });
 const counterDesigner = createCounterDesigner($('#counter-design-controls'), $('#counter-appearance-controls'), {
     getDraft: () => state.draft, getSets: () => state.sets, getVariables: () => state.variables,
-    onChange: () => { markDirty(); renderPreviewControls(); schedulePreview(); }
+    onChange: () => { markDirty(); renderPreviewControls(); schedulePreview(); },
+    pickColor: openBadgeColorPicker,
+    pickFont: ({ onSelect }) => window.PlaceholderPicker?.open({
+        filter: 'font',
+        getStatus: () => ({ customVars: state.variables, variableSets: state.sets }),
+        onPick: (token, meta) => onSelect(meta?.raw ? token : `{{${token}}}`)
+    })
 });
 const badgeDesigner = createBadgeDesigner($('#badge-designer'), {
     getDraft: () => state.draft, getStatus: () => ({ variableSets: state.sets, customVars: state.variables }),

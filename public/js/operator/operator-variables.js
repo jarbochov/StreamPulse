@@ -680,7 +680,11 @@ registerCardType({
             const entryBtn = e.target.closest('[data-set-entry]');
             if (entryBtn && setId) {
                 const slotNum = Math.max(1, Number(el._opSelectedSlot) || 1);
-                await api(`/api/variables/sets/${encodeURIComponent(setId)}/assign`, 'POST', { slot: slotNum, entry: entryBtn.dataset.setEntry });
+                if (entryBtn.classList.contains('active')) {
+                    await api(`/api/variables/sets/${encodeURIComponent(setId)}/clear`, 'POST', { slot: slotNum });
+                } else {
+                    await api(`/api/variables/sets/${encodeURIComponent(setId)}/assign`, 'POST', { slot: slotNum, entry: entryBtn.dataset.setEntry });
+                }
                 await fetchVariablesData(true);
                 refresh();
             }
@@ -722,7 +726,7 @@ async function renderCounterDisplayCard(el, card) {
     const cfg = display.counter || {};
     el.innerHTML = `<div style="display:grid;gap:.55rem;">${rows.map(row => {
         const previewHtml = shared?.renderMiniCounterHtml
-            ? shared.renderMiniCounterHtml(row.value, row.cap, cfg)
+            ? shared.renderMiniCounterHtml(row.value, row.cap, cfg, { customVars: varsRes.variables || [], variableSets: varsRes.sets || [] }, row.entry || null)
             : '';
         const readout = shared?.formatCounterReadout
             ? shared.formatCounterReadout(row.value, row.cap, cfg.readout === 'none' ? (row.cap != null ? 'fraction' : 'value') : cfg.readout)

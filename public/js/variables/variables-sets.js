@@ -758,7 +758,14 @@ export function openSetModal(existing = null) {
                 ? `<div class="vp-link-config"><label>${f.type === 'checklist' ? 'Track items from' : 'Choose entries from'}<select data-f-prop="targetSet">${targetOptions}</select></label>${f.type === 'checklist'
                     ? `<label title="For items without custom levels. Items with levels use their own level count. Zero is always Not started / Not owned.">Default levels<input type="number" min="1" max="100" data-f-prop="maxTier" value="${Math.max(1, Number(f.maxTier) || 1)}"></label><p class="muted">Each owner keeps separate progress. Define item upgrade labels and images in the linked set.</p>`
                     : `<p class="muted">Choose ${f.type === 'ref' ? 'one reusable entry' : 'several reusable entries'}. Links never change live slots.</p>`}</div>`
-                : '';
+                : ['counter', 'number'].includes(f.type)
+                    ? `<div class="vp-link-config" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.5rem;">
+                        <label title="Optional lower bound">Min (optional)<input type="number" step="any" data-f-prop="min" value="${f.min ?? ''}" placeholder="None"></label>
+                        <label title="Optional cap / maximum (used automatically by Counter &amp; Pips displays)">Cap / Max (optional)<input type="number" step="any" data-f-prop="max" value="${f.max ?? ''}" placeholder="Grow"></label>
+                        <label title="Default increment/decrement step">Step<input type="number" step="any" min="0.01" data-f-prop="step" value="${f.step ?? ''}" placeholder="1"></label>
+                        <p class="muted" style="grid-column:1 / -1;margin:0;">Leave Cap / Max blank to grow dynamically. Counter &amp; Pips displays automatically inherit this cap.</p>
+                    </div>`
+                    : '';
             return `
             <div class="vp-field-row" data-f-idx="${idx}">
                 <input type="text" data-f-prop="label" value="${esc(f.label)}" placeholder="Label (e.g. Name)">
@@ -886,6 +893,10 @@ export function openSetModal(existing = null) {
                     } else if (f.type === 'checklist') {
                         base.targetSet = String(f.targetSet || '').trim();
                         base.maxTier = Math.max(1, parseInt(f.maxTier, 10) || 1);
+                    } else if (f.type === 'counter' || f.type === 'number') {
+                        if (f.min !== '' && f.min != null && Number.isFinite(Number(f.min))) base.min = Number(f.min);
+                        if (f.max !== '' && f.max != null && Number.isFinite(Number(f.max))) base.max = Number(f.max);
+                        if (f.step !== '' && f.step != null && Number.isFinite(Number(f.step)) && Number(f.step) > 0) base.step = Number(f.step);
                     }
                     return base;
                 })
@@ -940,13 +951,18 @@ function openEntryModal(setObj, existingEntry = null) {
             `;
         }
         if (f.type === 'counter' || f.type === 'number') {
+            const minAttr = f.min !== '' && f.min != null ? ` min="${esc(f.min)}"` : '';
+            const maxAttr = f.max !== '' && f.max != null ? ` max="${esc(f.max)}"` : '';
+            const stepVal = f.step !== '' && f.step != null && Number(f.step) > 0 ? Number(f.step) : 1;
+            const capHint = f.max !== '' && f.max != null ? `<span class="muted" style="font-size:.82rem;white-space:nowrap;">/ ${esc(f.max)}</span>` : '';
             return `
                 <label data-entry-wrap="${esc(`${f.label} ${f.key}`.toLowerCase())}">
                     ${head}
                     <div class="vp-img-row">
-                        ${f.type === 'counter' ? `<button type="button" class="b sm" data-entry-step="${esc(f.key)}" data-step-delta="-1" aria-label="Decrement ${esc(f.label)}">-1</button>` : ''}
-                        <input type="number" step="any" data-entry-field="${esc(f.key)}" value="${esc(val)}" placeholder="0">
-                        ${f.type === 'counter' ? `<button type="button" class="b sm" data-entry-step="${esc(f.key)}" data-step-delta="1" aria-label="Increment ${esc(f.label)}">+1</button>` : ''}
+                        ${f.type === 'counter' ? `<button type="button" class="b sm" data-entry-step="${esc(f.key)}" data-step-delta="${-stepVal}" aria-label="Decrement ${esc(f.label)}">-${esc(stepVal)}</button>` : ''}
+                        <input type="number"${minAttr}${maxAttr} step="any" data-entry-field="${esc(f.key)}" value="${esc(val)}" placeholder="0">
+                        ${capHint}
+                        ${f.type === 'counter' ? `<button type="button" class="b sm" data-entry-step="${esc(f.key)}" data-step-delta="${stepVal}" aria-label="Increment ${esc(f.label)}">+${esc(stepVal)}</button>` : ''}
                     </div>
                 </label>
             `;
@@ -1105,7 +1121,12 @@ function openEntryModal(setObj, existingEntry = null) {
                 const key = btn.dataset.entryStep;
                 const delta = Number(btn.dataset.stepDelta) || 0;
                 const input = modal.querySelector(`[data-entry-field="${CSS.escape(key)}"]`);
-                if (input) input.value = String((Number(input.value) || 0) + delta);
+                if (input) {
+                    let next = (Number(input.value) || 0) + delta;
+                    if (input.min !== '' && Number.isFinite(Number(input.min))) next = Math.max(Number(input.min), next);
+                    if (input.max !== '' && Number.isFinite(Number(input.max))) next = Math.min(Number(input.max), next);
+                    input.value = String(next);
+                }
             };
         });
         modal.querySelectorAll('[data-entry-color]').forEach(picker => {

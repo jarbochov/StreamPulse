@@ -302,6 +302,16 @@ module.exports = function createVariables({ dataDir, onChange = null, getDepende
                 const parsedMax = parseInt(f?.maxTier, 10);
                 extra.maxTier = (Number.isFinite(parsedMax) && parsedMax >= 1) ? Math.min(100, parsedMax) : 1;
             }
+            if (type === 'counter' || type === 'number') {
+                const parseOpt = val => (val !== '' && val != null && Number.isFinite(Number(val))) ? Number(val) : null;
+                let minVal = parseOpt(f?.min);
+                let maxVal = parseOpt(f?.max);
+                if (minVal !== null && maxVal !== null && minVal > maxVal) [minVal, maxVal] = [maxVal, minVal];
+                const stepVal = parseOpt(f?.step);
+                if (minVal !== null) extra.min = minVal;
+                if (maxVal !== null) extra.max = maxVal;
+                if (stepVal !== null && stepVal > 0) extra.step = stepVal;
+            }
             fields.push({
                 key,
                 label: String(f?.label || key).trim().slice(0, 40) || key,
@@ -655,9 +665,12 @@ module.exports = function createVariables({ dataDir, onChange = null, getDepende
                 let value = options.value;
                 if (action === 'step') {
                     if (property || !['number', 'counter'].includes(field.type)) throw new Error('Only numeric fields support stepping');
-                    const delta = Number(options.delta ?? 1);
+                    const delta = Number(options.delta ?? (field.step || 1));
                     if (!Number.isFinite(delta) || !Number.isFinite(Number(current))) throw new Error('A finite number is required');
-                    value = String(Number(current) + delta);
+                    let nextNum = Number(current) + delta;
+                    if (field.min != null && Number.isFinite(Number(field.min))) nextNum = Math.max(Number(field.min), nextNum);
+                    if (field.max != null && Number.isFinite(Number(field.max))) nextNum = Math.min(Number(field.max), nextNum);
+                    value = String(nextNum);
                     if (!Number.isFinite(Number(value))) throw new Error('Result is outside the numeric range');
                 }
                 if (value === undefined) throw new Error('Value is required');

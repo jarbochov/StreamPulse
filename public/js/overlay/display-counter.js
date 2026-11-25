@@ -3,6 +3,8 @@ import {
     normalizeDisplayCounter,
     resolveCounterRows
 } from '../../../shared/display-counter.cjs';
+import { resolveColorToken } from './variables.js';
+import { loadGoogleFont } from './fonts.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const MAX_RENDER_MARKERS = 100;
@@ -33,6 +35,114 @@ function ensureCounterStyles() {
 .sp-tally-slash.is-pop {
     stroke-dasharray: 40;
     animation: sp-tally-slash 240ms ease-out both;
+}
+.sp-counter-display .sp-counter-row {
+    transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+.sp-counter-display .sp-counter-marker[data-marker-state="filled"],
+.sp-counter-display .sp-counter-marker[data-marker-state="cap"],
+.sp-counter-display .sp-counter-marker[data-marker-state="overflow"] {
+    filter: drop-shadow(0 0 5px color-mix(in srgb, var(--ctr-accent, #f43f5e) 45%, transparent));
+}
+.sp-counter-display .sp-counter-readout {
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    letter-spacing: 0.02em;
+}
+/* Theme: Modern Glass */
+.sp-counter-display[data-counter-theme="modern"] .sp-counter-row {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 8px 22px rgba(0, 0, 0, 0.28);
+}
+/* Theme: Esports Broadcast */
+.sp-counter-display[data-counter-theme="esports"] .sp-counter-row {
+    box-shadow: inset 4px 0 0 var(--ctr-accent, #38bdf8), 0 8px 22px rgba(0, 0, 0, 0.42);
+}
+.sp-counter-display[data-counter-theme="esports"] .sp-counter-label {
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    font-weight: 800;
+}
+.sp-counter-display[data-counter-theme="esports"] .sp-counter-readout {
+    border-radius: 3px;
+    background: rgba(0, 0, 0, 0.45);
+    border-color: color-mix(in srgb, var(--ctr-accent, #38bdf8) 45%, transparent);
+    font-weight: 800;
+}
+/* Theme: Broadcast Sports Ticker */
+.sp-counter-display[data-counter-theme="sports"] .sp-counter-row {
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0) 48%, rgba(0, 0, 0, 0.22) 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 6px 18px rgba(0, 0, 0, 0.36);
+}
+.sp-counter-display[data-counter-theme="sports"] .sp-counter-label {
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 800;
+    padding-right: 12px;
+    border-right: 1px solid rgba(255, 255, 255, 0.18);
+}
+.sp-counter-display[data-counter-theme="sports"] .sp-counter-readout {
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.35);
+    border-color: color-mix(in srgb, var(--ctr-accent, #f59e0b) 40%, transparent);
+}
+/* Theme: Retro Arcade */
+.sp-counter-display[data-counter-theme="arcade"] .sp-counter-row {
+    box-shadow: 0 0 12px color-mix(in srgb, var(--ctr-accent, #e879f9) 32%, transparent), inset 0 0 12px color-mix(in srgb, var(--ctr-accent, #e879f9) 14%, transparent);
+}
+.sp-counter-display[data-counter-theme="arcade"] .sp-counter-label {
+    text-transform: uppercase;
+    letter-spacing: 0.11em;
+    font-weight: 800;
+    text-shadow: 0 0 8px color-mix(in srgb, var(--ctr-accent, #e879f9) 55%, transparent);
+}
+.sp-counter-display[data-counter-theme="arcade"] .sp-counter-readout {
+    border-radius: 2px;
+    background: rgba(0, 0, 0, 0.55);
+    border-color: color-mix(in srgb, var(--ctr-accent, #e879f9) 65%, transparent);
+    text-shadow: 0 0 6px currentColor;
+}
+/* Theme: Minimal Transparent HUD */
+.sp-counter-display[data-counter-theme="minimal"] .sp-counter-row {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+.sp-counter-display[data-counter-theme="minimal"] .sp-counter-label,
+.sp-counter-display[data-counter-theme="minimal"] .sp-counter-readout {
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.88), 0 0 2px rgba(0, 0, 0, 0.9);
+    background: transparent;
+    border: none;
+    padding: 0;
+}
+.sp-counter-display[data-counter-theme="minimal"] .sp-counter-marker,
+.sp-counter-display[data-counter-theme="minimal"] .sp-counter-tally-group {
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.78));
+}
+/* Theme: RPG / Cozy Hearts */
+.sp-counter-display[data-counter-theme="cozy"] .sp-counter-row {
+    box-shadow: inset 0 1px 0 rgba(255, 228, 230, 0.14), 0 8px 20px rgba(15, 5, 22, 0.42);
+}
+.sp-counter-display[data-counter-theme="cozy"] .sp-counter-readout {
+    background: rgba(251, 113, 133, 0.16);
+    border-color: rgba(251, 113, 133, 0.35);
+}
+/* Theme: Chalkboard */
+.sp-counter-display[data-counter-theme="chalkboard"] .sp-counter-row {
+    box-shadow: inset 0 0 0 1px rgba(245, 242, 230, 0.14), 0 8px 20px rgba(0, 0, 0, 0.38);
+}
+.sp-counter-display[data-counter-theme="chalkboard"] .sp-counter-marker[data-marker-state="filled"] {
+    filter: drop-shadow(0 0 2px rgba(245, 242, 230, 0.35));
+}
+.sp-counter-display[data-counter-theme="chalkboard"] .sp-counter-readout {
+    background: rgba(245, 242, 230, 0.08);
+    border-color: rgba(245, 242, 230, 0.22);
+}
+.sp-counter-display .sp-counter-row.is-cap-reached:not([data-counter-theme="minimal"]) {
+    border-color: color-mix(in srgb, var(--ctr-accent, #22c55e) 70%, transparent);
 }
 html.sp-fx-paused .sp-counter-marker.is-pop,
 html.sp-fx-paused .sp-tally-slash.is-pop {
@@ -97,6 +207,17 @@ function createShapeMarker(style, state, cfg, pop) {
             stroke,
             'stroke-width': sw
         }));
+        if (isFilled) {
+            svg.appendChild(svgEl('ellipse', {
+                cx: 9.4,
+                cy: 8.8,
+                rx: 2.8,
+                ry: 1.8,
+                fill: '#ffffff',
+                opacity: '0.32',
+                transform: 'rotate(-28 9.4 8.8)'
+            }));
+        }
     } else if (style === 'squares') {
         svg.appendChild(svgEl('rect', {
             x: 3.5,
@@ -128,6 +249,16 @@ function createShapeMarker(style, state, cfg, pop) {
             'stroke-linejoin': 'round',
             'stroke-linecap': 'round'
         }));
+        if (isFilled && style === 'hearts') {
+            svg.appendChild(svgEl('path', {
+                d: 'M6.6 9.1c0-1.6 1.1-2.8 2.5-2.8',
+                fill: 'none',
+                stroke: '#ffffff',
+                'stroke-width': '1.6',
+                'stroke-linecap': 'round',
+                opacity: '0.42'
+            }));
+        }
     }
     return svg;
 }
@@ -350,9 +481,45 @@ function createOverflowPill(count, cfg, pop) {
     return badge;
 }
 
+function resolveRowConfig(cfg, status, member) {
+    const col = (raw, fallback) => {
+        if (!raw) return fallback;
+        const str = String(raw).trim();
+        if (member) {
+            const memberMatch = /^\{\{member\.([a-z0-9_-]+)\}\}$/i.exec(str);
+            if (memberMatch) {
+                const mv = String(member.values?.[memberMatch[1]] ?? member[memberMatch[1]] ?? '').trim();
+                return mv || fallback;
+            }
+        }
+        if (!str.includes('{{') && !str.startsWith('@')) return str;
+        return resolveColorToken(str, status, {}, member) || fallback;
+    };
+    const fontRaw = String(cfg.fontFamily || 'sans-serif').trim();
+    const fontFamily = (fontRaw.includes('{{') || fontRaw.startsWith('@'))
+        ? (resolveColorToken(fontRaw, status, {}, member) || 'sans-serif')
+        : fontRaw;
+    if (typeof loadGoogleFont === 'function' && fontFamily && !/^(sans-serif|serif|monospace|system-ui|inherit)$/i.test(fontFamily)) {
+        loadGoogleFont(fontFamily);
+    }
+    return {
+        ...cfg,
+        filledColor: col(cfg.filledColor, '#f43f5e'),
+        emptyColor: col(cfg.emptyColor, '#ffffff1f'),
+        outlineColor: col(cfg.outlineColor, '#ffffff66'),
+        capReachedColor: cfg.capReachedColor ? col(cfg.capReachedColor, '') : '',
+        overflowColor: col(cfg.overflowColor, '#fbbf24'),
+        labelColor: col(cfg.labelColor, '#f8fafc'),
+        readoutColor: col(cfg.readoutColor, '#cbd5e1'),
+        rowBackground: col(cfg.rowBackground, '#0f172acc'),
+        rowBorderColor: col(cfg.rowBorderColor, '#ffffff1a'),
+        fontFamily
+    };
+}
+
 export function renderDisplayCounter(host, element, status = {}, definition) {
     ensureCounterStyles();
-    const cfg = normalizeDisplayCounter(definition?.counter);
+    const baseCfg = normalizeDisplayCounter(definition?.counter);
     const binding = element?.display || {};
     const rows = resolveCounterRows(definition, binding, status);
     if (!rows.length) return false;
@@ -360,35 +527,43 @@ export function renderDisplayCounter(host, element, status = {}, definition) {
     const prevMap = host._counterPrevValues instanceof Map ? host._counterPrevValues : new Map();
     const nextMap = new Map();
 
+    const rootCfg = resolveRowConfig(baseCfg, status, null);
     const root = document.createElement('div');
     root.className = 'sp-variable-display sp-counter-display';
-    root.dataset.counterStyle = cfg.style;
+    root.dataset.counterStyle = baseCfg.style;
+    root.dataset.counterTheme = baseCfg.theme || 'modern';
+    root.style.setProperty('--ctr-accent', rootCfg.filledColor);
     Object.assign(root.style, {
         width: '100%',
         height: '100%',
+        padding: '6px',
         boxSizing: 'border-box',
         display: 'flex',
-        flexDirection: cfg.direction === 'horizontal' ? 'row' : 'column',
-        flexWrap: cfg.direction === 'horizontal' ? 'wrap' : 'nowrap',
-        alignItems: cfg.direction === 'horizontal'
+        flexDirection: baseCfg.direction === 'horizontal' ? 'row' : 'column',
+        flexWrap: baseCfg.direction === 'horizontal' ? 'wrap' : 'nowrap',
+        alignItems: baseCfg.direction === 'horizontal'
             ? 'center'
-            : (cfg.align === 'center' ? 'center' : cfg.align === 'right' ? 'flex-end' : 'stretch'),
-        justifyContent: cfg.align === 'center' ? 'center' : cfg.align === 'right' ? 'flex-end' : 'flex-start',
-        gap: `${cfg.rowGap}px`,
-        fontFamily: cfg.fontFamily,
-        fontSize: `${cfg.fontSize}px`,
+            : (baseCfg.align === 'center' ? 'center' : baseCfg.align === 'right' ? 'flex-end' : 'stretch'),
+        justifyContent: baseCfg.align === 'center' ? 'center' : baseCfg.align === 'right' ? 'flex-end' : 'flex-start',
+        gap: `${baseCfg.rowGap}px`,
+        fontFamily: rootCfg.fontFamily,
+        fontSize: `${baseCfg.fontSize}px`,
         overflow: 'hidden'
     });
 
     for (const row of rows) {
+        const cfg = resolveRowConfig(baseCfg, status, row.entry || null);
         const prevVal = prevMap.has(row.key) ? prevMap.get(row.key) : undefined;
         nextMap.set(row.key, row.value);
 
+        const isCapReached = row.cap != null && row.value >= row.cap;
         const rowEl = document.createElement('div');
-        rowEl.className = 'sp-counter-row';
+        rowEl.className = `sp-counter-row${isCapReached ? ' is-cap-reached' : ''}`;
         rowEl.dataset.counterKey = row.key;
         rowEl.dataset.counterValue = String(row.value);
         if (row.cap != null) rowEl.dataset.counterCap = String(row.cap);
+        rowEl.style.setProperty('--ctr-accent', isCapReached && cfg.capReachedColor ? cfg.capReachedColor : cfg.filledColor);
+        if (cfg.fontFamily && cfg.fontFamily !== rootCfg.fontFamily) rowEl.style.fontFamily = cfg.fontFamily;
 
         const labelPos = cfg.showLabel ? cfg.labelPosition : 'none';
         const isStacked = labelPos === 'top' || labelPos === 'bottom';
@@ -486,14 +661,15 @@ export function renderDisplayCounter(host, element, status = {}, definition) {
 /**
  * Renders a compact inline HTML string preview of markers for Operator Mode cards.
  */
-export function renderMiniCounterHtml(value, cap, counterCfg = {}) {
-    const cfg = normalizeDisplayCounter({
-        ...counterCfg,
+export function renderMiniCounterHtml(value, cap, counterCfg = {}, status = {}, member = null) {
+    const resolved = resolveRowConfig(normalizeDisplayCounter(counterCfg), status, member);
+    const cfg = {
+        ...resolved,
         markerSize: Math.min(18, Math.max(14, Number(counterCfg.markerSize) || 16)),
         markerGap: 3,
         perRow: 0,
         animate: 'none'
-    });
+    };
     const node = buildMarkersNode(value, cap, cfg, undefined);
     const wrapper = document.createElement('div');
     wrapper.appendChild(node);

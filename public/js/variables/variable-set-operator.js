@@ -266,14 +266,14 @@ function renderFieldCell(entry, f) {
 function renderSlotsCell(setObj, entry) {
     if ((setObj.slotsCount || 0) === 0) {
         const active = setObj.activeEntry === entry.id;
-        return `<button type="button" class="op-slot-btn${active ? ' active' : ''}" data-op-assign-slot="0" data-op-entry="${esc(entry.id)}">${active ? 'Active' : 'Activate'}</button>`;
+        return `<button type="button" class="op-slot-btn${active ? ' active' : ''}" data-op-assign-slot="0" data-op-entry="${esc(entry.id)}" aria-pressed="${active}" title="${active ? 'Click to deactivate' : 'Click to activate'}">${active ? 'Active' : 'Activate'}</button>`;
     }
     const btns = [];
     for (let i = 0; i < setObj.slotsCount; i++) {
         const sNum = i + 1;
         const active = setObj.slots?.[i] === entry.id;
         const lbl = setObj.slotNames?.[i] ? esc(setObj.slotNames[i]) : `Slot ${sNum}`;
-        btns.push(`<button type="button" class="op-slot-btn${active ? ' active' : ''}" data-op-assign-slot="${sNum}" data-op-entry="${esc(entry.id)}">${lbl}</button>`);
+        btns.push(`<button type="button" class="op-slot-btn${active ? ' active' : ''}" data-op-assign-slot="${sNum}" data-op-entry="${esc(entry.id)}" aria-pressed="${active}" title="${active ? `Click to clear ${lbl}` : `Assign to ${lbl}`}">${lbl}</button>`);
     }
     return `<div class="op-slots-wrap">${btns.join('')}</div>`;
 }
@@ -1119,8 +1119,13 @@ function bindEvents() {
         if (slotBtn) {
             const slot = Number(slotBtn.dataset.opAssignSlot) || 0;
             const entryId = slotBtn.dataset.opEntry;
+            const isActive = slotBtn.classList.contains('active');
             try {
-                await api(`/api/variables/sets/${encodeURIComponent(setObj.id)}/assign`, 'POST', { slot, entry: entryId });
+                if (isActive) {
+                    await api(`/api/variables/sets/${encodeURIComponent(setObj.id)}/clear`, 'POST', { slot });
+                } else {
+                    await api(`/api/variables/sets/${encodeURIComponent(setObj.id)}/assign`, 'POST', { slot, entry: entryId });
+                }
                 await loadData(false);
             } catch (err) {
                 toast(err.message, 'error');

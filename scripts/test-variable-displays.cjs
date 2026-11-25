@@ -550,6 +550,26 @@ test('counter display schema, cap resolution, and service persistence', () => {
         assert.equal(setRows[0].cap, 5);
         assert.equal(setRows[1].label, 'Echo');
         assert.equal(setRows[1].value, 5);
+
+        // Verify Variable Set counter/number field min/max/step cap persistence & step clamping
+        const createVariables = require('../server/services/variables');
+        const varsSvc = createVariables({ dataDir: dir });
+        const createdSet = varsSvc.upsertSet('boss_tracker', {
+            name: 'Boss Tracker',
+            fields: [
+                { key: 'name', label: 'Boss', type: 'text' },
+                { key: 'hearts', label: 'Hearts', type: 'counter', min: 0, max: 3, step: 1 }
+            ],
+            roster: [{ id: 'b1', label: 'Dragon', values: { name: 'Dragon', hearts: '2' } }]
+        });
+        const heartsField = createdSet.fields.find(f => f.key === 'hearts');
+        assert.equal(heartsField.min, 0);
+        assert.equal(heartsField.max, 3);
+        assert.equal(heartsField.step, 1);
+        const steppedUp = varsSvc.mutateEntry('boss_tracker', 'step', { entry: 'b1', field: 'hearts', delta: 5 });
+        assert.equal(steppedUp.roster[0].values.hearts, '3', 'stepping respects Variable Set field max cap');
+        const steppedDown = varsSvc.mutateEntry('boss_tracker', 'step', { entry: 'b1', field: 'hearts', delta: -10 });
+        assert.equal(steppedDown.roster[0].values.hearts, '0', 'stepping respects Variable Set field min bound');
     } finally {
         fs.rmSync(dir, { recursive: true, force: true });
     }
@@ -607,6 +627,13 @@ test('counter display builder renders hearts, 5-count slashed tallies, caps, and
     // Switch to hearts: hearts var has value 2, max 3 -> 2 filled hearts + 1 outlined empty heart
     await page.click('[data-counter-style="hearts"]');
     await page.waitForSelector('.sp-counter-display[data-counter-style="hearts"]');
+    await page.click('button[data-builder-view="appearance"]');
+    await page.waitForSelector('#counter-appearance-controls [data-counter-theme="esports"]');
+    await page.click('[data-counter-theme="esports"]');
+    await page.waitForSelector('.sp-counter-display[data-counter-theme="esports"]');
+    await page.click('[data-counter-theme="cozy"]');
+    await page.waitForSelector('.sp-counter-display[data-counter-theme="cozy"]');
+    await page.click('button[data-builder-view="design"]');
     const heartStats = await page.evaluate(() => ({
         filled: document.querySelectorAll('.sp-counter-marker[data-marker-style="hearts"][data-marker-state="filled"]').length,
         empty: document.querySelectorAll('.sp-counter-marker[data-marker-style="hearts"][data-marker-state="empty"]').length,
@@ -646,6 +673,50 @@ test('counter display builder renders hearts, 5-count slashed tallies, caps, and
     const miniHtml = await page.evaluate(() => window.OverlayShared.renderMiniCounterHtml(2, 3, { style: 'hearts' }));
     assert.match(miniHtml, /data-marker-style="hearts"/);
     assert.match(miniHtml, /data-marker-state="empty"/);
+
+    // Verify per-player {{member.color}} resolution from a Variable Set
+    const memberColors = await page.evaluate(() => {
+        const host = document.createElement('div');
+        host.style.cssText = 'width:500px;height:200px';
+        document.body.append(host);
+        const def = {
+            id: 'set_color_test',
+            name: 'Player Pips',
+            kind: 'counter',
+            catalogId: 'players',
+            counter: {
+                sourceMode: 'set',
+                valueField: 'wins',
+                style: 'pips',
+                capMode: 'custom',
+                customCap: 3,
+                filledColor: '@color'
+            }
+        };
+        const status = {
+            variableDisplays: [def],
+            variableSets: [{
+                id: 'players',
+                name: 'Players',
+                fields: [
+                    { key: 'name', label: 'Name', type: 'text' },
+                    { key: 'wins', label: 'Wins', type: 'counter', max: 3 },
+                    { key: 'color', label: 'Color', type: 'color' }
+                ],
+                roster: [
+                    { id: 'p1', label: 'Nova', enabled: true, values: { name: 'Nova', wins: 2, color: '#ef4444' } },
+                    { id: 'p2', label: 'Echo', enabled: true, values: { name: 'Echo', wins: 1, color: '#3b82f6' } }
+                ]
+            }]
+        };
+        window.OverlayShared.renderVariableDisplay(host, { display: { displayId: 'set_color_test' } }, status);
+        const fills = [...host.querySelectorAll('.sp-counter-row')].map(row =>
+            row.querySelector('.sp-counter-marker[data-marker-state="filled"] circle')?.getAttribute('fill')
+        );
+        host.remove();
+        return fills;
+    });
+    assert.deepEqual(memberColors, ['#ef4444', '#3b82f6'], 'Variable Set {{member.color}} gives each player their own pip color');
 
     // Responsive check
     for (const width of [1366, 390]) {

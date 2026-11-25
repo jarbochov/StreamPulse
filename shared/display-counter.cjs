@@ -3,7 +3,116 @@
 const { resolveDisplayOwner } = require('./display-source.cjs');
 
 const COUNTER_STYLES = ['pips', 'hearts', 'stars', 'diamonds', 'squares', 'bars', 'tally', 'tally-chalk', 'number'];
+const COUNTER_THEMES = ['modern', 'esports', 'sports', 'arcade', 'minimal', 'cozy', 'chalkboard'];
 const SOURCE_MODES = ['variables', 'set'];
+
+const COUNTER_THEME_PRESETS = {
+    modern: {
+        label: 'Modern Glass',
+        filledColor: '#f43f5e',
+        emptyColor: '#ffffff1a',
+        outlineColor: '#ffffff59',
+        capReachedColor: '#22c55e',
+        overflowColor: '#fbbf24',
+        labelColor: '#f8fafc',
+        readoutColor: '#e2e8f0',
+        rowBackground: '#0f172ad9',
+        rowBorderColor: '#ffffff24',
+        rowBorderWidth: 1,
+        rowRadius: 12,
+        rowPadding: 14
+    },
+    esports: {
+        label: 'Esports Broadcast',
+        filledColor: '#38bdf8',
+        emptyColor: '#ffffff12',
+        outlineColor: '#94a3b866',
+        capReachedColor: '#fbbf24',
+        overflowColor: '#f43f5e',
+        labelColor: '#ffffff',
+        readoutColor: '#38bdf8',
+        rowBackground: '#090d16eb',
+        rowBorderColor: '#38bdf844',
+        rowBorderWidth: 1,
+        rowRadius: 4,
+        rowPadding: 14
+    },
+    sports: {
+        label: 'Broadcast Sports',
+        filledColor: '#f59e0b',
+        emptyColor: '#ffffff14',
+        outlineColor: '#cbd5e159',
+        capReachedColor: '#22c55e',
+        overflowColor: '#ef4444',
+        labelColor: '#f8fafc',
+        readoutColor: '#fde68a',
+        rowBackground: '#0d1a33f0',
+        rowBorderColor: '#f59e0b55',
+        rowBorderWidth: 1,
+        rowRadius: 6,
+        rowPadding: 13
+    },
+    arcade: {
+        label: 'Retro Arcade',
+        filledColor: '#e879f9',
+        emptyColor: '#1e1038aa',
+        outlineColor: '#22d3ee88',
+        capReachedColor: '#22d3ee',
+        overflowColor: '#facc15',
+        labelColor: '#fef08a',
+        readoutColor: '#22d3ee',
+        rowBackground: '#120824f2',
+        rowBorderColor: '#e879f9cc',
+        rowBorderWidth: 2,
+        rowRadius: 3,
+        rowPadding: 14
+    },
+    minimal: {
+        label: 'Minimal HUD',
+        filledColor: '#f8fafc',
+        emptyColor: '#00000033',
+        outlineColor: '#ffffff99',
+        capReachedColor: '#4ade80',
+        overflowColor: '#fbbf24',
+        labelColor: '#ffffff',
+        readoutColor: '#f1f5f9',
+        rowBackground: '#00000000',
+        rowBorderColor: '#00000000',
+        rowBorderWidth: 0,
+        rowRadius: 0,
+        rowPadding: 6
+    },
+    cozy: {
+        label: 'RPG Hearts',
+        filledColor: '#f43f5e',
+        emptyColor: '#3b152666',
+        outlineColor: '#fda4af88',
+        capReachedColor: '#fb7185',
+        overflowColor: '#fbbf24',
+        labelColor: '#fff1f2',
+        readoutColor: '#fecdd3',
+        rowBackground: '#1c1124e8',
+        rowBorderColor: '#fb718544',
+        rowBorderWidth: 1,
+        rowRadius: 16,
+        rowPadding: 14
+    },
+    chalkboard: {
+        label: 'Chalkboard',
+        filledColor: '#f5f2e6',
+        emptyColor: '#ffffff0a',
+        outlineColor: '#f5f2e655',
+        capReachedColor: '#fde047',
+        overflowColor: '#fb923c',
+        labelColor: '#f5f2e6',
+        readoutColor: '#e7e2ce',
+        rowBackground: '#13201ae8',
+        rowBorderColor: '#d6c7a14d',
+        rowBorderWidth: 2,
+        rowRadius: 8,
+        rowPadding: 14
+    }
+};
 const CAP_MODES = ['auto', 'custom', 'none'];
 const OVERFLOW_MODES = ['clamp', 'overflow', 'plus'];
 const READOUT_MODES = ['none', 'fraction', 'value', 'of'];
@@ -19,8 +128,17 @@ const bound = (value, fallback, min, max) => (
         ? Math.min(max, Math.max(min, Number(value)))
         : fallback
 );
-const cleanColor = (value, fallback) => /^#[a-f0-9]{6}(?:[a-f0-9]{2})?$/i.test(value || '') ? value : fallback;
-const optionalColor = value => /^#[a-f0-9]{6}(?:[a-f0-9]{2})?$/i.test(value || '') ? value : '';
+const VAR_TOKEN_RE = /^(?:\{\{[a-z0-9_.:-]{1,80}\}\}|@[a-z0-9_-]{1,60})$/i;
+const cleanColor = (value, fallback) => {
+    const str = String(value || '').trim();
+    if (/^#[a-f0-9]{6}(?:[a-f0-9]{2})?$/i.test(str) || VAR_TOKEN_RE.test(str)) return str;
+    return fallback;
+};
+const optionalColor = value => {
+    const str = String(value || '').trim();
+    if (/^#[a-f0-9]{6}(?:[a-f0-9]{2})?$/i.test(str) || VAR_TOKEN_RE.test(str)) return str;
+    return '';
+};
 
 function defaultDisplayCounter() {
     return {
@@ -29,6 +147,7 @@ function defaultDisplayCounter() {
         valueField: '',
         labelField: '$label',
         rowScope: 'all',
+        theme: 'modern',
         style: 'pips',
         capMode: 'auto',
         customCap: 5,
@@ -89,6 +208,7 @@ function normalizeDisplayCounter(input = {}) {
         valueField: cleanKey(input.valueField),
         labelField,
         rowScope: ROW_SCOPES.includes(input.rowScope) ? input.rowScope : def.rowScope,
+        theme: COUNTER_THEMES.includes(input.theme) ? input.theme : def.theme,
         style: COUNTER_STYLES.includes(input.style) ? input.style : def.style,
         capMode: CAP_MODES.includes(input.capMode) ? input.capMode : def.capMode,
         customCap: Math.round(bound(input.customCap, def.customCap, 1, 100)),
@@ -117,7 +237,7 @@ function normalizeDisplayCounter(input = {}) {
         markerGap: Math.round(bound(input.markerGap, def.markerGap, 0, 32)),
         rowGap: Math.round(bound(input.rowGap, def.rowGap, 0, 48)),
         fontSize: Math.round(bound(input.fontSize, def.fontSize, 10, 64)),
-        fontFamily: cleanText(input.fontFamily, 120).replace(/[;{}<>]/g, '') || def.fontFamily,
+        fontFamily: cleanText(input.fontFamily, 120).replace(/[;<>]/g, '') || def.fontFamily,
         animate: input.animate === 'none' ? 'none' : 'pop',
         maxRows: Math.round(bound(input.maxRows, def.maxRows, 1, 50))
     };
@@ -210,6 +330,7 @@ function resolveCounterRows(definition, binding = {}, status = {}) {
                 kind: 'set-entry',
                 setId: setObj.id,
                 entryId: entry.id,
+                entry,
                 valueField: valueFieldKey,
                 label,
                 value,
@@ -248,6 +369,8 @@ function resolveCounterRows(definition, binding = {}, status = {}) {
 
 module.exports = {
     COUNTER_STYLES,
+    COUNTER_THEMES,
+    COUNTER_THEME_PRESETS,
     SOURCE_MODES,
     CAP_MODES,
     OVERFLOW_MODES,

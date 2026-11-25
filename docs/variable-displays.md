@@ -87,9 +87,13 @@ Use **Counter & Pips** to visualize live **Counter** / **Number** variables or n
 
 ### Caps & dynamic growth
 
-- **Auto**: Uses the counter variable's configured `max` when set (rendering empty outlined slots up to the cap); uncapped variables grow dynamically as counts increase.
+- **Auto**: Uses the counter variable's (or Variable Set numeric field's) configured `max` cap when set (rendering empty outlined slots up to the cap); uncapped variables grow dynamically as counts increase. You can configure `Min`, `Cap / Max`, and `Step` directly on Variable Set `counter` and `number` fields in **Placeholders & Variables → Sets**.
 - **Custom cap**: Forces a fixed slot cap (`1`–`100`) with configurable overflow behavior (`+N` badge, extra overflow-colored markers, or clamped at cap).
 - **Uncapped**: Always grows dynamically, wrapping cleanly at your configured markers-per-row limit.
+
+### Broadcast themes
+
+Switch to the **Appearance** tab to pick from 7 built-in broadcast themes (**Modern Glass**, **Esports Broadcast**, **Broadcast Sports**, **Retro Arcade**, **Minimal HUD**, **RPG Hearts**, and **Chalkboard**), then customize any color, marker size, stroke width, padding, or animation.
 
 ### Operating live counters
 

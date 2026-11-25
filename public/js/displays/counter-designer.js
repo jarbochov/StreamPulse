@@ -12,6 +12,7 @@ export function defaultCounter() {
         valueField: '',
         labelField: '$label',
         rowScope: 'all',
+        theme: 'modern',
         style: 'pips',
         capMode: 'auto',
         customCap: 5,
@@ -45,6 +46,16 @@ export function defaultCounter() {
         maxRows: 12
     };
 }
+
+const THEME_SWATCHES = [
+    ['modern', 'Modern Glass', '#0f172a', '#f43f5e', '#ffffff33'],
+    ['esports', 'Esports Broadcast', '#090d16', '#38bdf8', '#38bdf866'],
+    ['sports', 'Broadcast Sports', '#0d1a33', '#f59e0b', '#f59e0b66'],
+    ['arcade', 'Retro Arcade', '#120824', '#e879f9', '#22d3ee99'],
+    ['minimal', 'Minimal HUD', 'transparent', '#f8fafc', '#ffffff66'],
+    ['cozy', 'RPG Hearts', '#1c1124', '#f43f5e', '#fb718566'],
+    ['chalkboard', 'Chalkboard', '#13201a', '#f5f2e6', '#d6c7a166']
+];
 
 const STYLE_OPTIONS = [
     ['pips', 'Pips', '<svg viewBox="0 0 44 16" width="38" height="14" aria-hidden="true"><circle cx="8" cy="8" r="5" fill="currentColor"/><circle cx="22" cy="8" r="5" fill="currentColor"/><circle cx="36" cy="8" r="5" fill="none" stroke="currentColor" stroke-width="1.6" opacity=".5"/></svg>'],
@@ -81,7 +92,7 @@ const NUMERIC_FIELDS = [
     ['rowRadius', 'Row radius (px)', 0, 48, 1]
 ];
 
-export function createCounterDesigner(designRoot, appearanceRoot, { getDraft, getSets, getVariables, onChange }) {
+export function createCounterDesigner(designRoot, appearanceRoot, { getDraft, getSets, getVariables, onChange, pickColor, pickFont }) {
     function ensureCounter() {
         const draft = getDraft();
         if (!draft) return null;
@@ -305,19 +316,39 @@ export function createCounterDesigner(designRoot, appearanceRoot, { getDraft, ge
         appearanceRoot.innerHTML = `
             <div class="builder-card-heading">
                 <div>
-                    <h3>Counter appearance</h3>
-                    <p class="display-muted">Colors support 8-digit #RRGGBBAA hex with opacity. Animations respect OBS visibility and reduced motion.</p>
+                    <h3>Broadcast theme</h3>
+                    <p class="display-muted">Choose a broadcast theme matching Versus &amp; Trivia overlays, then fine-tune any color or dimension below.</p>
+                </div>
+            </div>
+            <div class="counter-theme-grid" role="radiogroup" aria-label="Broadcast theme" style="margin-bottom:20px;">
+                ${THEME_SWATCHES.map(([id, label, bg, accent, border]) => `
+                    <button type="button" class="counter-theme-swatch${(cfg.theme || 'modern') === id ? ' active' : ''}" data-counter-theme="${esc(id)}" aria-pressed="${(cfg.theme || 'modern') === id}">
+                        <span class="counter-theme-bar" style="background:${esc(bg)};border-color:${esc(border)};">
+                            <i style="background:${esc(accent)};"></i>
+                            <i style="background:${esc(accent)};"></i>
+                            <i class="is-empty" style="border-color:${esc(accent)};"></i>
+                        </span>
+                        <span>${esc(label)}</span>
+                    </button>
+                `).join('')}
+            </div>
+            <div class="builder-card-heading">
+                <div>
+                    <h3>Colors, sizing &amp; animation</h3>
+                    <p class="display-muted">Colors support 8-digit #RRGGBBAA hex, variable tokens (<code>{{var.accent}}</code>), or per-player Variable Set colors (<code>@color</code>) via the <code>{}</code> picker.</p>
                 </div>
             </div>
             <div class="control-grid appearance-grid" style="padding:0;">
                 ${COLOR_FIELDS.map(([key, label, optional]) => {
                     const val = cfg[key] || '';
+                    const isVar = val.includes('{{') || val.startsWith('@');
                     const pickerVal = /^#[a-f\d]{6}/i.test(val) ? val.slice(0, 7) : '#f43f5e';
                     return `<div class="control-field">
                         <label for="counter-color-${key}">${esc(label)}</label>
                         <span class="display-color-pair">
                             <input type="color" data-counter-color="${key}" value="${esc(pickerVal)}" aria-label="${esc(label)} picker">
-                            <input id="counter-color-${key}" class="input" type="text" maxlength="9" placeholder="${optional ? 'Default' : '#RRGGBBAA'}" value="${esc(val)}" data-counter-field="${key}">
+                            <input id="counter-color-${key}" class="input" type="text" maxlength="90" placeholder="${optional ? 'Default' : '#RRGGBBAA, @color, or {{var}}'}" value="${esc(val)}" data-counter-field="${key}">
+                            <button type="button" class="btn btn-sm counter-var-btn${isVar ? ' active' : ''}" data-counter-pick-color="${key}" title="Bind color variable or Variable Set member color" aria-label="Bind variable for ${esc(label)}">{}</button>
                         </span>
                     </div>`;
                 }).join('')}
@@ -329,7 +360,10 @@ export function createCounterDesigner(designRoot, appearanceRoot, { getDraft, ge
                 `).join('')}
                 <div class="control-field">
                     <label for="counter-font">Font family</label>
-                    <input id="counter-font" class="input" type="text" maxlength="120" value="${esc(cfg.fontFamily)}" data-counter-field="fontFamily">
+                    <span class="display-color-pair">
+                        <input id="counter-font" class="input" type="text" maxlength="120" value="${esc(cfg.fontFamily)}" data-counter-field="fontFamily">
+                        <button type="button" class="btn btn-sm counter-var-btn${(cfg.fontFamily || '').includes('{{') ? ' active' : ''}" data-counter-pick-font="1" title="Bind font variable" aria-label="Bind font variable">{}</button>
+                    </span>
                 </div>
                 <div class="control-field">
                     <label for="counter-animate">Increment animation</label>
@@ -356,6 +390,44 @@ export function createCounterDesigner(designRoot, appearanceRoot, { getDraft, ge
             if (sourceBtn) {
                 cfg.sourceMode = sourceBtn.dataset.counterSource === 'set' ? 'set' : 'variables';
                 renderDesign();
+                onChange();
+                return;
+            }
+            const pickColorBtn = event.target.closest('[data-counter-pick-color]');
+            if (pickColorBtn && typeof pickColor === 'function') {
+                const key = pickColorBtn.dataset.counterPickColor;
+                pickColor({
+                    allowMember: cfg.sourceMode === 'set',
+                    onSelect: token => {
+                        cfg[key] = token;
+                        renderAppearance();
+                        onChange();
+                    }
+                });
+                return;
+            }
+            const pickFontBtn = event.target.closest('[data-counter-pick-font]');
+            if (pickFontBtn && typeof pickFont === 'function') {
+                pickFont({
+                    onSelect: token => {
+                        cfg.fontFamily = token;
+                        renderAppearance();
+                        onChange();
+                    }
+                });
+                return;
+            }
+            const themeBtn = event.target.closest('[data-counter-theme]');
+            if (themeBtn) {
+                const themeId = themeBtn.dataset.counterTheme;
+                const presets = window.OverlayShared?.COUNTER_THEME_PRESETS || {};
+                const preset = presets[themeId];
+                cfg.theme = themeId;
+                if (preset) {
+                    const { label: _unused, ...visual } = preset;
+                    Object.assign(cfg, visual);
+                }
+                render();
                 onChange();
                 return;
             }
