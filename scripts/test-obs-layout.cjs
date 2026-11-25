@@ -43,6 +43,15 @@ test('OBS Layout math computes exact aspect crops and 9-point anchored resize tr
     const rect = sceneItemScreenRect(txTR);
     assert.equal(rect.left, 1000);
     assert.equal(rect.top, 100);
+
+    // Bounded items (OBS_BOUNDS_SCALE_INNER) must use boundsWidth/boundsHeight even when obs-websocket reports raw tx.width/height
+    const boundedRect = sceneItemScreenRect({
+        positionX: 0, positionY: 0, alignment: 5,
+        sourceWidth: 640, sourceHeight: 480, width: 640, height: 480, scaleX: 1, scaleY: 1,
+        boundsType: 'OBS_BOUNDS_SCALE_INNER', boundsWidth: 1920, boundsHeight: 1080
+    });
+    assert.equal(boundedRect.width, 1920);
+    assert.equal(boundedRect.height, 1080);
 });
 
 test('OBS Layout & Aspect Studio enforces opt-in gate, generates Lua script, morphs aspect, and applies saved layouts', async t => {

@@ -129,14 +129,14 @@ function sceneItemScreenRect(tx = {}) {
 
     const boundsType = String(tx.boundsType || 'OBS_BOUNDS_NONE');
     const hasBounds = boundsType !== 'OBS_BOUNDS_NONE' && Number(tx.boundsWidth) > 0 && Number(tx.boundsHeight) > 0;
-    let width = Number(tx.width);
-    let height = Number(tx.height);
-    if (!Number.isFinite(width) || width <= 0) {
-        width = hasBounds ? Number(tx.boundsWidth) : effSrcW * Math.abs(Number(tx.scaleX) || 1);
-    }
-    if (!Number.isFinite(height) || height <= 0) {
-        height = hasBounds ? Number(tx.boundsHeight) : effSrcH * Math.abs(Number(tx.scaleY) || 1);
-    }
+    const rawW = Number(tx.width);
+    const rawH = Number(tx.height);
+    const width = hasBounds
+        ? Number(tx.boundsWidth)
+        : (Number.isFinite(rawW) && rawW > 0 ? rawW : effSrcW * Math.abs(Number(tx.scaleX) || 1));
+    const height = hasBounds
+        ? Number(tx.boundsHeight)
+        : (Number.isFinite(rawH) && rawH > 0 ? rawH : effSrcH * Math.abs(Number(tx.scaleY) || 1));
 
     const posX = Number(tx.positionX) || 0;
     const posY = Number(tx.positionY) || 0;

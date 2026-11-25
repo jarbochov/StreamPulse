@@ -1,4 +1,6 @@
 const SCENE_STORAGE_KEY = 'sp_obs_layout_scene';
+const TAB_STORAGE_KEY = 'sp_obs_layout_tab';
+const INSP_STORAGE_KEY = 'sp_obs_layout_insp';
 const ANCHOR_RATIOS = {
     tl: [0, 0], tc: [0.5, 0], tr: [1, 0],
     ml: [0, 0.5], c: [0.5, 0.5], mr: [1, 0.5],
@@ -17,6 +19,7 @@ let selectedRatio = 'native';
 let selectedAnchor = 'c';
 let stageObserver = null;
 let liveSyncTimer = null;
+let backdropRefreshTimer = null;
 let pendingLivePayload = null;
 let dragState = null;
 
@@ -87,7 +90,16 @@ function rectToObsPatch(item, rect) {
     return patch;
 }
 
-async function pushTransformNow(item, extra = {}) {
+function scheduleBackdropRefresh(delayMs = 140) {
+    if (!$('ol-show-backdrop')?.checked || !currentScene) return;
+    if (backdropRefreshTimer) clearTimeout(backdropRefreshTimer);
+    backdropRefreshTimer = setTimeout(() => {
+        backdropRefreshTimer = null;
+        refreshSnapshot();
+    }, delayMs);
+}
+
+async function pushTransformNow(item, extra = {}, { refreshBackdrop = false } = {}) {
     if (!currentScene || !item) return;
     const transform = rectToObsPatch(item, item.rect);
     try {
@@ -100,6 +112,7 @@ async function pushTransformNow(item, extra = {}) {
                 ...extra
             })
         });
+        if (refreshBackdrop) scheduleBackdropRefresh(140);
     } catch { /* ignore transient during rapid drag */ }
 }
 
@@ -169,6 +182,42 @@ function renderLayoutsList() {
     `).join('');
 }
 
+function getVisibleBorderInsets(item, rectOverride = null) {
+    if (!item || !(item.borderPad > 0) || !(item.borderPad > item.borderReach)) {
+        return { insetX: 0, insetY: 0, hasOuterBorder: false };
+    }
+    const rect = rectOverride || item.rect;
+    const tx = item.transform || {};
+    const sw = Math.max(1, Number(tx.sourceWidth) || 1920);
+    const sh = Math.max(1, Number(tx.sourceHeight) || 1080);
+    const boundsType = String(tx.boundsType || 'OBS_BOUNDS_NONE');
+    const margin = item.borderPad - item.borderReach;
+
+    let sx = rect.width / sw;
+    let sy = rect.height / sh;
+    if (boundsType === 'OBS_BOUNDS_SCALE_INNER' || boundsType === 'OBS_BOUNDS_MAX_ONLY') {
+        const s = boundsType === 'OBS_BOUNDS_MAX_ONLY' ? Math.min(1, sx, sy) : Math.min(sx, sy);
+        const renderW = sw * s;
+        const renderH = sh * s;
+        return {
+            insetX: (rect.width - renderW) * 0.5 + margin * s,
+            insetY: (rect.height - renderH) * 0.5 + margin * s,
+            hasOuterBorder: true
+        };
+    }
+    if (boundsType === 'OBS_BOUNDS_SCALE_OUTER') {
+        const s = Math.max(sx, sy);
+        const renderW = sw * s;
+        const renderH = sh * s;
+        return {
+            insetX: (rect.width - renderW) * 0.5 + margin * s,
+            insetY: (rect.height - renderH) * 0.5 + margin * s,
+            hasOuterBorder: true
+        };
+    }
+    return { insetX: margin * sx, insetY: margin * sy, hasOuterBorder: true };
+}
+
 function renderCanvas(snapGuides = []) {
     const canvas = $('ol-canvas');
     if (!canvas) return;
@@ -180,6 +229,19 @@ function renderCanvas(snapGuides = []) {
         img.src = backdropDataUrl;
         img.alt = '';
         canvas.appendChild(img);
+    }
+
+    if ($('ol-show-guides')?.checked) {
+        for (const [axis, frac, isCenter] of [
+            ['v', 1 / 3, false], ['v', 0.5, true], ['v', 2 / 3, false],
+            ['h', 1 / 3, false], ['h', 0.5, true], ['h', 2 / 3, false]
+        ]) {
+            const g = document.createElement('div');
+            g.className = `ol-canvas-guide ${axis}${isCenter ? ' is-center' : ''}`;
+            if (axis === 'v') g.style.left = `${baseWidth * frac * stageScale}px`;
+            else g.style.top = `${baseHeight * frac * stageScale}px`;
+            canvas.appendChild(g);
+        }
     }
 
     for (let idx = 0; idx < items.length; idx++) {
@@ -205,16 +267,14 @@ function renderCanvas(snapGuides = []) {
         box.appendChild(lbl);
 
         // If source uses StreamPulse Border, draw dashed guide showing visible outer border edge inside padded canvas
-        if (it.borderPad > 0 && it.borderPad > it.borderReach) {
-            const margin = it.borderPad - it.borderReach;
-            const sx = it.rect.width / Math.max(1, Number(it.transform?.sourceWidth) || 1920);
-            const sy = it.rect.height / Math.max(1, Number(it.transform?.sourceHeight) || 1080);
+        const bInsets = getVisibleBorderInsets(it);
+        if (bInsets.hasOuterBorder) {
             const guide = document.createElement('div');
             guide.className = 'ol-border-guide';
-            guide.style.left = `${margin * sx * stageScale}px`;
-            guide.style.right = `${margin * sx * stageScale}px`;
-            guide.style.top = `${margin * sy * stageScale}px`;
-            guide.style.bottom = `${margin * sy * stageScale}px`;
+            guide.style.left = `${bInsets.insetX * stageScale}px`;
+            guide.style.right = `${bInsets.insetX * stageScale}px`;
+            guide.style.top = `${bInsets.insetY * stageScale}px`;
+            guide.style.bottom = `${bInsets.insetY * stageScale}px`;
             box.appendChild(guide);
         }
 
@@ -238,7 +298,7 @@ function renderCanvas(snapGuides = []) {
 
     for (const g of snapGuides) {
         const line = document.createElement('div');
-        line.className = `ol-snap-line ${g.axis}`;
+        line.className = `ol-snap-line ${g.axis}${g.isBorder ? ' is-border' : ''}`;
         if (g.axis === 'v') line.style.left = `${g.pos * stageScale}px`;
         else line.style.top = `${g.pos * stageScale}px`;
         canvas.appendChild(line);
@@ -262,6 +322,9 @@ function renderInspector() {
     $('ol-w').value = String(Math.round(sel.rect.width));
     $('ol-h').value = String(Math.round(sel.rect.height));
     $('ol-rot').value = String(Math.round(Number(sel.transform?.rotation) || 0));
+    if ($('ol-bounds-type')) {
+        $('ol-bounds-type').value = String(sel.transform?.boundsType || 'OBS_BOUNDS_NONE');
+    }
 
     const aspect = sel.aspect || studioState?.sources?.[sel.sourceName] || {
         ratio: 'native', panX: 0, panY: 0, zoom: 1, resizeMode: 'lock-width', anchor: 'c', durationMs: 400
@@ -294,58 +357,131 @@ function selectItem(id) {
     renderCanvas();
 }
 
-function computeSnap(rect, ignoreId) {
-    if (!$('ol-snap-edges')?.checked) return { left: rect.left, top: rect.top, guides: [] };
-    const thresh = 10;
-    const xTargets = [0, baseWidth / 2, baseWidth];
-    const yTargets = [0, baseHeight / 2, baseHeight];
+function buildSnapTargets(ignoreId) {
+    const xTargets = [0, baseWidth / 3, baseWidth / 2, (baseWidth * 2) / 3, baseWidth];
+    const yTargets = [0, baseHeight / 3, baseHeight / 2, (baseHeight * 2) / 3, baseHeight];
     for (const other of items) {
         if (other.sceneItemId === ignoreId || !other.visible) continue;
         xTargets.push(other.rect.left, other.rect.left + other.rect.width / 2, other.rect.left + other.rect.width);
         yTargets.push(other.rect.top, other.rect.top + other.rect.height / 2, other.rect.top + other.rect.height);
+        const bi = getVisibleBorderInsets(other);
+        if (bi.hasOuterBorder) {
+            xTargets.push(other.rect.left + bi.insetX, other.rect.left + other.rect.width - bi.insetX);
+            yTargets.push(other.rect.top + bi.insetY, other.rect.top + other.rect.height - bi.insetY);
+        }
     }
+    return { xTargets, yTargets };
+}
+
+function computeSnap(rect, item) {
+    if (!$('ol-snap-edges')?.checked) return { left: rect.left, top: rect.top, guides: [] };
+    const thresh = 10;
+    const { xTargets, yTargets } = buildSnapTargets(item.sceneItemId);
+    const bi = getVisibleBorderInsets(item, rect);
 
     let left = rect.left;
     let top = rect.top;
     const guides = [];
 
     const xEdges = [
-        { val: left, offset: 0 },
-        { val: left + rect.width / 2, offset: rect.width / 2 },
-        { val: left + rect.width, offset: rect.width }
+        { val: left, offset: 0, isBorder: false },
+        { val: left + rect.width / 2, offset: rect.width / 2, isBorder: false },
+        { val: left + rect.width, offset: rect.width, isBorder: false }
     ];
+    if (bi.hasOuterBorder) {
+        xEdges.push(
+            { val: left + bi.insetX, offset: bi.insetX, isBorder: true },
+            { val: left + rect.width - bi.insetX, offset: rect.width - bi.insetX, isBorder: true }
+        );
+    }
     let bestDx = thresh + 1;
     let snapX = null;
     for (const e of xEdges) {
         for (const t of xTargets) {
             const d = Math.abs(e.val - t);
-            if (d < bestDx) { bestDx = d; snapX = { target: t, offset: e.offset }; }
+            if (d < bestDx) { bestDx = d; snapX = { target: t, offset: e.offset, isBorder: e.isBorder }; }
         }
     }
     if (snapX) {
         left = snapX.target - snapX.offset;
-        guides.push({ axis: 'v', pos: snapX.target });
+        guides.push({ axis: 'v', pos: snapX.target, isBorder: snapX.isBorder });
     }
 
     const yEdges = [
-        { val: top, offset: 0 },
-        { val: top + rect.height / 2, offset: rect.height / 2 },
-        { val: top + rect.height, offset: rect.height }
+        { val: top, offset: 0, isBorder: false },
+        { val: top + rect.height / 2, offset: rect.height / 2, isBorder: false },
+        { val: top + rect.height, offset: rect.height, isBorder: false }
     ];
+    if (bi.hasOuterBorder) {
+        yEdges.push(
+            { val: top + bi.insetY, offset: bi.insetY, isBorder: true },
+            { val: top + rect.height - bi.insetY, offset: rect.height - bi.insetY, isBorder: true }
+        );
+    }
     let bestDy = thresh + 1;
     let snapY = null;
     for (const e of yEdges) {
         for (const t of yTargets) {
             const d = Math.abs(e.val - t);
-            if (d < bestDy) { bestDy = d; snapY = { target: t, offset: e.offset }; }
+            if (d < bestDy) { bestDy = d; snapY = { target: t, offset: e.offset, isBorder: e.isBorder }; }
         }
     }
     if (snapY) {
         top = snapY.target - snapY.offset;
-        guides.push({ axis: 'h', pos: snapY.target });
+        guides.push({ axis: 'h', pos: snapY.target, isBorder: snapY.isBorder });
     }
 
     return { left, top, guides };
+}
+
+function computeResizeSnap(next, mode, item) {
+    if (!$('ol-snap-edges')?.checked) return { rect: next, guides: [] };
+    const thresh = 10;
+    const { xTargets, yTargets } = buildSnapTargets(item.sceneItemId);
+    const guides = [];
+    const out = { ...next };
+
+    const findNearest = (val, targets) => {
+        let best = thresh + 1;
+        let hit = null;
+        for (const t of targets) {
+            const d = Math.abs(val - t);
+            if (d < best) { best = d; hit = t; }
+        }
+        return hit;
+    };
+
+    if (mode.includes('e')) {
+        const hit = findNearest(out.left + out.width, xTargets);
+        if (hit !== null && hit - out.left >= 16) {
+            out.width = hit - out.left;
+            guides.push({ axis: 'v', pos: hit });
+        }
+    } else if (mode.includes('w')) {
+        const right = out.left + out.width;
+        const hit = findNearest(out.left, xTargets);
+        if (hit !== null && right - hit >= 16) {
+            out.left = hit;
+            out.width = right - hit;
+            guides.push({ axis: 'v', pos: hit });
+        }
+    }
+    if (mode.includes('s')) {
+        const hit = findNearest(out.top + out.height, yTargets);
+        if (hit !== null && hit - out.top >= 16) {
+            out.height = hit - out.top;
+            guides.push({ axis: 'h', pos: hit });
+        }
+    } else if (mode.includes('n')) {
+        const bottom = out.top + out.height;
+        const hit = findNearest(out.top, yTargets);
+        if (hit !== null && bottom - hit >= 16) {
+            out.top = hit;
+            out.height = bottom - hit;
+            guides.push({ axis: 'h', pos: hit });
+        }
+    }
+    return { rect: out, guides };
 }
 
 async function loadScene(sceneName) {
@@ -380,6 +516,14 @@ async function loadAll() {
         studioState = await api('/api/obs-layout');
         $('ol-disabled-banner').hidden = studioState.enabled === true;
         $('ol-disconnected-banner').hidden = !studioState.enabled || studioState.obsConnected === true;
+        if ($('ol-lua-path') && studioState.luaScriptPath) {
+            $('ol-lua-path').textContent = studioState.luaScriptPath;
+        }
+        const badge = $('ol-obs-ws-badge');
+        if (badge) {
+            badge.textContent = studioState.obsConnected ? 'OBS Connected' : 'OBS Disconnected';
+            badge.classList.toggle('live', studioState.obsConnected === true);
+        }
         if (!studioState.enabled || !studioState.obsConnected) {
             renderLayoutsList();
             return;
@@ -400,9 +544,77 @@ async function loadAll() {
     }
 }
 
+function switchTopTab(tab) {
+    const valid = tab === 'setup' ? 'setup' : 'stage';
+    try { localStorage.setItem(TAB_STORAGE_KEY, valid); } catch { /* ignore */ }
+    document.querySelectorAll('[data-ol-tab]').forEach(btn => {
+        const on = btn.dataset.olTab === valid;
+        btn.classList.toggle('active', on);
+        btn.setAttribute('aria-selected', String(on));
+    });
+    document.querySelectorAll('[data-ol-pane]').forEach(sec => {
+        sec.hidden = sec.dataset.olPane !== valid;
+    });
+    if (valid === 'stage') layoutCanvas();
+}
+
+function switchInspectorTab(tab) {
+    const valid = ['transform', 'aspect', 'layers'].includes(tab) ? tab : 'transform';
+    try { localStorage.setItem(INSP_STORAGE_KEY, valid); } catch { /* ignore */ }
+    $('ol-inspector-tabs')?.querySelectorAll('[data-insp]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.insp === valid);
+    });
+    document.querySelectorAll('[data-insp-pane]').forEach(pane => {
+        pane.hidden = pane.dataset.inspPane !== valid;
+    });
+}
+
 function bindEvents() {
+    document.querySelectorAll('[data-ol-tab]').forEach(btn => {
+        btn.addEventListener('click', () => switchTopTab(btn.dataset.olTab));
+    });
+    $('ol-inspector-tabs')?.addEventListener('click', e => {
+        const btn = e.target.closest('[data-insp]');
+        if (btn) switchInspectorTab(btn.dataset.insp);
+    });
+    $('ol-btn-copy-lua')?.addEventListener('click', async () => {
+        await navigator.clipboard?.writeText($('ol-lua-path')?.textContent || '');
+        showNotice('Copied Lua script path');
+    });
+
+    $('ol-bounds-type')?.addEventListener('change', async () => {
+        const sel = getSelectedItem();
+        if (!sel || sel.locked) return;
+        const nextType = $('ol-bounds-type').value;
+        sel.transform.boundsType = nextType;
+        const isBounded = nextType !== 'OBS_BOUNDS_NONE';
+        if (isBounded) {
+            sel.transform.boundsWidth = Math.max(8, Math.round(sel.rect.width));
+            sel.transform.boundsHeight = Math.max(8, Math.round(sel.rect.height));
+        }
+        const patch = {
+            ...rectToObsPatch(sel, sel.rect),
+            boundsType: nextType,
+            ...(isBounded ? {
+                boundsWidth: Number(Math.max(8, sel.rect.width).toFixed(2)),
+                boundsHeight: Number(Math.max(8, sel.rect.height).toFixed(2))
+            } : {})
+        };
+        try {
+            await api('/api/obs-layout/transform', {
+                method: 'POST',
+                body: JSON.stringify({ sceneName: currentScene, sceneItemId: sel.sceneItemId, transform: patch })
+            });
+            showNotice(`Bounds set to ${nextType.replace('OBS_BOUNDS_', '')}`);
+            await loadScene(currentScene);
+        } catch (err) {
+            showNotice(err.message);
+        }
+    });
+
     $('ol-scene-select').addEventListener('change', e => loadScene(e.target.value));
     $('ol-btn-refresh').addEventListener('click', () => (currentScene ? loadScene(currentScene) : loadAll()));
+    $('ol-show-guides')?.addEventListener('change', () => renderCanvas());
     $('ol-show-backdrop').addEventListener('change', () => {
         if ($('ol-show-backdrop').checked && !backdropDataUrl) refreshSnapshot();
         else renderCanvas();
@@ -421,7 +633,7 @@ function bindEvents() {
             it.visible = !it.visible;
             renderLayers();
             renderCanvas();
-            await pushTransformNow(it, { visible: it.visible });
+            await pushTransformNow(it, { visible: it.visible }, { refreshBackdrop: true });
             return;
         }
         const lockBtn = e.target.closest('[data-toggle-lock]');
@@ -470,7 +682,7 @@ function bindEvents() {
         if (mode === 'move') {
             next.left = orig.left + dx;
             next.top = orig.top + dy;
-            const snapped = computeSnap(next, item.sceneItemId);
+            const snapped = computeSnap(next, item);
             next.left = snapped.left;
             next.top = snapped.top;
             item.rect = next;
@@ -486,8 +698,9 @@ function bindEvents() {
                 next.height = Math.max(16, orig.height - dy);
                 next.top = orig.top + (orig.height - next.height);
             }
-            item.rect = next;
-            renderCanvas();
+            const snapped = computeResizeSnap(next, mode, item);
+            item.rect = snapped.rect;
+            renderCanvas(snapped.guides);
         }
         renderInspector();
         scheduleLiveSync(item);
@@ -499,7 +712,7 @@ function bindEvents() {
         const { item } = dragState;
         dragState = null;
         renderCanvas([]);
-        await pushTransformNow(item);
+        await pushTransformNow(item, {}, { refreshBackdrop: true });
     }
 
     // Keyboard 1px / 10px nudge
@@ -515,7 +728,7 @@ function bindEvents() {
         e.preventDefault();
         renderCanvas();
         renderInspector();
-        await pushTransformNow(sel);
+        await pushTransformNow(sel, {}, { refreshBackdrop: true });
     });
 
     // Numeric inspector inputs
@@ -530,7 +743,7 @@ function bindEvents() {
             sel.rect.rotation = Number($('ol-rot').value) || 0;
             sel.transform.rotation = sel.rect.rotation;
             renderCanvas();
-            await pushTransformNow(sel);
+            await pushTransformNow(sel, {}, { refreshBackdrop: true });
         });
     });
 
@@ -539,21 +752,21 @@ function bindEvents() {
         if (!sel || sel.locked) return;
         sel.rect.left = (baseWidth - sel.rect.width) / 2;
         renderCanvas(); renderInspector();
-        await pushTransformNow(sel);
+        await pushTransformNow(sel, {}, { refreshBackdrop: true });
     });
     $('ol-align-cv').addEventListener('click', async () => {
         const sel = getSelectedItem();
         if (!sel || sel.locked) return;
         sel.rect.top = (baseHeight - sel.rect.height) / 2;
         renderCanvas(); renderInspector();
-        await pushTransformNow(sel);
+        await pushTransformNow(sel, {}, { refreshBackdrop: true });
     });
     $('ol-align-fit').addEventListener('click', async () => {
         const sel = getSelectedItem();
         if (!sel || sel.locked) return;
         sel.rect.left = 0; sel.rect.top = 0; sel.rect.width = baseWidth; sel.rect.height = baseHeight;
         renderCanvas(); renderInspector();
-        await pushTransformNow(sel);
+        await pushTransformNow(sel, {}, { refreshBackdrop: true });
     });
 
     // Aspect ratio controls
@@ -679,9 +892,15 @@ function bindEvents() {
     if (typeof ResizeObserver === 'function' && $('ol-stage-wrap')) {
         stageObserver = new ResizeObserver(() => layoutCanvas());
         stageObserver.observe($('ol-stage-wrap'));
-        window.addEventListener('beforeunload', () => stageObserver?.disconnect(), { once: true });
+        window.addEventListener('beforeunload', () => {
+            stageObserver?.disconnect();
+            if (backdropRefreshTimer) clearTimeout(backdropRefreshTimer);
+            if (liveSyncTimer) clearTimeout(liveSyncTimer);
+        }, { once: true });
     }
 }
 
 bindEvents();
+switchTopTab((() => { try { return localStorage.getItem(TAB_STORAGE_KEY); } catch { return 'stage'; } })());
+switchInspectorTab((() => { try { return localStorage.getItem(INSP_STORAGE_KEY); } catch { return 'transform'; } })());
 loadAll();
