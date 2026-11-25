@@ -1530,7 +1530,13 @@ float4 PSDefault(VertDataOut v_in) : TARGET {
     }
     result = result + shadow_pm * (1.0 - clamp(result.a, 0.0, 1.0));
     result = border_pm + result * (1.0 - border_pm.a);
-    return result;
+    // Un-premultiply back to straight alpha for OBS's SRCALPHA/INVSRCALPHA filter pipeline
+    // so semi-transparent glows don't get double-multiplied (darkened) by OBS compositing.
+    float out_a = clamp(result.a, 0.0, 1.0);
+    if (out_a > 0.0005) {
+        return float4(clamp(result.rgb / out_a, 0.0, 1.0), out_a);
+    }
+    return float4(0.0, 0.0, 0.0, 0.0);
 }
 
 technique Draw {
