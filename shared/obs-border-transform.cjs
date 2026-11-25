@@ -170,40 +170,56 @@ function computeCompensatedTransform(transform, prevProfile, nextProfile, { pinM
     const cropB = Number(transform.cropBottom) || 0;
     const curW = Math.max(1, (baseW + prevMetrics.pad * 2) - cropL - cropR);
     const curH = Math.max(1, (baseH + prevMetrics.pad * 2) - cropT - cropB);
+    const newCurW = Math.max(1, (baseW + nextMetrics.pad * 2) - cropL - cropR);
+    const newCurH = Math.max(1, (baseH + nextMetrics.pad * 2) - cropT - cropB);
 
-    const oldScaleX = hasBounds
-        ? resolveBoundsEffectiveScale(boundsType, transform.boundsWidth, transform.boundsHeight, curW, curH).sx
-        : (Number(transform.scaleX) || 1);
-    const oldScaleY = hasBounds
-        ? resolveBoundsEffectiveScale(boundsType, transform.boundsWidth, transform.boundsHeight, curW, curH).sy
-        : (Number(transform.scaleY) || 1);
+    const oldScale = hasBounds
+        ? resolveBoundsEffectiveScale(boundsType, transform.boundsWidth, transform.boundsHeight, curW, curH)
+        : { sx: Number(transform.scaleX) || 1, sy: Number(transform.scaleY) || 1 };
+    const oldScaleX = oldScale.sx;
+    const oldScaleY = oldScale.sy;
 
+    const isUniformBounds = hasBounds && boundsType !== 'OBS_BOUNDS_STRETCH';
     let newScaleX = oldScaleX;
     let newScaleY = oldScaleY;
-    let deltaMarginX = 0;
-    let deltaMarginY = 0;
 
     if (mode === 'outer-border') {
         const oldOuterW = Math.max(1, baseW + 2 * prevMetrics.reach);
         const newOuterW = Math.max(1, baseW + 2 * nextMetrics.reach);
         const oldOuterH = Math.max(1, baseH + 2 * prevMetrics.reach);
         const newOuterH = Math.max(1, baseH + 2 * nextMetrics.reach);
-        newScaleX = oldScaleX * (oldOuterW / newOuterW);
-        newScaleY = oldScaleY * (oldOuterH / newOuterH);
-
-        const oldMargin = prevMetrics.pad - prevMetrics.reach;
-        const newMargin = nextMetrics.pad - nextMetrics.reach;
-        deltaMarginX = (newMargin * newScaleX) - (oldMargin * oldScaleX);
-        deltaMarginY = (newMargin * newScaleY) - (oldMargin * oldScaleY);
-    } else {
-        // 'content': keep inner content box scale & screen position fixed
-        deltaMarginX = deltaPad * oldScaleX;
-        deltaMarginY = deltaPad * oldScaleY;
+        if (isUniformBounds) {
+            // Uniform bounding boxes keep a single aspect-preserving scale; match the limiting axis
+            const ratioX = (Number(transform.boundsWidth) || curW) / curW;
+            const ratioY = (Number(transform.boundsHeight) || curH) / curH;
+            const useY = boundsType === 'OBS_BOUNDS_SCALE_TO_HEIGHT'
+                || (boundsType === 'OBS_BOUNDS_SCALE_OUTER' && ratioY >= ratioX)
+                || (boundsType !== 'OBS_BOUNDS_SCALE_OUTER' && boundsType !== 'OBS_BOUNDS_SCALE_TO_WIDTH' && ratioY <= ratioX);
+            const uniformScale = useY ? oldScaleY * (oldOuterH / newOuterH) : oldScaleX * (oldOuterW / newOuterW);
+            newScaleX = uniformScale;
+            newScaleY = uniformScale;
+        } else {
+            newScaleX = oldScaleX * (oldOuterW / newOuterW);
+            newScaleY = oldScaleY * (oldOuterH / newOuterH);
+        }
     }
 
+    const oldMargin = mode === 'outer-border' ? (prevMetrics.pad - prevMetrics.reach) : prevMetrics.pad;
+    const newMargin = mode === 'outer-border' ? (nextMetrics.pad - nextMetrics.reach) : nextMetrics.pad;
+    const deltaMarginX = (newMargin * newScaleX) - (oldMargin * oldScaleX);
+    const deltaMarginY = (newMargin * newScaleY) - (oldMargin * oldScaleY);
+
+    const oldRenderW = curW * oldScaleX;
+    const oldRenderH = curH * oldScaleY;
+    const newRenderW = newCurW * newScaleX;
+    const newRenderH = newCurH * newScaleY;
+
+    const deltaBoxW = newRenderW - oldRenderW;
+    const deltaBoxH = newRenderH - oldRenderH;
+
     // Shift anchor point so the pinned rectangle stays at the exact same screen coordinates
-    const localDx = (2 * ax - 1) * deltaMarginX;
-    const localDy = (2 * ay - 1) * deltaMarginY;
+    const localDx = ax * deltaBoxW - deltaMarginX;
+    const localDy = ay * deltaBoxH - deltaMarginY;
     const nextPosX = Number((posX + localDx * cos - localDy * sin).toFixed(3));
     const nextPosY = Number((posY + localDx * sin + localDy * cos).toFixed(3));
 
@@ -213,8 +229,8 @@ function computeCompensatedTransform(transform, prevProfile, nextProfile, { pinM
     };
 
     if (hasBounds) {
-        const nextBoundsW = Math.max(1, Number(transform.boundsWidth) + 2 * deltaMarginX);
-        const nextBoundsH = Math.max(1, Number(transform.boundsHeight) + 2 * deltaMarginY);
+        const nextBoundsW = Math.max(1, Number(transform.boundsWidth) + deltaBoxW);
+        const nextBoundsH = Math.max(1, Number(transform.boundsHeight) + deltaBoxH);
         patch.boundsWidth = Number(nextBoundsW.toFixed(3));
         patch.boundsHeight = Number(nextBoundsH.toFixed(3));
     } else if (mode === 'outer-border' && Math.abs(deltaReach) >= 0.001) {

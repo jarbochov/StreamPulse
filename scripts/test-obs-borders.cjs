@@ -507,6 +507,19 @@ describe('OBS Border Studio (Beta / Advanced)', () => {
         const resRot = computeCompensatedTransform(txRot, prevProf, nextProf, { pinMode: 'content' });
         assert.ok(Math.abs(resRot.patch.positionX - 140) < 0.01);
         assert.ok(Math.abs(resRot.patch.positionY - 40) < 0.01);
+
+        // 6. OBS_BOUNDS_SCALE_OUTER (matching Facecam 871x571.5): bottom outer border edge stays exact
+        const txScaleOuter = {
+            positionX: 524.5, positionY: 277, scaleX: 1, scaleY: 1, rotation: 0, alignment: 5,
+            sourceWidth: 1340, sourceHeight: 780, // 1280x720 + 2*30
+            boundsType: 'OBS_BOUNDS_SCALE_OUTER', boundsWidth: 871, boundsHeight: 571.5
+        };
+        const resSO = computeCompensatedTransform(txScaleOuter, prevProf, nextProf, { pinMode: 'outer-border' });
+        const oldEffS = 571.5 / 780;
+        const oldBottomBorder = 277 + 571.5 - (30 - 10) * oldEffS;
+        const newEffS = resSO.patch.boundsHeight / (720 + 140);
+        const newBottomBorder = resSO.patch.positionY + resSO.patch.boundsHeight - (70 - 20) * newEffS;
+        assert.ok(Math.abs(newBottomBorder - oldBottomBorder) < 0.05, `expected bottom border ${oldBottomBorder}, got ${newBottomBorder}`);
     });
 
     it('persists transformLock settings and calls SetSceneItemTransform on OBS sync when enabled', async () => {
