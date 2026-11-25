@@ -884,3 +884,41 @@
     flex-direction: column;
     gap: 3px;
 }
+
+/* Crisp single-row toolbars & unmistakable Primary / Danger button contrast */
+.ol-toolbar .input,
+.ol-layouts-toolbar .input {
+    width: auto;
+    margin: 0;
+}
+
+.ol-toolbar label,
+.ol-layouts-toolbar label {
+    margin: 0;
+}
+
+.ol-wrap .btn-primary,
+.ol-modal .btn-primary {
+    background: var(--accent, #3b82f6);
+    border-color: var(--accent, #3b82f6);
+    color: #ffffff;
+}
+
+.ol-wrap .btn-primary:hover,
+.ol-modal .btn-primary:hover {
+    filter: brightness(1.1);
+}
+
+.ol-wrap .btn-danger,
+.ol-modal .btn-danger {
+    background: rgba(239, 68, 68, 0.16);
+    border: 1px solid rgba(239, 68, 68, 0.55);
+    color: #f87171;
+}
+
+.ol-wrap .btn-danger:hover,
+.ol-modal .btn-danger:hover {
+    background: #dc2626;
+    border-color: #dc2626;
+    color: #ffffff;
+}

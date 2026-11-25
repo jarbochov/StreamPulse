@@ -1290,6 +1290,20 @@ function bindEvents() {
     document.querySelectorAll('[data-insp-tab]').forEach(btn => {
         btn.addEventListener('click', () => switchInspectorTab(btn.dataset.inspTab));
     });
+    document.querySelectorAll('[data-left-tab]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const target = btn.dataset.leftTab === 'history' ? 'history' : 'layers';
+            document.querySelectorAll('[data-left-tab]').forEach(b => {
+                const on = b.dataset.leftTab === target;
+                b.classList.toggle('active', on);
+                b.setAttribute('aria-selected', on ? 'true' : 'false');
+            });
+            document.querySelectorAll('[data-left-pane]').forEach(p => {
+                p.hidden = p.dataset.leftPane !== target;
+            });
+        });
+    });
+    $('ol-btn-open-layouts-tab')?.addEventListener('click', () => switchTopTab('layouts'));
 
     $('ol-scene-select').addEventListener('change', e => loadScene(e.target.value));
     $('ol-btn-refresh').addEventListener('click', () => loadScene(currentScene));
@@ -2004,7 +2018,7 @@ function bindEvents() {
         }
     });
 
-    $('ol-layout-list').addEventListener('click', async e => {
+    $('ol-layout-list')?.addEventListener('click', async e => {
         const applyBtn = e.target.closest('[data-apply-layout]');
         if (applyBtn) {
             const id = applyBtn.dataset.applyLayout;

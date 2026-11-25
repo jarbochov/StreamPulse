@@ -87,13 +87,18 @@
         </div>
 
         <div class="ol-workspace">
-            <!-- LEFT COLUMN: DEDICATED ALWAYS-VISIBLE LAYERS PANEL -->
+            <!-- LEFT COLUMN: DEDICATED LAYERS & EDIT HISTORY PANEL -->
             <aside class="ol-panel ol-layers-col">
-                <div class="ol-micro-head">
-                    <span>Layers (Z-Order)</span>
-                    <span class="ol-pill" id="ol-layer-count">0</span>
+                <div class="ol-inspector-tabs" style="grid-template-columns:repeat(2,minmax(0,1fr));" role="tablist" aria-label="Left Panel Views">
+                    <button type="button" class="active" data-left-tab="layers" role="tab" aria-selected="true">Layers <span class="ol-pill" id="ol-layer-count" style="margin-left:3px;">0</span></button>
+                    <button type="button" data-left-tab="history" role="tab" aria-selected="false">History <span class="ol-pill" id="ol-history-count" style="margin-left:3px;">0</span></button>
                 </div>
-                <div class="ol-layer-list" id="ol-layer-list"></div>
+                <div id="ol-left-layers" data-left-pane="layers" style="display:flex;flex-direction:column;gap:6px;min-height:0;">
+                    <div class="ol-layer-list" id="ol-layer-list"></div>
+                </div>
+                <div id="ol-left-history" data-left-pane="history" hidden style="display:flex;flex-direction:column;gap:6px;min-height:0;">
+                    <div class="ol-history-list" id="ol-history-list" style="max-height:calc(100vh - 260px);"></div>
+                </div>
             </aside>
 
             <!-- CENTER COLUMN: LARGE INTERACTIVE STAGE -->
@@ -344,18 +349,14 @@
                         <input type="range" id="ol-path-curve" min="0" max="100" value="28">
                     </div>
 
-                    <div class="ol-micro-head" style="padding-top:8px;border-top:1px solid var(--border);"><span>Saved Layout Snapshots (Save Points)</span></div>
+                    <div class="ol-micro-head" style="padding-top:8px;border-top:1px solid var(--border);">
+                        <span>Quick Save Snapshot</span>
+                        <button type="button" class="btn btn-secondary btn-sm" id="ol-btn-open-layouts-tab" style="padding:2px 8px;font-size:11px;">Open Saved Layouts &rarr;</button>
+                    </div>
                     <div style="display:flex;gap:6px;">
                         <input type="text" id="ol-layout-name" class="input" placeholder="e.g. Retro 4:3 Intermission" maxlength="80" style="flex:1;min-width:0;">
                         <button type="button" class="btn btn-primary btn-sm" id="ol-btn-save-layout">Save</button>
                     </div>
-                    <div id="ol-layout-list" style="display:flex;flex-direction:column;gap:6px;"></div>
-
-                    <div class="ol-micro-head" style="padding-top:8px;border-top:1px solid var(--border);">
-                        <span>Edit History</span>
-                        <span class="ol-pill" id="ol-history-count">0</span>
-                    </div>
-                    <div id="ol-history-list" class="ol-history-list"></div>
                 </div>
             </aside>
         </div>
