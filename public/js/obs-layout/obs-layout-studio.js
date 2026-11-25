@@ -451,7 +451,92 @@ function renderInspector() {
     $('ol-duration').value = String(cfg.durationMs ?? 400);
 }
 
+function buildLayoutThumbSvg(layout) {
+    const w = 1920;
+    const h = 1080;
+    const rects = (layout.items || []).filter(it => it.visible !== false && it.transform).map((it, idx) => {
+        const t = it.transform || {};
+        const rw = Math.max(40, Number(t.boundsWidth) || Math.abs(Number(t.scaleX) || 0.35) * 1920);
+        const rh = Math.max(24, Number(t.boundsHeight) || Math.abs(Number(t.scaleY) || 0.35) * 1080);
+        const x = Number(t.positionX) || 0;
+        const y = Number(t.positionY) || 0;
+        const hue = (idx * 55 + 195) % 360;
+        return `<g>
+            <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${Math.min(w, rw).toFixed(1)}" height="${Math.min(h, rh).toFixed(1)}" rx="12" fill="hsla(${hue}, 78%, 58%, 0.16)" stroke="hsla(${hue}, 82%, 65%, 0.85)" stroke-width="6"/>
+            <text x="${(x + 18).toFixed(1)}" y="${(y + 42).toFixed(1)}" fill="#e2e8f0" font-size="34" font-family="system-ui, sans-serif" font-weight="700">${esc((it.sourceName || "").slice(0, 18))}</text>
+        </g>`;
+    }).join("");
+    return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+        <line x1="960" y1="0" x2="960" y2="1080" stroke="rgba(148,163,184,0.16)" stroke-width="3"/>
+        <line x1="0" y1="540" x2="1920" y2="540" stroke="rgba(148,163,184,0.16)" stroke-width="3"/>
+        ${rects}
+    </svg>`;
+}
+
+function renderLayoutsDeck() {
+    const allLayouts = studioState?.layouts || [];
+    const tabCount = $('ol-layouts-tab-count');
+    if (tabCount) tabCount.textContent = String(allLayouts.length);
+
+    const filterSel = $('ol-deck-scene-filter');
+    if (filterSel) {
+        const curVal = filterSel.value;
+        const sceneNames = [...new Set(allLayouts.map(l => l.sceneName).filter(Boolean))];
+        filterSel.innerHTML = `<option value="">All Scenes (${allLayouts.length})</option>` +
+            sceneNames.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join("");
+        if (sceneNames.includes(curVal)) filterSel.value = curVal;
+    }
+
+    const deck = $('ol-layouts-deck');
+    if (!deck) return;
+    const sceneFilter = filterSel?.value || "";
+    const q = ($('ol-deck-search')?.value || "").trim().toLowerCase();
+    const filtered = allLayouts.filter(l => {
+        if (sceneFilter && l.sceneName !== sceneFilter) return false;
+        if (q && !String(l.name || "").toLowerCase().includes(q) && !String(l.sceneName || "").toLowerCase().includes(q)) return false;
+        return true;
+    });
+
+    if (!filtered.length) {
+        deck.innerHTML = `<div class="ol-panel" style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--text-muted);">
+            No saved layouts match your filter. Arrange sources in <strong>Scene Stage</strong> or click <strong>Save Current Scene</strong> above to create a save point.
+        </div>`;
+        return;
+    }
+
+    deck.innerHTML = filtered.map(l => {
+        const tType = l.transitionType || "move";
+        const pType = l.pathType || "direct";
+        const dur = l.durationMs ?? 450;
+        const ease = l.easing || "ease-in-out";
+        const canOverwrite = Boolean(currentScene && l.sceneName === currentScene);
+        return `
+        <article class="ol-layout-card" data-deck-layout="${esc(l.id)}">
+            <div class="ol-layout-thumb">${buildLayoutThumbSvg(l)}</div>
+            <div class="ol-layout-card-head">
+                <div class="ol-layout-card-title" title="${esc(l.name)}">${esc(l.name)}</div>
+                <span class="ol-pill">${esc(l.sceneName || "Any Scene")}</span>
+            </div>
+            <div class="ol-layout-card-meta">
+                <span class="ol-pill beta">${esc(tType)}</span>
+                <span class="ol-pill">${esc(pType)}</span>
+                <span class="ol-pill">${dur}ms · ${esc(ease)}</span>
+                <span class="ol-pill">${(l.items || []).length} items</span>
+            </div>
+            <div class="ol-layout-card-actions">
+                <button type="button" class="btn btn-primary btn-sm" data-deck-act="apply" data-id="${esc(l.id)}">Apply to OBS</button>
+                <button type="button" class="btn btn-secondary btn-sm" data-deck-act="stage" data-id="${esc(l.id)}">Stage &amp; Path</button>
+                ${canOverwrite ? `<button type="button" class="btn btn-secondary btn-sm" data-deck-act="overwrite" data-id="${esc(l.id)}" title="Update this snapshot with current scene positions">Update</button>` : ""}
+                <button type="button" class="btn btn-secondary btn-sm" data-deck-act="duplicate" data-id="${esc(l.id)}">Clone</button>
+                <button type="button" class="btn btn-secondary btn-sm" data-deck-act="copy" data-id="${esc(l.id)}" title="Copy Bitfocus Companion URL">URL</button>
+                <button type="button" class="btn btn-secondary btn-sm" data-deck-act="delete" data-id="${esc(l.id)}">Del</button>
+            </div>
+        </article>`;
+    }).join("");
+}
+
 function renderLayoutsList() {
+    renderLayoutsDeck();
     const list = $('ol-layout-list');
     if (!list) return;
     const layouts = (studioState?.layouts || []).filter(l => !currentScene || l.sceneName === currentScene);
@@ -793,7 +878,7 @@ async function loadAll() {
 }
 
 function switchTopTab(tab) {
-    const valid = tab === 'setup' ? 'setup' : 'stage';
+    const valid = ['stage', 'layouts', 'setup'].includes(tab) ? tab : 'stage';
     try { localStorage.setItem(TAB_STORAGE_KEY, valid); } catch { /* ignore */ }
     document.querySelectorAll('[data-ol-tab]').forEach(btn => {
         const on = btn.dataset.olTab === valid;
@@ -1147,9 +1232,7 @@ function bindEvents() {
         if (previewLayoutId) renderCanvas();
     });
 
-    // Saved Layout Snapshots (Save Points)
-    $('ol-btn-save-layout').addEventListener('click', async () => {
-        const name = $('ol-layout-name').value.trim();
+    async function saveCurrentLayoutSnapshot(name, existingId = null) {
         if (!name || !currentScene) return;
         const layoutItems = items.map(it => ({
             sourceName: it.sourceName,
@@ -1164,27 +1247,126 @@ function bindEvents() {
             },
             aspect: it.aspect || studioState?.sources?.[it.sourceName] || null
         }));
+        const res = await api('/api/obs-layout/layouts', {
+            method: 'POST',
+            body: JSON.stringify({
+                ...(existingId ? { id: existingId } : {}),
+                name,
+                sceneName: currentScene,
+                durationMs: Number($('ol-trans-dur')?.value) || 450,
+                transitionType: $('ol-trans-type')?.value || 'move',
+                pathType: $('ol-path-type')?.value || 'direct',
+                pathCurve: (Number($('ol-path-curve')?.value) || 28) / 100,
+                pathControlPoint: $('ol-path-type')?.value === 'custom' ? customControlPoint : null,
+                easing: $('ol-easing')?.value || 'ease-in-out',
+                items: layoutItems
+            })
+        });
+        studioState = { ...studioState, ...res.state };
+        renderLayoutsList();
+        return res;
+    }
+
+    // Saved Layout Snapshots (Save Points)
+    $('ol-btn-save-layout').addEventListener('click', async () => {
+        const name = $('ol-layout-name').value.trim();
+        if (!name || !currentScene) return;
         try {
-            const res = await api('/api/obs-layout/layouts', {
-                method: 'POST',
-                body: JSON.stringify({
-                    name,
-                    sceneName: currentScene,
-                    durationMs: Number($('ol-trans-dur')?.value) || 450,
-                    transitionType: $('ol-trans-type')?.value || 'move',
-                    pathType: $('ol-path-type')?.value || 'direct',
-                    pathCurve: (Number($('ol-path-curve')?.value) || 28) / 100,
-                    pathControlPoint: $('ol-path-type')?.value === 'custom' ? customControlPoint : null,
-                    easing: $('ol-easing')?.value || 'ease-in-out',
-                    items: layoutItems
-                })
-            });
-            studioState = { ...studioState, ...res.state };
+            await saveCurrentLayoutSnapshot(name);
             $('ol-layout-name').value = '';
-            renderLayoutsList();
             showNotice(`Saved layout snapshot "${name}"`);
         } catch (err) {
             showNotice(err.message);
+        }
+    });
+
+    // Dedicated Saved Layouts Deck Tab handlers
+    $('ol-deck-scene-filter')?.addEventListener('change', () => renderLayoutsDeck());
+    $('ol-deck-search')?.addEventListener('input', () => renderLayoutsDeck());
+    $('ol-deck-btn-save')?.addEventListener('click', async () => {
+        const name = $('ol-deck-save-name')?.value.trim();
+        if (!name || !currentScene) return;
+        try {
+            await saveCurrentLayoutSnapshot(name);
+            $('ol-deck-save-name').value = '';
+            showNotice(`Saved layout snapshot "${name}"`);
+        } catch (err) {
+            showNotice(err.message);
+        }
+    });
+
+    $('ol-layouts-deck')?.addEventListener('click', async e => {
+        const btn = e.target.closest('[data-deck-act]');
+        if (!btn) return;
+        const act = btn.dataset.deckAct;
+        const id = btn.dataset.id;
+        const layout = (studioState?.layouts || []).find(l => l.id === id);
+        if (!layout) return;
+
+        if (act === 'apply') {
+            try {
+                await api('/api/obs-layout/layouts/apply', {
+                    method: 'POST',
+                    body: JSON.stringify({ id })
+                });
+                showNotice(`Applied layout "${layout.name}"`);
+                if (layout.sceneName === currentScene) {
+                    await loadScene(currentScene, { preserveHistory: true, historyLabel: `Layout: ${layout.name}` });
+                }
+            } catch (err) {
+                showNotice(err.message);
+            }
+        } else if (act === 'stage') {
+            switchTopTab('stage');
+            switchInspectorTab('motion');
+            if (layout.sceneName && layout.sceneName !== currentScene) {
+                const sel = $('ol-scene-select');
+                if (sel) sel.value = layout.sceneName;
+                await loadScene(layout.sceneName);
+            }
+            previewLayoutId = id;
+            if ($('ol-trans-type') && layout.transitionType) $('ol-trans-type').value = layout.transitionType;
+            if ($('ol-path-type') && layout.pathType) $('ol-path-type').value = layout.pathType;
+            if ($('ol-easing') && layout.easing) $('ol-easing').value = layout.easing;
+            if ($('ol-trans-dur') && layout.durationMs !== undefined) $('ol-trans-dur').value = String(layout.durationMs);
+            if (layout.pathControlPoint) customControlPoint = { ...layout.pathControlPoint };
+            renderLayoutsList();
+            renderCanvas();
+        } else if (act === 'overwrite') {
+            try {
+                await saveCurrentLayoutSnapshot(layout.name, layout.id);
+                showNotice(`Updated layout "${layout.name}" with current scene state`);
+            } catch (err) {
+                showNotice(err.message);
+            }
+        } else if (act === 'duplicate') {
+            try {
+                const clone = { ...layout, id: undefined, name: `${layout.name} (Copy)` };
+                const res = await api('/api/obs-layout/layouts', {
+                    method: 'POST',
+                    body: JSON.stringify(clone)
+                });
+                studioState = { ...studioState, ...res.state };
+                renderLayoutsList();
+                showNotice(`Cloned "${layout.name}"`);
+            } catch (err) {
+                showNotice(err.message);
+            }
+        } else if (act === 'copy') {
+            const url = `${window.location.origin}/api/obs-layout/layouts/apply?id=${encodeURIComponent(id)}`;
+            navigator.clipboard?.writeText(url);
+            showNotice(`Copied Companion URL for "${layout.name}"`);
+        } else if (act === 'delete') {
+            try {
+                const res = await api(`/api/obs-layout/layouts/${encodeURIComponent(id)}`, { method: 'DELETE' });
+                studioState = { ...studioState, ...res.state };
+                if (previewLayoutId === id) previewLayoutId = null;
+                renderLayoutsList();
+                renderCanvas();
+                showNotice(`Deleted "${layout.name}"`);
+            } catch (err) {
+                showNotice(err.message);
+            }
         }
     });
 

@@ -655,3 +655,77 @@
         height: 420px;
     }
 }
+
+/* Dedicated Saved Layouts Deck Tab */
+.ol-layouts-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.7rem 0.95rem;
+    margin-bottom: 0.9rem;
+}
+
+.ol-layouts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 0.95rem;
+}
+
+.ol-layout-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    transition: border-color 0.15s ease;
+}
+
+.ol-layout-card:hover {
+    border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+
+.ol-layout-thumb {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 7px;
+    background: radial-gradient(circle at 20% 20%, #162033 0%, #090d16 100%);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    overflow: hidden;
+}
+
+.ol-layout-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.ol-layout-card-title {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--text-main);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ol-layout-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.ol-layout-card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: auto;
+    padding-top: 4px;
+}
