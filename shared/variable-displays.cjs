@@ -3,13 +3,14 @@ const { normalizeDisplayTable } = require('./display-table.cjs');
 const { normalizeDisplayCounter } = require('./display-counter.cjs');
 const { normalizeDisplayMeter } = require('./display-meter.cjs');
 const { normalizeDisplayTicker } = require('./display-ticker.cjs');
+const { normalizeDisplayBingo } = require('./display-bingo.cjs');
 const key = value => String(value || '').replace(/[^a-z0-9_-]/gi, '_').slice(0, 60);
 const text = (value, limit = 80) => String(value ?? '').trim().slice(0, limit);
 const number = (value, fallback, min, max) => Number.isFinite(Number(value)) && value !== '' && value != null ? Math.max(min, Math.min(max, Number(value))) : fallback;
 const color = (value, fallback) => /^#[a-f0-9]{6}(?:[a-f0-9]{2})?$/i.test(value || '') ? value : fallback;
 
 function normalizeDisplay(input = {}, id = input.id) {
-    if (input.kind && !['inventory', 'table', 'badge', 'counter', 'meter', 'ticker'].includes(input.kind)) throw new Error('Unsupported display kind');
+    if (input.kind && !['inventory', 'table', 'badge', 'counter', 'meter', 'ticker', 'bingo'].includes(input.kind)) throw new Error('Unsupported display kind');
     const seen = new Set();
     const sections = (Array.isArray(input.sections) ? input.sections : []).slice(0, 20).map((section, index) => {
         const cells = new Set();
@@ -36,6 +37,7 @@ function normalizeDisplay(input = {}, id = input.id) {
         ...(input.kind === 'counter' ? { counter: normalizeDisplayCounter(input.counter) } : {}),
         ...(input.kind === 'meter' ? { meter: normalizeDisplayMeter(input.meter) } : {}),
         ...(input.kind === 'ticker' ? { ticker: normalizeDisplayTicker(input.ticker) } : {}),
+        ...(input.kind === 'bingo' ? { bingo: normalizeDisplayBingo(input.bingo) } : {}),
         catalogId: key(input.catalogId), imageField: key(input.imageField) || 'image', labelField: key(input.labelField) || 'name',
         layout: {
             mode: input.layout?.mode === 'fixed' ? 'fixed' : 'flow',

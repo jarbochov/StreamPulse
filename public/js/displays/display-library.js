@@ -4,6 +4,7 @@ import { createBadgeDesigner } from './badge-designer.js';
 import { createCounterDesigner, defaultCounter } from './counter-designer.js';
 import { createMeterDesigner, defaultMeter } from './meter-designer.js';
 import { createTickerDesigner, defaultTicker } from './ticker-designer.js';
+import { createBingoDesigner, defaultBingo } from './bingo-designer.js';
 import { defaultImageGroupConfig } from './badge-model.js';
 import { badgeVisualControls, bindBadgeControls, pickBadgeAsset, uploadBadgeAsset } from './badge-controls.js';
 import { setDisplayFormContext, refreshBoundDisplayNumbers } from './display-form.js';
@@ -26,7 +27,7 @@ const defaults = () => ({
 const state = {
     displays: [], usageCounts: {}, sets: [], variables: [], draft: null, baseline: '', previewBinding: null,
     previewBackdrop: '#111827', previewResolution: 'native', dragged: null, previewFrame: 0, loaded: false, busy: false,
-    libraryFilter: 'all', builderView: 'design', counterPreviewDelta: 0
+    libraryFilter: 'all', builderView: 'design', counterPreviewDelta: 0, bingoPreviewStamped: new Set()
 };
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -60,6 +61,12 @@ const meterDesigner = createMeterDesigner($('#meter-design-controls'), $('#meter
     pickFont: openFontPicker
 });
 const tickerDesigner = createTickerDesigner($('#ticker-design-controls'), $('#ticker-appearance-controls'), {
+    getDraft: () => state.draft, getSets: () => state.sets, getVariables: () => state.variables,
+    onChange: () => { markDirty(); renderPreviewControls(); schedulePreview(); },
+    pickColor: openBadgeColorPicker,
+    pickFont: openFontPicker
+});
+const bingoDesigner = createBingoDesigner($('#bingo-design-controls'), $('#bingo-appearance-controls'), {
     getDraft: () => state.draft, getSets: () => state.sets, getVariables: () => state.variables,
     onChange: () => { markDirty(); renderPreviewControls(); schedulePreview(); },
     pickColor: openBadgeColorPicker,
@@ -145,6 +152,10 @@ function displaySummary(display) {
         const t = display.ticker || {};
         return [t.sourceMode === 'set' ? (set?.name || 'Set unavailable') : (t.listVariable || 'No list'), t.badgeText || 'News Ticker'];
     }
+    if (display.kind === 'bingo') {
+        const b = display.bingo || {};
+        return [`${b.size || 5}×${b.size || 5} Bingo`, b.stampStyle || 'dauber'];
+    }
     return [
         set?.name || 'Catalog unavailable',
         `${items} ${items === 1 ? 'item' : 'items'}`,
@@ -179,10 +190,10 @@ function renderLibrary() {
     }
     $('#display-list').innerHTML = filtered.map(display => `
         <article class="display-list-card" data-display-kind="${esc(display.kind || 'inventory')}">
-            <div class="display-card-illustration" aria-hidden="true">${display.kind === 'table' ? '<div class="mini-table"><i></i><i></i><i></i><i></i></div>' : display.kind === 'badge' ? '<div class="mini-badge"><i></i><span><b></b><b></b></span></div>' : display.kind === 'counter' ? '<div class="mini-counter"><i></i><i></i><i></i><i class="is-empty"></i><i class="is-empty"></i></div>' : display.kind === 'meter' ? '<div class="mini-meter"><i></i><i></i></div>' : display.kind === 'ticker' ? '<div class="mini-ticker"><b></b><i></i></div>' : '<div class="mini-inventory"><i></i><i></i><i></i><i></i><i></i><i></i></div>'}</div>
+            <div class="display-card-illustration" aria-hidden="true">${display.kind === 'table' ? '<div class="mini-table"><i></i><i></i><i></i><i></i></div>' : display.kind === 'badge' ? '<div class="mini-badge"><i></i><span><b></b><b></b></span></div>' : display.kind === 'counter' ? '<div class="mini-counter"><i></i><i></i><i></i><i class="is-empty"></i><i class="is-empty"></i></div>' : display.kind === 'meter' ? '<div class="mini-meter"><i></i><i></i></div>' : display.kind === 'ticker' ? '<div class="mini-ticker"><b></b><i></i></div>' : display.kind === 'bingo' ? '<div class="mini-inventory"><i></i><i></i><i></i><i></i><i></i><i></i></div>' : '<div class="mini-inventory"><i></i><i></i><i></i><i></i><i></i><i></i></div>'}</div>
             <div class="display-list-head">
                 <h3>${esc(display.name)}</h3>
-                <span class="display-tag">${esc(display.kind === 'table' ? 'Table' : display.kind === 'badge' ? 'Badge' : display.kind === 'counter' ? 'Counter' : display.kind === 'meter' ? 'Meter' : display.kind === 'ticker' ? 'Ticker' : 'Inventory')}</span>
+                <span class="display-tag">${esc(display.kind === 'table' ? 'Table' : display.kind === 'badge' ? 'Badge' : display.kind === 'counter' ? 'Counter' : display.kind === 'meter' ? 'Meter' : display.kind === 'ticker' ? 'Ticker' : display.kind === 'bingo' ? 'Bingo' : 'Inventory')}</span>
             </div>
             <div class="display-list-meta">${[...displaySummary(display), ...(state.usageCounts[display.id] ? [`Used in ${state.usageCounts[display.id]} ${state.usageCounts[display.id] === 1 ? 'overlay' : 'overlays'}`] : [])].map(value => `<span class="display-tag">${esc(value)}</span>`).join('')}</div>
             <div class="display-list-actions">
@@ -228,10 +239,12 @@ function confirmDiscard() {
 function beginDraft(display = defaults()) {
     state.draft = { ...defaults(), ...clone(display) };
     state.counterPreviewDelta = 0;
+    state.bingoPreviewStamped = new Set();
     if (state.draft.kind === 'table') state.draft.table = { ...defaultTable(), ...state.draft.table };
     if (state.draft.kind === 'counter') state.draft.counter = { ...defaultCounter(), ...state.draft.counter };
     if (state.draft.kind === 'meter') state.draft.meter = { ...defaultMeter(), ...state.draft.meter };
     if (state.draft.kind === 'ticker') state.draft.ticker = { ...defaultTicker(), ...state.draft.ticker };
+    if (state.draft.kind === 'bingo') state.draft.bingo = { ...defaultBingo(), ...state.draft.bingo };
     if (state.draft.kind === 'badge') {
         const set = state.sets.find(set => set.id === state.draft.catalogId);
         state.draft.badge ||= {
@@ -450,7 +463,7 @@ function renderBuilder() {
     const kind = state.draft.kind || 'inventory';
     builderView.dataset.kind = kind;
     document.querySelectorAll('[data-kinds]').forEach(node => { node.hidden = !node.dataset.kinds.split(' ').includes(kind); });
-    $('#builder-kind-label').textContent = `${kind === 'table' ? 'Table' : kind === 'badge' ? 'Badge' : kind === 'counter' ? 'Counter & Pips' : kind === 'meter' ? 'Meter & Gauge' : kind === 'ticker' ? 'News Ticker' : 'Inventory'} designer`;
+    $('#builder-kind-label').textContent = `${kind === 'table' ? 'Table' : kind === 'badge' ? 'Badge' : kind === 'counter' ? 'Counter & Pips' : kind === 'meter' ? 'Meter & Gauge' : kind === 'ticker' ? 'News Ticker' : kind === 'bingo' ? 'Bingo Card' : 'Inventory'} designer`;
     $('#builder-intro').textContent = kind === 'inventory'
         ? 'Arrange catalog items into reusable sections. Bind each player’s tracker in the overlay placement.'
         : kind === 'table'
@@ -461,10 +474,12 @@ function renderBuilder() {
                     ? 'Build RPG HP bars, segmented meters, radial ring gauges, and vertical bars with optional damage trails and color thresholds.'
                     : kind === 'ticker'
                         ? 'Create smooth GPU-composited broadcast news ribbons from any List variable or Variable Set.'
-                        : 'Design member badges and strips using fields, images, icons, fonts, zones and animated frames. Reuse this design with independent sources in any overlay.';
+                        : kind === 'bingo'
+                            ? 'Design 3×3, 4×4, or 5×5 Stream Bingo cards with automatic row/column/diagonal line detection, stamp styles, and Operator Mode click-to-stamp.'
+                            : 'Design member badges and strips using fields, images, icons, fonts, zones and animated frames. Reuse this design with independent sources in any overlay.';
     $('#display-name').value = state.draft.name || '';
     $('#duplicate-display').disabled = !state.draft.id || state.displays.length >= 100;
-    if (!['counter', 'meter', 'ticker'].includes(kind)) renderCatalogControls();
+    if (!['counter', 'meter', 'ticker', 'bingo'].includes(kind)) renderCatalogControls();
     else {
         $('#preview-binding-help').textContent = 'Each overlay placement can use the saved source or override with a specific variable or Variable Set.';
         $('#placement-source-step').textContent = 'Use the saved source as-is, or override the bound variable/set for this placement.';
@@ -475,6 +490,7 @@ function renderBuilder() {
     if (kind === 'counter') counterDesigner.render();
     if (kind === 'meter') meterDesigner.render();
     if (kind === 'ticker') tickerDesigner.render();
+    if (kind === 'bingo') bingoDesigner.render();
     renderLayoutControls();
     renderPreviewControls();
     applyBuilderView();
@@ -521,9 +537,11 @@ function schedulePreview() {
                 ? [1280, 720]
                 : state.draft.kind === 'ticker'
                     ? [960, 88]
-                    : isNumericPreview
-                        ? [560, 220]
-                        : [640, 360];
+                    : state.draft.kind === 'bingo'
+                        ? [520, 520]
+                        : isNumericPreview
+                            ? [560, 220]
+                            : [640, 360];
         const [width, height] = state.previewResolution === 'native' ? native : state.previewResolution.split('x').map(Number);
         stage.classList.add('is-aspect-preview');
         stage.style.aspectRatio = `${width} / ${height}`;
@@ -556,7 +574,12 @@ function schedulePreview() {
         const rendered = window.OverlayShared.renderVariableDisplay(host, {
             type: 'data-display',
             display: { ...state.previewBinding, displayId: display.id }
-        }, { variableDisplays: [display], variableSets: previewSets, customVars: previewVars });
+        }, {
+            variableDisplays: [display],
+            variableSets: previewSets,
+            customVars: previewVars,
+            bingoState: state.draft.kind === 'bingo' ? { [display.id]: { stamped: [...state.bingoPreviewStamped], order: [] } } : undefined
+        });
         if (!rendered) {
             stage.innerHTML = `<div class="preview-empty">${esc(displaySourceSummary(state.previewBinding, state.sets, state.draft, true, state.variables).message)}</div>`;
         }
@@ -792,8 +815,8 @@ function addNewDisplay() {
     }
     const draft = defaults();
     draft.kind = $('#display-kind').value || 'inventory';
-    draft.name = `${draft.kind === 'table' ? 'Table' : draft.kind === 'badge' ? 'Badge' : draft.kind === 'counter' ? 'Counter' : draft.kind === 'meter' ? 'Meter' : draft.kind === 'ticker' ? 'News Ticker' : 'Inventory'} display`;
-    draft.catalogId = ['counter', 'meter', 'ticker'].includes(draft.kind) ? '' : (state.sets.find(set => set.roster?.length)?.id || '');
+    draft.name = `${draft.kind === 'table' ? 'Table' : draft.kind === 'badge' ? 'Badge' : draft.kind === 'counter' ? 'Counter' : draft.kind === 'meter' ? 'Meter' : draft.kind === 'ticker' ? 'News Ticker' : draft.kind === 'bingo' ? 'Bingo Card' : 'Inventory'} display`;
+    draft.catalogId = ['counter', 'meter', 'ticker', 'bingo'].includes(draft.kind) ? '' : (state.sets.find(set => set.roster?.length)?.id || '');
     const requestedCatalog = new URLSearchParams(location.search).get('catalog');
     if (state.sets.some(set => set.id === requestedCatalog)) draft.catalogId = requestedCatalog;
     if (draft.kind === 'counter') {
@@ -810,6 +833,9 @@ function addNewDisplay() {
         draft.ticker = defaultTicker();
         const firstList = state.variables.find(v => !v.setId && v.type === 'list');
         if (firstList) draft.ticker.listVariable = firstList.name;
+    }
+    if (draft.kind === 'bingo') {
+        draft.bingo = defaultBingo();
     }
     if (draft.kind === 'table') {
         draft.table = defaultTable();
@@ -867,6 +893,12 @@ function validateDraft() {
         } else if (!cfg.listVariable) {
             throw new Error('Choose a List variable for this ticker.');
         }
+        return;
+    }
+    if (state.draft.kind === 'bingo') {
+        const cfg = state.draft.bingo || {};
+        if (cfg.sourceMode === 'set' && !catalogSet()) throw new Error('Choose a Variable Set for this Bingo card.');
+        if (cfg.sourceMode === 'list' && !cfg.listVariable) throw new Error('Choose a List variable for this Bingo card.');
         return;
     }
     if (!catalogSet()) throw new Error('Choose a Variable Set catalog.');
@@ -1089,6 +1121,16 @@ function installEvents() {
         savePreviewPreferences();
         schedulePreview();
     }));
+    $('#display-preview').addEventListener('click', event => {
+        if (state.draft?.kind !== 'bingo') return;
+        const cell = event.target.closest('[data-bingo-cell]');
+        if (!cell) return;
+        const idx = Number(cell.dataset.bingoCell);
+        if (!Number.isInteger(idx)) return;
+        if (state.bingoPreviewStamped.has(idx)) state.bingoPreviewStamped.delete(idx);
+        else state.bingoPreviewStamped.add(idx);
+        schedulePreview();
+    });
     document.querySelectorAll('[data-counter-preview]').forEach(button => button.addEventListener('click', () => {
         const act = button.dataset.counterPreview;
         if (act === 'reset') state.counterPreviewDelta = 0;
@@ -1156,7 +1198,7 @@ async function start() {
     installEvents();
     try {
         const filter = localStorage.getItem('streampulse:display-library:filter');
-        if (['all', 'inventory', 'table', 'badge', 'counter', 'meter', 'ticker'].includes(filter)) state.libraryFilter = filter;
+        if (['all', 'inventory', 'table', 'badge', 'counter', 'meter', 'ticker', 'bingo'].includes(filter)) state.libraryFilter = filter;
         state.builderView = localStorage.getItem('streampulse:display-library:view') === 'appearance' ? 'appearance' : 'design';
         $('#display-library-search').value = localStorage.getItem('streampulse:display-library:search') || '';
     } catch { /* Optional preferences. */ }
@@ -1164,7 +1206,7 @@ async function start() {
         await loadLibrary();
         const requestedId = new URLSearchParams(location.search).get('id');
         const requestedKind = new URLSearchParams(location.search).get('kind');
-        if (['inventory', 'table', 'badge', 'counter', 'meter', 'ticker'].includes(requestedKind)) $('#display-kind').value = requestedKind;
+        if (['inventory', 'table', 'badge', 'counter', 'meter', 'ticker', 'bingo'].includes(requestedKind)) $('#display-kind').value = requestedKind;
         if (requestedId) {
             const display = state.displays.find(candidate => candidate.id === requestedId);
             if (!display) showAlert('That saved display could not be found.');

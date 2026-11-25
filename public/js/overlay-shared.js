@@ -4067,6 +4067,242 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     }
   });
 
+  // shared/display-bingo.cjs
+  var require_display_bingo = __commonJS({
+    "shared/display-bingo.cjs"(exports, module) {
+      "use strict";
+      var { COUNTER_THEME_PRESETS } = require_display_counter();
+      var BINGO_SIZES = [3, 4, 5];
+      var BINGO_STAMP_STYLES = ["check", "x", "dauber", "fill", "star"];
+      var BINGO_THEMES = ["modern", "esports", "sports", "arcade", "minimal", "cozy", "chalkboard"];
+      var VAR_TOKEN_RE = /^(?:\{\{[a-z0-9_.:-]{1,80}\}\}|@[a-z0-9_-]{1,60})$/i;
+      var cleanKey = (value) => String(value || "").replace(/[^a-z0-9_-]/gi, "_").slice(0, 60);
+      var cleanVarName = (value) => String(value || "").replace(/[^a-z0-9_.-]/gi, "").slice(0, 80);
+      var cleanText = (value, limit = 80) => String(value ?? "").trim().slice(0, limit);
+      var bound = (value, fallback, min, max) => Number.isFinite(Number(value)) && value !== "" && value != null ? Math.min(max, Math.max(min, Number(value))) : fallback;
+      var cleanColor = (value, fallback) => {
+        const str = String(value || "").trim();
+        if (/^#[a-f0-9]{6}(?:[a-f0-9]{2})?$/i.test(str) || VAR_TOKEN_RE.test(str)) return str;
+        return fallback;
+      };
+      var DEFAULT_BINGO_ITEMS = [
+        "Chat calls a clutch",
+        "Mic muted moment",
+        "First try win",
+        "Unexpected jump scare",
+        "Raid arrives",
+        "Hydration check",
+        "Physics glitch",
+        "Boss phase 2",
+        "Backseat gamer",
+        "Perfect parry",
+        "Menu music jam",
+        "Zero deaths",
+        "FREE",
+        "Chat poll tie",
+        "Secret room found",
+        "Controller disconnect",
+        "Clip-worthy fail",
+        "Sudden plot twist",
+        "Clutch heal",
+        "New personal best",
+        "Snack break",
+        "NPC blocks door",
+        "Voice crack",
+        "Speedrun strat",
+        "Victory dance"
+      ];
+      function defaultDisplayBingo() {
+        return {
+          sourceMode: "custom",
+          items: [...DEFAULT_BINGO_ITEMS],
+          listVariable: "",
+          labelField: "$label",
+          imageField: "",
+          size: 5,
+          freeSpace: true,
+          freeSpaceLabel: "FREE",
+          showHeader: true,
+          headerText: "BINGO",
+          showBingoBanner: true,
+          bingoBannerText: "BINGO!",
+          stampStyle: "dauber",
+          theme: "modern",
+          showImages: true,
+          boardBackground: "#0f172ad9",
+          cellBackground: "#1e293bcc",
+          stampedBackground: "#f43f5e33",
+          stampColor: "#f43f5e",
+          bingoColor: "#22c55e",
+          textColor: "#f8fafc",
+          borderColor: "#ffffff26",
+          headerBackground: "#f43f5e",
+          headerTextColor: "#ffffff",
+          borderWidth: 1,
+          radius: 10,
+          cellGap: 6,
+          padding: 12,
+          fontSize: 13,
+          fontFamily: "sans-serif"
+        };
+      }
+      function normalizeDisplayBingo2(input = {}) {
+        const def = defaultDisplayBingo();
+        const size = BINGO_SIZES.includes(Number(input.size)) ? Number(input.size) : def.size;
+        const rawItems = Array.isArray(input.items) ? input.items : typeof input.items === "string" ? input.items.split(/\r?\n/) : def.items;
+        const items = rawItems.map((s) => String(s ?? "").trim().slice(0, 80)).filter(Boolean).slice(0, 60);
+        const rawLabelField = String(input.labelField || "$label").trim();
+        const labelField = rawLabelField === "$label" ? "$label" : cleanKey(rawLabelField) || "$label";
+        return {
+          sourceMode: ["custom", "list", "set"].includes(input.sourceMode) ? input.sourceMode : def.sourceMode,
+          items: items.length ? items : [...DEFAULT_BINGO_ITEMS],
+          listVariable: cleanVarName(input.listVariable),
+          labelField,
+          imageField: cleanKey(input.imageField),
+          size,
+          freeSpace: input.freeSpace !== false,
+          freeSpaceLabel: cleanText(input.freeSpaceLabel ?? def.freeSpaceLabel, 24) || "FREE",
+          showHeader: input.showHeader !== false,
+          headerText: cleanText(input.headerText ?? def.headerText, 32),
+          showBingoBanner: input.showBingoBanner !== false,
+          bingoBannerText: cleanText(input.bingoBannerText ?? def.bingoBannerText, 32) || "BINGO!",
+          stampStyle: BINGO_STAMP_STYLES.includes(input.stampStyle) ? input.stampStyle : def.stampStyle,
+          theme: BINGO_THEMES.includes(input.theme) ? input.theme : def.theme,
+          showImages: input.showImages !== false,
+          boardBackground: cleanColor(input.boardBackground, def.boardBackground),
+          cellBackground: cleanColor(input.cellBackground, def.cellBackground),
+          stampedBackground: cleanColor(input.stampedBackground, def.stampedBackground),
+          stampColor: cleanColor(input.stampColor, def.stampColor),
+          bingoColor: cleanColor(input.bingoColor, def.bingoColor),
+          textColor: cleanColor(input.textColor, def.textColor),
+          borderColor: cleanColor(input.borderColor, def.borderColor),
+          headerBackground: cleanColor(input.headerBackground, def.headerBackground),
+          headerTextColor: cleanColor(input.headerTextColor, def.headerTextColor),
+          borderWidth: bound(input.borderWidth, def.borderWidth, 0, 6),
+          radius: Math.round(bound(input.radius, def.radius, 0, 32)),
+          cellGap: Math.round(bound(input.cellGap, def.cellGap, 0, 24)),
+          padding: Math.round(bound(input.padding, def.padding, 0, 40)),
+          fontSize: Math.round(bound(input.fontSize, def.fontSize, 9, 42)),
+          fontFamily: cleanText(input.fontFamily, 120).replace(/[;<>]/g, "") || def.fontFamily
+        };
+      }
+      function detectBingoLines(size, stampedSet) {
+        const lines = [];
+        const winningCells = /* @__PURE__ */ new Set();
+        for (let r = 0; r < size; r++) {
+          const row = [];
+          for (let c = 0; c < size; c++) row.push(r * size + c);
+          if (row.every((idx) => stampedSet.has(idx))) {
+            lines.push(row);
+            row.forEach((idx) => winningCells.add(idx));
+          }
+        }
+        for (let c = 0; c < size; c++) {
+          const col = [];
+          for (let r = 0; r < size; r++) col.push(r * size + c);
+          if (col.every((idx) => stampedSet.has(idx))) {
+            lines.push(col);
+            col.forEach((idx) => winningCells.add(idx));
+          }
+        }
+        const diag1 = [];
+        for (let i = 0; i < size; i++) diag1.push(i * size + i);
+        if (diag1.every((idx) => stampedSet.has(idx))) {
+          lines.push(diag1);
+          diag1.forEach((idx) => winningCells.add(idx));
+        }
+        const diag2 = [];
+        for (let i = 0; i < size; i++) diag2.push(i * size + (size - 1 - i));
+        if (diag2.every((idx) => stampedSet.has(idx))) {
+          lines.push(diag2);
+          diag2.forEach((idx) => winningCells.add(idx));
+        }
+        return { lines, winningCells, count: lines.length };
+      }
+      function resolveBingoBoard2(definition, binding = {}, status = {}, runtimeState = null) {
+        const cfg = normalizeDisplayBingo2(definition?.bingo);
+        const size = cfg.size;
+        const total = size * size;
+        const centerIdx = size % 2 === 1 ? Math.floor(total / 2) : -1;
+        const hasFreeCenter = cfg.freeSpace && centerIdx >= 0;
+        const customVars = Array.isArray(status.customVars) ? status.customVars : Array.isArray(status.variables) ? status.variables : [];
+        const sets = Array.isArray(status.variableSets) ? status.variableSets : Array.isArray(status.sets) ? status.sets : [];
+        let pool = [];
+        if (cfg.sourceMode === "list" || binding?.variableName) {
+          const varName = binding?.variableName || cfg.listVariable;
+          const v = customVars.find((item) => item.name === varName);
+          const raw = Array.isArray(v?.items) ? v.items : String(v?.value ?? "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+          pool = raw.map((label, i) => ({ id: `l_${i}`, label: String(label), image: "" }));
+        } else if (cfg.sourceMode === "set") {
+          const setId = binding?.setId || definition?.catalogId || "";
+          const setObj = sets.find((s) => s.id === setId);
+          if (setObj) {
+            const imgKey = cfg.imageField || (setObj.fields || []).find((f) => f.type === "image")?.key || "";
+            pool = (setObj.roster || []).filter((e) => e.enabled !== false).map((entry) => ({
+              id: entry.id,
+              label: cfg.labelField === "$label" ? entry.label || entry.id : String(entry.values?.[cfg.labelField] ?? entry.label ?? entry.id),
+              image: cfg.showImages && imgKey ? String(entry.values?.[imgKey] ?? "").trim() : "",
+              entry
+            }));
+          }
+        } else {
+          pool = cfg.items.map((label, i) => ({ id: `c_${i}`, label, image: "" }));
+        }
+        const state = runtimeState || status?.bingoState?.[definition?.id] || { stamped: [], order: [] };
+        const order = Array.isArray(state.order) && state.order.length === pool.length ? state.order : pool.map((_, i) => i);
+        const orderedPool = order.map((idx) => pool[idx]).filter(Boolean);
+        const stampedSet = new Set(Array.isArray(state.stamped) ? state.stamped.map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n < total) : []);
+        if (hasFreeCenter) stampedSet.add(centerIdx);
+        const cells = [];
+        let poolCursor = 0;
+        for (let idx = 0; idx < total; idx++) {
+          if (hasFreeCenter && idx === centerIdx) {
+            cells.push({
+              index: idx,
+              label: cfg.freeSpaceLabel,
+              image: "",
+              isFree: true,
+              stamped: true
+            });
+            continue;
+          }
+          const item = orderedPool[poolCursor++] || { id: `empty_${idx}`, label: `Square ${idx + 1}`, image: "" };
+          cells.push({
+            index: idx,
+            label: item.label,
+            image: item.image || "",
+            entry: item.entry || null,
+            isFree: false,
+            stamped: stampedSet.has(idx)
+          });
+        }
+        const bingo = detectBingoLines(size, stampedSet);
+        for (const cell of cells) {
+          cell.winning = bingo.winningCells.has(cell.index);
+        }
+        return {
+          size,
+          total,
+          cells,
+          stampedCount: stampedSet.size,
+          bingoCount: bingo.count,
+          winningLines: bingo.lines,
+          poolLength: pool.length
+        };
+      }
+      module.exports = {
+        BINGO_SIZES,
+        BINGO_STAMP_STYLES,
+        BINGO_THEMES,
+        BINGO_THEME_PRESETS: COUNTER_THEME_PRESETS,
+        defaultDisplayBingo,
+        normalizeDisplayBingo: normalizeDisplayBingo2,
+        detectBingoLines,
+        resolveBingoBoard: resolveBingoBoard2
+      };
+    }
+  });
+
   // shared/variable-displays.cjs
   var require_variable_displays = __commonJS({
     "shared/variable-displays.cjs"(exports, module) {
@@ -4075,12 +4311,13 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       var { normalizeDisplayCounter: normalizeDisplayCounter2 } = require_display_counter();
       var { normalizeDisplayMeter: normalizeDisplayMeter2 } = require_display_meter();
       var { normalizeDisplayTicker: normalizeDisplayTicker2 } = require_display_ticker();
+      var { normalizeDisplayBingo: normalizeDisplayBingo2 } = require_display_bingo();
       var key = (value) => String(value || "").replace(/[^a-z0-9_-]/gi, "_").slice(0, 60);
       var text = (value, limit = 80) => String(value ?? "").trim().slice(0, limit);
       var number = (value, fallback, min, max) => Number.isFinite(Number(value)) && value !== "" && value != null ? Math.max(min, Math.min(max, Number(value))) : fallback;
       var color = (value, fallback) => /^#[a-f0-9]{6}(?:[a-f0-9]{2})?$/i.test(value || "") ? value : fallback;
       function normalizeDisplay(input = {}, id = input.id) {
-        if (input.kind && !["inventory", "table", "badge", "counter", "meter", "ticker"].includes(input.kind)) throw new Error("Unsupported display kind");
+        if (input.kind && !["inventory", "table", "badge", "counter", "meter", "ticker", "bingo"].includes(input.kind)) throw new Error("Unsupported display kind");
         const seen = /* @__PURE__ */ new Set();
         const sections = (Array.isArray(input.sections) ? input.sections : []).slice(0, 20).map((section, index) => {
           const cells = /* @__PURE__ */ new Set();
@@ -4109,6 +4346,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           ...input.kind === "counter" ? { counter: normalizeDisplayCounter2(input.counter) } : {},
           ...input.kind === "meter" ? { meter: normalizeDisplayMeter2(input.meter) } : {},
           ...input.kind === "ticker" ? { ticker: normalizeDisplayTicker2(input.ticker) } : {},
+          ...input.kind === "bingo" ? { bingo: normalizeDisplayBingo2(input.bingo) } : {},
           catalogId: key(input.catalogId),
           imageField: key(input.imageField) || "image",
           labelField: key(input.labelField) || "name",
@@ -5606,9 +5844,334 @@ html.sp-fx-paused .sp-ticker-track {
     }
   });
 
+  // public/js/overlay/display-bingo.js
+  function ensureBingoStyles() {
+    if (typeof document === "undefined" || document.getElementById("sp-bingo-display-styles")) return;
+    const style = document.createElement("style");
+    style.id = "sp-bingo-display-styles";
+    style.textContent = `
+@keyframes sp-bingo-stamp {
+    0% { transform: scale(1.45); opacity: 0.2; }
+    65% { transform: scale(0.94); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+}
+@keyframes sp-bingo-banner-pop {
+    0% { transform: translate(-50%, -50%) scale(0.75); opacity: 0; }
+    70% { transform: translate(-50%, -50%) scale(1.06); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+.sp-bingo-stamp.is-fresh {
+    animation: sp-bingo-stamp 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.sp-bingo-banner {
+    animation: sp-bingo-banner-pop 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.sp-bingo-display[data-bingo-theme="modern"] .sp-bingo-board {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 10px 28px rgba(0, 0, 0, 0.34);
+}
+.sp-bingo-display[data-bingo-theme="esports"] .sp-bingo-board {
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+}
+.sp-bingo-display[data-bingo-theme="arcade"] .sp-bingo-board {
+    box-shadow: 0 0 16px color-mix(in srgb, var(--bng-stamp, #e879f9) 35%, transparent);
+}
+.sp-bingo-display[data-bingo-theme="minimal"] .sp-bingo-board {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+.sp-bingo-cell.is-winning {
+    box-shadow: inset 0 0 0 2px var(--bng-win, #22c55e), 0 0 12px color-mix(in srgb, var(--bng-win, #22c55e) 50%, transparent);
+}
+html.sp-fx-paused .sp-bingo-stamp.is-fresh,
+html.sp-fx-paused .sp-bingo-banner {
+    animation: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+    .sp-bingo-stamp.is-fresh,
+    .sp-bingo-banner {
+        animation: none !important;
+    }
+}`;
+    document.head.appendChild(style);
+  }
+  function resolveColor2(raw, fallback, status, member = null) {
+    if (!raw) return fallback;
+    const str = String(raw).trim();
+    if (member) {
+      const m = /^\{\{member\.([a-z0-9_-]+)\}\}$/i.exec(str);
+      if (m) return String(member.values?.[m[1]] ?? member[m[1]] ?? "").trim() || fallback;
+    }
+    if (!str.includes("{{") && !str.startsWith("@")) return str;
+    return resolveColorToken(str, status, {}, member) || fallback;
+  }
+  function createStampGraphic(style, color, fresh) {
+    if (style === "fill") return null;
+    const svg = document.createElementNS(SVG_NS4, "svg");
+    svg.setAttribute("viewBox", "0 0 40 40");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("class", `sp-bingo-stamp${fresh ? " is-fresh" : ""}`);
+    Object.assign(svg.style, {
+      position: "absolute",
+      inset: "0",
+      width: "100%",
+      height: "100%",
+      padding: style === "dauber" ? "10%" : "18%",
+      boxSizing: "border-box",
+      pointerEvents: "none"
+    });
+    if (style === "dauber") {
+      const c = document.createElementNS(SVG_NS4, "circle");
+      c.setAttribute("cx", "20");
+      c.setAttribute("cy", "20");
+      c.setAttribute("r", "15");
+      c.setAttribute("fill", color);
+      c.setAttribute("opacity", "0.42");
+      const ring = document.createElementNS(SVG_NS4, "circle");
+      ring.setAttribute("cx", "20");
+      ring.setAttribute("cy", "20");
+      ring.setAttribute("r", "15");
+      ring.setAttribute("fill", "none");
+      ring.setAttribute("stroke", color);
+      ring.setAttribute("stroke-width", "2.5");
+      ring.setAttribute("opacity", "0.85");
+      svg.append(c, ring);
+    } else if (style === "x") {
+      const p = document.createElementNS(SVG_NS4, "path");
+      p.setAttribute("d", "M9 9L31 31M31 9L9 31");
+      p.setAttribute("stroke", color);
+      p.setAttribute("stroke-width", "4.2");
+      p.setAttribute("stroke-linecap", "round");
+      p.setAttribute("opacity", "0.88");
+      svg.appendChild(p);
+    } else if (style === "star") {
+      const p = document.createElementNS(SVG_NS4, "path");
+      p.setAttribute("d", "M20 5l4.4 9 9.9 1.4-7.2 7 1.7 9.8L20 27.6 11.2 32.2l1.7-9.8-7.2-7 9.9-1.4z");
+      p.setAttribute("fill", color);
+      p.setAttribute("opacity", "0.38");
+      p.setAttribute("stroke", color);
+      p.setAttribute("stroke-width", "2");
+      p.setAttribute("stroke-linejoin", "round");
+      svg.appendChild(p);
+    } else {
+      const p = document.createElementNS(SVG_NS4, "path");
+      p.setAttribute("d", "M9 21l7 7 15-16");
+      p.setAttribute("fill", "none");
+      p.setAttribute("stroke", color);
+      p.setAttribute("stroke-width", "4.2");
+      p.setAttribute("stroke-linecap", "round");
+      p.setAttribute("stroke-linejoin", "round");
+      p.setAttribute("opacity", "0.92");
+      svg.appendChild(p);
+    }
+    return svg;
+  }
+  function renderDisplayBingo(host, element, status = {}, definition) {
+    ensureBingoStyles();
+    const cfg = (0, import_display_bingo.normalizeDisplayBingo)(definition?.bingo);
+    const binding = element?.display || {};
+    const board = (0, import_display_bingo.resolveBingoBoard)(definition, binding, status);
+    const prevStamped = host._bingoPrevStamped instanceof Set ? host._bingoPrevStamped : /* @__PURE__ */ new Set();
+    const nextStamped = new Set(board.cells.filter((c) => c.stamped).map((c) => c.index));
+    const boardBg = resolveColor2(cfg.boardBackground, "#0f172ad9", status);
+    const cellBg = resolveColor2(cfg.cellBackground, "#1e293bcc", status);
+    const stampedBg = resolveColor2(cfg.stampedBackground, "#f43f5e33", status);
+    const stampColor = resolveColor2(cfg.stampColor, "#f43f5e", status);
+    const bingoColor = resolveColor2(cfg.bingoColor, "#22c55e", status);
+    const textColor = resolveColor2(cfg.textColor, "#f8fafc", status);
+    const borderColor = resolveColor2(cfg.borderColor, "#ffffff26", status);
+    const headerBg = resolveColor2(cfg.headerBackground, "#f43f5e", status);
+    const headerText = resolveColor2(cfg.headerTextColor, "#ffffff", status);
+    const fontRaw = String(cfg.fontFamily || "sans-serif").trim();
+    const fontFamily = fontRaw.includes("{{") || fontRaw.startsWith("@") ? resolveColorToken(fontRaw, status, {}) || "sans-serif" : fontRaw;
+    if (typeof loadGoogleFont === "function" && fontFamily && !/^(sans-serif|serif|monospace|system-ui|inherit)$/i.test(fontFamily)) {
+      loadGoogleFont(fontFamily);
+    }
+    const root2 = document.createElement("div");
+    root2.className = "sp-variable-display sp-bingo-display";
+    root2.dataset.bingoTheme = cfg.theme;
+    root2.dataset.bingoSize = String(board.size);
+    root2.dataset.bingoCount = String(board.bingoCount);
+    root2.style.setProperty("--bng-stamp", stampColor);
+    root2.style.setProperty("--bng-win", bingoColor);
+    Object.assign(root2.style, {
+      width: "100%",
+      height: "100%",
+      padding: "4px",
+      boxSizing: "border-box",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontFamily
+    });
+    const boardEl = document.createElement("div");
+    boardEl.className = "sp-bingo-board";
+    Object.assign(boardEl.style, {
+      position: "relative",
+      width: "100%",
+      height: "100%",
+      display: "flex",
+      flexDirection: "column",
+      gap: `${cfg.cellGap}px`,
+      padding: `${cfg.padding}px`,
+      background: boardBg,
+      border: cfg.borderWidth > 0 ? `${cfg.borderWidth}px solid ${borderColor}` : "none",
+      borderRadius: `${cfg.radius}px`,
+      boxSizing: "border-box",
+      overflow: "hidden"
+    });
+    if (cfg.showHeader && cfg.headerText) {
+      const letters = cfg.headerText.replace(/\s+/g, "");
+      if (letters.length === board.size) {
+        const headRow = document.createElement("div");
+        Object.assign(headRow.style, {
+          display: "grid",
+          gridTemplateColumns: `repeat(${board.size}, minmax(0, 1fr))`,
+          gap: `${cfg.cellGap}px`,
+          flex: "none"
+        });
+        for (const ch of letters) {
+          const pill = document.createElement("div");
+          pill.textContent = ch.toUpperCase();
+          Object.assign(pill.style, {
+            textAlign: "center",
+            padding: "4px 0",
+            borderRadius: `${Math.max(3, Math.round(cfg.radius * 0.5))}px`,
+            background: headerBg,
+            color: headerText,
+            fontWeight: "850",
+            fontSize: `${Math.max(12, Math.round(cfg.fontSize * 1.25))}px`,
+            letterSpacing: "0.08em"
+          });
+          headRow.appendChild(pill);
+        }
+        boardEl.appendChild(headRow);
+      } else {
+        const title = document.createElement("div");
+        title.textContent = cfg.headerText;
+        Object.assign(title.style, {
+          textAlign: "center",
+          padding: "5px 10px",
+          borderRadius: `${Math.max(3, Math.round(cfg.radius * 0.5))}px`,
+          background: headerBg,
+          color: headerText,
+          fontWeight: "800",
+          fontSize: `${Math.max(12, Math.round(cfg.fontSize * 1.15))}px`,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          flex: "none"
+        });
+        boardEl.appendChild(title);
+      }
+    }
+    const grid = document.createElement("div");
+    grid.className = "sp-bingo-grid";
+    Object.assign(grid.style, {
+      flex: "1",
+      minHeight: "0",
+      display: "grid",
+      gridTemplateColumns: `repeat(${board.size}, minmax(0, 1fr))`,
+      gridTemplateRows: `repeat(${board.size}, minmax(0, 1fr))`,
+      gap: `${cfg.cellGap}px`
+    });
+    for (const cell of board.cells) {
+      const cellEl = document.createElement("div");
+      cellEl.className = `sp-bingo-cell${cell.stamped ? " is-stamped" : ""}${cell.winning ? " is-winning" : ""}${cell.isFree ? " is-free" : ""}`;
+      cellEl.dataset.bingoCell = String(cell.index);
+      cellEl.dataset.stamped = String(cell.stamped);
+      const cellStampColor = cell.winning ? bingoColor : resolveColor2(cfg.stampColor, stampColor, status, cell.entry);
+      Object.assign(cellEl.style, {
+        position: "relative",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "3px",
+        padding: "6px",
+        textAlign: "center",
+        background: cell.stamped ? cfg.stampStyle === "fill" ? cellStampColor : stampedBg : cellBg,
+        color: textColor,
+        border: cfg.borderWidth > 0 ? `${cfg.borderWidth}px solid ${cell.winning ? bingoColor : borderColor}` : "none",
+        borderRadius: `${Math.max(3, Math.round(cfg.radius * 0.65))}px`,
+        overflow: "hidden",
+        boxSizing: "border-box",
+        fontSize: `${cfg.fontSize}px`,
+        lineHeight: "1.2",
+        fontWeight: cell.isFree ? "800" : "600"
+      });
+      if (cell.image) {
+        const img = document.createElement("img");
+        img.src = cell.image;
+        img.alt = "";
+        img.referrerPolicy = "no-referrer";
+        Object.assign(img.style, { width: "60%", maxHeight: "48%", objectFit: "contain", opacity: cell.stamped ? "0.65" : "1" });
+        cellEl.appendChild(img);
+      }
+      const label = document.createElement("span");
+      label.textContent = cell.label;
+      Object.assign(label.style, {
+        position: "relative",
+        zIndex: "1",
+        overflowWrap: "anywhere",
+        display: "-webkit-box",
+        webkitLineClamp: "3",
+        webkitBoxOrient: "vertical",
+        overflow: "hidden"
+      });
+      cellEl.appendChild(label);
+      if (cell.stamped) {
+        const fresh = !prevStamped.has(cell.index) && !cell.isFree;
+        const stamp = createStampGraphic(cfg.stampStyle, cellStampColor, fresh);
+        if (stamp) cellEl.appendChild(stamp);
+      }
+      grid.appendChild(cellEl);
+    }
+    boardEl.appendChild(grid);
+    if (cfg.showBingoBanner && board.bingoCount > 0) {
+      const banner = document.createElement("div");
+      banner.className = "sp-bingo-banner";
+      banner.textContent = board.bingoCount > 1 ? `${cfg.bingoBannerText} \xD7${board.bingoCount}` : cfg.bingoBannerText;
+      Object.assign(banner.style, {
+        position: "absolute",
+        left: "50%",
+        top: "50%",
+        transform: "translate(-50%, -50%)",
+        zIndex: "5",
+        padding: "8px 22px",
+        borderRadius: "999px",
+        background: bingoColor,
+        color: "#090d16",
+        fontWeight: "900",
+        fontSize: `${Math.max(16, Math.round(cfg.fontSize * 1.65))}px`,
+        letterSpacing: "0.12em",
+        textTransform: "uppercase",
+        boxShadow: `0 10px 28px rgba(0,0,0,0.55), 0 0 18px ${bingoColor}`,
+        pointerEvents: "none",
+        whiteSpace: "nowrap"
+      });
+      boardEl.appendChild(banner);
+    }
+    host._bingoPrevStamped = nextStamped;
+    root2.appendChild(boardEl);
+    host.appendChild(root2);
+    return true;
+  }
+  var import_display_bingo, SVG_NS4;
+  var init_display_bingo = __esm({
+    "public/js/overlay/display-bingo.js"() {
+      import_display_bingo = __toESM(require_display_bingo());
+      init_variables();
+      init_fonts();
+      SVG_NS4 = "http://www.w3.org/2000/svg";
+    }
+  });
+
   // public/js/overlay/displays.js
   function setDisplayLibrary(data) {
     library = Array.isArray(data.displays) ? data.displays : [];
+    if (data.bingoState && typeof data.bingoState === "object") bingoStateCache = data.bingoState;
     revision = data.revision;
   }
   async function loadDisplayLibrary(status, elements) {
@@ -5627,6 +6190,7 @@ html.sp-fx-paused .sp-ticker-track {
       }
     }
     status.variableDisplays = library || [];
+    if (!status.bingoState) status.bingoState = bingoStateCache;
     if (!Array.isArray(status.variableSets)) {
       try {
         const response = await fetch("/api/variables", { cache: "no-store" });
@@ -5645,7 +6209,7 @@ html.sp-fx-paused .sp-ticker-track {
     const { set: ownerSet, entry: owner } = (0, import_variable_displays.resolveDisplayOwner)(status.variableSets, binding);
     const tracker = ownerSet?.fields?.find((field) => field.key === binding.tracker && field.type === "checklist" && field.targetSet === definition?.catalogId);
     const tracks = Boolean(binding.setId);
-    const signature = JSON.stringify([definition, definition?.kind === "inventory" ? catalog?.roster : status.variableSets, tracks ? owner : null, tracker, binding, element.style, element.width, element.height, status.customVars, status.modules?.variableSets]);
+    const signature = JSON.stringify([definition, definition?.kind === "inventory" ? catalog?.roster : status.variableSets, tracks ? owner : null, tracker, binding, element.style, element.width, element.height, status.customVars, status.modules?.variableSets, definition?.kind === "bingo" ? status.bingoState?.[definition.id] || bingoStateCache[definition.id] || null : null]);
     if (host._displaySignature === signature && host.querySelector(".sp-variable-display")) return true;
     host._displaySignature = signature;
     for (const child of host.querySelectorAll(":scope > .sp-variable-display")) cleanupNode(child);
@@ -5665,6 +6229,12 @@ html.sp-fx-paused .sp-ticker-track {
       const needsSets = definition.ticker?.sourceMode === "set" && !binding.variableName;
       if (needsSets && status.modules?.variableSets === false) return false;
       return renderDisplayTicker(host, element, status, definition);
+    }
+    if (definition.kind === "bingo") {
+      const needsSets = definition.bingo?.sourceMode === "set" && !binding.variableName;
+      if (needsSets && status.modules?.variableSets === false) return false;
+      const mergedStatus = status.bingoState ? status : { ...status, bingoState: bingoStateCache };
+      return renderDisplayBingo(host, element, mergedStatus, definition);
     }
     if (!catalog || status.modules?.variableSets === false) return false;
     if (definition.kind === "table") return renderDisplayTable(host, element, status, definition);
@@ -5748,7 +6318,7 @@ html.sp-fx-paused .sp-ticker-track {
     host.append(root2);
     return true;
   }
-  var import_variable_displays, import_variable_links, library, revision, pending;
+  var import_variable_displays, import_variable_links, library, bingoStateCache, revision, pending;
   var init_displays = __esm({
     "public/js/overlay/displays.js"() {
       import_variable_displays = __toESM(require_variable_displays());
@@ -5758,8 +6328,10 @@ html.sp-fx-paused .sp-ticker-track {
       init_display_counter();
       init_display_meter();
       init_display_ticker();
+      init_display_bingo();
       init_lifecycle();
       library = null;
+      bingoStateCache = {};
       revision = null;
       pending = null;
     }
@@ -11940,6 +12512,7 @@ html.sp-fx-paused .sp-ticker-track {
       var import_display_counter3 = __toESM(require_display_counter());
       var import_display_meter3 = __toESM(require_display_meter());
       var import_display_ticker3 = __toESM(require_display_ticker());
+      var import_display_bingo3 = __toESM(require_display_bingo());
       var import_variable_paths2 = __toESM(require_variable_paths());
       var import_border_catalog2 = __toESM(require_border_catalog());
       init_displays();
@@ -11954,6 +12527,7 @@ html.sp-fx-paused .sp-ticker-track {
       Object.assign(root.OverlayShared, import_display_counter3.default, { renderMiniCounterHtml });
       Object.assign(root.OverlayShared, import_display_meter3.default);
       Object.assign(root.OverlayShared, import_display_ticker3.default);
+      Object.assign(root.OverlayShared, import_display_bingo3.default);
       Object.assign(root.OverlayShared, { variableKey: import_variable_paths2.default.variableKey, blurFillShadowCss, normalizeBlurFill, syncBlurFillMedia });
       Object.assign(root.OverlayShared, import_border_catalog2.default);
       Object.defineProperty(root.OverlayShared, Symbol.for("StreamPulse.OverlayShared"), { value: true });

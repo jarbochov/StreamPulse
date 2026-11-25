@@ -5,11 +5,13 @@ import { renderSavedBadge } from './display-badges.js';
 import { renderDisplayCounter } from './display-counter.js';
 import { renderDisplayMeter } from './display-meter.js';
 import { renderDisplayTicker } from './display-ticker.js';
+import { renderDisplayBingo } from './display-bingo.js';
 import { cleanupNode } from './lifecycle.js';
 
-let library = null, revision = null, pending = null;
+let library = null, bingoStateCache = {}, revision = null, pending = null;
 export function setDisplayLibrary(data) {
     library = Array.isArray(data.displays) ? data.displays : [];
+    if (data.bingoState && typeof data.bingoState === 'object') bingoStateCache = data.bingoState;
     revision = data.revision;
 }
 
@@ -24,6 +26,7 @@ export async function loadDisplayLibrary(status, elements) {
         try { await pending; } catch { /* Retry after the next status refresh. */ }
     }
     status.variableDisplays = library || [];
+    if (!status.bingoState) status.bingoState = bingoStateCache;
     if (!Array.isArray(status.variableSets)) {
         try {
             const response = await fetch('/api/variables', { cache: 'no-store' });
@@ -42,7 +45,7 @@ export function renderVariableDisplay(host, element, status = {}) {
     const { set: ownerSet, entry: owner } = resolveDisplayOwner(status.variableSets, binding);
     const tracker = ownerSet?.fields?.find(field => field.key === binding.tracker && field.type === 'checklist' && field.targetSet === definition?.catalogId);
     const tracks = Boolean(binding.setId);
-    const signature = JSON.stringify([definition, definition?.kind === 'inventory' ? catalog?.roster : status.variableSets, tracks ? owner : null, tracker, binding, element.style, element.width, element.height, status.customVars, status.modules?.variableSets]);
+    const signature = JSON.stringify([definition, definition?.kind === 'inventory' ? catalog?.roster : status.variableSets, tracks ? owner : null, tracker, binding, element.style, element.width, element.height, status.customVars, status.modules?.variableSets, definition?.kind === 'bingo' ? (status.bingoState?.[definition.id] || bingoStateCache[definition.id] || null) : null]);
     if (host._displaySignature === signature && host.querySelector('.sp-variable-display')) return true;
     host._displaySignature = signature;
     for (const child of host.querySelectorAll(':scope > .sp-variable-display')) cleanupNode(child);
@@ -62,6 +65,12 @@ export function renderVariableDisplay(host, element, status = {}) {
         const needsSets = definition.ticker?.sourceMode === 'set' && !binding.variableName;
         if (needsSets && status.modules?.variableSets === false) return false;
         return renderDisplayTicker(host, element, status, definition);
+    }
+    if (definition.kind === 'bingo') {
+        const needsSets = definition.bingo?.sourceMode === 'set' && !binding.variableName;
+        if (needsSets && status.modules?.variableSets === false) return false;
+        const mergedStatus = status.bingoState ? status : { ...status, bingoState: bingoStateCache };
+        return renderDisplayBingo(host, element, mergedStatus, definition);
     }
     if (!catalog || status.modules?.variableSets === false) return false;
     if (definition.kind === 'table') return renderDisplayTable(host, element, status, definition);

@@ -20,7 +20,7 @@ function selectedField(set, fieldKey) {
 }
 
 export function displaySourceFields(binding = {}, sets = [], catalogId = '', kind = 'inventory', variables = [], definition = null) {
-    if (kind === 'counter' || kind === 'meter' || kind === 'ticker') {
+    if (kind === 'counter' || kind === 'meter' || kind === 'ticker' || kind === 'bingo') {
         const cfg = definition?.[kind] || {};
         if (cfg.sourceMode === 'set') {
             return [
@@ -30,7 +30,7 @@ export function displaySourceFields(binding = {}, sets = [], catalogId = '', kin
                     value: binding.setId || '',
                     options: [['', 'Design Variable Set'], ...sets.map(set => [set.id, set.name || 'Unnamed set'])]
                 },
-                {
+                ...(kind !== 'bingo' ? [{
                     path: 'rows',
                     label: 'Rows',
                     value: binding.rows || cfg.rowScope || 'all',
@@ -41,19 +41,20 @@ export function displaySourceFields(binding = {}, sets = [], catalogId = '', kin
                         ['group', 'In Group entries'],
                         ['group-slots', 'In Group live slots']
                     ]
-                }
+                }] : [])
             ];
         }
-        const allowedVars = kind === 'ticker'
+        if (kind === 'bingo' && cfg.sourceMode === 'custom') return [];
+        const allowedVars = (kind === 'ticker' || kind === 'bingo')
             ? (Array.isArray(variables) ? variables : []).filter(v => !v.setId && v.type === 'list')
             : (Array.isArray(variables) ? variables : []).filter(v => !v.setId && (v.type === 'counter' || v.type === 'number'));
         return [{
             path: 'variableName',
-            label: kind === 'ticker' ? 'Override list variable (optional)' : 'Override counter variable (optional)',
+            label: (kind === 'ticker' || kind === 'bingo') ? 'Override list variable (optional)' : 'Override counter variable (optional)',
             value: binding.variableName || '',
             options: [
-                ['', `Use design ${kind === 'ticker' ? 'feed' : 'counters'}`],
-                ...allowedVars.map(v => [v.name, kind === 'ticker' ? `${v.name} (${(v.items || []).length} items)` : `${v.name} (${v.value ?? 0}${v.max !== '' && v.max != null ? ` / ${v.max}` : ''})`])
+                ['', `Use design ${(kind === 'ticker' || kind === 'bingo') ? 'feed' : 'counters'}`],
+                ...allowedVars.map(v => [v.name, (kind === 'ticker' || kind === 'bingo') ? `${v.name} (${(v.items || []).length} items)` : `${v.name} (${v.value ?? 0}${v.max !== '' && v.max != null ? ` / ${v.max}` : ''})`])
             ]
         }];
     }
@@ -147,9 +148,12 @@ export function updateDisplaySource(binding, path, value) {
 
 export function displaySourceSummary(binding = {}, sets = [], definition, enabled = true, variables = []) {
     if (!definition) return { ok: false, chain: 'Saved design', message: 'Choose an available saved design.' };
-    if (definition.kind === 'counter' || definition.kind === 'meter' || definition.kind === 'ticker') {
+    if (definition.kind === 'counter' || definition.kind === 'meter' || definition.kind === 'ticker' || definition.kind === 'bingo') {
         const kind = definition.kind;
         const cfg = definition[kind] || {};
+        if (kind === 'bingo' && cfg.sourceMode === 'custom') {
+            return { ok: true, chain: `${definition.name} · ${cfg.size || 5}×${cfg.size || 5}`, message: `Custom Bingo board (${(cfg.items || []).length} prompts). Click squares in preview to test.` };
+        }
         if (binding?.variableName) {
             const found = (variables || []).find(v => v.name === binding.variableName);
             return found

@@ -604,6 +604,27 @@ test('counter display schema, cap resolution, and service persistence', () => {
         varsSvc.mutateEntry('boss_tracker', 'set', { entry: 'b1', field: 'hearts', value: '3' });
         const resetRes = varsSvc.resetSetColumn('boss_tracker', 'hearts');
         assert.equal(resetRes.roster[0].values.hearts, '0');
+
+        // Verify Bingo display persistence, toggle/shuffle/reset, and row/col/diagonal line detection
+        const { detectBingoLines } = require('../shared/display-bingo.cjs');
+        const bingoSaved = service.save({
+            name: 'Stream Bingo',
+            kind: 'bingo',
+            bingo: { size: 3, freeSpace: true, stampStyle: 'dauber' }
+        }, 'stream_bingo');
+        assert.equal(bingoSaved.kind, 'bingo');
+        service.toggleBingoCell('stream_bingo', 0, true);
+        service.toggleBingoCell('stream_bingo', 8, true);
+        const bState = service.getBingoState('stream_bingo');
+        assert.deepEqual(bState.stamped, [0, 8]);
+        // With center free space (4) + cells 0 & 8 -> main diagonal Bingo!
+        const diag = detectBingoLines(3, new Set([0, 4, 8]));
+        assert.equal(diag.count, 1);
+        assert.equal(diag.winningCells.has(4), true);
+        service.resetBingo('stream_bingo');
+        assert.deepEqual(service.getBingoState('stream_bingo').stamped, []);
+        const shuffled = service.shuffleBingo('stream_bingo', 9);
+        assert.equal(shuffled.order.length, 9);
     } finally {
         fs.rmSync(dir, { recursive: true, force: true });
     }
@@ -791,15 +812,29 @@ test('counter display builder renders hearts, 5-count slashed tallies, caps, and
         });
         const tickerBadge = host.querySelector('.sp-ticker-badge')?.textContent;
         const tickerItems = host.querySelectorAll('.sp-ticker-item').length; // duplicated seamless track -> 4
+
+        // Bingo display (3x3 with center free space + diagonal 0,4,8 -> BINGO! banner)
+        const bingoDef = {
+            id: 'mini_bingo', name: 'Mini Bingo', kind: 'bingo',
+            bingo: { sourceMode: 'custom', size: 3, freeSpace: true, showBingoBanner: true, bingoBannerText: 'BINGO!' }
+        };
+        window.OverlayShared.renderVariableDisplay(host, { display: { displayId: 'mini_bingo' } }, {
+            variableDisplays: [bingoDef],
+            bingoState: { mini_bingo: { stamped: [0, 8], order: [] } }
+        });
+        const bingoBanner = host.querySelector('.sp-bingo-banner')?.textContent;
+        const bingoWinners = host.querySelectorAll('.sp-bingo-cell.is-winning').length;
         host.remove();
-        return { halfCounts, meterPct, tickerBadge, tickerItems };
+        return { halfCounts, meterPct, tickerBadge, tickerItems, bingoBanner, bingoWinners };
     });
     assert.deepEqual(extraChecks, {
         halfCounts: { filled: 2, half: 1 },
         meterPct: '20',
         tickerBadge: 'BREAKING',
-        tickerItems: 4
-    }, 'half-hearts, meter threshold rendering, and seamless duplicated news ticker render cleanly');
+        tickerItems: 4,
+        bingoBanner: 'BINGO!',
+        bingoWinners: 3
+    }, 'half-hearts, meter threshold rendering, seamless duplicated news ticker, and Bingo line detection render cleanly');
 
     // Responsive check
     for (const width of [1366, 390]) {

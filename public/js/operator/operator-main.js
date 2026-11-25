@@ -30,6 +30,54 @@ import './operator-overlays.js';
 import './operator-timers.js';
 import './operator-alerts.js';
 import './operator-music.js';
+import './operator-live-cards.js';
+
+const TOUCH_KEY = 'streampulse_op_touch_mode';
+const activityLog = [];
+let undoTimer = 0;
+
+function isTouchMode() {
+    try { return localStorage.getItem(TOUCH_KEY) === '1'; } catch { return false; }
+}
+
+function setTouchMode(on) {
+    try { localStorage.setItem(TOUCH_KEY, on ? '1' : '0'); } catch { /* ignore */ }
+    document.documentElement.dataset.opTouch = on ? '1' : '0';
+    if (on && isDenseMode()) setDenseMode(false);
+}
+
+function logActivity(label, detail = '') {
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    activityLog.unshift({ time, label, detail });
+    if (activityLog.length > 20) activityLog.length = 20;
+    const list = $('op-activity-list');
+    if (list) {
+        list.innerHTML = activityLog.map(item => `<div class="op-activity-row"><span class="op-activity-time">${esc(item.time)}</span><strong>${esc(item.label)}</strong>${item.detail ? `<span>${esc(item.detail)}</span>` : ''}</div>`).join('')
+            || '<div style="font-size:.78rem;color:var(--text-muted);">No live events recorded yet.</div>';
+    }
+}
+
+window.opUndoToast = (message, undoFn) => {
+    const el = document.getElementById('toast');
+    if (!el) return toast(message, 'info');
+    clearTimeout(undoTimer);
+    el.className = 'show info';
+    el.innerHTML = `<span>${esc(message)}</span> <button type="button" class="op-btn sm" data-op-undo-btn="1" style="margin-left:.5rem;">Undo</button>`;
+    const btn = el.querySelector('[data-op-undo-btn]');
+    if (btn) {
+        btn.onclick = async () => {
+            clearTimeout(undoTimer);
+            el.className = '';
+            try {
+                await undoFn();
+                toast('Undone', 'success');
+            } catch (err) {
+                toast(err.message || 'Undo failed', 'error');
+            }
+        };
+    }
+    undoTimer = setTimeout(() => { el.className = ''; }, 7000);
+};
 
 let currentMountedId = '';
 
@@ -85,6 +133,22 @@ function renderTopControls() {
         const dense = isDenseMode();
         denseBtn.classList.toggle('active', dense);
         denseBtn.setAttribute('aria-pressed', String(dense));
+    }
+    const touchBtn = $('op-touch-btn');
+    if (touchBtn) {
+        const touch = isTouchMode();
+        document.documentElement.dataset.opTouch = touch ? '1' : '0';
+        touchBtn.classList.toggle('active', touch);
+        touchBtn.setAttribute('aria-pressed', String(touch));
+    }
+    const presetBar = $('op-preset-pills');
+    if (presetBar) {
+        const profiles = operatorState.profiles || [];
+        const showPills = profiles.length > 1 && !isProfileLocked();
+        presetBar.hidden = !showPills;
+        if (showPills) {
+            presetBar.innerHTML = profiles.map((p, idx) => `<button type="button" class="op-preset-pill${p.id === prof?.id ? ' active' : ''}" data-quick-preset="${esc(p.id)}" title="Switch to ${esc(p.name)}${idx < 9 ? ` (Hotkey ${idx + 1})` : ''}">${idx < 9 ? `<kbd>${idx + 1}</kbd>` : ''}<span>${esc(p.name)}</span></button>`).join('');
+        }
     }
     if (focusBtn) {
         const focus = isFocusPanelMode();
@@ -203,8 +267,40 @@ function bindShellEvents() {
     });
 
     $('op-dense-btn')?.addEventListener('click', () => {
-        setDenseMode(!isDenseMode());
+        const next = !isDenseMode();
+        setDenseMode(next);
+        if (next && isTouchMode()) setTouchMode(false);
         renderTopControls();
+    });
+
+    $('op-touch-btn')?.addEventListener('click', () => {
+        setTouchMode(!isTouchMode());
+        renderTopControls();
+    });
+
+    $('op-activity-btn')?.addEventListener('click', () => {
+        const drawer = $('op-activity-drawer');
+        const btn = $('op-activity-btn');
+        if (!drawer) return;
+        drawer.hidden = !drawer.hidden;
+        btn?.classList.toggle('active', !drawer.hidden);
+        if (!drawer.hidden) logActivity('Opened Activity Log');
+    });
+
+    $('op-activity-clear')?.addEventListener('click', () => {
+        activityLog.length = 0;
+        const list = $('op-activity-list');
+        if (list) list.innerHTML = '<div style="font-size:.78rem;color:var(--text-muted);">Log cleared.</div>';
+    });
+
+    $('op-preset-pills')?.addEventListener('click', async e => {
+        const btn = e.target.closest('[data-quick-preset]');
+        if (!btn || isProfileLocked()) return;
+        try {
+            await activateProfileOnServer(btn.dataset.quickPreset);
+            renderTopControls();
+            await remountActive();
+        } catch (err) { toast(err.message, 'error'); }
     });
 
     $('op-focus-btn')?.addEventListener('click', async () => {
@@ -233,9 +329,25 @@ function bindShellEvents() {
             modal.hidden = true;
         }
     });
-    window.addEventListener('keydown', e => {
+    window.addEventListener('keydown', async e => {
         if (e.key === 'Escape' && modal && !modal.hidden) {
             modal.hidden = true;
+            return;
+        }
+        if (e.ctrlKey || e.metaKey || e.altKey || isProfileLocked()) return;
+        if (e.target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+        if (/^[1-9]$/.test(e.key)) {
+            const idx = Number(e.key) - 1;
+            const target = (operatorState.profiles || [])[idx];
+            if (target && target.id !== getCurrentProfile()?.id) {
+                e.preventDefault();
+                try {
+                    await activateProfileOnServer(target.id);
+                    renderTopControls();
+                    await remountActive();
+                    toast(`Switched board: ${target.name}`, 'info');
+                } catch (err) { toast(err.message, 'error'); }
+            }
         }
     });
 
@@ -295,6 +407,9 @@ async function init() {
                     await remountActive();
                 }
                 return;
+            }
+            if (['variables-update', 'variable-displays-update', 'matchup-update', 'poll-update', 'trivia-update', 'alerts-update'].includes(msg.type)) {
+                logActivity(msg.type.replace(/-update$/, '').replace(/-/g, ' '), 'Live state updated');
             }
             const activeMod = getOperatorModule(currentMountedId);
             activeMod?.onSocket?.(msg.type, msg.data, makeCtx(getDomainContainer(currentMountedId)));
