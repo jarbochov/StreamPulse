@@ -33,6 +33,8 @@ html, body {
 .mp-multi-grid {
     width: 100%;
     height: 100%;
+    min-width: 0;
+    min-height: 0;
     display: grid;
     gap: 14px;
 }
@@ -40,6 +42,7 @@ html, body {
     position: relative;
     display: flex;
     flex-direction: column;
+    min-width: 0;
     min-height: 0;
     overflow: hidden;
     transition: transform 340ms cubic-bezier(0.22, 1, 0.36, 1), opacity 240ms ease;
@@ -83,6 +86,7 @@ html, body {
 }
 .mp-grid {
     flex: 1;
+    min-width: 0;
     min-height: 0;
     display: grid;
 }
@@ -93,9 +97,11 @@ html, body {
     align-items: center;
     justify-content: center;
     gap: 4px;
-    padding: 6px;
+    padding: 4px;
+    min-width: 0;
+    min-height: 0;
     text-align: center;
-    line-height: 1.18;
+    line-height: 1.15;
     font-weight: 600;
     overflow: hidden;
 }
@@ -184,6 +190,7 @@ html.sp-fx-paused .mp-card.is-zoomed {
     const cardOverride = params.get('card') || '';
     const themeOverride = params.get('theme') || '';
     const stampOverride = params.get('stamp') || '';
+    const labelsParam = params.has('labels') ? params.get('labels') : null;
     const isPreview = params.get('preview') === 'true' || params.get('preview') === '1';
     const root = document.getElementById('root');
     const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -437,10 +444,18 @@ html.sp-fx-paused .mp-card.is-zoomed {
             return;
         }
 
-        const cols = cardsToShow.length === 1 ? 1 : cardsToShow.length <= 2 ? 2 : cardsToShow.length <= 4 ? 2 : 3;
+        const isPortrait = window.innerHeight > window.innerWidth;
+        const count = cardsToShow.length;
+        const cols = count === 1 ? 1 : isPortrait ? (count <= 3 ? 1 : 2) : (count <= 2 ? 2 : count <= 4 ? 2 : count <= 6 ? 3 : 4);
+        const rows = Math.max(1, Math.ceil(count / cols));
+        const showCellWords = count === 1
+            ? (labelsParam !== null ? (labelsParam === '1' || labelsParam === 'true') : true)
+            : (labelsParam !== null ? (labelsParam === '1' || labelsParam === 'true') : Boolean(baseApp.showMultiLabels));
+
         const wrap = document.createElement('div');
         wrap.className = 'mp-multi-grid';
         wrap.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+        wrap.style.gridTemplateRows = `repeat(${rows}, minmax(0, 1fr))`;
 
         for (const card of cardsToShow) {
             const isZoomed = Boolean(session.focusedCardId && session.focusedCardId === card.id);
@@ -451,7 +466,7 @@ html.sp-fx-paused .mp-card.is-zoomed {
                 background: app.boardBackground,
                 border: `2px solid ${card.bingoCount > 0 ? app.bingoColor : card.color}`,
                 borderRadius: `${app.radius}px`,
-                padding: `${Math.max(8, Math.round(app.padding * 0.85))}px`,
+                padding: `${Math.max(6, Math.round(app.padding * (count > 1 ? 0.75 : 0.9)))}px`,
                 gap: `${Math.max(4, Math.round(app.cellGap * 0.8))}px`
             });
 
@@ -481,27 +496,36 @@ html.sp-fx-paused .mp-card.is-zoomed {
             Object.assign(grid.style, {
                 gridTemplateColumns: `repeat(${card.size}, minmax(0, 1fr))`,
                 gridTemplateRows: `repeat(${card.size}, minmax(0, 1fr))`,
-                gap: `${Math.max(3, Math.round(app.cellGap * 0.75))}px`
+                gap: `${Math.max(3, Math.round(app.cellGap * (count > 1 ? 0.65 : 0.85)))}px`
             });
-            const cellFont = Math.max(9, Math.round(app.fontSize * (cardsToShow.length > 1 ? 0.82 : 1)));
+            const cellFont = Math.max(9, Math.round(app.fontSize * (count > 1 ? 0.78 : 1)));
             for (const c of card.cells) {
                 const el = document.createElement('div');
                 el.className = `mp-cell${c.stamped ? ' is-stamped' : ''}${c.winning ? ' is-winning' : ''}`;
                 const col = c.winning ? app.bingoColor : card.color;
                 Object.assign(el.style, {
-                    background: c.stamped ? (app.stampStyle === 'fill' ? col : `${col}3d`) : (c.lockedByOther ? 'rgba(0,0,0,0.38)' : app.cellBackground),
-                    border: `1px solid ${c.winning ? app.bingoColor : c.stamped ? card.color : app.borderColor}`,
+                    background: c.stamped ? (app.stampStyle === 'fill' || !showCellWords ? col : `${col}3d`) : (c.lockedByOther ? 'rgba(0,0,0,0.38)' : app.cellBackground),
+                    border: `1px solid ${c.winning ? app.bingoColor : c.stamped ? col : app.borderColor}`,
                     borderRadius: `${Math.max(3, Math.round(app.radius * 0.55))}px`,
                     color: app.textColor,
                     fontSize: `${cellFont}px`,
-                    opacity: c.lockedByOther ? '0.42' : '1'
+                    opacity: c.lockedByOther ? '0.35' : '1'
                 });
-                const lbl = document.createElement('span');
-                lbl.className = 'mp-cell-label';
-                lbl.textContent = c.label;
-                el.appendChild(lbl);
-                if (c.stamped) {
-                    const st = makeStamp(app.stampStyle, col);
+                if (showCellWords) {
+                    const lbl = document.createElement('span');
+                    lbl.className = 'mp-cell-label';
+                    lbl.textContent = c.label;
+                    el.appendChild(lbl);
+                } else if (c.isFree) {
+                    const freeDot = document.createElement('span');
+                    Object.assign(freeDot.style, {
+                        width: '28%', height: '28%', borderRadius: '50%',
+                        background: 'rgba(255,255,255,0.75)', position: 'relative', zIndex: '1'
+                    });
+                    el.appendChild(freeDot);
+                }
+                if (c.stamped && (showCellWords || app.stampStyle !== 'fill')) {
+                    const st = makeStamp(app.stampStyle, showCellWords ? col : '#ffffff');
                     if (st) el.appendChild(st);
                 }
                 grid.appendChild(el);
@@ -547,6 +571,7 @@ html.sp-fx-paused .mp-card.is-zoomed {
         document.documentElement.classList.toggle('sp-fx-paused', document.hidden);
     });
     if (document.hidden) document.documentElement.classList.add('sp-fx-paused');
+    window.addEventListener('resize', () => { if (currentState) render(currentState); });
 
     load();
     connectWs();

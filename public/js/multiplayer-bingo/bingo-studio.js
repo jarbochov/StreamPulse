@@ -4,6 +4,8 @@ const PLAYER_COLORS = ['#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#a855f7', '#
 let state = null;
 let selectedPackId = '';
 let previewView = 'multi';
+let previewRes = { w: 1920, h: 1080 };
+let previewObserver = null;
 let showCallerPanel = false;
 let dismissedBingoSig = '';
 let hasInitialLoaded = false;
@@ -100,7 +102,10 @@ function switchTab(tabName) {
     document.querySelectorAll('section[data-pane]').forEach(sec => {
         sec.hidden = sec.dataset.pane !== valid;
     });
-    if (valid === 'overlay') syncPreview();
+    if (valid === 'overlay') {
+        layoutPreviewStage();
+        syncPreview();
+    }
 }
 
 function playerUrl(token) {
@@ -344,8 +349,27 @@ function renderAppearanceTab() {
     if (app.bingoColor && app.bingoColor.startsWith('#')) {
         $('app-bingo-color').value = app.bingoColor.slice(0, 7);
     }
+    $('app-show-multi-labels').checked = Boolean(app.showMultiLabels);
     $('mpb-obs-url').textContent = obsUrl();
+    layoutPreviewStage();
     syncPreview();
+}
+
+function layoutPreviewStage() {
+    const wrap = $('mpb-preview-wrap');
+    const stage = $('mpb-preview-stage');
+    const frame = $('mpb-preview-frame');
+    if (!wrap || !stage || !frame) return;
+    const availW = Math.max(240, wrap.clientWidth - 20);
+    const availH = Math.max(220, wrap.clientHeight - 20);
+    const scale = Math.min(availW / previewRes.w, availH / previewRes.h, 1);
+    stage.style.width = `${Math.round(previewRes.w * scale)}px`;
+    stage.style.height = `${Math.round(previewRes.h * scale)}px`;
+    frame.style.width = `${previewRes.w}px`;
+    frame.style.height = `${previewRes.h}px`;
+    frame.style.transform = `scale(${scale})`;
+    const lbl = $('mpb-preview-res-label');
+    if (lbl) lbl.textContent = `${previewRes.w}×${previewRes.h} (${Math.round(scale * 100)}%)`;
 }
 
 function syncPreview() {
@@ -363,7 +387,8 @@ function syncPreview() {
             defaultView: previewView,
             fontSize: Number($('app-font-size').value) || 13,
             radius: Number($('app-radius').value) || 10,
-            bingoColor: $('app-bingo-color').value
+            bingoColor: $('app-bingo-color').value,
+            showMultiLabels: $('app-show-multi-labels').checked
         }
     };
     frame.contentWindow.postMessage({ type: 'mp-bingo-preview', state: previewState }, location.origin);
@@ -635,7 +660,7 @@ function bindEvents() {
     });
 
     // Appearance tab + zero-reload postMessage preview
-    ['app-theme', 'app-stamp', 'app-default-view', 'app-font-size', 'app-radius', 'app-bingo-color'].forEach(id => {
+    ['app-theme', 'app-stamp', 'app-default-view', 'app-font-size', 'app-radius', 'app-bingo-color', 'app-show-multi-labels'].forEach(id => {
         $(id).addEventListener('input', syncPreview);
         $(id).addEventListener('change', syncPreview);
     });
@@ -649,7 +674,8 @@ function bindEvents() {
                 defaultView: $('app-default-view').value,
                 fontSize: Number($('app-font-size').value) || 13,
                 radius: Number($('app-radius').value) || 10,
-                bingoColor: $('app-bingo-color').value
+                bingoColor: $('app-bingo-color').value,
+                showMultiLabels: $('app-show-multi-labels').checked
             })
         });
         state = { ...res.state, enabled: state.enabled };
@@ -667,6 +693,26 @@ function bindEvents() {
         });
         syncPreview();
     });
+
+    $('mpb-preview-res-chips').addEventListener('click', e => {
+        const btn = e.target.closest('[data-res]');
+        if (!btn) return;
+        const [w, h] = btn.dataset.res.split('x').map(Number);
+        if (!w || !h) return;
+        previewRes = { w, h };
+        $('mpb-preview-res-chips').querySelectorAll('button').forEach(b => {
+            b.classList.toggle('btn-primary', b === btn);
+            b.classList.toggle('btn-secondary', b !== btn);
+        });
+        layoutPreviewStage();
+        syncPreview();
+    });
+
+    if (typeof ResizeObserver === 'function' && $('mpb-preview-wrap')) {
+        previewObserver = new ResizeObserver(() => layoutPreviewStage());
+        previewObserver.observe($('mpb-preview-wrap'));
+        window.addEventListener('beforeunload', () => previewObserver?.disconnect(), { once: true });
+    }
 
     $('btn-copy-obs-url').addEventListener('click', async () => {
         await navigator.clipboard?.writeText(obsUrl());

@@ -117,7 +117,8 @@ function defaultAppearance() {
         fontSize: 13,
         radius: 10,
         cellGap: 6,
-        padding: 12
+        padding: 12,
+        showMultiLabels: false
     };
 }
 
@@ -138,7 +139,8 @@ function normalizeAppearance(input = {}) {
         fontSize: clamp(src.fontSize, 9, 28, base.fontSize),
         radius: clamp(src.radius, 0, 24, base.radius),
         cellGap: clamp(src.cellGap, 2, 16, base.cellGap),
-        padding: clamp(src.padding, 4, 32, base.padding)
+        padding: clamp(src.padding, 4, 32, base.padding),
+        showMultiLabels: Boolean(src.showMultiLabels)
     };
 }
 

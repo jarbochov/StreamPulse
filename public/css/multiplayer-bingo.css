@@ -345,19 +345,30 @@
 .mpb-preview-frame-wrap {
     position: relative;
     width: 100%;
-    aspect-ratio: 16 / 9;
+    height: 420px;
     border-radius: 12px;
     overflow: hidden;
     border: 1px solid var(--border);
     background: radial-gradient(circle at 20% 20%, #1e293b 0%, #090d16 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.mpb-preview-frame-wrap iframe {
+.mpb-preview-stage {
+    position: relative;
+    overflow: hidden;
+    border-radius: 6px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+    outline: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.mpb-preview-stage iframe {
     position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
+    top: 0;
+    left: 0;
     border: 0;
+    transform-origin: top left;
 }
 
 .mpb-caller-panel {

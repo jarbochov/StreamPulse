@@ -208,6 +208,12 @@
                         <input type="color" id="app-bingo-color" value="#22c55e" style="height:36px;width:100%;">
                     </div>
                 </div>
+                <div class="mpb-field">
+                    <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:13px;color:var(--text-main);cursor:pointer;">
+                        <input type="checkbox" id="app-show-multi-labels">
+                        Show prompt words in Multi-Card overview (Zoom &amp; Single always show words)
+                    </label>
+                </div>
                 <div style="display:flex;justify-content:flex-end;">
                     <button type="button" class="btn btn-primary" id="btn-save-appearance">Save Appearance</button>
                 </div>
@@ -224,11 +230,22 @@
                         </div>
                         <button type="button" class="btn btn-secondary btn-sm" id="btn-copy-obs-url">Copy OBS URL</button>
                     </div>
+                    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;">
+                        <div style="display:flex;flex-wrap:wrap;gap:6px;" id="mpb-preview-res-chips">
+                            <button type="button" class="btn btn-sm btn-primary" data-res="1920x1080">1920×1080</button>
+                            <button type="button" class="btn btn-sm btn-secondary" data-res="1280x720">1280×720</button>
+                            <button type="button" class="btn btn-sm btn-secondary" data-res="1080x1920">1080×1920 (9:16)</button>
+                            <button type="button" class="btn btn-sm btn-secondary" data-res="800x600">800×600</button>
+                        </div>
+                        <span class="pill" id="mpb-preview-res-label">1920×1080</span>
+                    </div>
                     <div class="mpb-url-row">
                         <code id="mpb-obs-url"></code>
                     </div>
-                    <div class="mpb-preview-frame-wrap">
-                        <iframe id="mpb-preview-frame" title="Multiplayer Bingo Overlay Preview" src="/overlays/multiplayer-bingo.html?preview=true"></iframe>
+                    <div class="mpb-preview-frame-wrap" id="mpb-preview-wrap">
+                        <div class="mpb-preview-stage" id="mpb-preview-stage">
+                            <iframe id="mpb-preview-frame" title="Multiplayer Bingo Overlay Preview" src="/overlays/multiplayer-bingo.html?preview=true"></iframe>
+                        </div>
                     </div>
                 </div>
             </div>
