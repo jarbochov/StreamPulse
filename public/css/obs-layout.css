@@ -1,6 +1,7 @@
 /* OBS Layout & Aspect Studio — Aligned with OBS Border & Pattern Studios */
 
-.ol-wrap [hidden] {
+.ol-wrap [hidden],
+.ol-modal-backdrop[hidden] {
     display: none !important;
 }
 
