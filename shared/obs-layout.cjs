@@ -268,14 +268,210 @@ function rectToObsTransformPatch(currentTx, desiredRect) {
     return patch;
 }
 
+const {
+    computeEffectiveBorderMetrics,
+    inferBaseDimensions,
+    resolveBoundsEffectiveScale
+} = require('./obs-border-transform.cjs');
+
+/**
+ * Computes exact canvas-space rectangles for an OBS scene item that has a StreamPulse Border filter:
+ *  - `borderOuterRect`: visible outer edge of the StreamPulse Border stroke
+ *  - `contentRect`: visible inner source content frame (inside the border)
+ *  - `pad`, `reach`, `baseW`, `baseH`: resolved border metrics
+ */
+function computeBorderScreenRects(tx = {}, resolvedProfile = null) {
+    if (!resolvedProfile) return null;
+    const rect = sceneItemScreenRect(tx);
+    const sw = Math.max(1, Number(tx.sourceWidth) || 1920);
+    const sh = Math.max(1, Number(tx.sourceHeight) || 1080);
+    const cropL = Number(tx.cropLeft) || 0;
+    const cropR = Number(tx.cropRight) || 0;
+    const cropT = Number(tx.cropTop) || 0;
+    const cropB = Number(tx.cropBottom) || 0;
+    const effSrcW = Math.max(1, sw - cropL - cropR);
+    const effSrcH = Math.max(1, sh - cropT - cropB);
+
+    let sx;
+    let sy;
+    let renderedW;
+    let renderedH;
+    let texLeft;
+    let texTop;
+
+    if (rect.hasBounds) {
+        const sc = resolveBoundsEffectiveScale(rect.boundsType, rect.width, rect.height, effSrcW, effSrcH);
+        sx = sc.sx;
+        sy = sc.sy;
+        renderedW = effSrcW * sx;
+        renderedH = effSrcH * sy;
+        const { ax: bax, ay: bay } = alignmentRatios(tx.boundsAlignment ?? 0);
+        texLeft = rect.left + bax * (rect.width - renderedW);
+        texTop = rect.top + bay * (rect.height - renderedH);
+    } else {
+        sx = Math.abs(Number(tx.scaleX) || 1);
+        sy = Math.abs(Number(tx.scaleY) || 1);
+        renderedW = rect.width;
+        renderedH = rect.height;
+        texLeft = rect.left;
+        texTop = rect.top;
+    }
+
+    const txScale = Math.min(sx, sy);
+    const { baseW, baseH } = inferBaseDimensions(sw, sh, resolvedProfile, txScale);
+    const metrics = computeEffectiveBorderMetrics(resolvedProfile, baseW, baseH, txScale);
+    const pad = metrics.pad || 0;
+    const reach = metrics.reach || 0;
+    const outerInset = Math.max(0, pad - reach);
+
+    const buildBox = insetPx => {
+        const l = texLeft + Math.max(0, insetPx - cropL) * sx;
+        const t = texTop + Math.max(0, insetPx - cropT) * sy;
+        const r = texLeft + renderedW - Math.max(0, insetPx - cropR) * sx;
+        const b = texTop + renderedH - Math.max(0, insetPx - cropB) * sy;
+        return {
+            left: Number(l.toFixed(2)),
+            top: Number(t.toFixed(2)),
+            width: Number(Math.max(1, r - l).toFixed(2)),
+            height: Number(Math.max(1, b - t).toFixed(2)),
+            right: Number(r.toFixed(2)),
+            bottom: Number(b.toFixed(2))
+        };
+    };
+
+    return {
+        pad,
+        reach,
+        baseW,
+        baseH,
+        borderOuterRect: buildBox(outerInset),
+        contentRect: buildBox(pad)
+    };
+}
+
+/**
+ * Fallback native OBS crop calculation (`cropLeft`, `cropRight`, `cropTop`, `cropBottom`)
+ * when `streampulse-aspect.lua` GPU filter is not attached to the source.
+ */
+function computeNativeObsCropPatch(sourceWidth, sourceHeight, rawCfg = {}, borderPad = 0) {
+    const sw = Math.max(2, Math.round(Number(sourceWidth) || 1920));
+    const sh = Math.max(2, Math.round(Number(sourceHeight) || 1080));
+    const pad = Math.max(0, Math.round(Number(borderPad) || 0));
+    const innerW = Math.max(2, sw - pad * 2);
+    const innerH = Math.max(2, sh - pad * 2);
+    const cfg = normalizeAspectConfig(rawCfg);
+
+    if (cfg.ratio === 'native' && Math.abs(cfg.zoom - 1) < 0.001 && Math.abs(cfg.panX) < 0.01 && Math.abs(cfg.panY) < 0.01) {
+        return {
+            cropLeft: 0,
+            cropRight: 0,
+            cropTop: 0,
+            cropBottom: 0,
+            effW: sw,
+            effH: sh
+        };
+    }
+
+    const crop = computeAspectCrop(innerW, innerH, cfg);
+    const cropLeft = Math.max(0, Math.round(pad + crop.uvLeft * innerW));
+    const cropRight = Math.max(0, Math.round(pad + (1 - crop.uvRight) * innerW));
+    const cropTop = Math.max(0, Math.round(pad + crop.uvTop * innerH));
+    const cropBottom = Math.max(0, Math.round(pad + (1 - crop.uvBottom) * innerH));
+    return {
+        cropLeft,
+        cropRight,
+        cropTop,
+        cropBottom,
+        effW: Math.max(2, sw - cropLeft - cropRight),
+        effH: Math.max(2, sh - cropTop - cropBottom)
+    };
+}
+
+const TRANSITION_TYPES = ['move', 'fade', 'move-fade', 'cut'];
+const PATH_TYPES = ['direct', 'arc-up', 'arc-down', 's-curve', 'custom'];
+const EASINGS = ['ease-in-out', 'ease-out', 'ease-in', 'linear', 'overshoot'];
+
+function evalEasing(t, easing = 'ease-in-out') {
+    const x = Math.min(1, Math.max(0, Number(t) || 0));
+    switch (easing) {
+    case 'linear':
+        return x;
+    case 'ease-in':
+        return x * x * x;
+    case 'ease-out':
+        return 1 - Math.pow(1 - x, 3);
+    case 'overshoot': {
+        const c1 = 1.70158;
+        const c3 = c1 + 1;
+        return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+    }
+    case 'ease-in-out':
+    default:
+        return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+    }
+}
+
+/**
+ * Evaluates a 2D point along a transition movement path between (x0, y0) and (x1, y1) at eased progress `t`.
+ * Supports 'direct', 'arc-up', 'arc-down', 's-curve', and 'custom' (quadratic Bezier with normalized control point).
+ */
+function evalPathPoint(x0, y0, x1, y1, t, { pathType = 'direct', pathCurve = 0.28, controlPoint = null } = {}) {
+    const dx = x1 - x0;
+    const dy = y1 - y0;
+    const dist = Math.hypot(dx, dy);
+    if (pathType === 'direct' || dist < 1) {
+        return { x: x0 + dx * t, y: y0 + dy * t };
+    }
+    const curve = clamp(pathCurve, -1, 1, 0.28);
+    if (pathType === 'arc-up' || pathType === 'arc-down') {
+        const dir = pathType === 'arc-up' ? -1 : 1;
+        const midX = (x0 + x1) * 0.5;
+        const midY = (y0 + y1) * 0.5 + dir * Math.max(40, dist * Math.abs(curve));
+        const u = 1 - t;
+        return {
+            x: u * u * x0 + 2 * u * t * midX + t * t * x1,
+            y: u * u * y0 + 2 * u * t * midY + t * t * y1
+        };
+    }
+    if (pathType === 's-curve') {
+        const offset = Math.max(40, dist * Math.abs(curve));
+        const c1x = x0 + dx * 0.35;
+        const c1y = y0 - offset;
+        const c2x = x0 + dx * 0.65;
+        const c2y = y1 + offset;
+        const u = 1 - t;
+        return {
+            x: u * u * u * x0 + 3 * u * u * t * c1x + 3 * u * t * t * c2x + t * t * t * x1,
+            y: u * u * u * y0 + 3 * u * u * t * c1y + 3 * u * t * t * c2y + t * t * t * y1
+        };
+    }
+    if (pathType === 'custom' && controlPoint && Number.isFinite(Number(controlPoint.x)) && Number.isFinite(Number(controlPoint.y))) {
+        const cx = Number(controlPoint.x);
+        const cy = Number(controlPoint.y);
+        const u = 1 - t;
+        return {
+            x: u * u * x0 + 2 * u * t * cx + t * t * x1,
+            y: u * u * y0 + 2 * u * t * cy + t * t * y1
+        };
+    }
+    return { x: x0 + dx * t, y: y0 + dy * t };
+}
+
 module.exports = {
     ASPECT_PRESETS,
     RESIZE_MODES,
     ANCHORS,
+    TRANSITION_TYPES,
+    PATH_TYPES,
+    EASINGS,
     normalizeAspectConfig,
     resolveTargetRatio,
     computeAspectCrop,
     sceneItemScreenRect,
     computeAnchoredTransform,
-    rectToObsTransformPatch
+    rectToObsTransformPatch,
+    computeBorderScreenRects,
+    computeNativeObsCropPatch,
+    evalEasing,
+    evalPathPoint
 };

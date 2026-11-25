@@ -81,10 +81,12 @@ function inferBaseDimensions(sourceWidth, sourceHeight, prevProfile, txScale = 1
     }
     let bw = sw;
     let bh = sh;
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 12; i++) {
         const { pad } = computeEffectiveBorderMetrics(prevProfile, bw, bh, txScale);
-        bw = Math.max(1, sw - pad * 2);
-        bh = Math.max(1, sh - pad * 2);
+        const nextW = Math.max(1, sw - pad * 2);
+        const nextH = Math.max(1, sh - pad * 2);
+        bw = 0.5 * bw + 0.5 * nextW;
+        bh = 0.5 * bh + 0.5 * nextH;
     }
     return { baseW: Math.round(bw), baseH: Math.round(bh) };
 }
@@ -253,5 +255,6 @@ module.exports = {
     computeEffectiveBorderMetrics,
     inferBaseDimensions,
     alignmentRatios,
+    resolveBoundsEffectiveScale,
     computeCompensatedTransform
 };

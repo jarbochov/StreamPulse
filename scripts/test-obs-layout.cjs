@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const http = require('node:http');
-const { computeAspectCrop, computeAnchoredTransform, sceneItemScreenRect } = require('../shared/obs-layout.cjs');
+const { computeAspectCrop, computeAnchoredTransform, sceneItemScreenRect, computeBorderScreenRects, computeNativeObsCropPatch, evalPathPoint, evalEasing } = require('../shared/obs-layout.cjs');
 const createObsLayoutService = require('../server/services/obs-layout');
 const createObsLayoutRoutes = require('../server/routes/obs-layout');
 
@@ -150,4 +150,36 @@ test('OBS Layout & Aspect Studio enforces opt-in gate, generates Lua script, mor
     assert.equal(applyRes.ok, true);
     assert.equal(applyRes.itemsAnimated, 1);
     assert.ok(obsCalls.some(c => c.type === 'SetSceneItemTransform' && c.data.sceneItemTransform.positionX === 900));
+});
+
+test('Border screen rects, native OBS crop fallback, and movement path evaluation are accurate', () => {
+    const txFacecam = {
+        positionX: 524.5, positionY: 230, alignment: 5, boundsAlignment: 0,
+        sourceWidth: 2430, sourceHeight: 1590, scaleX: 1, scaleY: 1,
+        boundsType: 'OBS_BOUNDS_SCALE_TO_HEIGHT', boundsWidth: 940, boundsHeight: 546
+    };
+    const prof = {
+        placement: 'outside', pad: 255, autoScale: true, baseWidth: 1920, baseHeight: 1080,
+        inner: { enabled: true, thickness: 24, gap: 0 }, outer: { enabled: true, thickness: 2, gap: 0 }, seamOverlap: 1
+    };
+    const bRects = computeBorderScreenRects(txFacecam, prof);
+    assert.equal(bRects.baseW, 1920);
+    assert.equal(bRects.baseH, 1080);
+    assert.equal(bRects.pad, 255);
+    assert.ok(bRects.borderOuterRect.left > 640 && bRects.borderOuterRect.left < 670);
+    assert.ok(bRects.contentRect.width < bRects.borderOuterRect.width);
+
+    const nativeCrop = computeNativeObsCropPatch(2430, 1590, { ratio: '4:3' }, 255);
+    assert.equal(nativeCrop.cropLeft, 495);
+    assert.equal(nativeCrop.cropRight, 495);
+    assert.equal(nativeCrop.effW, 1440);
+    assert.equal(nativeCrop.effH, 1080);
+
+    const arcMid = evalPathPoint(0, 500, 1000, 500, 0.5, { pathType: 'arc-up', pathCurve: 0.3 });
+    assert.ok(arcMid.y < 500, 'arc-up bends upward at midpoint');
+    const customMid = evalPathPoint(0, 0, 1000, 0, 0.5, { pathType: 'custom', controlPoint: { x: 500, y: 400 } });
+    assert.equal(customMid.x, 500);
+    assert.equal(customMid.y, 200);
+    assert.equal(evalEasing(0, 'ease-in-out'), 0);
+    assert.equal(evalEasing(1, 'overshoot'), 1);
 });

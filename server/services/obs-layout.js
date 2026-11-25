@@ -5,6 +5,9 @@ const {
     ASPECT_PRESETS,
     RESIZE_MODES,
     ANCHORS,
+    TRANSITION_TYPES,
+    PATH_TYPES,
+    EASINGS,
     normalizeAspectConfig,
     resolveTargetRatio
 } = require('../../shared/obs-layout.cjs');
@@ -349,11 +352,20 @@ module.exports = function createObsLayoutService({ dataDir, broadcastToOverlays 
                 aspect: it?.aspect ? normalizeAspectConfig(it.aspect) : null
             })).filter(it => it.sourceName)
             : [];
+        const cpRaw = src.pathControlPoint && typeof src.pathControlPoint === 'object' ? src.pathControlPoint : null;
+        const pathControlPoint = cpRaw && Number.isFinite(Number(cpRaw.x)) && Number.isFinite(Number(cpRaw.y))
+            ? { x: Number(cpRaw.x), y: Number(cpRaw.y) }
+            : null;
         return {
             id: id || `layout-${idx + 1}`,
             name: String(src.name || `Layout ${idx + 1}`).trim().slice(0, 80) || `Layout ${idx + 1}`,
             sceneName: String(src.sceneName || '').trim().slice(0, 120),
-            durationMs: Math.max(0, Math.min(3000, Number(src.durationMs ?? 400) || 0)),
+            durationMs: Math.max(0, Math.min(3000, Number(src.durationMs ?? 450) || 0)),
+            transitionType: TRANSITION_TYPES.includes(src.transitionType) ? src.transitionType : 'move',
+            pathType: PATH_TYPES.includes(src.pathType) ? src.pathType : 'direct',
+            pathCurve: Math.max(-1, Math.min(1, Number(src.pathCurve ?? 0.28) || 0)),
+            pathControlPoint,
+            easing: EASINGS.includes(src.easing) ? src.easing : 'ease-in-out',
             items
         };
     }

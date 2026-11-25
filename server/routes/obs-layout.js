@@ -2,15 +2,15 @@ const { readRequestBody, sendJson, sendError } = require('./helpers');
 const {
     computeAspectCrop,
     computeAnchoredTransform,
-    sceneItemScreenRect
+    sceneItemScreenRect,
+    computeBorderScreenRects,
+    computeNativeObsCropPatch,
+    evalEasing,
+    evalPathPoint
 } = require('../../shared/obs-layout.cjs');
-const { computeEffectiveBorderMetrics } = require('../../shared/obs-border-transform.cjs');
 
 const CYCLE_ORDER = ['native', '16:9', '4:3', '1:1', '9:16'];
-
-function easeInOutCubic(t) {
-    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-}
+const FADE_FILTER_NAME = 'StreamPulse Fade';
 
 function lerpNum(a, b, t) {
     return a + (b - a) * t;
@@ -27,10 +27,39 @@ module.exports = function createObsLayoutRoutes({
         return Boolean(obsService && typeof obsService.callRequest === 'function' && obsService.getStatus().connected);
     }
 
-    async function animateTransforms(entries, durationMs = 0) {
+    async function setSourceOpacity(sourceName, opacity) {
+        if (!isObsReady() || !sourceName) return;
+        const clamped = Math.max(0, Math.min(1, Number(opacity)));
+        try {
+            await obsService.callRequest('SetSourceFilterSettings', {
+                sourceName,
+                filterName: FADE_FILTER_NAME,
+                filterSettings: { opacity: clamped },
+                overlay: true
+            });
+        } catch {
+            try {
+                await obsService.callRequest('CreateSourceFilter', {
+                    sourceName,
+                    filterName: FADE_FILTER_NAME,
+                    filterKind: 'color_filter_v2',
+                    filterSettings: { opacity: clamped }
+                });
+            } catch { /* source may not support video filters */ }
+        }
+    }
+
+    async function animateTransforms(entries, options = {}) {
         if (!entries.length || !isObsReady()) return;
-        const dur = Math.max(0, Math.min(3000, Number(durationMs) || 0));
-        if (dur < 25) {
+        const opts = typeof options === 'number' ? { durationMs: options } : (options || {});
+        const transitionType = String(opts.transitionType || 'move');
+        const pathType = String(opts.pathType || 'direct');
+        const pathCurve = Number.isFinite(Number(opts.pathCurve)) ? Number(opts.pathCurve) : 0.28;
+        const controlPoint = opts.pathControlPoint || opts.controlPoint || null;
+        const easing = String(opts.easing || 'ease-in-out');
+        const dur = transitionType === 'cut' ? 0 : Math.max(0, Math.min(3000, Number(opts.durationMs) || 0));
+
+        if (dur < 25 || transitionType === 'cut') {
             for (const e of entries) {
                 await obsService.callRequest('SetSceneItemTransform', {
                     sceneName: e.sceneName,
@@ -40,13 +69,48 @@ module.exports = function createObsLayoutRoutes({
             }
             return;
         }
-        const steps = Math.max(3, Math.min(45, Math.round(dur / 22)));
+
+        const uniqueSources = [...new Set(entries.map(e => e.sourceName).filter(Boolean))];
+
+        // Pure Fade transition: fade out -> snap transform -> fade in
+        if (transitionType === 'fade') {
+            const halfSteps = Math.max(3, Math.min(24, Math.round((dur * 0.5) / 24)));
+            const stepMs = (dur * 0.5) / halfSteps;
+            for (let i = 1; i <= halfSteps; i++) {
+                const op = 1 - evalEasing(i / halfSteps, easing);
+                await Promise.all(uniqueSources.map(s => setSourceOpacity(s, op)));
+                if (i < halfSteps) await new Promise(r => setTimeout(r, stepMs));
+            }
+            for (const e of entries) {
+                await obsService.callRequest('SetSceneItemTransform', {
+                    sceneName: e.sceneName,
+                    sceneItemId: e.sceneItemId,
+                    sceneItemTransform: e.to
+                }).catch(() => {});
+            }
+            for (let i = 1; i <= halfSteps; i++) {
+                const op = evalEasing(i / halfSteps, easing);
+                await Promise.all(uniqueSources.map(s => setSourceOpacity(s, op)));
+                if (i < halfSteps) await new Promise(r => setTimeout(r, stepMs));
+            }
+            return;
+        }
+
+        // Move or Move + Fade with movement paths (direct / arc-up / arc-down / s-curve / custom Bezier)
+        const steps = Math.max(3, Math.min(48, Math.round(dur / 22)));
         const stepMs = dur / steps;
+        const withFade = transitionType === 'move-fade';
         for (let i = 1; i <= steps; i++) {
-            const t = easeInOutCubic(i / steps);
+            const rawT = i / steps;
+            const t = evalEasing(rawT, easing);
+            if (withFade) {
+                const dip = 1 - 0.65 * Math.sin(rawT * Math.PI);
+                await Promise.all(uniqueSources.map(s => setSourceOpacity(s, dip)));
+            }
             for (const e of entries) {
                 const framePatch = {};
                 for (const key of Object.keys(e.to)) {
+                    if (key === 'positionX' || key === 'positionY') continue;
                     const fromVal = Number(e.from?.[key]);
                     const toVal = Number(e.to[key]);
                     if (Number.isFinite(fromVal) && Number.isFinite(toVal)) {
@@ -54,6 +118,16 @@ module.exports = function createObsLayoutRoutes({
                     } else {
                         framePatch[key] = e.to[key];
                     }
+                }
+                const hasPos = e.to.positionX !== undefined || e.to.positionY !== undefined;
+                if (hasPos) {
+                    const x0 = Number(e.from?.positionX ?? e.to.positionX ?? 0);
+                    const y0 = Number(e.from?.positionY ?? e.to.positionY ?? 0);
+                    const x1 = Number(e.to.positionX ?? x0);
+                    const y1 = Number(e.to.positionY ?? y0);
+                    const pt = evalPathPoint(x0, y0, x1, y1, t, { pathType, pathCurve, controlPoint });
+                    if (e.to.positionX !== undefined) framePatch.positionX = Number(pt.x.toFixed(3));
+                    if (e.to.positionY !== undefined) framePatch.positionY = Number(pt.y.toFixed(3));
                 }
                 await obsService.callRequest('SetSceneItemTransform', {
                     sceneName: e.sceneName,
@@ -65,25 +139,65 @@ module.exports = function createObsLayoutRoutes({
                 await new Promise(resolve => setTimeout(resolve, stepMs));
             }
         }
+        if (withFade) {
+            await Promise.all(uniqueSources.map(s => setSourceOpacity(s, 1)));
+        }
     }
 
-    async function pokeAspectFilter(sourceName) {
-        if (!isObsReady()) return false;
+    async function inspectSourceFilters(sourceName) {
+        if (!isObsReady() || !sourceName) {
+            return { filters: [], hasBorderFilter: false, hasAspectFilter: false, aspectFilterName: null };
+        }
         try {
             const fl = await obsService.callRequest('GetSourceFilterList', { sourceName });
             const filters = Array.isArray(fl?.filters) ? fl.filters : [];
-            const existing = filters.find(f => f.filterKind === 'streampulse_aspect_filter' || f.filterName === 'StreamPulse Aspect');
-            if (existing) {
+            const borderF = filters.find(f => (f.filterKind === 'streampulse_border_filter' || f.filterName === 'StreamPulse Border') && f.filterEnabled !== false);
+            const aspectF = filters.find(f => (f.filterKind === 'streampulse_aspect_filter' || f.filterName === 'StreamPulse Aspect') && f.filterEnabled !== false);
+            return {
+                filters,
+                hasBorderFilter: Boolean(borderF),
+                hasAspectFilter: Boolean(aspectF),
+                aspectFilterName: aspectF?.filterName || null
+            };
+        } catch {
+            return { filters: [], hasBorderFilter: false, hasAspectFilter: false, aspectFilterName: null };
+        }
+    }
+
+    async function ensureAndPokeAspectFilter(sourceName) {
+        if (!isObsReady() || !sourceName) return { attached: false, hasBorderFilter: false };
+        const info = await inspectSourceFilters(sourceName);
+        if (info.hasAspectFilter) {
+            try {
                 await obsService.callRequest('SetSourceFilterSettings', {
                     sourceName,
-                    filterName: existing.filterName,
+                    filterName: info.aspectFilterName || 'StreamPulse Aspect',
                     filterSettings: { sync_revision: Date.now() },
                     overlay: true
                 });
-                return true;
+                return { attached: true, hasBorderFilter: info.hasBorderFilter };
+            } catch { /* fall through */ }
+        }
+        // Try auto-attaching StreamPulse Aspect if streampulse-aspect.lua is loaded in OBS
+        try {
+            await obsService.callRequest('CreateSourceFilter', {
+                sourceName,
+                filterName: 'StreamPulse Aspect',
+                filterKind: 'streampulse_aspect_filter',
+                filterSettings: { sync_revision: Date.now() }
+            });
+            const borderIdx = info.filters.findIndex(f => f.filterKind === 'streampulse_border_filter' || f.filterName === 'StreamPulse Border');
+            if (borderIdx >= 0) {
+                await obsService.callRequest('SetSourceFilterIndex', {
+                    sourceName,
+                    filterName: 'StreamPulse Aspect',
+                    filterIndex: Math.max(0, borderIdx)
+                }).catch(() => {});
             }
-        } catch { /* ignore */ }
-        return false;
+            return { attached: true, hasBorderFilter: info.hasBorderFilter };
+        } catch {
+            return { attached: false, hasBorderFilter: info.hasBorderFilter };
+        }
     }
 
     return async function handleObsLayoutRoutes(req, res, url, pathname) {
@@ -181,14 +295,23 @@ module.exports = function createObsLayoutRoutes({
                     }
                     if (!tx) continue;
                     const rect = sceneItemScreenRect(tx);
+                    const filterInfo = it.isGroup
+                        ? { hasBorderFilter: false, hasAspectFilter: false }
+                        : await inspectSourceFilters(sourceName);
                     let borderPad = 0;
                     let borderReach = 0;
-                    if (obsBordersService && borderManifest) {
+                    let borderOuterRect = null;
+                    let contentRect = null;
+                    if (filterInfo.hasBorderFilter && obsBordersService && borderManifest) {
                         const prof = obsBordersService.resolveManifestProfileForSource(borderManifest, sourceName, sceneName);
                         if (prof) {
-                            const metrics = computeEffectiveBorderMetrics(prof, tx.sourceWidth || 1920, tx.sourceHeight || 1080, Math.min(Math.abs(tx.scaleX || 1), Math.abs(tx.scaleY || 1)));
-                            borderPad = metrics.pad;
-                            borderReach = metrics.reach;
+                            const bRects = computeBorderScreenRects(tx, prof);
+                            if (bRects) {
+                                borderPad = bRects.pad;
+                                borderReach = bRects.reach;
+                                borderOuterRect = bRects.borderOuterRect;
+                                contentRect = bRects.contentRect;
+                            }
                         }
                     }
                     items.push({
@@ -201,8 +324,12 @@ module.exports = function createObsLayoutRoutes({
                         locked: Boolean(it.sceneItemLocked),
                         transform: tx,
                         rect,
+                        hasBorderFilter: filterInfo.hasBorderFilter,
+                        hasAspectFilter: filterInfo.hasAspectFilter,
                         borderPad,
                         borderReach,
+                        borderOuterRect,
+                        contentRect,
                         aspect: layoutState.sources?.[sourceName] || null
                     });
                 }
@@ -269,6 +396,13 @@ module.exports = function createObsLayoutRoutes({
                         sceneName,
                         sceneItemId,
                         sceneItemLocked: body.locked
+                    });
+                }
+                if (Number.isInteger(body.sceneItemIndex) && body.sceneItemIndex >= 0) {
+                    await obsService.callRequest('SetSceneItemIndex', {
+                        sceneName,
+                        sceneItemId,
+                        sceneItemIndex: body.sceneItemIndex
                     });
                 }
                 sendJson(res, { ok: true });
@@ -339,10 +473,20 @@ module.exports = function createObsLayoutRoutes({
 
                 const saved = obsLayoutService.setSourceAspect(sourceName, patch);
                 const sceneNameFilter = String(url.searchParams.get('scene') ?? body.sceneName ?? '').trim();
+                const transitionType = String(url.searchParams.get('transitionType') ?? body.transitionType ?? 'move');
+                const pathType = String(url.searchParams.get('pathType') ?? body.pathType ?? 'direct');
+                const easing = String(url.searchParams.get('easing') ?? body.easing ?? 'ease-in-out');
 
-                // Update Lua aspect filter + smoothly animate anchored transforms in OBS
+                let aspectMode = 'saved-only';
+                let filterAttached = false;
+                let hasBorderFilter = false;
                 if (isObsReady()) {
-                    await pokeAspectFilter(sourceName);
+                    const fState = await ensureAndPokeAspectFilter(sourceName);
+                    filterAttached = fState.attached;
+                    hasBorderFilter = fState.hasBorderFilter;
+                    aspectMode = filterAttached ? 'gpu-filter' : 'native-crop';
+
+                    const borderManifest = hasBorderFilter && obsBordersService ? obsBordersService.syncResolvedManifest() : null;
                     const targetScenes = sceneNameFilter
                         ? [sceneNameFilter]
                         : ((await obsService.callRequest('GetSceneList').catch(() => ({ scenes: [] })))?.scenes || []).map(s => s.sceneName);
@@ -355,24 +499,59 @@ module.exports = function createObsLayoutRoutes({
                                 const txRes = await obsService.callRequest('GetSceneItemTransform', { sceneName: sc, sceneItemId: it.sceneItemId });
                                 const curTx = txRes?.sceneItemTransform;
                                 if (!curTx) continue;
-                                const crop = computeAspectCrop(curTx.sourceWidth || 1920, curTx.sourceHeight || 1080, saved.aspect);
-                                const anchored = computeAnchoredTransform(curTx, crop.outW, crop.outH, {
-                                    resizeMode: saved.aspect.resizeMode,
-                                    anchor: saved.aspect.anchor
-                                });
+                                let borderPad = 0;
+                                let baseW = curTx.sourceWidth || 1920;
+                                let baseH = curTx.sourceHeight || 1080;
+                                if (hasBorderFilter && obsBordersService && borderManifest) {
+                                    const prof = obsBordersService.resolveManifestProfileForSource(borderManifest, sourceName, sc);
+                                    const bRects = prof ? computeBorderScreenRects(curTx, prof) : null;
+                                    if (bRects) {
+                                        borderPad = bRects.pad;
+                                        baseW = bRects.baseW;
+                                        baseH = bRects.baseH;
+                                    }
+                                }
+                                let anchored;
+                                if (filterAttached) {
+                                    const crop = computeAspectCrop(baseW, baseH, saved.aspect);
+                                    anchored = computeAnchoredTransform(curTx, crop.outW + borderPad * 2, crop.outH + borderPad * 2, {
+                                        resizeMode: saved.aspect.resizeMode,
+                                        anchor: saved.aspect.anchor
+                                    });
+                                    anchored.patch.cropLeft = 0;
+                                    anchored.patch.cropRight = 0;
+                                    anchored.patch.cropTop = 0;
+                                    anchored.patch.cropBottom = 0;
+                                } else {
+                                    const nativeCrop = computeNativeObsCropPatch(curTx.sourceWidth || 1920, curTx.sourceHeight || 1080, saved.aspect, borderPad);
+                                    anchored = computeAnchoredTransform(curTx, nativeCrop.effW, nativeCrop.effH, {
+                                        resizeMode: saved.aspect.resizeMode,
+                                        anchor: saved.aspect.anchor
+                                    });
+                                    anchored.patch.cropLeft = nativeCrop.cropLeft;
+                                    anchored.patch.cropRight = nativeCrop.cropRight;
+                                    anchored.patch.cropTop = nativeCrop.cropTop;
+                                    anchored.patch.cropBottom = nativeCrop.cropBottom;
+                                }
                                 animEntries.push({
                                     sceneName: sc,
                                     sceneItemId: it.sceneItemId,
+                                    sourceName,
                                     from: curTx,
                                     to: anchored.patch
                                 });
                             }
                         } catch { /* ignore */ }
                     }
-                    await animateTransforms(animEntries, saved.aspect.durationMs);
+                    await animateTransforms(animEntries, {
+                        durationMs: saved.aspect.durationMs,
+                        transitionType,
+                        pathType,
+                        easing
+                    });
                 }
 
-                sendJson(res, { ok: true, ...saved });
+                sendJson(res, { ok: true, mode: aspectMode, filterAttached, hasBorderFilter, ...saved });
                 return true;
             }
 
@@ -404,6 +583,11 @@ module.exports = function createObsLayoutRoutes({
                     return true;
                 }
                 const durationMs = url.searchParams.has('durationMs') ? Number(url.searchParams.get('durationMs')) : (body.durationMs ?? layout.durationMs);
+                const transitionType = String(url.searchParams.get('transitionType') ?? body.transitionType ?? layout.transitionType ?? 'move');
+                const pathType = String(url.searchParams.get('pathType') ?? body.pathType ?? layout.pathType ?? 'direct');
+                const pathCurve = url.searchParams.has('pathCurve') ? Number(url.searchParams.get('pathCurve')) : (body.pathCurve ?? layout.pathCurve ?? 0.28);
+                const pathControlPoint = body.pathControlPoint ?? layout.pathControlPoint ?? null;
+                const easing = String(url.searchParams.get('easing') ?? body.easing ?? layout.easing ?? 'ease-in-out');
                 const il = await obsService.callRequest('GetSceneItemList', { sceneName: layout.sceneName });
                 const sceneItems = Array.isArray(il?.sceneItems) ? il.sceneItems : [];
                 const animEntries = [];
@@ -411,7 +595,7 @@ module.exports = function createObsLayoutRoutes({
                 for (const savedItem of layout.items) {
                     if (savedItem.aspect) {
                         obsLayoutService.setSourceAspect(savedItem.sourceName, { ...savedItem.aspect, durationMs });
-                        await pokeAspectFilter(savedItem.sourceName);
+                        await ensureAndPokeAspectFilter(savedItem.sourceName);
                     }
                     const match = sceneItems.find(si => si.sourceName === savedItem.sourceName);
                     if (!match) continue;
@@ -430,13 +614,21 @@ module.exports = function createObsLayoutRoutes({
                         animEntries.push({
                             sceneName: layout.sceneName,
                             sceneItemId: match.sceneItemId,
+                            sourceName: savedItem.sourceName,
                             from: curRes?.sceneItemTransform || savedItem.transform,
                             to: savedItem.transform
                         });
                     }
                 }
-                await animateTransforms(animEntries, durationMs);
-                sendJson(res, { ok: true, applied: layout.id, itemsAnimated: animEntries.length });
+                await animateTransforms(animEntries, {
+                    durationMs,
+                    transitionType,
+                    pathType,
+                    pathCurve,
+                    pathControlPoint,
+                    easing
+                });
+                sendJson(res, { ok: true, applied: layout.id, itemsAnimated: animEntries.length, transitionType, pathType, durationMs });
                 return true;
             }
 
