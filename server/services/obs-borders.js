@@ -1862,7 +1862,6 @@ filter_def.update = function(data, settings)
     if data.profile_id == "" then data.profile_id = "auto" end
     data.respect_scene_rules = obs.obs_data_get_bool(settings, "respect_scene_rules")
     pcall(reload_manifest, true)
-    pcall(refresh_active_scene_name)
 end
 
 filter_def.create = function(settings, source)

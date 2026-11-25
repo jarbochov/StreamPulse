@@ -10,10 +10,11 @@ function createObsBordersRoutes({
     obsService = null,
     isLoopbackRequest = () => true
 } = {}) {
-    async function compensateObsTransforms({ prevManifest, nextManifest, targetNames, pinMode = 'outer-border' } = {}) {
-        if (!prevManifest || !nextManifest || !targetNames || targetNames.size === 0) return { adjusted: 0 };
+    async function planCompensatedTransforms({ prevManifest, nextManifest, targetNames, pinMode = 'outer-border' } = {}) {
+        const planned = [];
+        if (!prevManifest || !nextManifest || !targetNames || targetNames.size === 0) return planned;
         if (!obsService || typeof obsService.callRequest !== 'function' || !obsService.getStatus().connected) {
-            return { adjusted: 0 };
+            return planned;
         }
         const st = obsBordersService.getState();
         let sceneNames = Array.isArray(st.knownScenes) ? [...st.knownScenes] : [];
@@ -25,9 +26,8 @@ function createObsBordersRoutes({
                 sceneNames = [];
             }
         }
-        if (sceneNames.length === 0) return { adjusted: 0 };
+        if (sceneNames.length === 0) return planned;
 
-        let adjusted = 0;
         const sceneScales = st.sceneScales || {};
 
         async function processSceneItems(containerName, items, isGroup = false) {
@@ -36,7 +36,6 @@ function createObsBordersRoutes({
                 const sceneItemId = item?.sceneItemId;
                 if (!sourceName || sceneItemId === undefined) continue;
 
-                // Recurse into OBS Groups so nested bordered sources also stay aligned
                 if (item.isGroup) {
                     try {
                         const grp = await obsService.callRequest('GetGroupSceneItemList', { sceneName: sourceName });
@@ -63,12 +62,11 @@ function createObsBordersRoutes({
                     const txScale = Number(sceneScales[`${containerName}::${sourceName}`]) || Math.min(Math.abs(curTx.scaleX || 1), Math.abs(curTx.scaleY || 1)) || 1;
                     const comp = computeCompensatedTransform(curTx, prevProf, nextProf, { pinMode, txScale });
                     if (comp.changed && comp.patch) {
-                        await obsService.callRequest('SetSceneItemTransform', {
+                        planned.push({
                             sceneName: containerName,
                             sceneItemId,
                             sceneItemTransform: comp.patch
                         });
-                        adjusted++;
                     }
                 } catch {
                     /* ignore transient OBS item transform failures */
@@ -87,7 +85,7 @@ function createObsBordersRoutes({
                 /* ignore missing scene */
             }
         }
-        return { adjusted };
+        return planned;
     }
 
     async function pushSyncToObsSources(targetNames = [], { autoAttachIfAssigned = false, prevManifest = null } = {}) {
@@ -106,21 +104,17 @@ function createObsBordersRoutes({
             sync_revision: Date.now()
         };
 
+        // Step 1: Discover which sources have the border filter (sequentially to avoid OBS lock contention)
         const activeBorderedSources = new Set();
-
-        await Promise.all(names.slice(0, 40).map(async (sourceName) => {
+        const filterUpdates = [];
+        for (const sourceName of names.slice(0, 40)) {
             try {
                 const fl = await obsService.callRequest('GetSourceFilterList', { sourceName });
                 const filters = Array.isArray(fl?.filters) ? fl.filters : [];
                 const existing = filters.find(f => f.filterKind === filterKind || f.filterName === filterName);
                 if (existing) {
                     activeBorderedSources.add(sourceName);
-                    await obsService.callRequest('SetSourceFilterSettings', {
-                        sourceName,
-                        filterName: existing.filterName,
-                        filterSettings,
-                        overlay: true
-                    });
+                    filterUpdates.push({ action: 'update', sourceName, filterName: existing.filterName });
                 } else if (autoAttachIfAssigned) {
                     const cfg = st.assignments?.[sourceName];
                     const hasRule = Boolean(
@@ -129,27 +123,59 @@ function createObsBordersRoutes({
                     );
                     if (hasRule) {
                         activeBorderedSources.add(sourceName);
-                        await obsService.callRequest('CreateSourceFilter', {
-                            sourceName,
-                            filterName,
-                            filterKind,
-                            filterSettings
-                        }).catch(() => {});
+                        filterUpdates.push({ action: 'create', sourceName, filterName });
                     }
                 }
             } catch {
                 /* ignore sources unavailable in current OBS state */
             }
-        }));
+        }
 
+        // Step 2: Plan compensated transforms BEFORE updating filter settings (reads exact pre-sync sourceWidth/Height and avoids AB-BA lock inversion)
+        let plannedTransforms = [];
         if (prevManifest && st.transformLock?.enabled && activeBorderedSources.size > 0) {
             const nextManifest = obsBordersService.syncResolvedManifest();
-            await compensateObsTransforms({
+            plannedTransforms = await planCompensatedTransforms({
                 prevManifest,
                 nextManifest,
                 targetNames: activeBorderedSources,
                 pinMode: st.transformLock.mode || 'outer-border'
-            }).catch(() => {});
+            }).catch(() => []);
+        }
+
+        // Step 3: Push filter updates sequentially
+        for (const upd of filterUpdates) {
+            try {
+                if (upd.action === 'update') {
+                    await obsService.callRequest('SetSourceFilterSettings', {
+                        sourceName: upd.sourceName,
+                        filterName: upd.filterName,
+                        filterSettings,
+                        overlay: true
+                    });
+                } else {
+                    await obsService.callRequest('CreateSourceFilter', {
+                        sourceName: upd.sourceName,
+                        filterName: upd.filterName,
+                        filterKind,
+                        filterSettings
+                    });
+                }
+            } catch {
+                /* ignore transient filter error */
+            }
+        }
+
+        // Step 4: Apply compensated transforms after a brief settle delay so OBS finishes the filter update cleanly
+        if (plannedTransforms.length > 0) {
+            await new Promise(resolve => setTimeout(resolve, 60));
+            for (const tx of plannedTransforms) {
+                try {
+                    await obsService.callRequest('SetSceneItemTransform', tx);
+                } catch {
+                    /* ignore transient transform error */
+                }
+            }
         }
     }
 
