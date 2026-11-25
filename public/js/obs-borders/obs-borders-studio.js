@@ -2437,11 +2437,44 @@
             initVariableBinderOnce();
             renderProfileSelector();
             populateFormFromProfile();
+            syncTransformLockControls();
             renderSetupInfo();
             await refreshObsStatus({ autoSyncIfConnected: activeTab === 'sources' });
         } catch (err) {
             console.error('[ObsBorders] Failed to load:', err);
             showToast('Failed to load OBS Border Studio data');
+        }
+    }
+
+    function syncTransformLockControls() {
+        const tl = studioState?.transformLock || { enabled: false, mode: 'outer-border' };
+        const en = document.getElementById('ob-tx-lock-enabled');
+        const md = document.getElementById('ob-tx-lock-mode');
+        if (en) en.checked = Boolean(tl.enabled);
+        if (md) {
+            md.value = tl.mode === 'content' ? 'content' : 'outer-border';
+            md.disabled = !tl.enabled;
+        }
+    }
+
+    async function persistTransformLock() {
+        const enabled = Boolean(document.getElementById('ob-tx-lock-enabled')?.checked);
+        const mode = document.getElementById('ob-tx-lock-mode')?.value === 'content' ? 'content' : 'outer-border';
+        const md = document.getElementById('ob-tx-lock-mode');
+        if (md) md.disabled = !enabled;
+        try {
+            const res = await fetch('/api/obs-borders/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ transformLock: { enabled, mode } })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.state) studioState = data.state;
+                showToast(enabled ? `OBS Transform Auto-Align enabled (${mode === 'content' ? 'Inner Content' : 'Outer Border'})` : 'OBS Transform Auto-Align disabled');
+            }
+        } catch (err) {
+            console.error('[ObsBorders] Failed to save transformLock:', err);
         }
     }
 
@@ -2551,6 +2584,9 @@
         bindColorPair('ob-bg-c1', 'ob-bg-c1-pick');
         bindColorPair('ob-bg-c2', 'ob-bg-c2-pick');
         bindColorPair('ob-bg-icon-color', 'ob-bg-icon-color-pick');
+
+        document.getElementById('ob-tx-lock-enabled')?.addEventListener('change', persistTransformLock);
+        document.getElementById('ob-tx-lock-mode')?.addEventListener('change', persistTransformLock);
 
         document.getElementById('ob-btn-expand-all')?.addEventListener('click', expandAllGroups);
         document.getElementById('ob-btn-collapse-all')?.addEventListener('click', collapseAllGroups);

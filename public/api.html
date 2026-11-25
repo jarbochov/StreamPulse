@@ -1072,6 +1072,12 @@
                     details: 'Saves the profile, updates data/obs-borders/manifest.json immediately so OBS hot-reloads within 0.5s, and broadcasts obs-borders-update over WebSocket. shadow.mode supports "soft", "hard", "layered", and "inset" (per-pixel Multiply over video).'
                 },
                 {
+                    method: 'POST', path: '/api/obs-borders/settings',
+                    desc: 'Configure OBS Transform Auto-Align (lock outer border edges or inner content box on sync)',
+                    body: '{ "transformLock": { "enabled": true, "mode": "outer-border" } }',
+                    details: 'When enabled, saving a border profile or changing assignments automatically reads each matched OBS scene item transform (including groups, alignment anchors, rotation, and bounding boxes) and applies the exact compensating SetSceneItemTransform so outer border edges ("outer-border") or the inner video content box ("content") stay locked in place.'
+                },
+                {
                     method: 'POST', path: '/api/obs-borders/import-scenes',
                     desc: 'Import Scenes, Target Bundles, and legacy shader targets from an OBS Scene Collection JSON',
                     body: '{ "filePath": "/path/to/PS4.json" }',

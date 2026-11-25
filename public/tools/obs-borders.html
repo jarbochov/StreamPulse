@@ -199,6 +199,22 @@
                                     </div>
                                 </div>
 
+                                <div class="ob-micro-head"><span>OBS Transform Auto-Align (Advanced)</span></div>
+                                <div class="grid2" style="gap:0.55rem 0.75rem;align-items:center;">
+                                    <label class="ob-check" title="Automatically adjusts OBS scene item position, scale, and bounding boxes when border/shadow padding changes so edges stay aligned.">
+                                        <input type="checkbox" id="ob-tx-lock-enabled">
+                                        <span>Auto-lock OBS edges on sync</span>
+                                    </label>
+                                    <div class="field" id="ob-tx-lock-mode-wrap" style="margin:0;">
+                                        <label for="ob-tx-lock-mode" style="sr-only:true;display:none;">Pin Reference</label>
+                                        <select id="ob-tx-lock-mode">
+                                            <option value="outer-border">Pin Outer Border Edge</option>
+                                            <option value="content">Pin Inner Content Box</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <span class="hint" id="ob-tx-lock-hint" style="display:block;margin-bottom:0.55rem;">When enabled, saving or syncing a border/shadow change automatically compensates OBS scene item transforms (including bounding boxes, rotation, and alignment anchors) so your layout edges stay locked.</span>
+
                                 <details class="ob-adv-details" data-adv-key="ob-geo-cal">
                                     <summary class="ob-adv-summary">
                                         <span class="ob-adv-summary-left">

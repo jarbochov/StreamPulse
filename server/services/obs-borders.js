@@ -2208,6 +2208,31 @@ function createObsBordersService({
         return out;
     }
 
+    function normalizeTransformLock(raw) {
+        const src = raw && typeof raw === 'object' ? raw : {};
+        return {
+            enabled: Boolean(src.enabled),
+            mode: src.mode === 'content' ? 'content' : 'outer-border'
+        };
+    }
+
+    function resolveManifestProfileForSource(manifest, sourceName, sceneName = '') {
+        if (!manifest || !Array.isArray(manifest.profiles)) return null;
+        const rules = manifest.assignmentRules || {};
+        const sc = String(sceneName || '').trim();
+        const src = String(sourceName || '').trim();
+        let pid = '';
+        if (sc && src && rules[`${sc}::${src}`]) {
+            pid = rules[`${sc}::${src}`];
+        } else if (src && rules[src]) {
+            pid = rules[src];
+        } else {
+            pid = manifest.activeProfileId || '';
+        }
+        if (!pid || pid === 'none') return null;
+        return manifest.profiles.find(p => p.id === pid) || null;
+    }
+
     function loadState() {
         try {
             if (fs.existsSync(stateFile)) {
@@ -2228,13 +2253,15 @@ function createObsBordersService({
                         sourceSceneMap: raw.sourceSceneMap && typeof raw.sourceSceneMap === 'object' ? raw.sourceSceneMap : {},
                         sourceKinds: raw.sourceKinds && typeof raw.sourceKinds === 'object' ? raw.sourceKinds : {},
                         sceneScales: raw.sceneScales && typeof raw.sceneScales === 'object' ? raw.sceneScales : {},
-                        assignments: normalizeAssignments(raw.assignments)
+                        assignments: normalizeAssignments(raw.assignments),
+                        transformLock: normalizeTransformLock(raw.transformLock)
                     };
                 }
             }
         } catch (err) {
             console.error('[ObsBorders] Failed to load state:', err.message);
         }
+        if (!state.transformLock) state.transformLock = normalizeTransformLock();
         syncResolvedManifest();
         ensureLuaScriptUpToDate();
     }
@@ -2331,10 +2358,22 @@ function createObsBordersService({
             sourceSceneMap: state.sourceSceneMap,
             sourceKinds: state.sourceKinds || {},
             sceneScales: state.sceneScales || {},
+            transformLock: normalizeTransformLock(state.transformLock),
             manifestPath,
             luaScriptPath,
             variableSettingsEnabled: Boolean(isVariableSettingsEnabled())
         };
+    }
+
+    function updateSettings({ transformLock } = {}) {
+        if (transformLock && typeof transformLock === 'object') {
+            state.transformLock = normalizeTransformLock({
+                ...normalizeTransformLock(state.transformLock),
+                ...transformLock
+            });
+            saveState();
+        }
+        return getPublicState();
     }
 
     function upsertProfile(rawProfile, { setActive = false } = {}) {
@@ -2644,6 +2683,8 @@ function createObsBordersService({
         setBackgroundStandby,
         setSourceAssignment,
         clearSourceAssignment,
+        updateSettings,
+        resolveManifestProfileForSource,
         resetDefaults,
         syncResolvedManifest,
         regenerateLuaScript,

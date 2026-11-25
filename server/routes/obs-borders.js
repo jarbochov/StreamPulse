@@ -3,13 +3,94 @@
  */
 
 const { readRequestBody, sendJson, sendError } = require('./helpers');
+const { computeCompensatedTransform } = require('../../shared/obs-border-transform.cjs');
 
 function createObsBordersRoutes({
     obsBordersService,
     obsService = null,
     isLoopbackRequest = () => true
 } = {}) {
-    async function pushSyncToObsSources(targetNames = [], { autoAttachIfAssigned = false } = {}) {
+    async function compensateObsTransforms({ prevManifest, nextManifest, targetNames, pinMode = 'outer-border' } = {}) {
+        if (!prevManifest || !nextManifest || !targetNames || targetNames.size === 0) return { adjusted: 0 };
+        if (!obsService || typeof obsService.callRequest !== 'function' || !obsService.getStatus().connected) {
+            return { adjusted: 0 };
+        }
+        const st = obsBordersService.getState();
+        let sceneNames = Array.isArray(st.knownScenes) ? [...st.knownScenes] : [];
+        if (sceneNames.length === 0) {
+            try {
+                const sl = await obsService.callRequest('GetSceneList');
+                sceneNames = (sl?.scenes || []).map(s => s.sceneName).filter(Boolean);
+            } catch {
+                sceneNames = [];
+            }
+        }
+        if (sceneNames.length === 0) return { adjusted: 0 };
+
+        let adjusted = 0;
+        const sceneScales = st.sceneScales || {};
+
+        async function processSceneItems(containerName, items, isGroup = false) {
+            for (const item of items) {
+                const sourceName = String(item?.sourceName || '').trim();
+                const sceneItemId = item?.sceneItemId;
+                if (!sourceName || sceneItemId === undefined) continue;
+
+                // Recurse into OBS Groups so nested bordered sources also stay aligned
+                if (item.isGroup) {
+                    try {
+                        const grp = await obsService.callRequest('GetGroupSceneItemList', { sceneName: sourceName });
+                        if (Array.isArray(grp?.sceneItems)) {
+                            await processSceneItems(sourceName, grp.sceneItems, true);
+                        }
+                    } catch { /* ignore unreadable group */ }
+                }
+
+                if (!targetNames.has(sourceName)) continue;
+
+                const ruleScene = isGroup ? '' : containerName;
+                const prevProf = obsBordersService.resolveManifestProfileForSource(prevManifest, sourceName, ruleScene);
+                const nextProf = obsBordersService.resolveManifestProfileForSource(nextManifest, sourceName, ruleScene);
+                if (!prevProf && !nextProf) continue;
+
+                try {
+                    const txRes = await obsService.callRequest('GetSceneItemTransform', {
+                        sceneName: containerName,
+                        sceneItemId
+                    });
+                    const curTx = txRes?.sceneItemTransform;
+                    if (!curTx) continue;
+                    const txScale = Number(sceneScales[`${containerName}::${sourceName}`]) || Math.min(Math.abs(curTx.scaleX || 1), Math.abs(curTx.scaleY || 1)) || 1;
+                    const comp = computeCompensatedTransform(curTx, prevProf, nextProf, { pinMode, txScale });
+                    if (comp.changed && comp.patch) {
+                        await obsService.callRequest('SetSceneItemTransform', {
+                            sceneName: containerName,
+                            sceneItemId,
+                            sceneItemTransform: comp.patch
+                        });
+                        adjusted++;
+                    }
+                } catch {
+                    /* ignore transient OBS item transform failures */
+                }
+            }
+        }
+
+        for (const sceneName of sceneNames.slice(0, 60)) {
+            try {
+                const res = await obsService.callRequest('GetSceneItemList', { sceneName });
+                const items = Array.isArray(res?.sceneItems) ? res.sceneItems : [];
+                if (items.length > 0) {
+                    await processSceneItems(sceneName, items, false);
+                }
+            } catch {
+                /* ignore missing scene */
+            }
+        }
+        return { adjusted };
+    }
+
+    async function pushSyncToObsSources(targetNames = [], { autoAttachIfAssigned = false, prevManifest = null } = {}) {
         if (!obsService || typeof obsService.callRequest !== 'function' || !obsService.getStatus().connected) {
             return;
         }
@@ -25,12 +106,15 @@ function createObsBordersRoutes({
             sync_revision: Date.now()
         };
 
+        const activeBorderedSources = new Set();
+
         await Promise.all(names.slice(0, 40).map(async (sourceName) => {
             try {
                 const fl = await obsService.callRequest('GetSourceFilterList', { sourceName });
                 const filters = Array.isArray(fl?.filters) ? fl.filters : [];
                 const existing = filters.find(f => f.filterKind === filterKind || f.filterName === filterName);
                 if (existing) {
+                    activeBorderedSources.add(sourceName);
                     await obsService.callRequest('SetSourceFilterSettings', {
                         sourceName,
                         filterName: existing.filterName,
@@ -44,6 +128,7 @@ function createObsBordersRoutes({
                         || Object.values(cfg?.sceneOverrides || {}).some(pid => pid && pid !== 'inherit' && pid !== 'none')
                     );
                     if (hasRule) {
+                        activeBorderedSources.add(sourceName);
                         await obsService.callRequest('CreateSourceFilter', {
                             sourceName,
                             filterName,
@@ -56,6 +141,16 @@ function createObsBordersRoutes({
                 /* ignore sources unavailable in current OBS state */
             }
         }));
+
+        if (prevManifest && st.transformLock?.enabled && activeBorderedSources.size > 0) {
+            const nextManifest = obsBordersService.syncResolvedManifest();
+            await compensateObsTransforms({
+                prevManifest,
+                nextManifest,
+                targetNames: activeBorderedSources,
+                pinMode: st.transformLock.mode || 'outer-border'
+            }).catch(() => {});
+        }
     }
 
     return async function handleObsBordersRoutes(req, res, url, pathname) {
@@ -115,17 +210,18 @@ function createObsBordersRoutes({
                     if (body.sceneName || body.scene) sceneName = body.sceneName || body.scene;
                 }
                 if (!profileId) throw new Error('Missing profile parameter');
+                const prevManifest = obsBordersService.syncResolvedManifest();
                 if (targetName) {
                     const nextState = obsBordersService.setSourceAssignment({
                         sourceName: targetName,
                         sceneName,
                         profileId
                     });
-                    pushSyncToObsSources([targetName], { autoAttachIfAssigned: profileId !== 'none' && profileId !== 'inherit' }).catch(() => {});
+                    pushSyncToObsSources([targetName], { autoAttachIfAssigned: profileId !== 'none' && profileId !== 'inherit', prevManifest }).catch(() => {});
                     sendJson(res, { status: 'assigned', target: targetName, sceneName, profileId, state: nextState });
                 } else {
                     const active = obsBordersService.setActiveProfile(profileId);
-                    pushSyncToObsSources().catch(() => {});
+                    pushSyncToObsSources([], { prevManifest }).catch(() => {});
                     sendJson(res, { status: 'activated', activeProfileId: active.id, profile: active, state: obsBordersService.getState() });
                 }
             } catch (err) {
@@ -159,6 +255,20 @@ function createObsBordersRoutes({
             return true;
         }
 
+        // POST /api/obs-borders/settings — update studio-wide settings (e.g. transformLock)
+        if (pathname === '/api/obs-borders/settings' && (req.method === 'POST' || req.method === 'PUT')) {
+            try {
+                const body = JSON.parse(await readRequestBody(req) || '{}');
+                const state = obsBordersService.updateSettings({
+                    transformLock: body.transformLock
+                });
+                sendJson(res, { status: 'updated', state });
+            } catch (err) {
+                sendError(res, err, 400);
+            }
+            return true;
+        }
+
         // POST /api/obs-borders/assign — assign profile per source or per scene+source
         if (pathname === '/api/obs-borders/assign' && req.method === 'POST') {
             try {
@@ -166,13 +276,15 @@ function createObsBordersRoutes({
                 const sourceName = String(body.sourceName || body.target || '').trim();
                 const sceneName = String(body.sceneName || '').trim();
                 const profileId = String(body.profileId || 'none').trim() || 'none';
+                const prevManifest = obsBordersService.syncResolvedManifest();
                 const state = obsBordersService.setSourceAssignment({
                     sourceName,
                     sceneName,
                     profileId
                 });
                 await pushSyncToObsSources([sourceName], {
-                    autoAttachIfAssigned: profileId !== 'none' && profileId !== 'inherit'
+                    autoAttachIfAssigned: profileId !== 'none' && profileId !== 'inherit',
+                    prevManifest
                 }).catch(() => {});
                 sendJson(res, { status: 'assigned', state });
             } catch (err) {
@@ -186,8 +298,9 @@ function createObsBordersRoutes({
             try {
                 const body = JSON.parse(await readRequestBody(req) || '{}');
                 const setActive = Boolean(body.setActive);
+                const prevManifest = obsBordersService.syncResolvedManifest();
                 const profile = obsBordersService.upsertProfile(body.profile || body, { setActive });
-                pushSyncToObsSources().catch(() => {});
+                await pushSyncToObsSources([], { prevManifest }).catch(() => {});
                 sendJson(res, { status: 'saved', profile, state: obsBordersService.getState() });
             } catch (err) {
                 sendError(res, err, 400);
@@ -213,8 +326,9 @@ function createObsBordersRoutes({
         if (delMatch && req.method === 'DELETE') {
             try {
                 const profileId = decodeURIComponent(delMatch[1]);
+                const prevManifest = obsBordersService.syncResolvedManifest();
                 const state = obsBordersService.deleteProfile(profileId);
-                pushSyncToObsSources().catch(() => {});
+                pushSyncToObsSources([], { prevManifest }).catch(() => {});
                 sendJson(res, { status: 'deleted', state });
             } catch (err) {
                 sendError(res, err, 400);
@@ -225,8 +339,9 @@ function createObsBordersRoutes({
         // POST /api/obs-borders/reset-defaults
         if (pathname === '/api/obs-borders/reset-defaults' && (req.method === 'POST' || req.method === 'GET')) {
             try {
+                const prevManifest = obsBordersService.syncResolvedManifest();
                 const state = obsBordersService.resetDefaults();
-                pushSyncToObsSources().catch(() => {});
+                pushSyncToObsSources([], { prevManifest }).catch(() => {});
                 sendJson(res, { status: 'reset', state });
             } catch (err) {
                 sendError(res, err, 400);

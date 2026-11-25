@@ -446,4 +446,129 @@ describe('OBS Border Studio (Beta / Advanced)', () => {
         const cssText = fs.readFileSync(cssPath, 'utf8');
         assert.ok(!/\.ob-preview-stage\s*\{[^}]*border-radius\s*:\s*[1-9]/.test(cssText), '.ob-preview-stage should not clip previews with non-zero border-radius');
     });
+
+    it('compensates OBS scene item transforms with exact sub-pixel accuracy for outer-border and content pin modes', () => {
+        const { computeCompensatedTransform } = require('../shared/obs-border-transform.cjs');
+
+        // 1. Pin Outer Border Edge: Top-Left aligned, border thickness + shadow blur both increase
+        const prevProf = {
+            placement: 'outside', autoScale: false, baseWidth: 1920, baseHeight: 1080,
+            seamOverlap: 0, pad: 30,
+            inner: { enabled: true, thickness: 10, gap: 0 },
+            outer: { enabled: false }
+        };
+        const nextProf = {
+            placement: 'outside', autoScale: false, baseWidth: 1920, baseHeight: 1080,
+            seamOverlap: 0, pad: 70,
+            inner: { enabled: true, thickness: 20, gap: 0 },
+            outer: { enabled: false }
+        };
+        // baseW = 1000, baseH = 500 -> sourceWidth = 1060, sourceHeight = 560
+        const txTL = {
+            positionX: 100, positionY: 80, scaleX: 1, scaleY: 1, rotation: 0, alignment: 5,
+            sourceWidth: 1060, sourceHeight: 560, boundsType: 'OBS_BOUNDS_NONE'
+        };
+        const resOuter = computeCompensatedTransform(txTL, prevProf, nextProf, { pinMode: 'outer-border' });
+        assert.equal(resOuter.changed, true);
+        // Verify outer border left edge stays at 100 + (30 - 10) = 120.000
+        const newLeftEdge = resOuter.patch.positionX + (70 - 20) * resOuter.patch.scaleX;
+        const newRightEdge = newLeftEdge + (1000 + 40) * resOuter.patch.scaleX;
+        assert.ok(Math.abs(newLeftEdge - 120) < 0.01, `expected left edge 120, got ${newLeftEdge}`);
+        assert.ok(Math.abs(newRightEdge - 1140) < 0.01, `expected right edge 1140, got ${newRightEdge}`);
+
+        // 2. Pin Inner Content Box: Top-Left aligned shifts by -Δpad, scale stays unchanged
+        const resContent = computeCompensatedTransform(txTL, prevProf, nextProf, { pinMode: 'content' });
+        assert.equal(resContent.changed, true);
+        assert.equal(resContent.patch.positionX, 60);
+        assert.equal(resContent.patch.positionY, 40);
+        assert.equal(resContent.patch.scaleX, undefined);
+
+        // 3. Center aligned (alignment = 0): symmetric padding change needs zero position shift in content mode
+        const txCenter = { ...txTL, alignment: 0 };
+        const resCenter = computeCompensatedTransform(txCenter, prevProf, nextProf, { pinMode: 'content' });
+        assert.equal(resCenter.patch.positionX, 100);
+        assert.equal(resCenter.patch.positionY, 80);
+
+        // 4. Bounding Box (OBS_BOUNDS_STRETCH): expands boundsWidth/boundsHeight so source never shrinks
+        const txBounds = {
+            positionX: 100, positionY: 80, scaleX: 1, scaleY: 1, rotation: 0, alignment: 5,
+            sourceWidth: 1060, sourceHeight: 560,
+            boundsType: 'OBS_BOUNDS_STRETCH', boundsWidth: 530, boundsHeight: 280
+        };
+        const resBounds = computeCompensatedTransform(txBounds, prevProf, nextProf, { pinMode: 'content' });
+        // effScale = 0.5, Δpad = +40 -> bounds grow by 2 * 40 * 0.5 = +40, pos shifts by -40 * 0.5 = -20
+        assert.equal(resBounds.patch.boundsWidth, 570);
+        assert.equal(resBounds.patch.boundsHeight, 320);
+        assert.equal(resBounds.patch.positionX, 80);
+        assert.equal(resBounds.patch.positionY, 60);
+
+        // 5. 90-degree rotated source: local (-40, -40) rotates to (+40, -40)
+        const txRot = { ...txTL, rotation: 90 };
+        const resRot = computeCompensatedTransform(txRot, prevProf, nextProf, { pinMode: 'content' });
+        assert.ok(Math.abs(resRot.patch.positionX - 140) < 0.01);
+        assert.ok(Math.abs(resRot.patch.positionY - 40) < 0.01);
+    });
+
+    it('persists transformLock settings and calls SetSceneItemTransform on OBS sync when enabled', async () => {
+        const calls = [];
+        const mockObs = {
+            getStatus: () => ({ enabled: true, connected: true }),
+            callRequest: async (type, data) => {
+                calls.push({ type, data });
+                if (type === 'GetSourceFilterList') {
+                    return { filters: [{ filterName: 'StreamPulse Border', filterKind: 'streampulse_border_filter' }] };
+                }
+                if (type === 'GetSceneList') {
+                    return { scenes: [{ sceneName: 'Main' }] };
+                }
+                if (type === 'GetSceneItemList') {
+                    return { sceneItems: [{ sceneItemId: 7, sourceName: 'Facecam', isGroup: false }] };
+                }
+                if (type === 'GetSceneItemTransform') {
+                    return {
+                        sceneItemTransform: {
+                            positionX: 100, positionY: 80, scaleX: 1, scaleY: 1, rotation: 0, alignment: 5,
+                            sourceWidth: 1920, sourceHeight: 1080, boundsType: 'OBS_BOUNDS_NONE'
+                        }
+                    };
+                }
+                return {};
+            }
+        };
+        const mockRoutes = createObsBordersRoutes({ obsBordersService: service, obsService: mockObs });
+        const mockServer = http.createServer(async (req, res) => {
+            const u = new URL(req.url, 'http://127.0.0.1');
+            if (await mockRoutes(req, res, u, u.pathname)) return;
+            res.writeHead(404); res.end();
+        });
+        await new Promise(resolve => mockServer.listen(0, '127.0.0.1', resolve));
+        try {
+            const port = mockServer.address().port;
+            // Enable Transform Lock
+            const setRes = await requestJson(port, 'POST', '/api/obs-borders/settings', {
+                transformLock: { enabled: true, mode: 'outer-border' }
+            });
+            assert.equal(setRes.status, 200);
+            assert.equal(setRes.body.state.transformLock.enabled, true);
+            assert.equal(setRes.body.state.transformLock.mode, 'outer-border');
+
+            // Ensure Facecam is assigned to a profile and edit its shadow blur so padding increases
+            service.syncFromObsDiscovery({ scenes: ['Main'], sources: ['Facecam'], byScene: { Main: [{ sourceName: 'Facecam' }] } });
+            await requestJson(port, 'POST', '/api/obs-borders/assign', { sourceName: 'Facecam', profileId: 'dual-gradient' });
+            calls.length = 0;
+
+            const existing = service.getState().profiles.find(p => p.id === 'dual-gradient');
+            const saveRes = await requestJson(port, 'POST', '/api/obs-borders/profile', {
+                profile: { ...existing, shadow: { enabled: true, mode: 'soft', offsetX: 15, offsetY: 20, blur: 40, spread: 5 } }
+            });
+            assert.equal(saveRes.status, 200);
+            const txCall = calls.find(c => c.type === 'SetSceneItemTransform');
+            assert.ok(txCall, 'SetSceneItemTransform should be invoked when transformLock is enabled and padding changes');
+            assert.equal(txCall.data.sceneName, 'Main');
+            assert.equal(txCall.data.sceneItemId, 7);
+            assert.ok(txCall.data.sceneItemTransform.positionX < 100, 'positionX shifts outward to compensate larger shadow pad');
+        } finally {
+            await new Promise(resolve => mockServer.close(resolve));
+        }
+    });
 });
