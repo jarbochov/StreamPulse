@@ -96,18 +96,26 @@ module.exports = function createObsLayoutRoutes({
             return;
         }
 
-        // Move or Move + Fade with movement paths (direct / arc-up / arc-down / s-curve / custom Bezier)
-        const steps = Math.max(3, Math.min(48, Math.round(dur / 22)));
-        const stepMs = dur / steps;
+        // Move or Move + Fade with per-item movement paths (direct / arc / s-curve / custom multi-waypoint Bezier) & stagger delayMs
+        const maxDelay = Math.max(0, ...entries.map(e => Math.max(0, Number(e.motion?.delayMs) || 0)));
+        const totalDur = dur + maxDelay;
+        const steps = Math.max(3, Math.min(72, Math.round(totalDur / 22)));
+        const stepMs = totalDur / steps;
         const withFade = transitionType === 'move-fade';
         for (let i = 1; i <= steps; i++) {
-            const rawT = i / steps;
-            const t = evalEasing(rawT, easing);
-            if (withFade) {
-                const dip = 1 - 0.65 * Math.sin(rawT * Math.PI);
-                await Promise.all(uniqueSources.map(s => setSourceOpacity(s, dip)));
-            }
+            const elapsedMs = (i / steps) * totalDur;
             for (const e of entries) {
+                const delayMs = Math.max(0, Number(e.motion?.delayMs) || 0);
+                const localRawT = Math.min(1, Math.max(0, (elapsedMs - delayMs) / Math.max(1, dur)));
+                if (elapsedMs < delayMs && i < steps) continue;
+                const t = evalEasing(localRawT, easing);
+                if (withFade && e.sourceName) {
+                    const dip = 1 - 0.65 * Math.sin(localRawT * Math.PI);
+                    await setSourceOpacity(e.sourceName, dip);
+                }
+                const ePathType = e.motion?.pathType || pathType;
+                const ePathCurve = e.motion?.pathCurve ?? pathCurve;
+                const eWaypoints = Array.isArray(e.motion?.waypoints) && e.motion.waypoints.length ? e.motion.waypoints : null;
                 const framePatch = {};
                 for (const key of Object.keys(e.to)) {
                     if (key === 'positionX' || key === 'positionY') continue;
@@ -125,7 +133,12 @@ module.exports = function createObsLayoutRoutes({
                     const y0 = Number(e.from?.positionY ?? e.to.positionY ?? 0);
                     const x1 = Number(e.to.positionX ?? x0);
                     const y1 = Number(e.to.positionY ?? y0);
-                    const pt = evalPathPoint(x0, y0, x1, y1, t, { pathType, pathCurve, controlPoint });
+                    const pt = evalPathPoint(x0, y0, x1, y1, t, {
+                        pathType: ePathType,
+                        pathCurve: ePathCurve,
+                        controlPoint,
+                        waypoints: eWaypoints
+                    });
                     if (e.to.positionX !== undefined) framePatch.positionX = Number(pt.x.toFixed(3));
                     if (e.to.positionY !== undefined) framePatch.positionY = Number(pt.y.toFixed(3));
                 }
@@ -616,7 +629,8 @@ module.exports = function createObsLayoutRoutes({
                             sceneItemId: match.sceneItemId,
                             sourceName: savedItem.sourceName,
                             from: curRes?.sceneItemTransform || savedItem.transform,
-                            to: savedItem.transform
+                            to: savedItem.transform,
+                            motion: savedItem.motion || null
                         });
                     }
                 }

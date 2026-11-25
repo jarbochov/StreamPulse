@@ -415,7 +415,7 @@ function evalEasing(t, easing = 'ease-in-out') {
  * Evaluates a 2D point along a transition movement path between (x0, y0) and (x1, y1) at eased progress `t`.
  * Supports 'direct', 'arc-up', 'arc-down', 's-curve', and 'custom' (quadratic Bezier with normalized control point).
  */
-function evalPathPoint(x0, y0, x1, y1, t, { pathType = 'direct', pathCurve = 0.28, controlPoint = null } = {}) {
+function evalPathPoint(x0, y0, x1, y1, t, { pathType = 'direct', pathCurve = 0.28, controlPoint = null, waypoints = null } = {}) {
     const dx = x1 - x0;
     const dy = y1 - y0;
     const dist = Math.hypot(dx, dy);
@@ -445,14 +445,39 @@ function evalPathPoint(x0, y0, x1, y1, t, { pathType = 'direct', pathCurve = 0.2
             y: u * u * u * y0 + 3 * u * u * t * c1y + 3 * u * t * t * c2y + t * t * t * y1
         };
     }
-    if (pathType === 'custom' && controlPoint && Number.isFinite(Number(controlPoint.x)) && Number.isFinite(Number(controlPoint.y))) {
-        const cx = Number(controlPoint.x);
-        const cy = Number(controlPoint.y);
-        const u = 1 - t;
-        return {
-            x: u * u * x0 + 2 * u * t * cx + t * t * x1,
-            y: u * u * y0 + 2 * u * t * cy + t * t * y1
-        };
+    if (pathType === 'custom') {
+        const pts = [];
+        if (Array.isArray(waypoints) && waypoints.length) {
+            for (const wp of waypoints) {
+                if (wp && Number.isFinite(Number(wp.x)) && Number.isFinite(Number(wp.y))) {
+                    pts.push({ x: Number(wp.x), y: Number(wp.y) });
+                }
+            }
+        } else if (controlPoint && Number.isFinite(Number(controlPoint.x)) && Number.isFinite(Number(controlPoint.y))) {
+            pts.push({ x: Number(controlPoint.x), y: Number(controlPoint.y) });
+        }
+        if (pts.length === 1) {
+            const u = 1 - t;
+            return {
+                x: u * u * x0 + 2 * u * t * pts[0].x + t * t * x1,
+                y: u * u * y0 + 2 * u * t * pts[0].y + t * t * y1
+            };
+        }
+        if (pts.length >= 2) {
+            // De Casteljau smooth Bezier curve through [start, ...waypoints, end]
+            let work = [{ x: x0, y: y0 }, ...pts, { x: x1, y: y1 }];
+            while (work.length > 1) {
+                const next = [];
+                for (let i = 0; i < work.length - 1; i++) {
+                    next.push({
+                        x: work[i].x + (work[i + 1].x - work[i].x) * t,
+                        y: work[i].y + (work[i + 1].y - work[i].y) * t
+                    });
+                }
+                work = next;
+            }
+            return work[0];
+        }
     }
     return { x: x0 + dx * t, y: y0 + dy * t };
 }

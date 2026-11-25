@@ -182,4 +182,8 @@ test('Border screen rects, native OBS crop fallback, and movement path evaluatio
     assert.equal(customMid.y, 200);
     assert.equal(evalEasing(0, 'ease-in-out'), 0);
     assert.equal(evalEasing(1, 'overshoot'), 1);
+    // Multi-waypoint De Casteljau cubic curve
+    const wpMid = evalPathPoint(0, 0, 1000, 0, 0.5, { pathType: 'custom', waypoints: [{ x: 250, y: 400 }, { x: 750, y: 400 }] });
+    assert.equal(wpMid.x, 500);
+    assert.equal(wpMid.y, 300);
 });

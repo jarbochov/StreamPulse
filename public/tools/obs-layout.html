@@ -97,6 +97,19 @@
 
             <!-- CENTER COLUMN: LARGE INTERACTIVE STAGE -->
             <div class="ol-panel" style="padding:0.7rem;">
+                <div class="ol-motion-bar" id="ol-motion-bar" hidden>
+                    <div class="ol-toolbar-group">
+                        <strong style="color:#fbbf24;">Motion Path Mode</strong>
+                        <span id="ol-motion-target-label" style="color:var(--text-main);font-weight:600;">—</span>
+                    </div>
+                    <div class="ol-toolbar-group">
+                        <button type="button" class="btn btn-primary btn-sm" id="ol-btn-play-preview">Play Preview</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="ol-btn-add-wp">+ Waypoint</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="ol-btn-reset-wp">Reset Curve</button>
+                        <button type="button" class="btn btn-primary btn-sm" id="ol-btn-save-path">Save Path</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="ol-btn-exit-path">Exit</button>
+                    </div>
+                </div>
                 <div class="ol-stage-wrap" id="ol-stage-wrap" tabindex="0">
                     <div class="ol-canvas" id="ol-canvas"></div>
                 </div>
@@ -227,7 +240,41 @@
 
                 <!-- INSPECTOR SUB-TAB 3: MOTION, PATH EDITOR, LAYOUTS & HISTORY -->
                 <div id="ol-insp-motion" data-insp-pane="motion" hidden style="display:flex;flex-direction:column;gap:10px;">
-                    <div class="ol-micro-head"><span>Transition &amp; Movement Path</span></div>
+                    <div class="ol-field">
+                        <label for="ol-motion-target-select">Target Layout (Edit &amp; Preview Motion Paths)</label>
+                        <select id="ol-motion-target-select" class="input">
+                            <option value="">None — Select a Saved Layout to sculpt paths…</option>
+                        </select>
+                    </div>
+
+                    <div id="ol-item-motion-box" hidden style="display:flex;flex-direction:column;gap:8px;padding:8px 9px;border-radius:8px;background:var(--bg-inset);border:1px solid rgba(245,158,11,0.35);">
+                        <div class="ol-micro-head">
+                            <span id="ol-item-motion-name" style="color:#fbbf24;">Source Path</span>
+                            <span class="ol-pill" id="ol-item-wp-count">0 pts</span>
+                        </div>
+                        <div class="ol-grid2">
+                            <div class="ol-field">
+                                <label for="ol-item-path-type">Path Override</label>
+                                <select id="ol-item-path-type" class="input">
+                                    <option value="">Inherit Scene Default</option>
+                                    <option value="direct">Direct Line</option>
+                                    <option value="arc-up">Arc Up</option>
+                                    <option value="arc-down">Arc Down</option>
+                                    <option value="s-curve">S-Curve</option>
+                                    <option value="custom">Custom Curve (Handles)</option>
+                                </select>
+                            </div>
+                            <div class="ol-field">
+                                <label for="ol-item-delay">Stagger Delay (ms)</label>
+                                <input type="number" id="ol-item-delay" class="input" min="0" max="2000" step="25" value="0">
+                            </div>
+                        </div>
+                        <div style="font-size:11px;color:var(--text-muted);">
+                            Drag numbered amber handles on stage to bend this source's flight curve. Right-click a handle to remove it.
+                        </div>
+                    </div>
+
+                    <div class="ol-micro-head"><span>Scene Default Transition</span></div>
                     <div class="ol-grid2">
                         <div class="ol-field">
                             <label for="ol-trans-type">Transition Type</label>

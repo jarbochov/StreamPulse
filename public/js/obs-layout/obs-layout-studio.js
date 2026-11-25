@@ -35,6 +35,9 @@ let historyStack = [];
 let historyIndex = -1;
 let previewLayoutId = null;
 let customControlPoint = null;
+let itemMotionDrafts = {}; // sourceName -> { pathType, delayMs, waypoints: [{x,y}] }
+let previewAnimRaf = null;
+let previewAnimPositions = null; // sceneItemId -> { left, top, width, height, opacity }
 
 const $ = id => document.getElementById(id);
 
@@ -187,76 +190,322 @@ function layoutCanvas() {
     renderCanvas();
 }
 
-function renderMotionPathOverlay(canvas) {
-    if (!previewLayoutId || !studioState) return;
-    const layout = (studioState.layouts || []).find(l => l.id === previewLayoutId && l.sceneName === currentScene);
-    if (!layout) return;
-    const pathType = $('ol-path-type')?.value || layout.pathType || 'direct';
-    const curve = (Number($('ol-path-curve')?.value) || 28) / 100;
-    const svgNS = 'http://www.w3.org/2000/svg';
-    const svg = document.createElementNS(svgNS, 'svg');
-    svg.setAttribute('class', 'ol-path-svg');
-    svg.setAttribute('viewBox', `0 0 ${baseWidth} ${baseHeight}`);
+function evalLocalEasing(t, easing = "ease-in-out") {
+    const x = Math.min(1, Math.max(0, Number(t) || 0));
+    if (easing === "linear") return x;
+    if (easing === "ease-in") return x * x * x;
+    if (easing === "ease-out") return 1 - Math.pow(1 - x, 3);
+    if (easing === "overshoot") {
+        const c1 = 1.70158;
+        const c3 = c1 + 1;
+        return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+    }
+    return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+}
 
-    let primaryPath = null;
+function evalLocalPathPoint(x0, y0, x1, y1, t, { pathType = "direct", pathCurve = 0.28, waypoints = null } = {}) {
+    const dx = x1 - x0;
+    const dy = y1 - y0;
+    const dist = Math.hypot(dx, dy);
+    if (pathType === "direct" || dist < 1) return { x: x0 + dx * t, y: y0 + dy * t };
+    if (pathType === "arc-up" || pathType === "arc-down") {
+        const dir = pathType === "arc-up" ? -1 : 1;
+        const midX = (x0 + x1) * 0.5;
+        const midY = (y0 + y1) * 0.5 + dir * Math.max(40, dist * Math.abs(pathCurve));
+        const u = 1 - t;
+        return { x: u * u * x0 + 2 * u * t * midX + t * t * x1, y: u * u * y0 + 2 * u * t * midY + t * t * y1 };
+    }
+    if (pathType === "s-curve") {
+        const off = Math.max(40, dist * Math.abs(pathCurve));
+        const c1x = x0 + dx * 0.35;
+        const c1y = y0 - off;
+        const c2x = x0 + dx * 0.65;
+        const c2y = y1 + off;
+        const u = 1 - t;
+        return {
+            x: u * u * u * x0 + 3 * u * u * t * c1x + 3 * u * t * t * c2x + t * t * t * x1,
+            y: u * u * u * y0 + 3 * u * u * t * c1y + 3 * u * t * t * c2y + t * t * t * y1
+        };
+    }
+    if (pathType === "custom" && Array.isArray(waypoints) && waypoints.length) {
+        let work = [{ x: x0, y: y0 }, ...waypoints, { x: x1, y: y1 }];
+        while (work.length > 1) {
+            const next = [];
+            for (let i = 0; i < work.length - 1; i++) {
+                next.push({
+                    x: work[i].x + (work[i + 1].x - work[i].x) * t,
+                    y: work[i].y + (work[i + 1].y - work[i].y) * t
+                });
+            }
+            work = next;
+        }
+        return work[0];
+    }
+    return { x: x0 + dx * t, y: y0 + dy * t };
+}
+
+function getTargetLayout() {
+    if (!previewLayoutId || !studioState) return null;
+    return (studioState.layouts || []).find(l => l.id === previewLayoutId && l.sceneName === currentScene) || null;
+}
+
+function getSavedItemTargetRect(curItem, savedItem) {
+    const t = savedItem?.transform || {};
+    const tx = curItem.transform || {};
+    const sw = Math.max(1, Number(tx.sourceWidth) || 1920);
+    const sh = Math.max(1, Number(tx.sourceHeight) || 1080);
+    const effW = Math.max(1, sw - (Number(t.cropLeft ?? tx.cropLeft) || 0) - (Number(t.cropRight ?? tx.cropRight) || 0));
+    const effH = Math.max(1, sh - (Number(t.cropTop ?? tx.cropTop) || 0) - (Number(t.cropBottom ?? tx.cropBottom) || 0));
+    const hasBounds = String(t.boundsType || tx.boundsType || "OBS_BOUNDS_NONE") !== "OBS_BOUNDS_NONE" && Number(t.boundsWidth) > 0 && Number(t.boundsHeight) > 0;
+    const width = hasBounds
+        ? Number(t.boundsWidth)
+        : (Number.isFinite(Number(t.scaleX)) ? Math.abs(Number(t.scaleX)) * effW : curItem.rect.width);
+    const height = hasBounds
+        ? Number(t.boundsHeight)
+        : (Number.isFinite(Number(t.scaleY)) ? Math.abs(Number(t.scaleY)) * effH : curItem.rect.height);
+    const bits = Number.isFinite(Number(tx.alignment)) ? Number(tx.alignment) : 5;
+    const ax = (bits & 1) ? 0 : (bits & 2) ? 1 : 0.5;
+    const ay = (bits & 4) ? 0 : (bits & 8) ? 1 : 0.5;
+    const left = (Number(t.positionX) ?? (curItem.rect.left + ax * curItem.rect.width)) - ax * width;
+    const top = (Number(t.positionY) ?? (curItem.rect.top + ay * curItem.rect.height)) - ay * height;
+    return { left, top, width, height };
+}
+
+function getOrInitItemMotion(sourceName, layout) {
+    if (!itemMotionDrafts[sourceName]) {
+        const saved = (layout?.items || []).find(i => i.sourceName === sourceName);
+        const m = saved?.motion || {};
+        itemMotionDrafts[sourceName] = {
+            pathType: m.pathType || "",
+            delayMs: Number(m.delayMs) || 0,
+            waypoints: Array.isArray(m.waypoints) ? m.waypoints.map(p => ({ x: Number(p.x), y: Number(p.y) })) : []
+        };
+    }
+    return itemMotionDrafts[sourceName];
+}
+
+function updateMotionModeUI() {
+    const layout = getTargetLayout();
+    const bar = $("ol-motion-bar");
+    if (bar) bar.hidden = !layout;
+    if ($("ol-motion-target-label") && layout) {
+        $("ol-motion-target-label").textContent = `→ ${layout.name}`;
+    }
+    const sel = $("ol-motion-target-select");
+    if (sel) {
+        const sceneLayouts = (studioState?.layouts || []).filter(l => l.sceneName === currentScene);
+        sel.innerHTML = '<option value="">None — Select a Saved Layout to sculpt paths…</option>' +
+            sceneLayouts.map(l => `<option value="${esc(l.id)}">${esc(l.name)} (${l.transitionType || "move"} · ${l.pathType || "direct"})</option>`).join("");
+        sel.value = layout ? layout.id : "";
+    }
+
+    const itemBox = $("ol-item-motion-box");
+    const cur = getSelectedItem();
+    if (!itemBox) return;
+    if (!layout || !cur) {
+        itemBox.hidden = true;
+        return;
+    }
+    itemBox.hidden = false;
+    const draft = getOrInitItemMotion(cur.sourceName, layout);
+    if ($("ol-item-motion-name")) $("ol-item-motion-name").textContent = `Source Path: ${cur.sourceName}`;
+    if ($("ol-item-path-type")) $("ol-item-path-type").value = draft.pathType || "";
+    if ($("ol-item-delay")) $("ol-item-delay").value = String(draft.delayMs || 0);
+    if ($("ol-item-wp-count")) $("ol-item-wp-count").textContent = `${draft.waypoints.length} pt${draft.waypoints.length === 1 ? "" : "s"}`;
+}
+
+function renderMotionPathOverlay(canvas) {
+    const layout = getTargetLayout();
+    if (!layout) return;
+    const defaultPathType = $("ol-path-type")?.value || layout.pathType || "direct";
+    const curve = (Number($("ol-path-curve")?.value) || 28) / 100;
+    const svgNS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(svgNS, "svg");
+    svg.setAttribute("class", "ol-path-svg");
+    svg.setAttribute("viewBox", `0 0 ${baseWidth} ${baseHeight}`);
+
+    const handlesToRender = [];
+
     for (const saved of (layout.items || [])) {
         const cur = items.find(i => i.sourceName === saved.sourceName);
         if (!cur || !saved.transform) continue;
+        const targetRect = getSavedItemTargetRect(cur, saved);
         const x0 = cur.rect.left + cur.rect.width * 0.5;
         const y0 = cur.rect.top + cur.rect.height * 0.5;
-        const tW = saved.transform.boundsWidth || cur.rect.width;
-        const tH = saved.transform.boundsHeight || cur.rect.height;
-        const bits = Number.isFinite(Number(cur.transform?.alignment)) ? Number(cur.transform.alignment) : 5;
-        const ax = (bits & 1) ? 0 : (bits & 2) ? 1 : 0.5;
-        const ay = (bits & 4) ? 0 : (bits & 8) ? 1 : 0.5;
-        const x1 = (Number(saved.transform.positionX) || cur.rect.left) - ax * tW + tW * 0.5;
-        const y1 = (Number(saved.transform.positionY) || cur.rect.top) - ay * tH + tH * 0.5;
+        const x1 = targetRect.left + targetRect.width * 0.5;
+        const y1 = targetRect.top + targetRect.height * 0.5;
         const dist = Math.hypot(x1 - x0, y1 - y0);
-        if (dist < 2) continue;
+        const sizeDiff = Math.abs(targetRect.width - cur.rect.width) + Math.abs(targetRect.height - cur.rect.height);
+        if (dist < 2 && sizeDiff < 2) continue;
 
-        let d = `M ${x0} ${y0} L ${x1} ${y1}`;
-        let cp = null;
-        if (pathType === 'arc-up' || pathType === 'arc-down') {
-            const dir = pathType === 'arc-up' ? -1 : 1;
-            cp = { x: (x0 + x1) * 0.5, y: (y0 + y1) * 0.5 + dir * Math.max(40, dist * Math.abs(curve)) };
-            d = `M ${x0} ${y0} Q ${cp.x} ${cp.y} ${x1} ${y1}`;
-        } else if (pathType === 's-curve') {
-            const off = Math.max(40, dist * Math.abs(curve));
-            d = `M ${x0} ${y0} C ${x0 + (x1 - x0) * 0.35} ${y0 - off}, ${x0 + (x1 - x0) * 0.65} ${y1 + off}, ${x1} ${y1}`;
-        } else if (pathType === 'custom') {
-            cp = customControlPoint || layout.pathControlPoint || { x: (x0 + x1) * 0.5, y: Math.max(60, (y0 + y1) * 0.5 - 120) };
-            customControlPoint = { ...cp };
-            d = `M ${x0} ${y0} Q ${cp.x} ${cp.y} ${x1} ${y1}`;
+        const isSel = cur.sceneItemId === selectedItemId;
+
+        // Ghost Destination Box (State B)
+        const ghost = document.createElement("div");
+        ghost.className = "ol-ghost-box";
+        ghost.style.left = `${targetRect.left * canvasScale}px`;
+        ghost.style.top = `${targetRect.top * canvasScale}px`;
+        ghost.style.width = `${Math.max(4, targetRect.width * canvasScale)}px`;
+        ghost.style.height = `${Math.max(4, targetRect.height * canvasScale)}px`;
+        if (!isSel) ghost.style.opacity = "0.48";
+        const gl = document.createElement("span");
+        gl.className = "ol-ghost-label";
+        gl.textContent = `To: ${cur.sourceName}`;
+        ghost.appendChild(gl);
+        canvas.appendChild(ghost);
+
+        const draft = getOrInitItemMotion(cur.sourceName, layout);
+        const effPathType = draft.pathType || defaultPathType;
+        if (effPathType === "custom" && !draft.waypoints.length) {
+            draft.waypoints = [{
+                x: Math.round((x0 + x1) * 0.5),
+                y: Math.round(Math.max(60, (y0 + y1) * 0.5 - 120))
+            }];
         }
 
-        const pathEl = document.createElementNS(svgNS, 'path');
-        pathEl.setAttribute('d', d);
-        pathEl.setAttribute('fill', 'none');
-        pathEl.setAttribute('stroke', '#f59e0b');
-        pathEl.setAttribute('stroke-width', '4');
-        pathEl.setAttribute('stroke-dasharray', '12 8');
-        svg.appendChild(pathEl);
+        // Sample smooth curve polyline for SVG
+        const samples = 28;
+        const pts = [];
+        for (let s = 0; s <= samples; s++) {
+            const pt = evalLocalPathPoint(x0, y0, x1, y1, s / samples, {
+                pathType: effPathType,
+                pathCurve: curve,
+                waypoints: draft.waypoints
+            });
+            pts.push(`${pt.x.toFixed(1)},${pt.y.toFixed(1)}`);
+        }
 
-        const endDot = document.createElementNS(svgNS, 'circle');
-        endDot.setAttribute('cx', String(x1));
-        endDot.setAttribute('cy', String(y1));
-        endDot.setAttribute('r', '8');
-        endDot.setAttribute('fill', '#f59e0b');
+        // Tangent guide polygon for selected source in custom mode
+        if (isSel && effPathType === "custom" && draft.waypoints.length) {
+            const polyPts = [{ x: x0, y: y0 }, ...draft.waypoints, { x: x1, y: y1 }]
+                .map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+            const guide = document.createElementNS(svgNS, "polyline");
+            guide.setAttribute("points", polyPts);
+            guide.setAttribute("fill", "none");
+            guide.setAttribute("stroke", "rgba(245, 158, 11, 0.35)");
+            guide.setAttribute("stroke-width", "2.5");
+            guide.setAttribute("stroke-dasharray", "6 6");
+            svg.appendChild(guide);
+
+            draft.waypoints.forEach((wp, idx) => {
+                handlesToRender.push({ sourceName: cur.sourceName, wpIndex: idx, x: wp.x, y: wp.y });
+            });
+        }
+
+        const curveEl = document.createElementNS(svgNS, "polyline");
+        curveEl.setAttribute("points", pts.join(" "));
+        curveEl.setAttribute("fill", "none");
+        curveEl.setAttribute("stroke", isSel ? "#f59e0b" : "rgba(56, 189, 248, 0.55)");
+        curveEl.setAttribute("stroke-width", isSel ? "5" : "3");
+        curveEl.setAttribute("stroke-dasharray", isSel ? "14 8" : "8 8");
+        svg.appendChild(curveEl);
+
+        const endDot = document.createElementNS(svgNS, "circle");
+        endDot.setAttribute("cx", String(x1));
+        endDot.setAttribute("cy", String(y1));
+        endDot.setAttribute("r", isSel ? "9" : "6");
+        endDot.setAttribute("fill", isSel ? "#f59e0b" : "#38bdf8");
         svg.appendChild(endDot);
-
-        if (!primaryPath && cp) primaryPath = { x0, y0, x1, y1, cp };
     }
+
     canvas.appendChild(svg);
 
-    if (pathType === 'custom' && primaryPath) {
-        const handle = document.createElement('div');
-        handle.className = 'ol-cp-handle';
-        handle.title = 'Drag to bend Custom Movement Path';
-        handle.style.left = `${primaryPath.cp.x * canvasScale}px`;
-        handle.style.top = `${primaryPath.cp.y * canvasScale}px`;
-        handle.dataset.cpHandle = '1';
+    for (const h of handlesToRender) {
+        const handle = document.createElement("div");
+        handle.className = "ol-cp-handle";
+        handle.textContent = String(h.wpIndex + 1);
+        handle.title = `Drag Waypoint ${h.wpIndex + 1} for ${h.sourceName} (Right-click to remove)`;
+        handle.style.left = `${h.x * canvasScale}px`;
+        handle.style.top = `${h.y * canvasScale}px`;
+        handle.dataset.cpSource = h.sourceName;
+        handle.dataset.cpIndex = String(h.wpIndex);
         canvas.appendChild(handle);
     }
+}
+
+function playOffAirPreview() {
+    const layout = getTargetLayout();
+    if (!layout) return;
+    if (previewAnimRaf) {
+        cancelAnimationFrame(previewAnimRaf);
+        previewAnimRaf = null;
+        previewAnimPositions = null;
+        renderCanvas();
+        return;
+    }
+    const dur = Math.max(100, Number($("ol-trans-dur")?.value) || layout.durationMs || 450);
+    const transType = $("ol-trans-type")?.value || layout.transitionType || "move";
+    const defaultPathType = $("ol-path-type")?.value || layout.pathType || "direct";
+    const easing = $("ol-easing")?.value || layout.easing || "ease-in-out";
+    const curve = (Number($("ol-path-curve")?.value) || 28) / 100;
+
+    const animItems = [];
+    let maxEnd = dur;
+    for (const saved of (layout.items || [])) {
+        const cur = items.find(i => i.sourceName === saved.sourceName);
+        if (!cur || !saved.transform) continue;
+        const toRect = getSavedItemTargetRect(cur, saved);
+        const draft = getOrInitItemMotion(cur.sourceName, layout);
+        const delayMs = Math.max(0, Number(draft.delayMs) || 0);
+        maxEnd = Math.max(maxEnd, delayMs + dur);
+        animItems.push({
+            id: cur.sceneItemId,
+            from: { ...cur.rect },
+            to: toRect,
+            pathType: draft.pathType || defaultPathType,
+            waypoints: draft.waypoints,
+            delayMs
+        });
+    }
+    if (!animItems.length) return;
+
+    const startTime = performance.now();
+    const tick = now => {
+        const elapsed = now - startTime;
+        previewAnimPositions = {};
+        for (const a of animItems) {
+            const rawT = Math.min(1, Math.max(0, (elapsed - a.delayMs) / dur));
+            const t = evalLocalEasing(rawT, easing);
+            let left = a.from.left;
+            let top = a.from.top;
+            let width = a.from.width;
+            let height = a.from.height;
+            let opacity = 1;
+            if (transType === "fade") {
+                if (rawT < 0.5) {
+                    opacity = 1 - evalLocalEasing(rawT * 2, easing);
+                } else {
+                    left = a.to.left; top = a.to.top; width = a.to.width; height = a.to.height;
+                    opacity = evalLocalEasing((rawT - 0.5) * 2, easing);
+                }
+            } else {
+                const cx0 = a.from.left + a.from.width * 0.5;
+                const cy0 = a.from.top + a.from.height * 0.5;
+                const cx1 = a.to.left + a.to.width * 0.5;
+                const cy1 = a.to.top + a.to.height * 0.5;
+                const pt = evalLocalPathPoint(cx0, cy0, cx1, cy1, t, {
+                    pathType: a.pathType,
+                    pathCurve: curve,
+                    waypoints: a.waypoints
+                });
+                width = a.from.width + (a.to.width - a.from.width) * t;
+                height = a.from.height + (a.to.height - a.from.height) * t;
+                left = pt.x - width * 0.5;
+                top = pt.y - height * 0.5;
+                if (transType === "move-fade") opacity = 1 - 0.65 * Math.sin(rawT * Math.PI);
+            }
+            previewAnimPositions[a.id] = { left, top, width, height, opacity };
+        }
+        renderCanvas();
+        if (elapsed < maxEnd + 220) {
+            previewAnimRaf = requestAnimationFrame(tick);
+        } else {
+            previewAnimRaf = null;
+            previewAnimPositions = null;
+            renderCanvas();
+        }
+    };
+    previewAnimRaf = requestAnimationFrame(tick);
 }
 
 function renderCanvas(snapGuides = []) {
@@ -293,7 +542,8 @@ function renderCanvas(snapGuides = []) {
     const showBorders = $('ol-show-borders')?.checked !== false;
 
     items.forEach((item, idx) => {
-        const r = item.rect;
+        const sim = previewAnimPositions?.[item.sceneItemId] || null;
+        const r = sim || item.rect;
         const box = document.createElement('div');
         const hasBorder = Boolean(item.hasBorderFilter && item.borderOuterRect);
         box.className = `ol-item-box${item.sceneItemId === selectedItemId ? ' is-selected' : ''}${!item.visible ? ' is-hidden' : ''}${item.locked ? ' is-locked' : ''}${hasBorder && showBorders ? ' has-border' : ''}`;
@@ -303,6 +553,7 @@ function renderCanvas(snapGuides = []) {
         box.style.width = `${Math.max(4, r.width * canvasScale)}px`;
         box.style.height = `${Math.max(4, r.height * canvasScale)}px`;
         box.style.zIndex = String(10 + idx);
+        if (sim && sim.opacity !== undefined) box.style.opacity = String(sim.opacity);
         if (item.transform?.rotation) {
             box.style.transform = `rotate(${item.transform.rotation}deg)`;
         }
@@ -449,6 +700,7 @@ function renderInspector() {
     $('ol-zoom').value = String(cfg.zoom ?? 1);
     $('ol-zoom-val').textContent = String(Math.round((cfg.zoom ?? 1) * 100));
     $('ol-duration').value = String(cfg.durationMs ?? 400);
+    updateMotionModeUI();
 }
 
 function buildLayoutThumbSvg(layout) {
@@ -537,6 +789,7 @@ function renderLayoutsDeck() {
 
 function renderLayoutsList() {
     renderLayoutsDeck();
+    updateMotionModeUI();
     const list = $('ol-layout-list');
     if (!list) return;
     const layouts = (studioState?.layouts || []).filter(l => !currentScene || l.sceneName === currentScene);
@@ -1015,15 +1268,38 @@ function bindEvents() {
         renderCanvas();
     });
 
-    // Canvas drag, resize & Custom Bezier Path Control Point dragging
+    // Right-click a waypoint handle to remove it
+    $('ol-canvas').addEventListener('contextmenu', e => {
+        const cpEl = e.target.closest('[data-cp-source]');
+        if (!cpEl) return;
+        e.preventDefault();
+        const sName = cpEl.dataset.cpSource;
+        const idx = Number(cpEl.dataset.cpIndex);
+        const draft = itemMotionDrafts[sName];
+        if (draft && Array.isArray(draft.waypoints) && draft.waypoints.length > 1) {
+            draft.waypoints.splice(idx, 1);
+            updateMotionModeUI();
+            renderCanvas();
+            showNotice(`Removed waypoint ${idx + 1} from ${sName}`);
+        }
+    });
+
+    // Canvas drag, resize & Per-Source Multi-Waypoint Custom Path dragging
     $('ol-canvas').addEventListener('pointerdown', e => {
-        const cpEl = e.target.closest('[data-cp-handle]');
-        if (cpEl) {
+        const cpEl = e.target.closest('[data-cp-source]');
+        if (cpEl && e.button === 0) {
             e.preventDefault();
+            const sName = cpEl.dataset.cpSource;
+            const wpIndex = Number(cpEl.dataset.cpIndex);
+            const draft = itemMotionDrafts[sName];
+            const wp = draft?.waypoints?.[wpIndex];
+            if (!wp) return;
             cpDragState = {
+                sourceName: sName,
+                wpIndex,
                 startX: e.clientX,
                 startY: e.clientY,
-                orig: { ...(customControlPoint || { x: baseWidth / 2, y: baseHeight / 2 }) }
+                orig: { x: wp.x, y: wp.y }
             };
             window.addEventListener('pointermove', onCpPointerMove);
             window.addEventListener('pointerup', onCpPointerUp, { once: true });
@@ -1055,19 +1331,23 @@ function bindEvents() {
         if (!cpDragState) return;
         const dx = (e.clientX - cpDragState.startX) / canvasScale;
         const dy = (e.clientY - cpDragState.startY) / canvasScale;
-        customControlPoint = {
-            x: Math.round(Math.max(0, Math.min(baseWidth, cpDragState.orig.x + dx))),
-            y: Math.round(Math.max(0, Math.min(baseHeight, cpDragState.orig.y + dy)))
-        };
+        const draft = itemMotionDrafts[cpDragState.sourceName];
+        if (draft?.waypoints?.[cpDragState.wpIndex]) {
+            draft.waypoints[cpDragState.wpIndex] = {
+                x: Math.round(Math.max(0, Math.min(baseWidth, cpDragState.orig.x + dx))),
+                y: Math.round(Math.max(0, Math.min(baseHeight, cpDragState.orig.y + dy)))
+            };
+        }
         renderCanvas();
     }
 
     function onCpPointerUp() {
         window.removeEventListener('pointermove', onCpPointerMove);
-        cpDragState = null;
-        if (customControlPoint) {
-            showNotice(`Custom path control point set to (${customControlPoint.x}, ${customControlPoint.y})`);
+        if (cpDragState) {
+            const wp = itemMotionDrafts[cpDragState.sourceName]?.waypoints?.[cpDragState.wpIndex];
+            if (wp) showNotice(`Moved ${cpDragState.sourceName} waypoint ${cpDragState.wpIndex + 1} to (${wp.x}, ${wp.y})`);
         }
+        cpDragState = null;
     }
 
     function onPointerMove(e) {
@@ -1222,6 +1502,122 @@ function bindEvents() {
     $('ol-btn-apply-aspect').addEventListener('click', () => applyAspectNow());
 
     // Motion & Path controls
+    $('ol-motion-target-select')?.addEventListener('change', () => {
+        previewLayoutId = $('ol-motion-target-select').value || null;
+        itemMotionDrafts = {};
+        const layout = getTargetLayout();
+        if (layout) {
+            if ($('ol-trans-type') && layout.transitionType) $('ol-trans-type').value = layout.transitionType;
+            if ($('ol-path-type') && layout.pathType) $('ol-path-type').value = layout.pathType;
+            if ($('ol-easing') && layout.easing) $('ol-easing').value = layout.easing;
+            if ($('ol-trans-dur') && layout.durationMs !== undefined) $('ol-trans-dur').value = String(layout.durationMs);
+        }
+        renderLayoutsList();
+        renderCanvas();
+    });
+
+    $('ol-item-path-type')?.addEventListener('change', () => {
+        const layout = getTargetLayout();
+        const sel = getSelectedItem();
+        if (!layout || !sel) return;
+        const draft = getOrInitItemMotion(sel.sourceName, layout);
+        draft.pathType = $('ol-item-path-type').value || "";
+        updateMotionModeUI();
+        renderCanvas();
+    });
+
+    $('ol-item-delay')?.addEventListener('change', () => {
+        const layout = getTargetLayout();
+        const sel = getSelectedItem();
+        if (!layout || !sel) return;
+        const draft = getOrInitItemMotion(sel.sourceName, layout);
+        draft.delayMs = Math.max(0, Math.min(2000, Number($('ol-item-delay').value) || 0));
+    });
+
+    $('ol-btn-play-preview')?.addEventListener('click', () => playOffAirPreview());
+
+    $('ol-btn-add-wp')?.addEventListener('click', () => {
+        const layout = getTargetLayout();
+        const sel = getSelectedItem();
+        if (!layout || !sel) return;
+        const saved = (layout.items || []).find(i => i.sourceName === sel.sourceName);
+        if (!saved) return;
+        const draft = getOrInitItemMotion(sel.sourceName, layout);
+        draft.pathType = "custom";
+        if (draft.waypoints.length >= 6) {
+            showNotice("Maximum 6 waypoints per source.");
+            return;
+        }
+        const targetRect = getSavedItemTargetRect(sel, saved);
+        const x0 = sel.rect.left + sel.rect.width * 0.5;
+        const y0 = sel.rect.top + sel.rect.height * 0.5;
+        const x1 = targetRect.left + targetRect.width * 0.5;
+        const y1 = targetRect.top + targetRect.height * 0.5;
+        const last = draft.waypoints.length ? draft.waypoints[draft.waypoints.length - 1] : { x: x0, y: y0 };
+        draft.waypoints.push({
+            x: Math.round((last.x + x1) * 0.5),
+            y: Math.round(Math.max(40, (last.y + y1) * 0.5 - 80))
+        });
+        updateMotionModeUI();
+        renderCanvas();
+        showNotice(`Added waypoint ${draft.waypoints.length} for ${sel.sourceName} — drag it on stage!`);
+    });
+
+    $('ol-btn-reset-wp')?.addEventListener('click', () => {
+        const layout = getTargetLayout();
+        const sel = getSelectedItem();
+        if (!layout || !sel) return;
+        const draft = getOrInitItemMotion(sel.sourceName, layout);
+        draft.waypoints = [];
+        if (draft.pathType === "custom") draft.pathType = "direct";
+        updateMotionModeUI();
+        renderCanvas();
+        showNotice(`Reset curve for ${sel.sourceName}`);
+    });
+
+    $('ol-btn-save-path')?.addEventListener('click', async () => {
+        const layout = getTargetLayout();
+        if (!layout) return;
+        const updatedItems = (layout.items || []).map(it => {
+            const draft = itemMotionDrafts[it.sourceName];
+            return {
+                ...it,
+                motion: draft ? {
+                    pathType: draft.pathType || null,
+                    delayMs: Math.max(0, Number(draft.delayMs) || 0),
+                    waypoints: Array.isArray(draft.waypoints) ? draft.waypoints : []
+                } : (it.motion || null)
+            };
+        });
+        try {
+            const res = await api('/api/obs-layout/layouts', {
+                method: 'POST',
+                body: JSON.stringify({
+                    ...layout,
+                    durationMs: Number($('ol-trans-dur')?.value) || layout.durationMs || 450,
+                    transitionType: $('ol-trans-type')?.value || layout.transitionType || 'move',
+                    pathType: $('ol-path-type')?.value || layout.pathType || 'direct',
+                    pathCurve: (Number($('ol-path-curve')?.value) || 28) / 100,
+                    easing: $('ol-easing')?.value || layout.easing || 'ease-in-out',
+                    items: updatedItems
+                })
+            });
+            studioState = { ...studioState, ...res.state };
+            renderLayoutsList();
+            showNotice(`Saved custom motion paths to "${layout.name}"`);
+        } catch (err) {
+            showNotice(err.message);
+        }
+    });
+
+    $('ol-btn-exit-path')?.addEventListener('click', () => {
+        previewLayoutId = null;
+        itemMotionDrafts = {};
+        if (previewAnimRaf) { cancelAnimationFrame(previewAnimRaf); previewAnimRaf = null; previewAnimPositions = null; }
+        renderLayoutsList();
+        renderCanvas();
+    });
+
     $('ol-path-curve')?.addEventListener('input', () => {
         $('ol-path-curve-val').textContent = $('ol-path-curve').value;
         if (previewLayoutId) renderCanvas();
@@ -1441,6 +1837,7 @@ function bindEvents() {
             stageObserver?.disconnect();
             if (backdropRefreshTimer) clearTimeout(backdropRefreshTimer);
             if (liveSyncTimer) clearTimeout(liveSyncTimer);
+            if (previewAnimRaf) cancelAnimationFrame(previewAnimRaf);
         }, { once: true });
     }
 }

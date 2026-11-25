@@ -345,12 +345,30 @@ module.exports = function createObsLayoutService({ dataDir, broadcastToOverlays 
         const src = raw && typeof raw === 'object' ? raw : {};
         const id = String(src.id || `layout-${crypto.randomBytes(4).toString('hex')}`).trim().replace(/[^a-z0-9_-]/gi, '-').slice(0, 60);
         const items = Array.isArray(src.items)
-            ? src.items.slice(0, 80).map(it => ({
-                sourceName: String(it?.sourceName || '').trim(),
-                transform: it?.transform && typeof it.transform === 'object' ? { ...it.transform } : null,
-                visible: it?.visible !== false,
-                aspect: it?.aspect ? normalizeAspectConfig(it.aspect) : null
-            })).filter(it => it.sourceName)
+            ? src.items.slice(0, 80).map(it => {
+                const m = it?.motion && typeof it.motion === 'object' ? it.motion : null;
+                const waypoints = Array.isArray(m?.waypoints)
+                    ? m.waypoints.slice(0, 6)
+                        .filter(wp => wp && Number.isFinite(Number(wp.x)) && Number.isFinite(Number(wp.y)))
+                        .map(wp => ({ x: Number(Number(wp.x).toFixed(1)), y: Number(Number(wp.y).toFixed(1)) }))
+                    : [];
+                const motion = m ? {
+                    transitionType: TRANSITION_TYPES.includes(m.transitionType) ? m.transitionType : null,
+                    pathType: PATH_TYPES.includes(m.pathType) ? m.pathType : null,
+                    pathCurve: m.pathCurve !== null && m.pathCurve !== undefined && Number.isFinite(Number(m.pathCurve))
+                        ? Math.max(-1, Math.min(1, Number(m.pathCurve)))
+                        : null,
+                    waypoints,
+                    delayMs: Math.max(0, Math.min(2000, Number(m.delayMs) || 0))
+                } : null;
+                return {
+                    sourceName: String(it?.sourceName || '').trim(),
+                    transform: it?.transform && typeof it.transform === 'object' ? { ...it.transform } : null,
+                    visible: it?.visible !== false,
+                    aspect: it?.aspect ? normalizeAspectConfig(it.aspect) : null,
+                    motion
+                };
+            }).filter(it => it.sourceName)
             : [];
         const cpRaw = src.pathControlPoint && typeof src.pathControlPoint === 'object' ? src.pathControlPoint : null;
         const pathControlPoint = cpRaw && Number.isFinite(Number(cpRaw.x)) && Number.isFinite(Number(cpRaw.y))
