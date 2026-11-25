@@ -439,6 +439,44 @@
     font-size: 12px;
 }
 
+.ol-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.ol-history-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    width: 100%;
+    padding: 5px 8px;
+    border-radius: 7px;
+    border: 1px solid transparent;
+    background: var(--bg-inset);
+    color: var(--text-main);
+    font-size: 11px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.ol-history-btn:hover {
+    border-color: var(--accent);
+}
+
+.ol-history-btn.is-current {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 16%, var(--bg-inset));
+    font-weight: 700;
+}
+
+.ol-history-btn.is-future {
+    opacity: 0.48;
+}
+
 .ol-code-box {
     display: flex;
     align-items: center;

@@ -22,6 +22,9 @@ let liveSyncTimer = null;
 let backdropRefreshTimer = null;
 let pendingLivePayload = null;
 let dragState = null;
+let historyStack = [];
+let historyIndex = -1;
+const MAX_HISTORY = 40;
 
 const $ = id => document.getElementById(id);
 
@@ -484,6 +487,99 @@ function computeResizeSnap(next, mode, item) {
     return { rect: out, guides };
 }
 
+function cloneItemsSnapshot() {
+    return items.map(it => ({
+        sceneItemId: it.sceneItemId,
+        sourceName: it.sourceName,
+        visible: it.visible,
+        locked: it.locked,
+        rect: { ...it.rect },
+        transform: { ...it.transform }
+    }));
+}
+
+function updateHistoryUI() {
+    const undoBtn = $('ol-btn-undo');
+    const redoBtn = $('ol-btn-redo');
+    const revBtn = $('ol-btn-revert');
+    if (undoBtn) undoBtn.disabled = historyIndex <= 0;
+    if (redoBtn) redoBtn.disabled = historyIndex < 0 || historyIndex >= historyStack.length - 1;
+    if (revBtn) revBtn.disabled = historyIndex <= 0;
+
+    const cnt = $('ol-history-count');
+    if (cnt) cnt.textContent = String(Math.max(0, historyStack.length - 1));
+    const list = $('ol-history-list');
+    if (!list) return;
+    if (!historyStack.length) {
+        list.innerHTML = '<div style="font-size:11px;color:var(--text-muted);">No edits yet.</div>';
+        return;
+    }
+    list.innerHTML = [...historyStack].map((entry, idx) => ({ entry, idx })).reverse().map(({ entry, idx }) => {
+        const cls = idx === historyIndex ? ' is-current' : idx > historyIndex ? ' is-future' : '';
+        return `<button type="button" class="ol-history-btn${cls}" data-history-idx="${idx}">
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(entry.label)}</span>
+            <span style="color:var(--text-muted);flex:none;">${esc(entry.time)}</span>
+        </button>`;
+    }).join('');
+}
+
+function recordHistory(label) {
+    const now = new Date();
+    const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    if (historyIndex < historyStack.length - 1) {
+        historyStack = historyStack.slice(0, historyIndex + 1);
+    }
+    historyStack.push({ label, time, snapshot: cloneItemsSnapshot() });
+    if (historyStack.length > MAX_HISTORY) {
+        historyStack.shift();
+    }
+    historyIndex = historyStack.length - 1;
+    updateHistoryUI();
+}
+
+async function restoreHistoryIndex(targetIdx) {
+    if (targetIdx < 0 || targetIdx >= historyStack.length || targetIdx === historyIndex) return;
+    const entry = historyStack[targetIdx];
+    if (!entry) return;
+    historyIndex = targetIdx;
+    const changed = [];
+    for (const snap of entry.snapshot) {
+        const cur = items.find(i => i.sceneItemId === snap.sceneItemId);
+        if (!cur) continue;
+        const diff = JSON.stringify(cur.rect) !== JSON.stringify(snap.rect)
+            || cur.visible !== snap.visible
+            || cur.locked !== snap.locked
+            || cur.transform?.boundsType !== snap.transform?.boundsType;
+        cur.visible = snap.visible;
+        cur.locked = snap.locked;
+        cur.rect = { ...snap.rect };
+        cur.transform = { ...cur.transform, ...snap.transform };
+        if (diff) changed.push(cur);
+    }
+    renderLayers();
+    renderInspector();
+    renderCanvas();
+    updateHistoryUI();
+    for (const item of changed) {
+        const patch = {
+            ...rectToObsPatch(item, item.rect),
+            ...(item.transform?.boundsType ? { boundsType: item.transform.boundsType } : {})
+        };
+        await api('/api/obs-layout/transform', {
+            method: 'POST',
+            body: JSON.stringify({
+                sceneName: currentScene,
+                sceneItemId: item.sceneItemId,
+                transform: patch,
+                visible: item.visible,
+                locked: item.locked
+            })
+        }).catch(() => {});
+    }
+    if (changed.length) scheduleBackdropRefresh(140);
+    showNotice(`Restored: ${entry.label}`);
+}
+
 async function loadScene(sceneName) {
     if (!sceneName) return;
     currentScene = sceneName;
@@ -495,6 +591,9 @@ async function loadScene(sceneName) {
     if (!items.some(i => i.sceneItemId === selectedItemId)) {
         selectedItemId = items.length ? items[items.length - 1].sceneItemId : null;
     }
+    historyStack = [];
+    historyIndex = -1;
+    recordHistory('Initial scene state');
     renderLayers();
     renderLayoutsList();
     renderInspector();
@@ -612,6 +711,27 @@ function bindEvents() {
         }
     });
 
+    $('ol-btn-undo')?.addEventListener('click', () => restoreHistoryIndex(historyIndex - 1));
+    $('ol-btn-redo')?.addEventListener('click', () => restoreHistoryIndex(historyIndex + 1));
+    $('ol-btn-revert')?.addEventListener('click', () => restoreHistoryIndex(0));
+    $('ol-history-list')?.addEventListener('click', e => {
+        const btn = e.target.closest('[data-history-idx]');
+        if (btn) restoreHistoryIndex(Number(btn.dataset.historyIdx));
+    });
+    window.addEventListener('keydown', e => {
+        if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
+        const tag = document.activeElement?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+        const k = e.key.toLowerCase();
+        if (k === 'z' && !e.shiftKey) {
+            e.preventDefault();
+            restoreHistoryIndex(historyIndex - 1);
+        } else if ((k === 'z' && e.shiftKey) || k === 'y') {
+            e.preventDefault();
+            restoreHistoryIndex(historyIndex + 1);
+        }
+    });
+
     $('ol-scene-select').addEventListener('change', e => loadScene(e.target.value));
     $('ol-btn-refresh').addEventListener('click', () => (currentScene ? loadScene(currentScene) : loadAll()));
     $('ol-show-guides')?.addEventListener('change', () => renderCanvas());
@@ -709,9 +829,10 @@ function bindEvents() {
     async function onPointerUp() {
         window.removeEventListener('pointermove', onPointerMove);
         if (!dragState) return;
-        const { item } = dragState;
+        const { item, mode } = dragState;
         dragState = null;
         renderCanvas([]);
+        recordHistory(`${mode === 'move' ? 'Move' : 'Resize'} ${item.sourceName}`);
         await pushTransformNow(item, {}, { refreshBackdrop: true });
     }
 
@@ -728,6 +849,7 @@ function bindEvents() {
         e.preventDefault();
         renderCanvas();
         renderInspector();
+        recordHistory(`Nudge ${sel.sourceName}`);
         await pushTransformNow(sel, {}, { refreshBackdrop: true });
     });
 
@@ -743,6 +865,7 @@ function bindEvents() {
             sel.rect.rotation = Number($('ol-rot').value) || 0;
             sel.transform.rotation = sel.rect.rotation;
             renderCanvas();
+            recordHistory(`Edit ${sel.sourceName}`);
             await pushTransformNow(sel, {}, { refreshBackdrop: true });
         });
     });
@@ -752,6 +875,7 @@ function bindEvents() {
         if (!sel || sel.locked) return;
         sel.rect.left = (baseWidth - sel.rect.width) / 2;
         renderCanvas(); renderInspector();
+        recordHistory(`Center H ${sel.sourceName}`);
         await pushTransformNow(sel, {}, { refreshBackdrop: true });
     });
     $('ol-align-cv').addEventListener('click', async () => {
@@ -759,6 +883,7 @@ function bindEvents() {
         if (!sel || sel.locked) return;
         sel.rect.top = (baseHeight - sel.rect.height) / 2;
         renderCanvas(); renderInspector();
+        recordHistory(`Center V ${sel.sourceName}`);
         await pushTransformNow(sel, {}, { refreshBackdrop: true });
     });
     $('ol-align-fit').addEventListener('click', async () => {
@@ -766,6 +891,7 @@ function bindEvents() {
         if (!sel || sel.locked) return;
         sel.rect.left = 0; sel.rect.top = 0; sel.rect.width = baseWidth; sel.rect.height = baseHeight;
         renderCanvas(); renderInspector();
+        recordHistory(`Fit Canvas ${sel.sourceName}`);
         await pushTransformNow(sel, {}, { refreshBackdrop: true });
     });
 

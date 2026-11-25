@@ -65,6 +65,9 @@
                 <label for="ol-scene-select" style="font-size:0.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Scene</label>
                 <select id="ol-scene-select" class="input" style="min-width:210px;"></select>
                 <button type="button" class="btn btn-secondary btn-sm" id="ol-btn-refresh">Sync Live OBS</button>
+                <button type="button" class="btn btn-secondary btn-sm" id="ol-btn-undo" disabled title="Undo (Cmd/Ctrl+Z)">Undo</button>
+                <button type="button" class="btn btn-secondary btn-sm" id="ol-btn-redo" disabled title="Redo (Cmd/Ctrl+Shift+Z)">Redo</button>
+                <button type="button" class="btn btn-secondary btn-sm" id="ol-btn-revert" disabled title="Revert all edits back to when this scene was loaded">Revert</button>
             </div>
             <div class="ol-toolbar-group">
                 <label class="ol-check"><input type="checkbox" id="ol-live-sync" checked> Live Sync</label>
@@ -213,6 +216,12 @@
                         <button type="button" class="btn btn-primary btn-sm" id="ol-btn-save-layout">Save</button>
                     </div>
                     <div id="ol-layout-list" style="display:flex;flex-direction:column;gap:6px;"></div>
+
+                    <div class="ol-micro-head" style="padding-top:8px;border-top:1px solid var(--border);">
+                        <span>Edit History</span>
+                        <span class="ol-pill" id="ol-history-count">0</span>
+                    </div>
+                    <div id="ol-history-list" class="ol-history-list"></div>
                 </div>
             </aside>
         </div>
