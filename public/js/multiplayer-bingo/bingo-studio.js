@@ -5,7 +5,57 @@ let state = null;
 let selectedPackId = '';
 let previewView = 'multi';
 let showCallerPanel = false;
+let dismissedBingoSig = '';
+let hasInitialLoaded = false;
+const prevBingoCounts = new Map();
 const expandedOverrides = new Set();
+
+function playBingoChime() {
+    try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const notes = [523.25, 659.25, 783.99, 1046.5];
+        notes.forEach((freq, idx) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.value = freq;
+            const start = ctx.currentTime + idx * 0.08;
+            gain.gain.setValueAtTime(0.0001, start);
+            gain.gain.exponentialRampToValueAtTime(0.14, start + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.28);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(start);
+            osc.stop(start + 0.3);
+        });
+        setTimeout(() => ctx.close().catch(() => {}), 900);
+    } catch { /* autoplay or unsupported */ }
+}
+
+function detectLines(size, stampedSet) {
+    const lines = [];
+    for (let r = 0; r < size; r++) {
+        const row = [];
+        for (let c = 0; c < size; c++) row.push(r * size + c);
+        if (row.every(i => stampedSet.has(i))) lines.push(row);
+    }
+    for (let c = 0; c < size; c++) {
+        const col = [];
+        for (let r = 0; r < size; r++) col.push(r * size + c);
+        if (col.every(i => stampedSet.has(i))) lines.push(col);
+    }
+    const d1 = [];
+    const d2 = [];
+    for (let i = 0; i < size; i++) {
+        d1.push(i * size + i);
+        d2.push(i * size + (size - 1 - i));
+    }
+    if (d1.every(i => stampedSet.has(i))) lines.push(d1);
+    if (d2.every(i => stampedSet.has(i))) lines.push(d2);
+    return lines;
+}
 
 const $ = id => document.getElementById(id);
 
@@ -95,9 +145,13 @@ function computeCardCells(pack, card, claims) {
                 stamped = false;
             }
         }
-        cells.push({ index: i, label, stamped, lockedByOther });
+        cells.push({ index: i, label, stamped, lockedByOther, winning: false });
     }
-    return cells;
+    const finalStamped = new Set(cells.filter(c => c.stamped).map(c => c.index));
+    const lines = detectLines(size, finalStamped);
+    const winSet = new Set(lines.flat());
+    for (const c of cells) c.winning = winSet.has(c.index);
+    return { cells, bingoCount: lines.length };
 }
 
 function renderLiveTab() {
@@ -154,26 +208,72 @@ function renderLiveTab() {
     const nextColor = PLAYER_COLORS[session.cards.length % PLAYER_COLORS.length];
     if (!$('mpb-player-name').value) $('mpb-player-color').value = nextColor;
 
+    // Compute winners across all cards & notify host when someone hits BINGO
+    const cardSummaries = session.cards.map(card => ({
+        card,
+        ...computeCardCells(pack, card, session.claims)
+    }));
+    const winners = cardSummaries.filter(s => s.bingoCount > 0);
+    const newlyWon = [];
+    for (const s of cardSummaries) {
+        const prev = prevBingoCounts.get(s.card.id) || 0;
+        if (hasInitialLoaded && s.bingoCount > prev) newlyWon.push(s);
+        prevBingoCounts.set(s.card.id, s.bingoCount);
+    }
+    for (const id of [...prevBingoCounts.keys()]) {
+        if (!session.cards.some(c => c.id === id)) prevBingoCounts.delete(id);
+    }
+    hasInitialLoaded = true;
+
+    const winnerSig = winners.map(w => `${w.card.id}:${w.bingoCount}`).join('|');
+    if (newlyWon.length) {
+        dismissedBingoSig = '';
+        playBingoChime();
+        const names = newlyWon.map(w => w.card.name).join(', ');
+        showNotice(`BINGO! ${names} completed a line!`);
+    }
+    const alertEl = $('mpb-bingo-alert');
+    if (winners.length && winnerSig !== dismissedBingoSig) {
+        alertEl.hidden = false;
+        $('mpb-bingo-alert-text').innerHTML = `
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#22c55e" stroke-width="2.2" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            <strong>BINGO!</strong>
+            ${winners.map(w => `
+                <span class="pill mpb-pill-win">
+                    <span class="mpb-dot" style="width:9px;height:9px;background:${esc(w.card.color)};"></span>
+                    ${esc(w.card.name)}${w.bingoCount > 1 ? ` ×${w.bingoCount}` : ''}
+                </span>
+            `).join('')}
+        `;
+        const primaryWinner = winners[0].card;
+        $('mpb-bingo-alert-actions').innerHTML = `
+            <button type="button" class="btn btn-primary btn-sm" data-alert-act="zoom" data-card="${esc(primaryWinner.id)}">Zoom ${esc(primaryWinner.name)}</button>
+            ${!session.locked ? '<button type="button" class="btn btn-secondary btn-sm" data-alert-act="lock">Lock Board</button>' : ''}
+            <button type="button" class="btn btn-secondary btn-sm" data-alert-act="dismiss">Dismiss</button>
+        `;
+    } else {
+        alertEl.hidden = true;
+    }
+
     const container = $('mpb-players-container');
     if (!session.cards.length) {
         container.innerHTML = '<div class="mpb-empty">No players added yet. Add a player above to generate their uniquely shuffled LAN Bingo card URL.</div>';
         return;
     }
 
-    container.innerHTML = `<div class="mpb-players-grid">${session.cards.map(card => {
+    container.innerHTML = `<div class="mpb-players-grid">${cardSummaries.map(({ card, cells, bingoCount }) => {
         const isFocused = session.focusedCardId === card.id;
-        const cells = computeCardCells(pack, card, session.claims);
         const stampedCount = cells.filter(c => c.stamped).length;
         const url = playerUrl(card.token);
         const isOpen = expandedOverrides.has(card.id);
         return `
-        <div class="mpb-player-card${isFocused ? ' is-focused' : ''}" data-card-id="${esc(card.id)}">
+        <div class="mpb-player-card${isFocused ? ' is-focused' : ''}${bingoCount > 0 ? ' is-winner' : ''}" data-card-id="${esc(card.id)}">
             <div class="mpb-player-head">
                 <div class="mpb-player-id">
                     <span class="mpb-dot" style="background:${esc(card.color)};"></span>
                     <span class="mpb-player-name">${esc(card.name)}</span>
                 </div>
-                <span class="pill">${stampedCount}/${cells.length}</span>
+                <span class="pill${bingoCount > 0 ? ' mpb-pill-win' : ''}">${bingoCount > 0 ? `BINGO${bingoCount > 1 ? ` ×${bingoCount}` : ''} · ${stampedCount}/${cells.length}` : `${stampedCount}/${cells.length}`}</span>
             </div>
             <div class="mpb-url-row">
                 <code title="${esc(url)}">${esc(url)}</code>
@@ -189,7 +289,7 @@ function renderLiveTab() {
             ${isOpen ? `
             <div class="mpb-override-grid" style="grid-template-columns:repeat(${pack.size}, minmax(0, 1fr));">
                 ${cells.map(c => `
-                    <button type="button" class="mpb-override-cell${c.stamped ? ' is-stamped' : ''}${c.lockedByOther ? ' is-locked-other' : ''}"
+                    <button type="button" class="mpb-override-cell${c.stamped ? ' is-stamped' : ''}${c.winning ? ' is-winning' : ''}${c.lockedByOther ? ' is-locked-other' : ''}"
                         data-act="toggle-cell" data-card="${esc(card.id)}" data-cell="${c.index}" title="${esc(c.label)}">
                         ${esc(c.label)}
                     </button>
@@ -296,6 +396,38 @@ function bindEvents() {
     $('btn-toggle-caller').addEventListener('click', () => {
         showCallerPanel = !showCallerPanel;
         renderLiveTab();
+    });
+
+    $('mpb-bingo-alert-actions').addEventListener('click', async e => {
+        const btn = e.target.closest('[data-alert-act]');
+        if (!btn) return;
+        const act = btn.dataset.alertAct;
+        if (act === 'zoom') {
+            const res = await api('/api/multiplayer-bingo/focus', {
+                method: 'POST',
+                body: JSON.stringify({ card: btn.dataset.card })
+            });
+            state = { ...res.state, enabled: state.enabled };
+            renderLiveTab();
+            syncPreview();
+        } else if (act === 'lock') {
+            const res = await api('/api/multiplayer-bingo/flags', {
+                method: 'POST',
+                body: JSON.stringify({ locked: true })
+            });
+            state = { ...res.state, enabled: state.enabled };
+            renderLiveTab();
+            syncPreview();
+        } else if (act === 'dismiss') {
+            const pack = state.activePack || state.packs[0];
+            const session = state.session || { cards: [], claims: {} };
+            dismissedBingoSig = session.cards
+                .map(c => ({ id: c.id, n: computeCardCells(pack, c, session.claims).bingoCount }))
+                .filter(w => w.n > 0)
+                .map(w => `${w.id}:${w.n}`)
+                .join('|');
+            $('mpb-bingo-alert').hidden = true;
+        }
     });
 
     $('mpb-caller-grid').addEventListener('click', async e => {
