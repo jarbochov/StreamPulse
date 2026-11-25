@@ -238,8 +238,8 @@ describe('OBS Border Studio (Beta / Advanced)', () => {
             outer: { enabled: false, style: 'solid', thickness: 0, gap: 0 },
             glow: { enabled: true, inner: false, blur: 10 }
         });
-        // (12 - 1) + ceil(10 * 1.65) = 11 + 17 = 28 + 6 extra + 2 safety = 36
-        assert.equal(autoPad, 36);
+        // (12 - 1) + ceil(10 * 1.9) = 11 + 19 = 30 + 6 extra + 2 safety = 38
+        assert.equal(autoPad, 38);
         assert.equal(catalog.computeAutoBorderPad({ placement: 'inside', autoPad: true, inner: { enabled: true, thickness: 20 } }), 0);
 
         const saved = service.upsertProfile({

@@ -172,7 +172,7 @@ var StreamPulseBorderCatalog = (() => {
         }
         const glowEnabled = Boolean(profile.glow?.enabled) && !Boolean(profile.glow?.inner);
         const glowBlur = glowEnabled ? clampFinite(profile.glow?.blur, 16, 0, 120) : 0;
-        const glowBleed = glowBlur > 0.5 ? Math.ceil(glowBlur * 1.65) : 0;
+        const glowBleed = glowBlur > 0.5 ? Math.ceil(glowBlur * 1.9) : 0;
         const shMode = String(profile.shadow?.mode || "soft").toLowerCase();
         const shadowEnabled = Boolean(profile.shadow?.enabled) && shMode !== "inset";
         let shadowBleed = 0;
