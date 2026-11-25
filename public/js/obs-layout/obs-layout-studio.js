@@ -37,7 +37,8 @@ let previewLayoutId = null;
 let customControlPoint = null;
 let itemMotionDrafts = {}; // sourceName -> { pathType, delayMs, waypoints: [{x,y}] }
 let previewAnimRaf = null;
-let previewAnimPositions = null; // sceneItemId -> { left, top, width, height, opacity }
+let previewAnimPositions = null;
+let pendingDeleteLayoutId = null; // sceneItemId -> { left, top, width, height, opacity }
 
 const $ = id => document.getElementById(id);
 
@@ -45,6 +46,27 @@ function esc(str) {
     return String(str ?? '').replace(/[&<>"']/g, ch => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     }[ch]));
+}
+
+function openDeleteLayoutModal(layout) {
+    if (!layout) return;
+    pendingDeleteLayoutId = layout.id;
+    const modal = $('ol-delete-modal');
+    const title = $('ol-delete-modal-title');
+    const desc = $('ol-delete-modal-desc');
+    if (title) title.textContent = `Delete "${layout.name}"?`;
+    if (desc) {
+        const sceneInfo = layout.sceneName ? ` in scene "${layout.sceneName}"` : "";
+        desc.textContent = `Permanently delete saved layout "${layout.name}"${sceneInfo}? Its saved positions, custom motion paths, and any Bitfocus Companion trigger using its ID will be removed.`;
+    }
+    if (modal) modal.hidden = false;
+    $('ol-delete-cancel')?.focus();
+}
+
+function closeDeleteLayoutModal() {
+    pendingDeleteLayoutId = null;
+    const modal = $('ol-delete-modal');
+    if (modal) modal.hidden = true;
 }
 
 function showNotice(msg) {
@@ -781,7 +803,7 @@ function renderLayoutsDeck() {
                 ${canOverwrite ? `<button type="button" class="btn btn-secondary btn-sm" data-deck-act="overwrite" data-id="${esc(l.id)}" title="Update this snapshot with current scene positions">Update</button>` : ""}
                 <button type="button" class="btn btn-secondary btn-sm" data-deck-act="duplicate" data-id="${esc(l.id)}">Clone</button>
                 <button type="button" class="btn btn-secondary btn-sm" data-deck-act="copy" data-id="${esc(l.id)}" title="Copy Bitfocus Companion URL">URL</button>
-                <button type="button" class="btn btn-secondary btn-sm" data-deck-act="delete" data-id="${esc(l.id)}">Del</button>
+                <button type="button" class="btn btn-danger btn-sm" data-deck-act="delete" data-id="${esc(l.id)}">Delete</button>
             </div>
         </article>`;
     }).join("");
@@ -806,7 +828,7 @@ function renderLayoutsList() {
                 <button type="button" class="btn btn-primary btn-sm" data-apply-layout="${esc(l.id)}">Apply</button>
                 <button type="button" class="btn btn-secondary btn-sm" data-preview-layout="${esc(l.id)}">${isPrev ? 'Hide Path' : 'Path'}</button>
                 <button type="button" class="btn btn-secondary btn-sm" data-copy-layout="${esc(l.id)}" title="Copy Bitfocus Companion URL">URL</button>
-                <button type="button" class="btn btn-secondary btn-sm" data-del-layout="${esc(l.id)}">Del</button>
+                <button type="button" class="btn btn-danger btn-sm" data-del-layout="${esc(l.id)}">Delete</button>
             </div>
         </div>`;
     }).join('') || '<div style="font-size:12px;color:var(--text-muted);">No saved snapshots for this scene yet.</div>';
@@ -1753,16 +1775,7 @@ function bindEvents() {
             navigator.clipboard?.writeText(url);
             showNotice(`Copied Companion URL for "${layout.name}"`);
         } else if (act === 'delete') {
-            try {
-                const res = await api(`/api/obs-layout/layouts/${encodeURIComponent(id)}`, { method: 'DELETE' });
-                studioState = { ...studioState, ...res.state };
-                if (previewLayoutId === id) previewLayoutId = null;
-                renderLayoutsList();
-                renderCanvas();
-                showNotice(`Deleted "${layout.name}"`);
-            } catch (err) {
-                showNotice(err.message);
-            }
+            openDeleteLayoutModal(layout);
         }
     });
 
@@ -1817,16 +1830,36 @@ function bindEvents() {
         }
         const delBtn = e.target.closest('[data-del-layout]');
         if (delBtn) {
-            try {
-                const res = await api(`/api/obs-layout/layouts/${encodeURIComponent(delBtn.dataset.delLayout)}`, { method: 'DELETE' });
-                studioState = { ...studioState, ...res.state };
-                if (previewLayoutId === delBtn.dataset.delLayout) previewLayoutId = null;
-                renderLayoutsList();
-                renderCanvas();
-                showNotice('Deleted layout snapshot');
-            } catch (err) {
-                showNotice(err.message);
+            const layout = (studioState?.layouts || []).find(l => l.id === delBtn.dataset.delLayout);
+            if (layout) openDeleteLayoutModal(layout);
+        }
+    });
+
+    // Delete confirmation modal handlers
+    $('ol-delete-cancel')?.addEventListener('click', () => closeDeleteLayoutModal());
+    $('ol-delete-modal')?.addEventListener('click', e => {
+        if (e.target === $('ol-delete-modal')) closeDeleteLayoutModal();
+    });
+    window.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && pendingDeleteLayoutId) closeDeleteLayoutModal();
+    });
+    $('ol-delete-confirm')?.addEventListener('click', async () => {
+        const id = pendingDeleteLayoutId;
+        if (!id) return;
+        const layout = (studioState?.layouts || []).find(l => l.id === id);
+        closeDeleteLayoutModal();
+        try {
+            const res = await api(`/api/obs-layout/layouts/${encodeURIComponent(id)}`, { method: 'DELETE' });
+            studioState = { ...studioState, ...res.state };
+            if (previewLayoutId === id) {
+                previewLayoutId = null;
+                itemMotionDrafts = {};
             }
+            renderLayoutsList();
+            renderCanvas();
+            showNotice(`Deleted layout "${layout?.name || id}"`);
+        } catch (err) {
+            showNotice(err.message);
         }
     });
 

@@ -778,3 +778,52 @@
     font-weight: 800;
     color: #090d16;
 }
+
+/* Destructive Warning Modal */
+.ol-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    background: rgba(5, 8, 16, 0.72);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.ol-modal {
+    width: 100%;
+    max-width: 420px;
+    background: var(--bg-card);
+    border: 1px solid rgba(239, 68, 68, 0.45);
+    border-radius: 12px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+    padding: 1.15rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.ol-modal-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #f87171;
+    font-size: 0.96rem;
+    font-weight: 700;
+}
+
+.ol-modal-body {
+    font-size: 0.86rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin: 0;
+}
+
+.ol-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 4px;
+}
