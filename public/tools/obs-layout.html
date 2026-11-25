@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StreamPulse — OBS Layout &amp; Aspect Studio</title>
+<link rel="stylesheet" href="/admin.css">
+<script src="/appearance.js"></script>
+<link rel="stylesheet" href="/css/studio-common.css">
+<link rel="stylesheet" href="/css/obs-layout.css">
+</head>
+<body>
+<div class="header">
+    <h1>StreamPulse <span>OBS Layout &amp; Aspect Studio</span></h1>
+    <div id="main-nav" class="nav"></div>
+    <script src="/js/nav.js"></script>
+</div>
+
+<div class="ol-shell">
+    <div class="ol-banner" id="ol-disabled-banner" hidden>
+        <div>
+            <strong>OBS Layout &amp; Aspect Studio is disabled.</strong>
+            Enable it under <em>OBS Studio Integrations</em> in System Config to connect live OBS scenes and aspect morphing.
+        </div>
+        <a class="btn btn-primary btn-sm" href="/config-editor.html#modules">Open Config Editor</a>
+    </div>
+
+    <div class="ol-banner" id="ol-disconnected-banner" hidden>
+        <div>
+            <strong>OBS WebSocket is not connected.</strong>
+            Connect OBS in System Config &rarr; Connection &amp; Security to edit live scene bounding boxes.
+        </div>
+        <a class="btn btn-secondary btn-sm" href="/config-editor.html#connection">Connection Settings</a>
+    </div>
+
+    <div class="ol-workspace">
+        <!-- LEFT: SCENE PICKER, LAYERS & SAVED LAYOUTS -->
+        <aside class="ol-panel">
+            <div class="ol-micro-head">
+                <span>OBS Scene</span>
+                <button type="button" class="btn btn-secondary btn-sm" id="ol-btn-refresh">Refresh</button>
+            </div>
+            <select id="ol-scene-select" class="input"></select>
+
+            <div class="ol-micro-head" style="margin-top:4px;">
+                <span>Scene Items</span>
+                <span class="pill" id="ol-item-count">0</span>
+            </div>
+            <div class="ol-layer-list" id="ol-layer-list"></div>
+
+            <div class="ol-micro-head" style="margin-top:6px;">
+                <span>Layout Snapshots</span>
+            </div>
+            <div style="display:flex;gap:6px;">
+                <input type="text" id="ol-layout-name" class="input" placeholder="e.g. Retro 4:3 Layout" maxlength="80" style="flex:1;min-width:0;">
+                <button type="button" class="btn btn-primary btn-sm" id="ol-btn-save-layout">Save</button>
+            </div>
+            <div id="ol-layout-list" style="display:flex;flex-direction:column;gap:6px;"></div>
+        </aside>
+
+        <!-- CENTER: VISUAL BOUNDING-BOX STAGE -->
+        <main class="ol-panel">
+            <div class="ol-stage-bar">
+                <div class="ol-stage-controls">
+                    <label class="ol-check"><input type="checkbox" id="ol-live-sync" checked> Live Sync to OBS</label>
+                    <label class="ol-check"><input type="checkbox" id="ol-snap-edges" checked> Snap to Edges</label>
+                    <label class="ol-check"><input type="checkbox" id="ol-show-backdrop"> Backdrop</label>
+                    <button type="button" class="btn btn-secondary btn-sm" id="ol-btn-snapshot">Refresh Snapshot</button>
+                </div>
+                <span class="pill" id="ol-readout">1920&times;1080</span>
+            </div>
+            <div class="ol-stage-wrap" id="ol-stage-wrap" tabindex="0">
+                <div class="ol-canvas" id="ol-canvas"></div>
+            </div>
+        </main>
+
+        <!-- RIGHT: TRANSFORM & ASPECT RATIO INSPECTOR -->
+        <aside class="ol-panel">
+            <div class="ol-micro-head">
+                <span>Selected Element</span>
+                <span class="pill" id="ol-sel-name">None</span>
+            </div>
+
+            <div id="ol-inspector-empty" style="font-size:12px;color:var(--text-muted);padding:12px 0;">
+                Click any element on the canvas or in Scene Items to move, resize, pin its anchor, or morph its aspect ratio.
+            </div>
+
+            <div id="ol-inspector-body" hidden style="display:flex;flex-direction:column;gap:12px;">
+                <div class="ol-grid2">
+                    <div class="ol-field"><label for="ol-x">X (px)</label><input type="number" id="ol-x" class="input" step="1"></div>
+                    <div class="ol-field"><label for="ol-y">Y (px)</label><input type="number" id="ol-y" class="input" step="1"></div>
+                    <div class="ol-field"><label for="ol-w">Width (px)</label><input type="number" id="ol-w" class="input" step="1" min="8"></div>
+                    <div class="ol-field"><label for="ol-h">Height (px)</label><input type="number" id="ol-h" class="input" step="1" min="8"></div>
+                </div>
+                <div class="ol-grid2">
+                    <div class="ol-field"><label for="ol-rot">Rotation (&deg;)</label><input type="number" id="ol-rot" class="input" step="1"></div>
+                    <div class="ol-field">
+                        <label>Quick Align</label>
+                        <div style="display:flex;gap:4px;">
+                            <button type="button" class="btn btn-secondary btn-sm" id="ol-align-ch" title="Center Horizontally">H</button>
+                            <button type="button" class="btn btn-secondary btn-sm" id="ol-align-cv" title="Center Vertically">V</button>
+                            <button type="button" class="btn btn-secondary btn-sm" id="ol-align-fit" title="Fit Canvas">Fit</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ol-micro-head" style="padding-top:8px;border-top:1px solid var(--border);">
+                    <span>Aspect Ratio &amp; Morph</span>
+                    <button type="button" class="btn btn-secondary btn-sm" id="ol-btn-attach-aspect">Attach Filter</button>
+                </div>
+
+                <div class="ol-ratio-chips" id="ol-ratio-chips">
+                    <button type="button" class="btn btn-sm btn-secondary" data-ratio="native">Native</button>
+                    <button type="button" class="btn btn-sm btn-secondary" data-ratio="16:9">16:9</button>
+                    <button type="button" class="btn btn-sm btn-secondary" data-ratio="4:3">4:3</button>
+                    <button type="button" class="btn btn-sm btn-secondary" data-ratio="1:1">1:1</button>
+                    <button type="button" class="btn btn-sm btn-secondary" data-ratio="4:5">4:5</button>
+                    <button type="button" class="btn btn-sm btn-secondary" data-ratio="9:16">9:16</button>
+                    <button type="button" class="btn btn-sm btn-secondary" data-ratio="21:9">21:9</button>
+                </div>
+
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+                    <div class="ol-field" style="flex:1;">
+                        <label for="ol-resize-mode">Resize Mode</label>
+                        <select id="ol-resize-mode" class="input">
+                            <option value="lock-width">Lock Width (grow vertically)</option>
+                            <option value="lock-height">Lock Height (shrink width)</option>
+                            <option value="fit-slot">Fit Inside Current Box</option>
+                            <option value="keep-area">Keep Visual Area</option>
+                        </select>
+                    </div>
+                    <div class="ol-field">
+                        <label>Anchor Pin</label>
+                        <div class="ol-anchor-grid" id="ol-anchor-grid">
+                            <button type="button" class="ol-anchor-btn" data-anchor="tl" title="Top-Left"></button>
+                            <button type="button" class="ol-anchor-btn" data-anchor="tc" title="Top-Center"></button>
+                            <button type="button" class="ol-anchor-btn" data-anchor="tr" title="Top-Right"></button>
+                            <button type="button" class="ol-anchor-btn" data-anchor="ml" title="Middle-Left"></button>
+                            <button type="button" class="ol-anchor-btn active" data-anchor="c" title="Center"></button>
+                            <button type="button" class="ol-anchor-btn" data-anchor="mr" title="Middle-Right"></button>
+                            <button type="button" class="ol-anchor-btn" data-anchor="bl" title="Bottom-Left"></button>
+                            <button type="button" class="ol-anchor-btn" data-anchor="bc" title="Bottom-Center"></button>
+                            <button type="button" class="ol-anchor-btn" data-anchor="br" title="Bottom-Right"></button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ol-grid2">
+                    <div class="ol-field">
+                        <label for="ol-pan-x">Pan X (<span id="ol-pan-x-val">0</span>%)</label>
+                        <input type="range" id="ol-pan-x" min="-100" max="100" value="0">
+                    </div>
+                    <div class="ol-field">
+                        <label for="ol-pan-y">Pan Y (<span id="ol-pan-y-val">0</span>%)</label>
+                        <input type="range" id="ol-pan-y" min="-100" max="100" value="0">
+                    </div>
+                    <div class="ol-field">
+                        <label for="ol-zoom">Zoom (<span id="ol-zoom-val">100</span>%)</label>
+                        <input type="range" id="ol-zoom" min="1" max="3" step="0.05" value="1">
+                    </div>
+                    <div class="ol-field">
+                        <label for="ol-duration">Morph (ms)</label>
+                        <input type="number" id="ol-duration" class="input" min="0" max="3000" step="50" value="400">
+                    </div>
+                </div>
+
+                <button type="button" class="btn btn-primary" id="ol-btn-apply-aspect">Apply Aspect &amp; Morph</button>
+            </div>
+
+            <div class="ol-micro-head" style="padding-top:8px;border-top:1px solid var(--border);">
+                <span>Aspect Lua Script</span>
+                <a class="btn btn-secondary btn-sm" href="/api/obs-layout/lua?download=1">Download .lua</a>
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);line-height:1.4;">
+                Load <code>streampulse-aspect.lua</code> once in OBS &rarr; Tools &rarr; Scripts. Place <strong>StreamPulse Aspect</strong> above <strong>StreamPulse Border</strong> on sources you want to morph.
+            </div>
+        </aside>
+    </div>
+</div>
+
+<script type="module" src="/js/obs-layout/obs-layout-studio.js"></script>
+</body>
+</html>

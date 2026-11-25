@@ -1336,6 +1336,17 @@ const handleObsPatternsRoutes = createObsPatternsRoutes({
     obsService,
     isLoopbackRequest
 });
+const obsLayoutService = require('./server/services/obs-layout')({
+    dataDir: DATA_DIR,
+    broadcastToOverlays
+});
+const handleObsLayoutRoutes = require('./server/routes/obs-layout')({
+    obsLayoutService,
+    obsService,
+    obsBordersService,
+    isObsLayoutEnabled: () => config.obs_layout_enabled === true,
+    isLoopbackRequest
+});
 
 
 // ============================================================================
@@ -1703,6 +1714,7 @@ function handleRestoreReload({ previousConfig }) {
     try { chatbot.reload(); } catch (err) { console.warn('[Restore] Chatbot reload failed:', err.message); }
     try { variablesStore.reload(); } catch (err) { console.warn('[Restore] Variables reload failed:', err.message); }
     try { obsBordersService.reload(); } catch (err) { console.warn('[Restore] OBS borders reload failed:', err.message); }
+    try { obsLayoutService.reload(); } catch (err) { console.warn('[Restore] OBS layout reload failed:', err.message); }
     try { obsPatternsService.reload(); } catch (err) { console.warn('[Restore] OBS patterns reload failed:', err.message); }
     variableDisplays.reload();
     multiplayerBingo.reload();
@@ -1926,6 +1938,7 @@ const server = createHttpServer(async (req, res) => {
     if (await handleObsRoutes(req, res, pathname)) return;
     if (await handleObsBordersRoutes(req, res, url, pathname)) return;
     if (await handleObsPatternsRoutes(req, res, url, pathname)) return;
+    if (await handleObsLayoutRoutes(req, res, url, pathname)) return;
 
     // Static file serving via cascading static router
     if (staticRouter.handleRequest(req, res)) {

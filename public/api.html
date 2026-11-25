@@ -1078,6 +1078,11 @@
                     details: 'When enabled, saving a border profile or changing assignments automatically reads each matched OBS scene item transform (including groups, alignment anchors, rotation, and bounding boxes) and applies the exact compensating SetSceneItemTransform so outer border edges ("outer-border") or the inner video content box ("content") stay locked in place.'
                 },
                 {
+                    method: 'GET / POST', path: '/api/obs-layout/*',
+                    desc: 'Standalone OBS Layout & Aspect Studio API (opt-in via obs_layout_enabled)',
+                    details: 'Endpoints: GET /api/obs-layout, GET /api/obs-layout/status, GET /api/obs-layout/lua?download=1, GET /api/obs-layout/scenes, GET /api/obs-layout/scene?name=..., GET /api/obs-layout/screenshot?scene=..., POST /api/obs-layout/transform (live sync), POST /api/obs-layout/aspect/attach, GET/POST /api/obs-layout/aspect?source=Facecam&ratio=4:3&resizeMode=lock-width&anchor=tr&durationMs=400 (or action=cycle), POST /api/obs-layout/layouts, DELETE /api/obs-layout/layouts/:id, and GET/POST /api/obs-layout/layouts/apply?id=... (smoothly morphs all items in a saved scene layout).'
+                },
+                {
                     method: 'POST', path: '/api/obs-borders/import-scenes',
                     desc: 'Import Scenes, Target Bundles, and legacy shader targets from an OBS Scene Collection JSON',
                     body: '{ "filePath": "/path/to/PS4.json" }',

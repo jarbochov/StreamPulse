@@ -131,7 +131,8 @@
             { label: 'Hashtag Tools', href: '/manage-hashtags.html', module: 'hashtags' },
             { heading: 'OBS Studios' },
             { label: 'OBS Border Studio', href: '/tools/obs-borders.html', module: 'obsBorders' },
-            { label: 'OBS Pattern Studio', href: '/tools/obs-patterns.html', module: 'obsPatterns' }
+            { label: 'OBS Pattern Studio', href: '/tools/obs-patterns.html', module: 'obsPatterns' },
+            { label: 'OBS Layout & Aspect Studio', href: '/tools/obs-layout.html', module: 'obsLayout' }
         ]},
         { label: 'Library', children: [
             { label: 'Asset Library', href: '/assets.html' },
