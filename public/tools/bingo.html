@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StreamPulse — Multiplayer Bingo (LAN)</title>
+<link rel="stylesheet" href="/admin.css">
+<script src="/appearance.js"></script>
+<link rel="stylesheet" href="/css/studio-common.css">
+<link rel="stylesheet" href="/css/multiplayer-bingo.css">
+</head>
+<body>
+<div class="header">
+    <h1>StreamPulse <span>Multiplayer Bingo</span></h1>
+    <div id="main-nav" class="nav"></div>
+    <script src="/js/nav.js"></script>
+</div>
+<div class="mpb-shell">
+    <header class="mpb-head">
+        <div class="mpb-title-block">
+            <h1>
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>
+                Multiplayer Bingo (LAN)
+            </h1>
+            <p>Shuffled per-player LAN Bingo cards, Independent or Lockout rules, saved Prompt Packs, and Multi-Card OBS overlays with live player zoom.</p>
+        </div>
+        <div class="tabs-nav" role="tablist" aria-label="Multiplayer Bingo Views">
+            <button type="button" class="tab-btn active" data-tab="live" role="tab" aria-selected="true">Live Game &amp; Players</button>
+            <button type="button" class="tab-btn" data-tab="packs" role="tab" aria-selected="false">Prompt Packs</button>
+            <button type="button" class="tab-btn" data-tab="overlay" role="tab" aria-selected="false">Overlay &amp; Appearance</button>
+        </div>
+    </header>
+
+    <div class="mpb-banner-warn" id="mpb-disabled-banner" hidden>
+        <div>
+            <strong>LAN Player Links are currently disabled.</strong>
+            Enable <em>Multiplayer Bingo (LAN)</em> in System Config so players on your network can open their unique card URLs.
+        </div>
+        <a class="btn btn-primary btn-sm" href="/config-editor.html#modules">Open Config Editor</a>
+    </div>
+
+    <!-- TAB 1: LIVE GAME & PLAYERS -->
+    <section id="pane-live" data-pane="live">
+        <div class="mpb-toolbar">
+            <div class="mpb-toolbar-group">
+                <label for="mpb-active-pack" style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Active Pack</label>
+                <select id="mpb-active-pack" class="input" style="min-width:210px;"></select>
+                <span class="pill" id="mpb-pack-meta">5×5 · Lockout</span>
+            </div>
+            <div class="mpb-toolbar-group">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-toggle-caller">Host Caller</button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-toggle-hidden">Hide Cards</button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-toggle-locked">Lock Board</button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-shuffle-all">Shuffle All</button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-reset-board">Reset Stamps</button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-clear-zoom" hidden>Clear Zoom</button>
+            </div>
+        </div>
+
+        <div class="mpb-caller-panel" id="mpb-caller-panel" hidden>
+            <div class="mpb-caller-head">
+                <div>
+                    <strong style="font-size:13px;">Host Caller — Mark Across All Player Cards</strong>
+                    <div id="mpb-caller-hint" style="font-size:12px;color:var(--text-muted);margin-top:2px;">Click any prompt below to automatically stamp or unstamp it on every player card that has it.</div>
+                </div>
+                <span class="pill" id="mpb-caller-count">0 called</span>
+            </div>
+            <div class="mpb-caller-grid" id="mpb-caller-grid"></div>
+        </div>
+
+        <form class="mpb-add-bar" id="mpb-add-player-form">
+            <input type="text" id="mpb-player-name" class="input" placeholder="Player name (e.g. Nova, Echo)" maxlength="40" required>
+            <input type="color" id="mpb-player-color" value="#ef4444" aria-label="Player color">
+            <button type="submit" class="btn btn-primary">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add Player Card
+            </button>
+        </form>
+
+        <div id="mpb-players-container"></div>
+    </section>
+
+    <!-- TAB 2: PROMPT PACKS -->
+    <section id="pane-packs" data-pane="packs" hidden>
+        <div class="mpb-packs-layout">
+            <aside class="mpb-pack-list">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">
+                    <span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);">Saved Packs</span>
+                    <button type="button" class="btn btn-primary btn-sm" id="btn-new-pack">+ New Pack</button>
+                </div>
+                <div id="mpb-pack-list-items"></div>
+            </aside>
+
+            <form class="mpb-panel" id="mpb-pack-form">
+                <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;">
+                    <h2 style="margin:0;font-size:16px;" id="mpb-pack-editor-title">Edit Prompt Pack</h2>
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-use-pack">Use Live</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-dup-pack">Duplicate</button>
+                        <button type="button" class="btn btn-danger btn-sm" id="btn-del-pack">Delete</button>
+                    </div>
+                </div>
+
+                <div class="mpb-form-grid">
+                    <div class="mpb-field">
+                        <label for="pack-name">Pack Name</label>
+                        <input type="text" id="pack-name" class="input" maxlength="80" required>
+                    </div>
+                    <div class="mpb-field">
+                        <label for="pack-size">Grid Size</label>
+                        <select id="pack-size" class="input">
+                            <option value="3">3×3 (9 squares)</option>
+                            <option value="4">4×4 (16 squares)</option>
+                            <option value="5">5×5 (25 squares)</option>
+                        </select>
+                    </div>
+                    <div class="mpb-field">
+                        <label for="pack-claim-mode">Claim Rules</label>
+                        <select id="pack-claim-mode" class="input">
+                            <option value="lockout">Lockout (First player claims square)</option>
+                            <option value="independent">Independent (Anyone can mark any square)</option>
+                        </select>
+                    </div>
+                    <div class="mpb-field">
+                        <label for="pack-header">Header Text</label>
+                        <input type="text" id="pack-header" class="input" maxlength="40" placeholder="BINGO">
+                    </div>
+                </div>
+
+                <div class="mpb-form-grid">
+                    <div class="mpb-field">
+                        <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:13px;color:var(--text-main);cursor:pointer;">
+                            <input type="checkbox" id="pack-free-space">
+                            Center Free Space (odd grids)
+                        </label>
+                    </div>
+                    <div class="mpb-field">
+                        <label for="pack-free-label">Free Space Label</label>
+                        <input type="text" id="pack-free-label" class="input" maxlength="24" placeholder="FREE">
+                    </div>
+                </div>
+
+                <div class="mpb-field">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                        <label for="pack-prompts">Prompts (one per line)</label>
+                        <span id="pack-prompt-count" style="font-size:11px;color:var(--text-muted);">0 prompts</span>
+                    </div>
+                    <textarea id="pack-prompts" class="input mpb-prompts-area" placeholder="Enter one Bingo square prompt per line..."></textarea>
+                </div>
+
+                <div style="display:flex;justify-content:flex-end;gap:8px;">
+                    <button type="submit" class="btn btn-primary">Save Prompt Pack</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <!-- TAB 3: OVERLAY & APPEARANCE -->
+    <section id="pane-overlay" data-pane="overlay" hidden>
+        <div class="mpb-overlay-layout">
+            <div class="mpb-panel">
+                <h2 style="margin:0;font-size:15px;">Broadcast Appearance</h2>
+                <div class="mpb-form-grid">
+                    <div class="mpb-field">
+                        <label for="app-theme">Theme Preset</label>
+                        <select id="app-theme" class="input">
+                            <option value="modern">Modern Glass</option>
+                            <option value="esports">Esports Dark</option>
+                            <option value="arcade">Retro Arcade</option>
+                            <option value="minimal">Minimal HUD</option>
+                            <option value="cozy">Cozy Warm</option>
+                        </select>
+                    </div>
+                    <div class="mpb-field">
+                        <label for="app-stamp">Stamp Style</label>
+                        <select id="app-stamp" class="input">
+                            <option value="dauber">Ink Dauber</option>
+                            <option value="check">Checkmark</option>
+                            <option value="x">Bold X</option>
+                            <option value="star">Star</option>
+                            <option value="fill">Solid Fill</option>
+                        </select>
+                    </div>
+                    <div class="mpb-field">
+                        <label for="app-default-view">Default Overlay View</label>
+                        <select id="app-default-view" class="input">
+                            <option value="multi">Multi-Card Grid (with Live Zoom)</option>
+                            <option value="lockout">Shared Lockout Master Board</option>
+                            <option value="standings">Compact Standings Strip</option>
+                            <option value="single">Single Player Card</option>
+                        </select>
+                    </div>
+                    <div class="mpb-field">
+                        <label for="app-font-size">Font Size (px)</label>
+                        <input type="number" id="app-font-size" class="input" min="9" max="28" value="13">
+                    </div>
+                    <div class="mpb-field">
+                        <label for="app-radius">Corner Radius (px)</label>
+                        <input type="number" id="app-radius" class="input" min="0" max="24" value="10">
+                    </div>
+                    <div class="mpb-field">
+                        <label for="app-bingo-color">BINGO Win Color</label>
+                        <input type="color" id="app-bingo-color" value="#22c55e" style="height:36px;width:100%;">
+                    </div>
+                </div>
+                <div style="display:flex;justify-content:flex-end;">
+                    <button type="button" class="btn btn-primary" id="btn-save-appearance">Save Appearance</button>
+                </div>
+            </div>
+
+            <div class="mpb-preview-sticky">
+                <div class="mpb-panel">
+                    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;">
+                        <div style="display:flex;flex-wrap:wrap;gap:6px;" id="mpb-preview-view-chips">
+                            <button type="button" class="btn btn-sm btn-primary" data-preview-view="multi">Multi-Card</button>
+                            <button type="button" class="btn btn-sm btn-secondary" data-preview-view="lockout">Lockout</button>
+                            <button type="button" class="btn btn-sm btn-secondary" data-preview-view="standings">Standings</button>
+                            <button type="button" class="btn btn-sm btn-secondary" data-preview-view="single">Single</button>
+                        </div>
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-copy-obs-url">Copy OBS URL</button>
+                    </div>
+                    <div class="mpb-url-row">
+                        <code id="mpb-obs-url"></code>
+                    </div>
+                    <div class="mpb-preview-frame-wrap">
+                        <iframe id="mpb-preview-frame" title="Multiplayer Bingo Overlay Preview" src="/overlays/multiplayer-bingo.html?preview=true"></iframe>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<script type="module" src="/js/multiplayer-bingo/bingo-studio.js"></script>
+</body>
+</html>

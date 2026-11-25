@@ -91,6 +91,7 @@
             { heading: 'Hub & Gallery' },
             { label: 'All Overlays', href: '/overlays.html' },
             { label: 'Custom Overlays', href: '/custom-overlays.html' },
+            { label: 'Display Library', href: '/variable-displays.html' },
             { heading: 'Editors & Studios' },
             { label: 'Credits Editor', href: '/credits-editor.html' },
             { label: 'Theme Editor', href: '/theme-editor.html' },
@@ -123,6 +124,7 @@
                 { label: 'Versus', href: '/versus.html' },
                 { label: 'Tournament Manager', href: '/tournament-admin.html' }
             ]},
+            { label: 'Multiplayer Bingo (LAN)', href: '/tools/bingo.html', module: 'multiplayerBingo' },
             { heading: 'Data & Social' },
             { label: 'Placeholders & Variables', href: '/placeholders.html' },
             { label: 'Operator Mode', href: '/operator.html' },
@@ -132,7 +134,6 @@
             { label: 'OBS Pattern Studio', href: '/tools/obs-patterns.html', module: 'obsPatterns' }
         ]},
         { label: 'Library', children: [
-            { label: 'Display Library', href: '/variable-displays.html' },
             { label: 'Asset Library', href: '/assets.html' },
             { label: 'Highlights', href: '/highlights.html' },
             { label: 'Sessions', href: '/sessions.html' },
@@ -264,9 +265,8 @@
         list.push({ label: 'All Overlays (Gallery)', href: '/overlays.html', group: 'Overlays Hub' });
         list.push({ label: 'Custom Overlays', href: '/custom-overlays.html', group: 'Overlays Hub' });
         list.push({ label: 'New Custom Overlay Builder', href: '/custom-overlay-editor.html?new=1', group: 'Overlays Hub' });
-
-        // 7. Library & Analytics
-        list.push({ label: 'Display Library', href: '/variable-displays.html', group: 'Library & Analytics', keywords: 'inventory reusable display layouts overlay item catalog' });
+        list.push({ label: 'Display Library', href: '/variable-displays.html', group: 'Overlays Hub', keywords: 'inventory reusable display layouts overlay item catalog counter pips meter ticker bingo' });
+        list.push({ label: 'Multiplayer Bingo (LAN)', href: '/tools/bingo.html', group: 'Stream Tools', module: 'multiplayerBingo', keywords: 'bingo multiplayer lockout lan player cards prompt packs' });
         list.push({ label: 'Asset Library', href: '/assets.html', group: 'Library & Analytics', keywords: 'overlay assets media library images videos audio fonts upload crop' });
         list.push({ label: 'Analytics & Community', href: '/analytics.html', group: 'Library & Analytics' });
         list.push({ label: 'Milestones & Streaks', href: '/analytics.html#milestones', group: 'Library & Analytics' });

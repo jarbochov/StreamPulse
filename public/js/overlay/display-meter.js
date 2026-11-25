@@ -184,20 +184,26 @@ export function renderDisplayMeter(host, element, status = {}, definition) {
     root.className = 'sp-variable-display sp-meter-display';
     root.dataset.meterStyle = baseCfg.style;
     root.dataset.meterTheme = baseCfg.theme || 'modern';
+    const isHorizontalGrid = baseCfg.direction === 'horizontal' || baseCfg.style === 'ring' || baseCfg.style === 'vertical';
+    const minCardWidth = baseCfg.style === 'ring'
+        ? Math.max(110, baseCfg.ringSize + baseCfg.rowPadding * 2)
+        : baseCfg.style === 'vertical'
+            ? 100
+            : 220;
     Object.assign(root.style, {
         width: '100%',
         height: '100%',
         padding: '6px',
         boxSizing: 'border-box',
-        display: 'flex',
-        flexDirection: (baseCfg.direction === 'horizontal' || baseCfg.style === 'ring' || baseCfg.style === 'vertical') ? 'row' : 'column',
-        flexWrap: (baseCfg.direction === 'horizontal' || baseCfg.style === 'ring' || baseCfg.style === 'vertical') ? 'wrap' : 'nowrap',
-        alignItems: baseCfg.style === 'vertical' ? 'stretch' : 'center',
-        justifyContent: 'center',
+        display: 'grid',
+        gridTemplateColumns: isHorizontalGrid
+            ? `repeat(auto-fit, minmax(min(100%, ${minCardWidth}px), 1fr))`
+            : 'minmax(0, 1fr)',
+        alignContent: baseCfg.style === 'vertical' ? 'stretch' : 'center',
+        alignItems: 'stretch',
         gap: `${baseCfg.rowGap}px`,
         fontFamily: baseCfg.fontFamily,
-        fontSize: `${baseCfg.fontSize}px`,
-        overflow: 'hidden'
+        fontSize: `${baseCfg.fontSize}px`
     });
 
     for (const row of rows) {
@@ -219,8 +225,8 @@ export function renderDisplayMeter(host, element, status = {}, definition) {
             flexDirection: 'column',
             alignItems: (isRing || isVertical) ? 'center' : 'stretch',
             gap: '8px',
-            width: (isRing || isVertical) ? 'auto' : '100%',
-            minWidth: isRing ? `${cfg.ringSize + cfg.rowPadding * 2}px` : isVertical ? '76px' : '0',
+            width: '100%',
+            minWidth: '0',
             padding: `${cfg.rowPadding}px`,
             borderRadius: `${cfg.rowRadius}px`,
             background: cfg.rowBackground,
@@ -291,7 +297,7 @@ export function renderDisplayMeter(host, element, status = {}, definition) {
                     const lbl = document.createElement('span');
                     lbl.className = 'sp-meter-label';
                     lbl.textContent = row.label;
-                    Object.assign(lbl.style, { color: cfg.labelColor, fontWeight: '700', fontSize: `${cfg.fontSize}px`, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+                    Object.assign(lbl.style, { color: cfg.labelColor, fontWeight: '700', fontSize: `${cfg.fontSize}px`, whiteSpace: 'normal', overflowWrap: 'break-word' });
                     header.appendChild(lbl);
                 }
                 if (readoutText) {

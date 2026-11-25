@@ -439,6 +439,27 @@
                             <a class="module-link" href="/tournament-admin.html">Multi-Match Admin <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
                         </div>
                     </div>
+
+                    <!-- Multiplayer Bingo (LAN) Card -->
+                    <div class="module-card" data-module="multiplayer-bingo">
+                        <div class="module-card-head">
+                            <div class="module-card-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>
+                                <span>Multiplayer Bingo (LAN)</span>
+                                <span class="beta-tag">NEW</span>
+                            </div>
+                            <span class="module-badge" id="badge-multiplayer-bingo">Disabled</span>
+                        </div>
+                        <p class="hint">Enable unique per-player LAN Bingo links (/bingo-play.html) with Independent or Lockout rules, multi-card OBS overlays, and live player zoom.</p>
+                        <div class="cfg-toggle">
+                            <input type="checkbox" id="cfg-multiplayer-bingo-enabled">
+                            <label for="cfg-multiplayer-bingo-enabled">Enable Multiplayer Bingo player links (LAN)</label>
+                        </div>
+                        <div class="module-links">
+                            <a class="module-link" href="/tools/bingo.html">Open Bingo Studio <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
+                            <a class="module-link" href="/overlays/multiplayer-bingo.html?preview=true" target="_blank">Overlay Preview <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1076,6 +1097,7 @@
         updateBadge('badge-speaker-badges', document.getElementById('cfg-speaker-badges-enabled')?.checked);
         updateBadge('badge-obs-borders', document.getElementById('cfg-obs-borders-enabled')?.checked);
         updateBadge('badge-obs-patterns', document.getElementById('cfg-obs-patterns-enabled')?.checked);
+        updateBadge('badge-multiplayer-bingo', document.getElementById('cfg-multiplayer-bingo-enabled')?.checked);
         updateBadge('badge-variable-sets', document.getElementById('cfg-variable-sets-enabled')?.checked);
         updateBadge('badge-variable-settings', document.getElementById('cfg-variable-settings-enabled')?.checked);
 
@@ -1168,6 +1190,7 @@
             document.getElementById('cfg-obs-scene-sync-enabled').checked = cfg.obs_scene_sync_enabled !== false;
             document.getElementById('cfg-obs-borders-enabled').checked = cfg.obs_borders_enabled !== false;
             document.getElementById('cfg-obs-patterns-enabled').checked = cfg.obs_patterns_enabled !== false;
+            document.getElementById('cfg-multiplayer-bingo-enabled').checked = cfg.multiplayer_bingo_enabled === true;
             document.getElementById('cfg-obs-host').value = obs.host || '127.0.0.1';
             document.getElementById('cfg-obs-port').value = obs.port || 4455;
             document.getElementById('cfg-obs-password').value = '';
@@ -1236,6 +1259,7 @@
             obs_scene_sync_enabled: document.getElementById('cfg-obs-scene-sync-enabled').checked,
             obs_borders_enabled: document.getElementById('cfg-obs-borders-enabled').checked,
             obs_patterns_enabled: document.getElementById('cfg-obs-patterns-enabled').checked,
+            multiplayer_bingo_enabled: document.getElementById('cfg-multiplayer-bingo-enabled').checked,
             polls_enabled: document.getElementById('cfg-polls-enabled').checked,
             versus_enabled: document.getElementById('cfg-versus-enabled').checked,
             trivia_enabled: document.getElementById('cfg-trivia-enabled').checked,
@@ -1336,7 +1360,7 @@
     document.getElementById('ssn-session-toggle').addEventListener('click', toggleSsnSession);
 
     // Module toggles update badges live
-    ['cfg-chatbot-enabled', 'cfg-music-enabled', 'cfg-wx-enabled', 'cfg-clips-enabled', 'cfg-polls-enabled', 'cfg-versus-enabled', 'cfg-trivia-enabled', 'cfg-subathon-enabled', 'cfg-variable-sets-enabled', 'cfg-variable-settings-enabled', 'cfg-obs-enabled', 'cfg-obs-scene-sync-enabled', 'cfg-obs-borders-enabled', 'cfg-speaker-badges-enabled'].forEach(id => {
+    ['cfg-chatbot-enabled', 'cfg-music-enabled', 'cfg-wx-enabled', 'cfg-clips-enabled', 'cfg-polls-enabled', 'cfg-versus-enabled', 'cfg-trivia-enabled', 'cfg-subathon-enabled', 'cfg-variable-sets-enabled', 'cfg-variable-settings-enabled', 'cfg-obs-enabled', 'cfg-obs-scene-sync-enabled', 'cfg-obs-borders-enabled', 'cfg-obs-patterns-enabled', 'cfg-multiplayer-bingo-enabled', 'cfg-speaker-badges-enabled'].forEach(id => {
         document.getElementById(id)?.addEventListener('change', updateModuleBadges);
     });
 

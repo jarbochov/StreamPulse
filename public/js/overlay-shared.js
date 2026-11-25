@@ -5085,20 +5085,19 @@ html.sp-fx-paused .sp-tally-slash.is-pop {
     root2.dataset.counterStyle = baseCfg.style;
     root2.dataset.counterTheme = baseCfg.theme || "modern";
     root2.style.setProperty("--ctr-accent", rootCfg.filledColor);
+    const isHorizontal = baseCfg.direction === "horizontal";
     Object.assign(root2.style, {
       width: "100%",
       height: "100%",
       padding: "6px",
       boxSizing: "border-box",
-      display: "flex",
-      flexDirection: baseCfg.direction === "horizontal" ? "row" : "column",
-      flexWrap: baseCfg.direction === "horizontal" ? "wrap" : "nowrap",
-      alignItems: baseCfg.direction === "horizontal" ? "center" : baseCfg.align === "center" ? "center" : baseCfg.align === "right" ? "flex-end" : "stretch",
-      justifyContent: baseCfg.align === "center" ? "center" : baseCfg.align === "right" ? "flex-end" : "flex-start",
+      display: "grid",
+      gridTemplateColumns: isHorizontal ? "repeat(auto-fit, minmax(min(100%, 220px), 1fr))" : "minmax(0, 1fr)",
+      alignContent: baseCfg.align === "center" ? "center" : baseCfg.align === "right" ? "end" : "start",
+      alignItems: "stretch",
       gap: `${baseCfg.rowGap}px`,
       fontFamily: rootCfg.fontFamily,
-      fontSize: `${baseCfg.fontSize}px`,
-      overflow: "hidden"
+      fontSize: `${baseCfg.fontSize}px`
     });
     for (const row of rows) {
       const cfg = resolveRowConfig(baseCfg, status, row.entry || null);
@@ -5117,14 +5116,17 @@ html.sp-fx-paused .sp-tally-slash.is-pop {
       Object.assign(rowEl.style, {
         display: "flex",
         flexDirection: isStacked ? "column" : "row",
+        flexWrap: isStacked ? "nowrap" : "wrap",
         alignItems: isStacked ? cfg.align === "center" ? "center" : cfg.align === "right" ? "flex-end" : "flex-start" : "center",
         justifyContent: !isStacked && cfg.align === "center" ? "center" : !isStacked && cfg.align === "right" ? "flex-end" : "space-between",
-        gap: isStacked ? "6px" : "12px",
+        gap: isStacked ? "6px" : "8px 12px",
         padding: `${cfg.rowPadding}px`,
         borderRadius: `${cfg.rowRadius}px`,
         background: cfg.rowBackground,
         border: cfg.rowBorderWidth > 0 ? `${cfg.rowBorderWidth}px solid ${cfg.rowBorderColor}` : "none",
         boxSizing: "border-box",
+        width: "100%",
+        minWidth: "0",
         maxWidth: "100%"
       });
       const labelEl = labelPos !== "none" ? document.createElement("span") : null;
@@ -5136,10 +5138,8 @@ html.sp-fx-paused .sp-tally-slash.is-pop {
           fontWeight: "650",
           fontSize: `${cfg.fontSize}px`,
           lineHeight: "1.2",
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          minWidth: "0"
+          whiteSpace: "normal",
+          overflowWrap: "break-word"
         });
       }
       const markersGroup = document.createElement("div");
@@ -5383,20 +5383,20 @@ html.sp-fx-paused .sp-meter-ring-fg {
     root2.className = "sp-variable-display sp-meter-display";
     root2.dataset.meterStyle = baseCfg.style;
     root2.dataset.meterTheme = baseCfg.theme || "modern";
+    const isHorizontalGrid = baseCfg.direction === "horizontal" || baseCfg.style === "ring" || baseCfg.style === "vertical";
+    const minCardWidth = baseCfg.style === "ring" ? Math.max(110, baseCfg.ringSize + baseCfg.rowPadding * 2) : baseCfg.style === "vertical" ? 100 : 220;
     Object.assign(root2.style, {
       width: "100%",
       height: "100%",
       padding: "6px",
       boxSizing: "border-box",
-      display: "flex",
-      flexDirection: baseCfg.direction === "horizontal" || baseCfg.style === "ring" || baseCfg.style === "vertical" ? "row" : "column",
-      flexWrap: baseCfg.direction === "horizontal" || baseCfg.style === "ring" || baseCfg.style === "vertical" ? "wrap" : "nowrap",
-      alignItems: baseCfg.style === "vertical" ? "stretch" : "center",
-      justifyContent: "center",
+      display: "grid",
+      gridTemplateColumns: isHorizontalGrid ? `repeat(auto-fit, minmax(min(100%, ${minCardWidth}px), 1fr))` : "minmax(0, 1fr)",
+      alignContent: baseCfg.style === "vertical" ? "stretch" : "center",
+      alignItems: "stretch",
       gap: `${baseCfg.rowGap}px`,
       fontFamily: baseCfg.fontFamily,
-      fontSize: `${baseCfg.fontSize}px`,
-      overflow: "hidden"
+      fontSize: `${baseCfg.fontSize}px`
     });
     for (const row of rows) {
       const cfg = resolveMeterRowConfig(baseCfg, status, row.entry || null, row.pct);
@@ -5414,8 +5414,8 @@ html.sp-fx-paused .sp-meter-ring-fg {
         flexDirection: "column",
         alignItems: isRing || isVertical ? "center" : "stretch",
         gap: "8px",
-        width: isRing || isVertical ? "auto" : "100%",
-        minWidth: isRing ? `${cfg.ringSize + cfg.rowPadding * 2}px` : isVertical ? "76px" : "0",
+        width: "100%",
+        minWidth: "0",
         padding: `${cfg.rowPadding}px`,
         borderRadius: `${cfg.rowRadius}px`,
         background: cfg.rowBackground,
@@ -5485,7 +5485,7 @@ html.sp-fx-paused .sp-meter-ring-fg {
             const lbl = document.createElement("span");
             lbl.className = "sp-meter-label";
             lbl.textContent = row.label;
-            Object.assign(lbl.style, { color: cfg.labelColor, fontWeight: "700", fontSize: `${cfg.fontSize}px`, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" });
+            Object.assign(lbl.style, { color: cfg.labelColor, fontWeight: "700", fontSize: `${cfg.fontSize}px`, whiteSpace: "normal", overflowWrap: "break-word" });
             header.appendChild(lbl);
           }
           if (readoutText) {

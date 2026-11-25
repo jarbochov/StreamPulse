@@ -203,6 +203,7 @@ function createStatusService({
                 obsSceneSync: config.obs_scene_sync_enabled !== false,
                 obsBorders: config.obs_borders_enabled !== false,
                 obsPatterns: config.obs_patterns_enabled !== false,
+                multiplayerBingo: config.multiplayer_bingo_enabled === true,
                 clips: config.clip_candidates?.enabled !== false,
                 weather: config.weather?.enabled === true,
                 music: Boolean(musicConfig.enabled),

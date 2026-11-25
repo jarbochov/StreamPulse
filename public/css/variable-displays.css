@@ -256,21 +256,21 @@ body { min-width: 320px; background: var(--bg-page); color: var(--text); font-fa
 .display-section-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 0 0 12px; }
 .display-section-heading h3 { margin: 0; color: var(--text-muted); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .display-section-heading > span { color: var(--text-muted); font-size: 11px; }
-.display-create-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-@media (max-width: 1020px) { .display-create-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-.display-create-card { display: flex; gap: 13px; align-items: center; min-width: 0; padding: 21px 18px; border: 1px solid var(--border); border-radius: 10px; text-align: left; background: var(--bg-card); color: var(--text); cursor: pointer; transition: background .15s, border-color .15s; }
+.display-create-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(205px, 1fr)); gap: 8px; }
+.display-create-card { display: flex; gap: 10px; align-items: center; min-width: 0; padding: 11px 13px; border: 1px solid var(--border); border-radius: 9px; text-align: left; background: var(--bg-card); color: var(--text); cursor: pointer; transition: background .15s, border-color .15s; }
 .display-create-card:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 5%, var(--bg-card)); }
-.display-create-icon { display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px; border-radius: 10px; color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 16%, transparent); }
-.display-create-icon svg { width: 23px; height: 23px; }
-.display-create-card > span:nth-child(2) { display: grid; gap: 6px; min-width: 0; }
-.display-create-card strong { font-size: 14px; font-weight: 650; }
-.display-create-card small { font-size: 11px; line-height: 1.45; color: var(--text-muted); }
-.display-create-arrow { width: 16px; height: 16px; margin-left: auto; flex: none; color: var(--text-muted); }
-.saved-displays-heading { margin-top: 32px; }
-.display-library-tools { margin-top: 0; gap: 12px; }
-.display-library-tools .display-search { margin-left: auto; min-width: 160px; max-width: 270px; flex: 1; }
-.display-kind-tabs { flex: none; }
-.display-kind-tabs .tab-btn { font-size: 12px; padding: 8px 13px; white-space: nowrap; }
+.display-create-icon { display: grid; place-items: center; flex: 0 0 32px; width: 32px; height: 32px; border-radius: 8px; color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 16%, transparent); }
+.display-create-icon svg { width: 18px; height: 18px; }
+.display-create-card > span:nth-child(2) { display: grid; gap: 2px; min-width: 0; }
+.display-create-card strong { font-size: 13px; font-weight: 650; }
+.display-create-card small { font-size: 11px; line-height: 1.3; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.display-create-arrow { width: 14px; height: 14px; margin-left: auto; flex: none; color: var(--text-muted); opacity: .65; }
+.saved-displays-heading { margin-top: 20px; }
+.display-library-tools { margin-top: 0; gap: 10px; flex-wrap: wrap; }
+.display-library-tools .display-search { margin-left: auto; min-width: 160px; max-width: 240px; flex: 1; }
+.display-kind-tabs { flex: 0 1 auto; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.display-kind-tabs::-webkit-scrollbar { display: none; }
+.display-kind-tabs .tab-btn { font-size: 11px; padding: 6px 10px; white-space: nowrap; }
 .display-list { grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 16px; }
 .display-list-card { position: relative; padding: 0 18px 16px; border-radius: 11px; overflow: visible; transition: border-color .15s; }
 .display-list-card:hover { transform: none; border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }

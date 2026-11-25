@@ -281,6 +281,13 @@ const variableDependencies = require('./server/services/variable-dependencies')(
     getVariables: () => variablesStore.list()
 });
 const handleVariableDisplayRoutes = require('./server/routes/variable-displays')(variableDisplays);
+const multiplayerBingo = require('./server/services/multiplayer-bingo')({
+    dataDir: DATA_DIR,
+    onChange: data => broadcastToOverlays('multiplayer-bingo-update', data)
+});
+const handleMultiplayerBingoRoutes = require('./server/routes/multiplayer-bingo')(multiplayerBingo, {
+    isMultiplayerBingoEnabled: () => config.multiplayer_bingo_enabled === true
+});
 function migrateBadgePlacements(overlays, saveOverlays = () => {}) {
     const { migrateDisplayBadges } = require('./server/services/display-badges');
     return migrateDisplayBadges({ overlays, saveOverlays, displays: variableDisplays, sets: variablesStore.listSets() });
@@ -1698,6 +1705,7 @@ function handleRestoreReload({ previousConfig }) {
     try { obsBordersService.reload(); } catch (err) { console.warn('[Restore] OBS borders reload failed:', err.message); }
     try { obsPatternsService.reload(); } catch (err) { console.warn('[Restore] OBS patterns reload failed:', err.message); }
     variableDisplays.reload();
+    multiplayerBingo.reload();
     migrateSavedBadges();
     try { operatorService.reload(); } catch (err) { console.warn('[Restore] Operator reload failed:', err.message); }
     try { alertEngine.reload(); } catch (err) { console.warn('[Restore] Alert engine reload failed:', err.message); }
@@ -1882,6 +1890,7 @@ const server = createHttpServer(async (req, res) => {
 
     if (pathname.startsWith('/api/variables') && await variablesStore.handleApi(req, res, pathname, readRequestBody)) return;
     if (await handleVariableDisplayRoutes(req, res, url)) return;
+    if (await handleMultiplayerBingoRoutes(req, res, url)) return;
     if (pathname.startsWith('/api/chatbot') && await chatbot.handleApi(req, res, pathname, readRequestBody)) return;
 
     if (await handleSessionRoutes(req, res, url, pathname)) return;

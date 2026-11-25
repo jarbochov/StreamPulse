@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Bingo Card — StreamPulse</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+    --bg: #0b1120;
+    --card: #131c31;
+    --cell: #1c2841;
+    --border: rgba(255, 255, 255, 0.12);
+    --text: #f8fafc;
+    --muted: #94a3b8;
+    --player: #3b82f6;
+    --win: #22c55e;
+}
+html, body {
+    min-height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+}
+.wrap {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 100dvh;
+}
+.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+}
+.player-id {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+}
+.player-dot {
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: var(--player);
+    box-shadow: 0 0 10px var(--player);
+    flex: none;
+}
+.player-name {
+    font-size: 16px;
+    font-weight: 800;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.board-sub {
+    font-size: 12px;
+    color: var(--muted);
+}
+.pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.04);
+    white-space: nowrap;
+}
+.pill.win { border-color: var(--win); color: var(--win); background: rgba(34, 197, 94, 0.14); }
+.pill.locked { border-color: #f59e0b; color: #fbbf24; background: rgba(245, 158, 11, 0.14); }
+.status-banner {
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    color: #fde68a;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+}
+.grid {
+    display: grid;
+    gap: 8px;
+    flex: 1;
+    align-content: start;
+}
+.cell {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    background: var(--cell);
+    color: var(--text);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: clamp(11px, 2.7vw, 14px);
+    font-weight: 650;
+    line-height: 1.2;
+    cursor: pointer;
+    user-select: none;
+    transition: transform 110ms ease, border-color 140ms ease, background 140ms ease;
+    overflow: hidden;
+}
+.cell:active:not(:disabled) { transform: scale(0.96); }
+.cell.is-stamped {
+    border-color: var(--player);
+    background: color-mix(in srgb, var(--player) 26%, var(--cell));
+}
+.cell.is-winning {
+    border-color: var(--win);
+    box-shadow: inset 0 0 0 1.5px var(--win), 0 0 12px rgba(34, 197, 94, 0.32);
+}
+.cell.is-locked-other {
+    opacity: 0.56;
+    cursor: not-allowed;
+}
+.cell.is-free {
+    border-style: dashed;
+    cursor: default;
+}
+.cell-label {
+    position: relative;
+    z-index: 1;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.claim-tag {
+    margin-top: 5px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 800;
+    color: #090d16;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.empty-state {
+    margin: auto;
+    text-align: center;
+    padding: 36px 20px;
+    border-radius: 14px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    max-width: 420px;
+}
+.empty-state h2 { font-size: 18px; margin-bottom: 8px; }
+.empty-state p { font-size: 13px; color: var(--muted); line-height: 1.5; }
+.toast {
+    position: fixed;
+    left: 50%;
+    bottom: 18px;
+    transform: translateX(-50%);
+    background: #1e293b;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    color: #f8fafc;
+    padding: 9px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+    z-index: 50;
+}
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+    <div class="empty-state"><h2>Loading Bingo Card...</h2><p>Connecting to host on your local network.</p></div>
+</div>
+<script>
+(function () {
+    const token = new URLSearchParams(location.search).get('t') || '';
+    const app = document.getElementById('app');
+    let payload = null;
+    let busy = false;
+
+    function esc(s) {
+        return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function showToast(msg) {
+        const prev = document.querySelector('.toast');
+        if (prev) prev.remove();
+        const el = document.createElement('div');
+        el.className = 'toast';
+        el.textContent = msg;
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 2600);
+    }
+
+    function detectLines(size, set) {
+        const lines = [];
+        for (let r = 0; r < size; r++) {
+            const row = [];
+            for (let c = 0; c < size; c++) row.push(r * size + c);
+            if (row.every(i => set.has(i))) lines.push(row);
+        }
+        for (let c = 0; c < size; c++) {
+            const col = [];
+            for (let r = 0; r < size; r++) col.push(r * size + c);
+            if (col.every(i => set.has(i))) lines.push(col);
+        }
+        const d1 = [], d2 = [];
+        for (let i = 0; i < size; i++) { d1.push(i * size + i); d2.push(i * size + (size - 1 - i)); }
+        if (d1.every(i => set.has(i))) lines.push(d1);
+        if (d2.every(i => set.has(i))) lines.push(d2);
+        return lines;
+    }
+
+    function renderError(title, msg) {
+        app.innerHTML = `<div class="empty-state"><h2>${esc(title)}</h2><p>${esc(msg)}</p></div>`;
+    }
+
+    function render() {
+        if (!payload) return;
+        const pack = payload.pack || {};
+        const session = payload.session || {};
+        const cards = Array.isArray(session.cards) ? session.cards : [];
+        const card = cards.find(c => c.id === payload.cardId);
+        if (!card) {
+            renderError('Card Removed', 'The host has removed this player card.');
+            return;
+        }
+        const cardsById = Object.fromEntries(cards.map(c => [c.id, c]));
+        document.documentElement.style.setProperty('--player', card.color || '#3b82f6');
+        document.title = `${card.name} — ${pack.name || 'Bingo'}`;
+
+        if (session.hidden) {
+            app.innerHTML = `
+                <div class="topbar">
+                    <div class="player-id">
+                        <span class="player-dot"></span>
+                        <div><div class="player-name">${esc(card.name)}</div><div class="board-sub">${esc(pack.name || 'Bingo')}</div></div>
+                    </div>
+                    <span class="pill locked">Hidden</span>
+                </div>
+                <div class="empty-state"><h2>Waiting for Host Reveal</h2><p>Your shuffled card is ready. Squares will appear as soon as the host reveals the board.</p></div>`;
+            return;
+        }
+
+        const size = pack.size || 5;
+        const total = size * size;
+        const centerIdx = size % 2 === 1 ? Math.floor(total / 2) : -1;
+        const hasFree = pack.freeSpace !== false && centerIdx >= 0;
+        const isLockout = pack.claimMode === 'lockout';
+        const prompts = Array.isArray(pack.prompts) ? pack.prompts : [];
+        const order = Array.isArray(card.order) ? card.order : [];
+        const claims = session.claims || {};
+        const stampedSet = new Set(Array.isArray(card.stamped) ? card.stamped : []);
+        if (hasFree) stampedSet.add(centerIdx);
+
+        const cells = [];
+        let cursor = 0;
+        for (let i = 0; i < total; i++) {
+            if (hasFree && i === centerIdx) {
+                cells.push({ index: i, label: pack.freeSpaceLabel || 'FREE', isFree: true, stamped: true, lockedByOther: false, owner: null });
+                continue;
+            }
+            const promptIdx = order[cursor] !== undefined ? Number(order[cursor]) : cursor;
+            cursor++;
+            const label = prompts[promptIdx] || `Square ${i + 1}`;
+            let stamped = stampedSet.has(i);
+            let lockedByOther = false;
+            let owner = null;
+            if (isLockout) {
+                const cl = claims[String(promptIdx)];
+                if (cl) {
+                    owner = cardsById[cl.cardId] || { name: 'Player', color: '#94a3b8' };
+                    stamped = cl.cardId === card.id;
+                    lockedByOther = cl.cardId !== card.id;
+                    if (stamped) stampedSet.add(i); else stampedSet.delete(i);
+                } else {
+                    stamped = false;
+                    stampedSet.delete(i);
+                }
+            }
+            cells.push({ index: i, label, isFree: false, stamped, lockedByOther, owner });
+        }
+
+        const lines = detectLines(size, stampedSet);
+        const winSet = new Set(lines.flat());
+        const stampedCount = cells.filter(c => c.stamped).length;
+
+        app.innerHTML = `
+            <div class="topbar">
+                <div class="player-id">
+                    <span class="player-dot"></span>
+                    <div>
+                        <div class="player-name">${esc(card.name)}</div>
+                        <div class="board-sub">${esc(pack.name || 'Bingo')} · ${isLockout ? 'Lockout' : 'Independent'}</div>
+                    </div>
+                </div>
+                <span class="pill ${lines.length ? 'win' : session.locked ? 'locked' : ''}">
+                    ${lines.length ? `BINGO ×${lines.length}` : session.locked ? 'Locked' : `${stampedCount}/${total}`}
+                </span>
+            </div>
+            ${session.locked ? '<div class="status-banner">Board is locked by the host — view only</div>' : ''}
+            <div class="grid" style="grid-template-columns:repeat(${size}, minmax(0, 1fr));">
+                ${cells.map(c => {
+                    const cls = [
+                        'cell',
+                        c.stamped ? 'is-stamped' : '',
+                        winSet.has(c.index) ? 'is-winning' : '',
+                        c.lockedByOther ? 'is-locked-other' : '',
+                        c.isFree ? 'is-free' : ''
+                    ].filter(Boolean).join(' ');
+                    const disabled = c.isFree || session.locked || c.lockedByOther ? 'disabled' : '';
+                    const badge = c.lockedByOther && c.owner
+                        ? `<span class="claim-tag" style="background:${esc(c.owner.color)};">${esc(c.owner.name)}</span>`
+                        : '';
+                    return `<button type="button" class="${cls}" data-cell="${c.index}" ${disabled}><span class="cell-label">${esc(c.label)}</span>${badge}</button>`;
+                }).join('')}
+            </div>`;
+
+        app.querySelectorAll('.cell[data-cell]').forEach(btn => {
+            btn.addEventListener('click', () => toggleCell(Number(btn.dataset.cell)));
+        });
+    }
+
+    async function load() {
+        if (!token) {
+            renderError('Missing Card Link', 'Ask the host for your unique Multiplayer Bingo URL.');
+            return;
+        }
+        try {
+            const res = await fetch(`/api/bingo/play/${encodeURIComponent(token)}`);
+            const data = await res.json();
+            if (!res.ok) {
+                renderError(res.status === 403 ? 'Multiplayer Bingo Disabled' : 'Card Not Found', data.error || 'Could not load this Bingo card.');
+                return;
+            }
+            payload = data;
+            render();
+        } catch {
+            renderError('Connection Lost', 'Unable to reach the StreamPulse host on this network.');
+        }
+    }
+
+    async function toggleCell(cell) {
+        if (busy || !token) return;
+        busy = true;
+        try {
+            const res = await fetch(`/api/bingo/play/${encodeURIComponent(token)}/toggle`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cell })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                showToast(data.error || 'Unable to mark square');
+                await load();
+            } else {
+                payload = data;
+                render();
+            }
+        } catch {
+            showToast('Network error — please retry');
+        } finally {
+            busy = false;
+        }
+    }
+
+    function connectWs() {
+        try {
+            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(`${proto}//${location.host}`);
+            ws.onmessage = ev => {
+                try {
+                    const msg = JSON.parse(ev.data);
+                    if (msg.type === 'multiplayer-bingo-update') load();
+                } catch { /* ignore */ }
+            };
+            ws.onclose = () => setTimeout(connectWs, 2500);
+        } catch { /* ignore */ }
+    }
+
+    load();
+    connectWs();
+})();
+</script>
+</body>
+</html>

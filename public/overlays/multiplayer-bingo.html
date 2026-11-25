@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multiplayer Bingo Overlay — StreamPulse</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: transparent;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif;
+    color: #f8fafc;
+}
+#root {
+    width: 100%;
+    height: 100%;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.mp-board {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.mp-multi-grid {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    gap: 14px;
+}
+.mp-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    transition: transform 340ms cubic-bezier(0.22, 1, 0.36, 1), opacity 240ms ease;
+}
+.mp-card.is-zoomed {
+    animation: mp-zoom-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes mp-zoom-in {
+    0% { transform: scale(0.92); opacity: 0.7; }
+    100% { transform: scale(1); opacity: 1; }
+}
+.mp-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex: none;
+}
+.mp-player-who {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+.mp-dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    flex: none;
+}
+.mp-name {
+    font-weight: 800;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.mp-score {
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    flex: none;
+}
+.mp-grid {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+}
+.mp-cell {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 6px;
+    text-align: center;
+    line-height: 1.18;
+    font-weight: 600;
+    overflow: hidden;
+}
+.mp-cell-label {
+    position: relative;
+    z-index: 1;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow-wrap: anywhere;
+}
+.mp-cell.is-winning {
+    box-shadow: inset 0 0 0 2px var(--mp-win, #22c55e), 0 0 12px color-mix(in srgb, var(--mp-win, #22c55e) 50%, transparent);
+}
+.mp-claim-pill {
+    position: relative;
+    z-index: 2;
+    padding: 1px 7px;
+    border-radius: 999px;
+    color: #090d16;
+    font-weight: 850;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.mp-standings {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+}
+.mp-standing-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    font-weight: 750;
+}
+.mp-standby {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    padding: 24px;
+}
+.mp-theme-modern .mp-card,
+.mp-theme-modern .mp-board {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 10px 28px rgba(0, 0, 0, 0.36);
+}
+.mp-theme-esports .mp-card,
+.mp-theme-esports .mp-board {
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.48);
+}
+.mp-theme-minimal .mp-board {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+html.sp-fx-paused .mp-card,
+html.sp-fx-paused .mp-card.is-zoomed {
+    animation: none !important;
+    transition: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+    .mp-card,
+    .mp-card.is-zoomed {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+(function () {
+    const params = new URLSearchParams(location.search);
+    const viewOverride = params.get('view') || '';
+    const cardOverride = params.get('card') || '';
+    const themeOverride = params.get('theme') || '';
+    const stampOverride = params.get('stamp') || '';
+    const isPreview = params.get('preview') === 'true' || params.get('preview') === '1';
+    const root = document.getElementById('root');
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+
+    const THEME_PRESETS = {
+        modern: { boardBackground: '#0f172ad9', cellBackground: '#1e293bcc', textColor: '#f8fafc', borderColor: '#ffffff26', bingoColor: '#22c55e' },
+        esports: { boardBackground: '#090d16eb', cellBackground: '#111827e6', textColor: '#f8fafc', borderColor: '#38bdf844', bingoColor: '#38bdf8' },
+        arcade: { boardBackground: '#120724eb', cellBackground: '#1f0d3dd9', textColor: '#fdf4ff', borderColor: '#e879f955', bingoColor: '#facc15' },
+        minimal: { boardBackground: '#00000000', cellBackground: '#0f172aa6', textColor: '#ffffff', borderColor: '#ffffff33', bingoColor: '#4ade80' },
+        cozy: { boardBackground: '#29201be6', cellBackground: '#3b2e26d9', textColor: '#fef3c7', borderColor: '#f59e0b44', bingoColor: '#84cc16' }
+    };
+
+    let currentState = null;
+
+    function detectLines(size, stampedSet) {
+        const lines = [];
+        for (let r = 0; r < size; r++) {
+            const row = [];
+            for (let c = 0; c < size; c++) row.push(r * size + c);
+            if (row.every(i => stampedSet.has(i))) lines.push(row);
+        }
+        for (let c = 0; c < size; c++) {
+            const col = [];
+            for (let r = 0; r < size; r++) col.push(r * size + c);
+            if (col.every(i => stampedSet.has(i))) lines.push(col);
+        }
+        const d1 = [], d2 = [];
+        for (let i = 0; i < size; i++) { d1.push(i * size + i); d2.push(i * size + (size - 1 - i)); }
+        if (d1.every(i => stampedSet.has(i))) lines.push(d1);
+        if (d2.every(i => stampedSet.has(i))) lines.push(d2);
+        return lines;
+    }
+
+    function resolveCard(pack, card, claims, cardsById) {
+        const size = pack.size || 5;
+        const total = size * size;
+        const centerIdx = size % 2 === 1 ? Math.floor(total / 2) : -1;
+        const hasFree = pack.freeSpace !== false && centerIdx >= 0;
+        const isLockout = pack.claimMode === 'lockout';
+        const stampedSet = new Set(Array.isArray(card.stamped) ? card.stamped : []);
+        if (hasFree) stampedSet.add(centerIdx);
+        const order = Array.isArray(card.order) ? card.order : [];
+        const cells = [];
+        let cursor = 0;
+        for (let i = 0; i < total; i++) {
+            if (hasFree && i === centerIdx) {
+                cells.push({ index: i, label: pack.freeSpaceLabel || 'FREE', isFree: true, stamped: true, lockedByOther: false, winning: false });
+                continue;
+            }
+            const promptIndex = order[cursor] !== undefined ? Number(order[cursor]) : cursor;
+            cursor++;
+            const label = (pack.prompts && pack.prompts[promptIndex]) || `Square ${i + 1}`;
+            let stamped = stampedSet.has(i);
+            let lockedByOther = false;
+            if (isLockout) {
+                const claim = claims && claims[String(promptIndex)];
+                if (claim) {
+                    stamped = claim.cardId === card.id;
+                    lockedByOther = claim.cardId !== card.id;
+                    if (stamped) stampedSet.add(i); else stampedSet.delete(i);
+                } else {
+                    stamped = false;
+                    stampedSet.delete(i);
+                }
+            }
+            cells.push({ index: i, label, isFree: false, stamped, lockedByOther, winning: false });
+        }
+        const lines = detectLines(size, stampedSet);
+        const winSet = new Set(lines.flat());
+        for (const c of cells) c.winning = winSet.has(c.index);
+        return { ...card, size, total, cells, stampedCount: cells.filter(c => c.stamped).length, bingoCount: lines.length };
+    }
+
+    function makeStamp(style, color) {
+        if (style === 'fill') return null;
+        const svg = document.createElementNS(SVG_NS, 'svg');
+        svg.setAttribute('viewBox', '0 0 40 40');
+        svg.setAttribute('aria-hidden', 'true');
+        Object.assign(svg.style, {
+            position: 'absolute', inset: '0', width: '100%', height: '100%',
+            padding: style === 'dauber' ? '10%' : '18%', boxSizing: 'border-box', pointerEvents: 'none'
+        });
+        if (style === 'dauber') {
+            const c = document.createElementNS(SVG_NS, 'circle');
+            c.setAttribute('cx', '20'); c.setAttribute('cy', '20'); c.setAttribute('r', '15');
+            c.setAttribute('fill', color); c.setAttribute('opacity', '0.42');
+            const r = document.createElementNS(SVG_NS, 'circle');
+            r.setAttribute('cx', '20'); r.setAttribute('cy', '20'); r.setAttribute('r', '15');
+            r.setAttribute('fill', 'none'); r.setAttribute('stroke', color); r.setAttribute('stroke-width', '2.5'); r.setAttribute('opacity', '0.88');
+            svg.append(c, r);
+        } else if (style === 'x') {
+            const p = document.createElementNS(SVG_NS, 'path');
+            p.setAttribute('d', 'M9 9L31 31M31 9L9 31');
+            p.setAttribute('stroke', color); p.setAttribute('stroke-width', '4.2'); p.setAttribute('stroke-linecap', 'round');
+            svg.appendChild(p);
+        } else if (style === 'star') {
+            const p = document.createElementNS(SVG_NS, 'path');
+            p.setAttribute('d', 'M20 5l4.4 9 9.9 1.4-7.2 7 1.7 9.8L20 27.6 11.2 32.2l1.7-9.8-7.2-7 9.9-1.4z');
+            p.setAttribute('fill', color); p.setAttribute('opacity', '0.4');
+            p.setAttribute('stroke', color); p.setAttribute('stroke-width', '2'); p.setAttribute('stroke-linejoin', 'round');
+            svg.appendChild(p);
+        } else {
+            const p = document.createElementNS(SVG_NS, 'path');
+            p.setAttribute('d', 'M9 21l7 7 15-16');
+            p.setAttribute('fill', 'none'); p.setAttribute('stroke', color); p.setAttribute('stroke-width', '4.2');
+            p.setAttribute('stroke-linecap', 'round'); p.setAttribute('stroke-linejoin', 'round');
+            svg.appendChild(p);
+        }
+        return svg;
+    }
+
+    function render(data) {
+        if (!data || !data.activePack) return;
+        currentState = data;
+        const pack = data.activePack;
+        const session = data.session || { cards: [], claims: {} };
+        const baseApp = data.appearance || {};
+        const theme = THEME_PRESETS[themeOverride] ? themeOverride : (baseApp.theme || 'modern');
+        const preset = THEME_PRESETS[theme] || THEME_PRESETS.modern;
+        const app = {
+            boardBackground: themeOverride ? preset.boardBackground : (baseApp.boardBackground || preset.boardBackground),
+            cellBackground: themeOverride ? preset.cellBackground : (baseApp.cellBackground || preset.cellBackground),
+            textColor: themeOverride ? preset.textColor : (baseApp.textColor || preset.textColor),
+            borderColor: themeOverride ? preset.borderColor : (baseApp.borderColor || preset.borderColor),
+            bingoColor: themeOverride ? preset.bingoColor : (baseApp.bingoColor || preset.bingoColor),
+            stampStyle: stampOverride || baseApp.stampStyle || 'dauber',
+            fontSize: Number(baseApp.fontSize) || 13,
+            radius: Number(baseApp.radius) || 10,
+            cellGap: Number(baseApp.cellGap) || 6,
+            padding: Number(baseApp.padding) || 12
+        };
+        const view = viewOverride || baseApp.defaultView || 'multi';
+        const cards = Array.isArray(session.cards) ? session.cards : [];
+        const claims = session.claims || {};
+        const cardsById = Object.fromEntries(cards.map(c => [c.id, c]));
+        const resolvedCards = cards.map(c => resolveCard(pack, c, claims, cardsById));
+
+        root.className = `mp-theme-${theme}`;
+        root.dataset.bingoView = view;
+        root.dataset.bingoFocused = session.focusedCardId || '';
+        root.style.setProperty('--mp-win', app.bingoColor);
+        root.innerHTML = '';
+
+        if (session.hidden && view !== 'standings') {
+            const box = document.createElement('div');
+            box.className = 'mp-board mp-standby';
+            Object.assign(box.style, {
+                background: app.boardBackground, border: `1px solid ${app.borderColor}`,
+                borderRadius: `${app.radius}px`, color: app.textColor
+            });
+            box.innerHTML = `<div><div style="font-size:${Math.round(app.fontSize * 1.6)}px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;">${(pack.headerText || pack.name || 'BINGO').replace(/[<>&]/g, '')}</div><div style="opacity:.72;margin-top:8px;font-size:${app.fontSize}px;">Board hidden — waiting for reveal</div></div>`;
+            root.appendChild(box);
+            return;
+        }
+
+        if (view === 'standings') {
+            const strip = document.createElement('div');
+            strip.className = 'mp-standings';
+            const sorted = [...resolvedCards].sort((a, b) => (b.bingoCount - a.bingoCount) || (b.stampedCount - a.stampedCount) || a.name.localeCompare(b.name));
+            for (const p of sorted) {
+                const pill = document.createElement('div');
+                pill.className = 'mp-standing-pill';
+                Object.assign(pill.style, {
+                    borderRadius: `${app.radius}px`, background: app.boardBackground,
+                    border: `2px solid ${p.bingoCount > 0 ? app.bingoColor : p.color}`,
+                    color: app.textColor, fontSize: `${app.fontSize}px`
+                });
+                const dot = document.createElement('span');
+                dot.className = 'mp-dot';
+                dot.style.background = p.color;
+                dot.style.boxShadow = `0 0 8px ${p.color}`;
+                const nm = document.createElement('span');
+                nm.textContent = p.name;
+                const sc = document.createElement('span');
+                sc.className = 'mp-score';
+                sc.style.color = p.bingoCount > 0 ? app.bingoColor : app.textColor;
+                sc.textContent = p.bingoCount > 0 ? `${p.stampedCount}/${p.total} · BINGO` : `${p.stampedCount}/${p.total}`;
+                pill.append(dot, nm, sc);
+                strip.appendChild(pill);
+            }
+            if (!sorted.length) {
+                strip.textContent = 'Waiting for players to join';
+                strip.style.color = app.textColor;
+            }
+            root.appendChild(strip);
+            return;
+        }
+
+        if (view === 'lockout') {
+            const size = pack.size || 5;
+            const total = size * size;
+            const board = document.createElement('div');
+            board.className = 'mp-board';
+            Object.assign(board.style, {
+                background: app.boardBackground, border: `1px solid ${app.borderColor}`,
+                borderRadius: `${app.radius}px`, padding: `${app.padding}px`, gap: `${app.cellGap}px`
+            });
+            const grid = document.createElement('div');
+            grid.className = 'mp-grid';
+            Object.assign(grid.style, {
+                gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))`,
+                gridTemplateRows: `repeat(${size}, minmax(0, 1fr))`,
+                gap: `${app.cellGap}px`
+            });
+            for (let i = 0; i < total; i++) {
+                const claim = claims[String(i)];
+                const owner = claim ? cardsById[claim.cardId] : null;
+                const cell = document.createElement('div');
+                cell.className = `mp-cell${owner ? ' is-claimed' : ''}`;
+                Object.assign(cell.style, {
+                    background: owner ? `${owner.color}40` : app.cellBackground,
+                    border: `1.5px solid ${owner ? owner.color : app.borderColor}`,
+                    borderRadius: `${Math.max(4, Math.round(app.radius * 0.65))}px`,
+                    color: app.textColor, fontSize: `${app.fontSize}px`
+                });
+                const lbl = document.createElement('span');
+                lbl.className = 'mp-cell-label';
+                lbl.textContent = (pack.prompts && pack.prompts[i]) || `Square ${i + 1}`;
+                cell.appendChild(lbl);
+                if (owner) {
+                    const pill = document.createElement('span');
+                    pill.className = 'mp-claim-pill';
+                    pill.textContent = owner.name;
+                    pill.style.background = owner.color;
+                    pill.style.fontSize = `${Math.max(9, Math.round(app.fontSize * 0.72))}px`;
+                    cell.appendChild(pill);
+                }
+                grid.appendChild(cell);
+            }
+            board.appendChild(grid);
+            root.appendChild(board);
+            return;
+        }
+
+        // 'single' or 'multi' (with live Zoom on session.focusedCardId)
+        const cardsToShow = view === 'single'
+            ? (cardOverride ? resolvedCards.filter(c => c.id === cardOverride) : resolvedCards.slice(0, 1))
+            : (session.focusedCardId && resolvedCards.some(c => c.id === session.focusedCardId)
+                ? resolvedCards.filter(c => c.id === session.focusedCardId)
+                : resolvedCards);
+
+        if (!cardsToShow.length) {
+            const empty = document.createElement('div');
+            empty.className = 'mp-board mp-standby';
+            Object.assign(empty.style, {
+                background: app.boardBackground, border: `1px solid ${app.borderColor}`,
+                borderRadius: `${app.radius}px`, color: app.textColor
+            });
+            empty.innerHTML = `<div><div style="font-size:${Math.round(app.fontSize * 1.4)}px;font-weight:850;">${(pack.name || 'Multiplayer Bingo').replace(/[<>&]/g, '')}</div><div style="opacity:.72;margin-top:6px;font-size:${app.fontSize}px;">Add players in Multiplayer Bingo Studio to display cards</div></div>`;
+            root.appendChild(empty);
+            return;
+        }
+
+        const cols = cardsToShow.length === 1 ? 1 : cardsToShow.length <= 2 ? 2 : cardsToShow.length <= 4 ? 2 : 3;
+        const wrap = document.createElement('div');
+        wrap.className = 'mp-multi-grid';
+        wrap.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+
+        for (const card of cardsToShow) {
+            const isZoomed = Boolean(session.focusedCardId && session.focusedCardId === card.id);
+            const shell = document.createElement('div');
+            shell.className = `mp-card${isZoomed ? ' is-zoomed' : ''}`;
+            shell.dataset.cardId = card.id;
+            Object.assign(shell.style, {
+                background: app.boardBackground,
+                border: `2px solid ${card.bingoCount > 0 ? app.bingoColor : card.color}`,
+                borderRadius: `${app.radius}px`,
+                padding: `${Math.max(8, Math.round(app.padding * 0.85))}px`,
+                gap: `${Math.max(4, Math.round(app.cellGap * 0.8))}px`
+            });
+
+            const head = document.createElement('div');
+            head.className = 'mp-card-head';
+            const who = document.createElement('div');
+            who.className = 'mp-player-who';
+            const dot = document.createElement('span');
+            dot.className = 'mp-dot';
+            dot.style.background = card.color;
+            const nm = document.createElement('span');
+            nm.className = 'mp-name';
+            nm.textContent = card.name;
+            nm.style.color = app.textColor;
+            nm.style.fontSize = `${Math.max(12, Math.round(app.fontSize * 1.05))}px`;
+            who.append(dot, nm);
+            const sc = document.createElement('span');
+            sc.className = 'mp-score';
+            sc.textContent = card.bingoCount > 0 ? `BINGO · ${card.stampedCount}/${card.total}` : `${card.stampedCount}/${card.total}`;
+            sc.style.color = card.bingoCount > 0 ? app.bingoColor : app.textColor;
+            sc.style.fontSize = `${Math.max(11, Math.round(app.fontSize * 0.9))}px`;
+            head.append(who, sc);
+            shell.appendChild(head);
+
+            const grid = document.createElement('div');
+            grid.className = 'mp-grid';
+            Object.assign(grid.style, {
+                gridTemplateColumns: `repeat(${card.size}, minmax(0, 1fr))`,
+                gridTemplateRows: `repeat(${card.size}, minmax(0, 1fr))`,
+                gap: `${Math.max(3, Math.round(app.cellGap * 0.75))}px`
+            });
+            const cellFont = Math.max(9, Math.round(app.fontSize * (cardsToShow.length > 1 ? 0.82 : 1)));
+            for (const c of card.cells) {
+                const el = document.createElement('div');
+                el.className = `mp-cell${c.stamped ? ' is-stamped' : ''}${c.winning ? ' is-winning' : ''}`;
+                const col = c.winning ? app.bingoColor : card.color;
+                Object.assign(el.style, {
+                    background: c.stamped ? (app.stampStyle === 'fill' ? col : `${col}3d`) : (c.lockedByOther ? 'rgba(0,0,0,0.38)' : app.cellBackground),
+                    border: `1px solid ${c.winning ? app.bingoColor : c.stamped ? card.color : app.borderColor}`,
+                    borderRadius: `${Math.max(3, Math.round(app.radius * 0.55))}px`,
+                    color: app.textColor,
+                    fontSize: `${cellFont}px`,
+                    opacity: c.lockedByOther ? '0.42' : '1'
+                });
+                const lbl = document.createElement('span');
+                lbl.className = 'mp-cell-label';
+                lbl.textContent = c.label;
+                el.appendChild(lbl);
+                if (c.stamped) {
+                    const st = makeStamp(app.stampStyle, col);
+                    if (st) el.appendChild(st);
+                }
+                grid.appendChild(el);
+            }
+            shell.appendChild(grid);
+            wrap.appendChild(shell);
+        }
+        root.appendChild(wrap);
+    }
+
+    async function load() {
+        try {
+            const res = await fetch('/api/multiplayer-bingo/overlay');
+            if (res.ok) render(await res.json());
+        } catch { /* retry on ws */ }
+    }
+
+    if (isPreview) {
+        window.addEventListener('message', ev => {
+            if (ev.data && ev.data.type === 'mp-bingo-preview' && ev.data.state) {
+                render(ev.data.state);
+            }
+        });
+    }
+
+    function connectWs() {
+        try {
+            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(`${proto}//${location.host}`);
+            ws.onmessage = ev => {
+                try {
+                    const msg = JSON.parse(ev.data);
+                    if (msg.type === 'multiplayer-bingo-update' && msg.data) {
+                        render(msg.data);
+                    }
+                } catch { /* ignore */ }
+            };
+            ws.onclose = () => setTimeout(connectWs, 2500);
+        } catch { /* ignore */ }
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        document.documentElement.classList.toggle('sp-fx-paused', document.hidden);
+    });
+    if (document.hidden) document.documentElement.classList.add('sp-fx-paused');
+
+    load();
+    connectWs();
+})();
+</script>
+</body>
+</html>

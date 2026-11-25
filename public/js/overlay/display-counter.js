@@ -567,22 +567,21 @@ export function renderDisplayCounter(host, element, status = {}, definition) {
     root.dataset.counterStyle = baseCfg.style;
     root.dataset.counterTheme = baseCfg.theme || 'modern';
     root.style.setProperty('--ctr-accent', rootCfg.filledColor);
+    const isHorizontal = baseCfg.direction === 'horizontal';
     Object.assign(root.style, {
         width: '100%',
         height: '100%',
         padding: '6px',
         boxSizing: 'border-box',
-        display: 'flex',
-        flexDirection: baseCfg.direction === 'horizontal' ? 'row' : 'column',
-        flexWrap: baseCfg.direction === 'horizontal' ? 'wrap' : 'nowrap',
-        alignItems: baseCfg.direction === 'horizontal'
-            ? 'center'
-            : (baseCfg.align === 'center' ? 'center' : baseCfg.align === 'right' ? 'flex-end' : 'stretch'),
-        justifyContent: baseCfg.align === 'center' ? 'center' : baseCfg.align === 'right' ? 'flex-end' : 'flex-start',
+        display: 'grid',
+        gridTemplateColumns: isHorizontal
+            ? 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))'
+            : 'minmax(0, 1fr)',
+        alignContent: baseCfg.align === 'center' ? 'center' : baseCfg.align === 'right' ? 'end' : 'start',
+        alignItems: 'stretch',
         gap: `${baseCfg.rowGap}px`,
         fontFamily: rootCfg.fontFamily,
-        fontSize: `${baseCfg.fontSize}px`,
-        overflow: 'hidden'
+        fontSize: `${baseCfg.fontSize}px`
     });
 
     for (const row of rows) {
@@ -605,6 +604,7 @@ export function renderDisplayCounter(host, element, status = {}, definition) {
         Object.assign(rowEl.style, {
             display: 'flex',
             flexDirection: isStacked ? 'column' : 'row',
+            flexWrap: isStacked ? 'nowrap' : 'wrap',
             alignItems: isStacked
                 ? (cfg.align === 'center' ? 'center' : cfg.align === 'right' ? 'flex-end' : 'flex-start')
                 : 'center',
@@ -613,12 +613,14 @@ export function renderDisplayCounter(host, element, status = {}, definition) {
                 : !isStacked && cfg.align === 'right'
                     ? 'flex-end'
                     : 'space-between',
-            gap: isStacked ? '6px' : '12px',
+            gap: isStacked ? '6px' : '8px 12px',
             padding: `${cfg.rowPadding}px`,
             borderRadius: `${cfg.rowRadius}px`,
             background: cfg.rowBackground,
             border: cfg.rowBorderWidth > 0 ? `${cfg.rowBorderWidth}px solid ${cfg.rowBorderColor}` : 'none',
             boxSizing: 'border-box',
+            width: '100%',
+            minWidth: '0',
             maxWidth: '100%'
         });
 
@@ -631,10 +633,8 @@ export function renderDisplayCounter(host, element, status = {}, definition) {
                 fontWeight: '650',
                 fontSize: `${cfg.fontSize}px`,
                 lineHeight: '1.2',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                minWidth: '0'
+                whiteSpace: 'normal',
+                overflowWrap: 'break-word'
             });
         }
 
