@@ -647,11 +647,12 @@ var StreamPulseCreditSuiteEngine = (() => {
             }
           }
         }
-        function computePass(blockZones, extraClearanceByBlock = {}) {
+        function computePass(blockZones, extraClearanceByBlock = {}, blockBoundsByBlock = {}) {
           const segments = [];
           let currentCrawl = null;
           for (const block of enabledBlocks) {
             const zone = block.zoneOverride && block.zoneOverride !== "auto" ? block.zoneOverride : blockZones[block.id] || "center";
+            const zoneBounds = blockBoundsByBlock[block.id] || null;
             if (block.presentation === "card") {
               currentCrawl = null;
               segments.push({
@@ -660,6 +661,7 @@ var StreamPulseCreditSuiteEngine = (() => {
                 blockId: block.id,
                 block,
                 zone,
+                zoneBounds,
                 durationSec: Math.max(0.5, Number(block.duration) || 4.5)
               });
             } else {
@@ -682,6 +684,7 @@ var StreamPulseCreditSuiteEngine = (() => {
                 blockId: block.id,
                 block,
                 zone,
+                zoneBounds,
                 clearanceTopPx,
                 offsetY: currentCrawl.contentHeight,
                 height: h
@@ -718,6 +721,7 @@ var StreamPulseCreditSuiteEngine = (() => {
                 kind: "card",
                 segmentId: seg.id,
                 zone: seg.zone,
+                zoneBounds: seg.zoneBounds,
                 startSec: seg.startSec,
                 endSec: seg.endSec,
                 centerSec: (seg.startSec + seg.endSec) * 0.5,
@@ -737,6 +741,7 @@ var StreamPulseCreditSuiteEngine = (() => {
                   kind: "crawl",
                   segmentId: seg.id,
                   zone: bm.zone,
+                  zoneBounds: bm.zoneBounds,
                   clearanceTopPx: bm.clearanceTopPx,
                   startSec: enterSec,
                   endSec: exitSec,
@@ -745,7 +750,9 @@ var StreamPulseCreditSuiteEngine = (() => {
                   centerSec,
                   durationSec: Math.max(0.5, exitSec - enterSec),
                   offsetY: bm.offsetY,
-                  height: bm.height
+                  height: bm.height,
+                  runStartSec: seg.startSec,
+                  runSpeed: seg.speedPxPerSec
                 };
                 if (bm.block.marker) {
                   markers.push({ name: bm.block.marker, timeSec: focusStart, blockId: bm.blockId });
@@ -814,28 +821,56 @@ var StreamPulseCreditSuiteEngine = (() => {
         let solved = computePass(initialZones);
         if (reflowEnabled && reflowMode === "per-section") {
           const finalZones = { ...initialZones };
+          const blockBounds = {};
           const sideClips = solved.resolvedClips.filter((rc) => rc.pushTargetZone !== "none");
+          const recordBound = (blockId, rc) => {
+            const x = Number(rc.clip.x) || 0;
+            const w = Number(rc.clip.width) || 40;
+            const prev = blockBounds[blockId] || { leftEdgePct: 0, rightEdgePct: 100 };
+            if (rc.pushTargetZone === "right") {
+              prev.leftEdgePct = Math.max(prev.leftEdgePct, Math.min(70, x + w));
+            } else if (rc.pushTargetZone === "left") {
+              prev.rightEdgePct = Math.min(prev.rightEdgePct, Math.max(30, x));
+            }
+            blockBounds[blockId] = prev;
+          };
           if (sideClips.length) {
+            for (const rc of sideClips) {
+              if (rc.clip.timingMode !== "block" || !rc.clip.anchorBlockId) continue;
+              const startIdx = enabledBlocks.findIndex((b) => b.id === rc.clip.anchorBlockId);
+              if (startIdx < 0) continue;
+              const spanN = Math.max(1, Number(rc.clip.anchorSpanBlocks) || 1);
+              for (let k = 0; k < spanN && startIdx + k < enabledBlocks.length; k++) {
+                recordBound(enabledBlocks[startIdx + k].id, rc);
+              }
+            }
             for (const block of enabledBlocks) {
               if (block.zoneOverride && block.zoneOverride !== "auto") {
                 finalZones[block.id] = block.zoneOverride;
                 continue;
               }
-              if (finalZones[block.id]) continue;
               const bt = solved.blockTimings[block.id];
               if (!bt) continue;
               for (const rc of sideClips) {
                 if (rc.clip.timingMode === "block") continue;
-                const blkStart = bt.kind === "crawl" ? bt.focusStartSec : bt.startSec;
-                const blkEnd = bt.kind === "crawl" ? bt.focusEndSec : bt.endSec;
-                if (blkStart >= rc.endSec - 0.15) continue;
-                if (blkEnd > rc.startSec + 0.15 && blkStart < rc.endSec - 0.15) {
-                  finalZones[block.id] = rc.pushTargetZone;
-                  break;
+                if (bt.kind === "card") {
+                  if (bt.endSec > rc.startSec + 0.1 && bt.startSec < rc.endSec - 0.1) {
+                    finalZones[block.id] = rc.pushTargetZone;
+                    recordBound(block.id, rc);
+                  }
+                } else {
+                  const clipTopY = (Number(rc.clip.y) || 0) / 100 * canvasH;
+                  const clipBotY = Math.min(canvasH, ((Number(rc.clip.y) || 0) + (Number(rc.clip.height) || 70)) / 100 * canvasH);
+                  const tEnterBand = bt.runStartSec + (bt.offsetY + Math.max(0, canvasH - clipBotY)) / bt.runSpeed;
+                  const tExitBand = bt.runStartSec + (bt.offsetY + bt.height + Math.max(0, canvasH - clipTopY)) / bt.runSpeed;
+                  if (tExitBand > rc.startSec + 0.1 && tEnterBand < rc.endSec - 0.1) {
+                    finalZones[block.id] = rc.pushTargetZone;
+                    recordBound(block.id, rc);
+                  }
                 }
               }
             }
-            const zonedSolved = computePass(finalZones);
+            const zonedSolved = computePass(finalZones, {}, blockBounds);
             const clearanceMap = {};
             const resolvedSideClips = zonedSolved.resolvedClips.filter((rc) => rc.pushTargetZone !== "none");
             for (const run of zonedSolved.crawlRuns) {
@@ -856,15 +891,15 @@ var StreamPulseCreditSuiteEngine = (() => {
                   }
                   if (latestClipEnd > 0) {
                     const reachClipBandSec = run.startSec + (curBm.offsetY + Math.max(0, canvasH - lowestClipBottomY)) / run.speedPxPerSec;
-                    const neededDelaySec = Math.max(0, latestClipEnd - reachClipBandSec);
+                    const neededDelaySec = Math.max(0, latestClipEnd - reachClipBandSec + 0.15);
                     if (neededDelaySec > 0.05) {
-                      clearanceMap[curBm.blockId] = Math.min(Math.round(canvasH * 0.65), Math.round(neededDelaySec * run.speedPxPerSec));
+                      clearanceMap[curBm.blockId] = Math.min(Math.round(canvasH * 0.72), Math.round(neededDelaySec * run.speedPxPerSec));
                     }
                   }
                 }
               }
             }
-            solved = computePass(finalZones, clearanceMap);
+            solved = computePass(finalZones, clearanceMap, blockBounds);
           }
         }
         return solved;

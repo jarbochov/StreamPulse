@@ -185,6 +185,17 @@ function initCreditSuiteStudio() {
         }
         if (isTyping) return;
         if (ev.key === 'Delete' || ev.key === 'Backspace') {
+            if (state.store.selectedClipIds && state.store.selectedClipIds.size > 1) {
+                ev.preventDefault();
+                const ids = new Set(state.store.selectedClipIds);
+                state.mutateProject(p => {
+                    for (const tr of p.tracks) {
+                        tr.clips = tr.clips.filter(c => !ids.has(c.id));
+                    }
+                });
+                state.setSelection(null, null);
+                return;
+            }
             const sel = state.store.selection;
             if (sel.kind === 'block' && sel.id) {
                 ev.preventDefault();

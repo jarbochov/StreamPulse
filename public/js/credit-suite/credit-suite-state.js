@@ -34,6 +34,7 @@ export function createCreditSuiteState() {
         variablesMap: {},
         assets: [],
         selection: { kind: null, id: null, trackId: null },
+        selectedClipIds: new Set(),
         outlinerTab: prefs.outlinerTab === 'tracks' ? 'tracks' : 'blocks',
         inspectorTab: ['selected', 'theme', 'export'].includes(prefs.inspectorTab) ? prefs.inspectorTab : 'selected',
         backdrop: ['checker', 'dark', 'light'].includes(prefs.backdrop) ? prefs.backdrop : 'checker',
@@ -97,9 +98,45 @@ export function createCreditSuiteState() {
 
     function setSelection(kind, id, trackId = null) {
         store.selection = { kind, id, trackId };
+        store.selectedClipIds = kind === 'clip' && id ? new Set([id]) : new Set();
         if (kind) {
             store.inspectorTab = 'selected';
             savePrefs({ inspectorTab: 'selected' });
+        }
+        emit('selection');
+    }
+
+    function toggleClipSelection(id, trackId = null) {
+        if (!id) return;
+        const next = new Set(store.selectedClipIds);
+        if (next.has(id)) {
+            next.delete(id);
+        } else {
+            next.add(id);
+        }
+        store.selectedClipIds = next;
+        if (next.size === 0) {
+            store.selection = { kind: null, id: null, trackId: null };
+        } else {
+            const primary = next.has(id) ? id : [...next][next.size - 1];
+            store.selection = { kind: 'clip', id: primary, trackId };
+            store.inspectorTab = 'selected';
+        }
+        emit('selection');
+    }
+
+    function setClipSelectionSet(ids) {
+        const next = new Set(ids || []);
+        store.selectedClipIds = next;
+        if (next.size === 0) {
+            store.selection = { kind: null, id: null, trackId: null };
+        } else {
+            const first = [...next][0];
+            let tid = null;
+            for (const tr of (store.project?.tracks || [])) {
+                if ((tr.clips || []).some(c => c.id === first)) { tid = tr.id; break; }
+            }
+            store.selection = { kind: 'clip', id: first, trackId: tid };
         }
         emit('selection');
     }
@@ -449,6 +486,8 @@ export function createCreditSuiteState() {
         undo,
         redo,
         setSelection,
+        toggleClipSelection,
+        setClipSelectionSet,
         setOutlinerTab,
         setInspectorTab,
         setBackdrop,

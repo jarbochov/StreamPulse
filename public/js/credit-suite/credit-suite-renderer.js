@@ -855,7 +855,7 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
 
         creditsCol.style.width = isPerSection ? `${canvasW}px` : `${maxColW}px`;
 
-        const applyBlockZoneLayout = (blkEl, zone, clearanceTopPx = 0) => {
+        const applyBlockZoneLayout = (blkEl, zone, clearanceTopPx = 0, zoneBounds = null) => {
             blkEl.classList.remove('cs-zone-center', 'cs-zone-left', 'cs-zone-right');
             blkEl.style.marginTop = clearanceTopPx > 0 ? `${clearanceTopPx}px` : '';
             blkEl.style.marginRight = '';
@@ -866,14 +866,22 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
             }
             const z = zone || 'center';
             blkEl.classList.add(`cs-zone-${z}`);
-            const safeOuterPx = Math.round(canvasW * 0.045);
+            const safeOuterPx = Math.round(canvasW * 0.04);
             if (z === 'center') {
                 blkEl.style.width = `${maxColW}px`;
             } else {
-                const availSide = Math.max(320, Math.min(maxColW, sideColW - safeOuterPx));
+                let clearWidth = sideColW - safeOuterPx;
+                if (z === 'right' && zoneBounds?.leftEdgePct > 0) {
+                    const clipRightPx = (zoneBounds.leftEdgePct / 100) * canvasW;
+                    clearWidth = canvasW - clipRightPx - gapPx - safeOuterPx;
+                } else if (z === 'left' && zoneBounds?.rightEdgePct < 100) {
+                    const clipLeftPx = (zoneBounds.rightEdgePct / 100) * canvasW;
+                    clearWidth = clipLeftPx - gapPx - safeOuterPx;
+                }
+                const availSide = Math.max(280, Math.min(maxColW, Math.round(clearWidth)));
                 blkEl.style.width = `${availSide}px`;
-                blkEl.style.paddingLeft = '24px';
-                blkEl.style.paddingRight = '24px';
+                blkEl.style.paddingLeft = '20px';
+                blkEl.style.paddingRight = '20px';
                 if (z === 'right') blkEl.style.marginRight = `${safeOuterPx}px`;
                 if (z === 'left') blkEl.style.marginLeft = `${safeOuterPx}px`;
             }
@@ -886,7 +894,7 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
                 runEl.dataset.runId = seg.id;
                 for (const bm of seg.blockMetrics) {
                     const blkEl = buildBlockElement(bm.block);
-                    applyBlockZoneLayout(blkEl, bm.zone, bm.clearanceTopPx);
+                    applyBlockZoneLayout(blkEl, bm.zone, bm.clearanceTopPx, bm.zoneBounds);
                     runEl.appendChild(blkEl);
                 }
                 creditsCol.appendChild(runEl);
@@ -896,7 +904,7 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
                 cardWrap.className = `cs-card-layer cs-zone-${seg.zone || 'center'}`;
                 cardWrap.dataset.blockId = seg.blockId;
                 const blkEl = buildBlockElement(seg.block);
-                applyBlockZoneLayout(blkEl, seg.zone, 0);
+                applyBlockZoneLayout(blkEl, seg.zone, 0, seg.zoneBounds);
                 cardWrap.appendChild(blkEl);
                 creditsCol.appendChild(cardWrap);
                 cardDomMap.set(seg.blockId, cardWrap);
@@ -928,7 +936,7 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
                     if (!runEl) continue;
                     for (const bm of seg.blockMetrics) {
                         const blkEl = runEl.querySelector(`:scope > .cs-block[data-block-id="${bm.blockId}"]`);
-                        if (blkEl) applyBlockZoneLayout(blkEl, bm.zone, bm.clearanceTopPx);
+                        if (blkEl) applyBlockZoneLayout(blkEl, bm.zone, bm.clearanceTopPx, bm.zoneBounds);
                     }
                 } else if (seg.kind === 'card') {
                     const cardWrap = cardDomMap.get(seg.blockId);
@@ -936,7 +944,7 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
                         cardWrap.classList.remove('cs-zone-center', 'cs-zone-left', 'cs-zone-right');
                         cardWrap.classList.add(`cs-zone-${seg.zone || 'center'}`);
                         const blkEl = cardWrap.querySelector(':scope > .cs-block');
-                        if (blkEl) applyBlockZoneLayout(blkEl, seg.zone, 0);
+                        if (blkEl) applyBlockZoneLayout(blkEl, seg.zone, 0, seg.zoneBounds);
                     }
                 }
             }

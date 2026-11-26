@@ -1079,6 +1079,14 @@ details.cs-acc[open] > summary {
     clip-path: polygon(0 0, 100% 0, 50% 100%);
 }
 
+.cs-tl-marquee {
+    position: absolute;
+    border: 1px dashed var(--accent, #58a6ff);
+    background: rgba(88, 166, 255, 0.16);
+    pointer-events: none;
+    z-index: 30;
+}
+
 /* Export Progress Box */
 .cs-progress-bar {
     width: 100%;

@@ -18,11 +18,13 @@ export function mountCreditSuiteTimeline({ state, stage, blocksApi }) {
     const gridEl = document.getElementById('cs-timeline-grid');
     const zoomInput = document.getElementById('cs-timeline-zoom');
     const addTrackBtn = document.getElementById('cs-tl-add-track');
+    const multiBar = document.getElementById('cs-tl-multiselect-bar');
     const LABEL_W = 170;
 
     let scrubbing = false;
     let clipDrag = null;
     let cardResize = null;
+    let marquee = null;
     let playheadEl = null;
 
     zoomInput?.addEventListener('input', () => {
@@ -51,10 +53,118 @@ export function mountCreditSuiteTimeline({ state, stage, blocksApi }) {
         playheadEl.style.left = `${left.toFixed(1)}px`;
     }
 
+    function getSelectedClipEntries() {
+        const proj = state.store.project;
+        const solved = state.store.solved;
+        const ids = state.store.selectedClipIds;
+        if (!proj || !ids || ids.size === 0) return [];
+        const resolvedMap = new Map((solved?.resolvedClips || []).map(rc => [rc.clip.id, rc]));
+        const out = [];
+        for (const tr of (proj.tracks || [])) {
+            for (const c of (tr.clips || [])) {
+                if (!ids.has(c.id)) continue;
+                const rc = resolvedMap.get(c.id);
+                out.push({
+                    trackId: tr.id,
+                    clipId: c.id,
+                    startSec: rc ? rc.startSec : (c.startSec || 0),
+                    durationSec: rc ? rc.durationSec : (c.durationSec || 5)
+                });
+            }
+        }
+        return out.sort((a, b) => a.startSec - b.startSec);
+    }
+
+    function applyMultiSpace(deltaSec) {
+        const items = getSelectedClipEntries();
+        if (items.length < 2) return;
+        state.mutateProject(p => {
+            const byId = new Map();
+            for (const tr of p.tracks) for (const c of tr.clips) byId.set(c.id, c);
+            if (deltaSec === 'pack') {
+                let cursor = items[0].startSec;
+                for (const it of items) {
+                    const c = byId.get(it.clipId);
+                    if (!c) continue;
+                    c.timingMode = 'timecode';
+                    c.startSec = Number(Math.max(0, cursor).toFixed(2));
+                    c.durationSec = Number(it.durationSec.toFixed(2));
+                    cursor = c.startSec + c.durationSec;
+                }
+            } else {
+                items.forEach((it, idx) => {
+                    const c = byId.get(it.clipId);
+                    if (!c) return;
+                    c.timingMode = 'timecode';
+                    c.startSec = Number(Math.max(0, it.startSec + idx * deltaSec).toFixed(2));
+                    c.durationSec = Number(it.durationSec.toFixed(2));
+                });
+            }
+        });
+    }
+
+    function applyMultiStretch(factor) {
+        const items = getSelectedClipEntries();
+        if (items.length < 2) return;
+        const origin = items[0].startSec;
+        state.mutateProject(p => {
+            const byId = new Map();
+            for (const tr of p.tracks) for (const c of tr.clips) byId.set(c.id, c);
+            for (const it of items) {
+                const c = byId.get(it.clipId);
+                if (!c) continue;
+                c.timingMode = 'timecode';
+                c.startSec = Number(Math.max(0, origin + (it.startSec - origin) * factor).toFixed(2));
+                c.durationSec = Number(Math.max(0.5, it.durationSec * factor).toFixed(2));
+            }
+        });
+    }
+
+    function renderMultiBar() {
+        if (!multiBar) return;
+        const count = state.store.selectedClipIds?.size || 0;
+        if (count < 2) {
+            multiBar.style.display = 'none';
+            multiBar.innerHTML = '';
+            return;
+        }
+        multiBar.style.display = 'inline-flex';
+        multiBar.innerHTML = `
+            <span class="cs-pill accent">${count} clips</span>
+            <button type="button" class="cs-btn cs-btn-sm" data-ms="space-add" title="Add +1s space between selected clips">+1s Gap</button>
+            <button type="button" class="cs-btn cs-btn-sm" data-ms="space-sub" title="Remove 1s space between selected clips">-1s Gap</button>
+            <button type="button" class="cs-btn cs-btn-sm" data-ms="pack" title="Pack selected clips back-to-back">Pack</button>
+            <button type="button" class="cs-btn cs-btn-sm" data-ms="stretch-up" title="Stretch selected group by 125%">Stretch +25%</button>
+            <button type="button" class="cs-btn cs-btn-sm" data-ms="stretch-dn" title="Compress selected group by 80%">Shrink -20%</button>
+            <button type="button" class="cs-btn cs-btn-sm cs-btn-danger" data-ms="del" title="Delete selected clips">Delete</button>
+            <button type="button" class="cs-btn cs-btn-sm" data-ms="clear" title="Clear multi-selection">Clear</button>
+        `;
+        multiBar.querySelectorAll('[data-ms]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const act = btn.dataset.ms;
+                if (act === 'space-add') applyMultiSpace(1);
+                else if (act === 'space-sub') applyMultiSpace(-1);
+                else if (act === 'pack') applyMultiSpace('pack');
+                else if (act === 'stretch-up') applyMultiStretch(1.25);
+                else if (act === 'stretch-dn') applyMultiStretch(0.8);
+                else if (act === 'del') {
+                    const ids = new Set(state.store.selectedClipIds);
+                    state.mutateProject(p => {
+                        for (const tr of p.tracks) tr.clips = tr.clips.filter(c => !ids.has(c.id));
+                    });
+                    state.setSelection(null, null);
+                } else if (act === 'clear') {
+                    state.setSelection(null, null);
+                }
+            });
+        });
+    }
+
     function render() {
         const proj = state.store.project;
         const solved = state.store.solved;
         if (!proj || !solved || !gridEl) return;
+        renderMultiBar();
 
         if (zoomInput) zoomInput.value = String(state.store.timelineZoom);
 
@@ -129,7 +239,7 @@ export function mountCreditSuiteTimeline({ state, stage, blocksApi }) {
                 const durS = rc ? rc.durationSec : (c.durationSec || 5);
                 const left = startS * pps;
                 const w = Math.max(24, durS * pps);
-                const isSel = sel.kind === 'clip' && sel.id === c.id;
+                const isSel = (sel.kind === 'clip' && sel.id === c.id) || state.store.selectedClipIds?.has(c.id);
                 const badge = c.timingMode === 'block' ? '[Sync] ' : '';
                 return `
                     <div class="cs-tl-clip ${kindClass} ${isSel ? 'selected' : ''}" data-tl-clip="${esc(c.id)}" data-tl-track="${esc(tr.id)}" style="left:${left.toFixed(1)}px;width:${w.toFixed(1)}px;" title="${esc(c.name)} (${startS.toFixed(1)}s – ${(startS + durS).toFixed(1)}s)">
@@ -211,18 +321,30 @@ export function mountCreditSuiteTimeline({ state, stage, blocksApi }) {
             });
         });
 
-        // Track clip drag/move & edge trim
+        // Track clip drag/move (supports single OR multi-select group move!) & edge trim
         gridEl.querySelectorAll('[data-tl-clip]').forEach(el => {
             el.addEventListener('pointerdown', ev => {
                 ev.stopPropagation();
                 const cid = el.dataset.tlClip;
                 const tid = el.dataset.tlTrack;
                 const trimSide = ev.target.closest('[data-clip-trim]')?.dataset.clipTrim || 'move';
-                state.setSelection('clip', cid, tid);
+                if (ev.shiftKey || ev.metaKey || ev.ctrlKey) {
+                    state.toggleClipSelection(cid, tid);
+                    return;
+                }
+                const alreadyMulti = state.store.selectedClipIds?.has(cid) && state.store.selectedClipIds.size > 1;
+                if (!alreadyMulti) {
+                    state.setSelection('clip', cid, tid);
+                }
                 const rc = resolvedByClip.get(cid);
                 const tr = proj.tracks.find(t => t.id === tid);
                 const clip = tr?.clips.find(c => c.id === cid);
                 if (!clip) return;
+
+                const groupEntries = (alreadyMulti && trimSide === 'move')
+                    ? getSelectedClipEntries()
+                    : [{ trackId: tid, clipId: cid, startSec: rc ? rc.startSec : (clip.startSec || 0), durationSec: rc ? rc.durationSec : (clip.durationSec || 5) }];
+
                 clipDrag = {
                     trackId: tid,
                     clipId: cid,
@@ -230,15 +352,29 @@ export function mountCreditSuiteTimeline({ state, stage, blocksApi }) {
                     startX: ev.clientX,
                     origStart: rc ? rc.startSec : (clip.startSec || 0),
                     origDur: rc ? rc.durationSec : (clip.durationSec || 5),
+                    groupEntries,
                     recorded: false
                 };
             });
         });
 
-        // Scrubbing on ruler / empty lane areas
+        // Scrubbing on ruler / empty lane areas (Shift+Drag starts marquee multi-select!)
         gridEl.querySelectorAll('[data-scrub-lane]').forEach(lane => {
             lane.addEventListener('pointerdown', ev => {
                 if (ev.target.closest('.cs-tl-clip, .cs-tl-marker')) return;
+                if (ev.shiftKey) {
+                    ev.preventDefault();
+                    const gridRect = gridEl.getBoundingClientRect();
+                    const box = document.createElement('div');
+                    box.className = 'cs-tl-marquee';
+                    gridEl.appendChild(box);
+                    marquee = {
+                        startX: ev.clientX - gridRect.left,
+                        startY: ev.clientY - gridRect.top,
+                        box
+                    };
+                    return;
+                }
                 scrubbing = true;
                 stage.pause();
                 stage.seek(timeFromClientX(ev.clientX));
@@ -247,6 +383,21 @@ export function mountCreditSuiteTimeline({ state, stage, blocksApi }) {
     }
 
     window.addEventListener('pointermove', ev => {
+        if (marquee && gridEl) {
+            const rect = gridEl.getBoundingClientRect();
+            const curX = ev.clientX - rect.left;
+            const curY = ev.clientY - rect.top;
+            const x = Math.min(marquee.startX, curX);
+            const y = Math.min(marquee.startY, curY);
+            const w = Math.abs(curX - marquee.startX);
+            const h = Math.abs(curY - marquee.startY);
+            marquee.box.style.left = `${x}px`;
+            marquee.box.style.top = `${y}px`;
+            marquee.box.style.width = `${w}px`;
+            marquee.box.style.height = `${h}px`;
+            marquee.rect = { left: x, top: y, right: x + w, bottom: y + h };
+            return;
+        }
         if (scrubbing) {
             stage.seek(timeFromClientX(ev.clientX));
             return;
@@ -267,6 +418,19 @@ export function mountCreditSuiteTimeline({ state, stage, blocksApi }) {
             const recordUndo = !clipDrag.recorded;
             clipDrag.recorded = true;
             state.mutateProject(p => {
+                if (clipDrag.mode === 'move' && clipDrag.groupEntries.length > 1) {
+                    const minStart = Math.min(...clipDrag.groupEntries.map(g => g.startSec));
+                    const clampedDx = Math.max(-minStart, dxSec);
+                    for (const entry of clipDrag.groupEntries) {
+                        const tr = p.tracks.find(t => t.id === entry.trackId);
+                        const c = tr?.clips.find(x => x.id === entry.clipId);
+                        if (!c) continue;
+                        c.timingMode = 'timecode';
+                        c.startSec = Number(Math.max(0, entry.startSec + clampedDx).toFixed(2));
+                        c.durationSec = Number(entry.durationSec.toFixed(2));
+                    }
+                    return;
+                }
                 const tr = p.tracks.find(t => t.id === clipDrag.trackId);
                 const c = tr?.clips.find(x => x.id === clipDrag.clipId);
                 if (!c) return;
@@ -286,6 +450,26 @@ export function mountCreditSuiteTimeline({ state, stage, blocksApi }) {
     });
 
     window.addEventListener('pointerup', () => {
+        if (marquee) {
+            const mRect = marquee.rect;
+            marquee.box.remove();
+            marquee = null;
+            if (mRect && gridEl) {
+                const gridRect = gridEl.getBoundingClientRect();
+                const hits = [];
+                gridEl.querySelectorAll('[data-tl-clip]').forEach(el => {
+                    const r = el.getBoundingClientRect();
+                    const left = r.left - gridRect.left;
+                    const top = r.top - gridRect.top;
+                    const right = r.right - gridRect.left;
+                    const bottom = r.bottom - gridRect.top;
+                    if (right >= mRect.left && left <= mRect.right && bottom >= mRect.top && top <= mRect.bottom) {
+                        hits.push(el.dataset.tlClip);
+                    }
+                });
+                state.setClipSelectionSet(hits);
+            }
+        }
         scrubbing = false;
         cardResize = null;
         clipDrag = null;

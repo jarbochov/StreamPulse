@@ -18,7 +18,7 @@
 .mp-grid button { padding: 0; overflow: hidden; display: flex; flex-direction: column; text-align: left; background: var(--bg-inset, #0d1117); }
 .mp-grid button:hover, .mp-grid button:focus-visible, .mp-grid button.on { border-color: var(--accent, #58a6ff); outline: none; }
 .mp-thumb { height: 84px; background: repeating-conic-gradient(#2a2f36 0 25%, #1c2128 0 50%) 0 0 / 14px 14px; }
-.mp-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.mp-thumb img, .mp-thumb video { width: 100%; height: 100%; object-fit: contain; display: block; }
 .mp-cap { padding: 4px 6px; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mp-empty { grid-column: 1 / -1; text-align: center; color: var(--text-muted, #8b949e); padding: 20px; }
 .mp-status { margin-right: auto; }
@@ -36,14 +36,21 @@
 
     const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-    function open({ value = '', onPick }) {
+    function open({ value = '', kind = 'image', onPick }) {
         injectStyle();
+        const isVideo = kind === 'video';
+        const isMedia = kind === 'media';
+        const noun = isVideo ? 'video' : (isMedia ? 'media file' : 'image');
+        const plural = isVideo ? 'Videos' : (isMedia ? 'Images and videos' : 'Images');
+        const accept = isVideo ? 'video/mp4,video/webm,video/ogg' : (isMedia ? 'image/*,video/mp4,video/webm,video/ogg' : 'image/*');
+        const browserKey = isVideo ? 'videos' : (isMedia ? 'media' : 'images');
+
         const backdrop = document.createElement('div');
         backdrop.className = 'mp-backdrop';
-        backdrop.innerHTML = `<div class="mp-dialog" role="dialog" aria-label="Choose an image">
-            <div class="mp-head"><input type="search" placeholder="Filter by name" aria-label="Filter images"><label class="mp-upload">Upload from computer<input type="file" accept="image/*" hidden></label><button type="button" data-clear>No image</button><button type="button" data-close>Cancel</button></div>
+        backdrop.innerHTML = `<div class="mp-dialog" role="dialog" aria-label="Choose a ${noun}">
+            <div class="mp-head"><input type="search" placeholder="Filter by name" aria-label="Filter ${plural.toLowerCase()}"><label class="mp-upload">Upload from computer<input type="file" accept="${accept}" hidden></label><button type="button" data-clear>Clear</button><button type="button" data-close>Cancel</button></div>
             <div class="mp-grid" role="listbox"><div class="mp-empty">Loading…</div></div>
-            <div class="mp-foot"><span class="mp-status">Images from the Asset Library. Uploads are saved there too.</span></div>
+            <div class="mp-foot"><span class="mp-status">${plural} from the Asset Library. Uploads are saved there too.</span><a href="/assets.html" target="_blank" rel="noopener" style="color:var(--accent,#58a6ff);text-decoration:none;font-weight:600;">Manage Library</a></div>
         </div>`;
         const input = backdrop.querySelector('input[type=search]');
         const file = backdrop.querySelector('input[type=file]');
@@ -53,7 +60,7 @@
         let closed = false, loaded = false, browser = null;
         import('/js/asset-browser.js').then(({ mountAssetBrowser }) => {
             if (closed) return;
-            browser = mountAssetBrowser({ search: input, key: 'images', onChange: draw });
+            browser = mountAssetBrowser({ search: input, key: browserKey, onChange: draw });
             if (loaded) draw();
         }).catch(() => {
             if (!closed) grid.innerHTML = '<div class="mp-empty">Could not load browsing controls. Close and try again.</div>';
@@ -73,13 +80,16 @@
         function draw() {
             if (!browser) return;
             const list = browser.filter(assets);
-            grid.innerHTML = list.length ? '' : '<div class="mp-empty">No images match. Change the search or tag, or upload an image.</div>';
+            grid.innerHTML = list.length ? '' : `<div class="mp-empty">No ${plural.toLowerCase()} match. Change the search or tag, or upload a ${noun}.</div>`;
             list.forEach(a => {
                 const b = document.createElement('button');
                 b.type = 'button';
                 b.setAttribute('role', 'option');
                 if (a.url === value) b.classList.add('on');
-                b.innerHTML = `<div class="mp-thumb"><img src="${esc(a.url)}" alt="" loading="lazy" decoding="async"></div><div class="mp-cap" title="${esc(a.label || a.name)}">${esc(a.label || a.name)}</div>`;
+                const thumb = a.kind === 'video'
+                    ? `<video src="${esc(a.url)}" muted preload="metadata"></video>`
+                    : `<img src="${esc(a.url)}" alt="" loading="lazy" decoding="async">`;
+                b.innerHTML = `<div class="mp-thumb">${thumb}</div><div class="mp-cap" title="${esc(a.label || a.name)}">${esc(a.label || a.name)}</div>`;
                 b.onclick = () => pick(a.url);
                 grid.appendChild(b);
             });
@@ -87,7 +97,14 @@
 
         fetch('/api/custom-overlays/assets', { cache: 'no-store' })
             .then(r => r.json())
-            .then(list => { if (!closed) { assets = list.filter(a => a.kind === 'image'); loaded = true; draw(); } })
+            .then(list => {
+                if (!closed) {
+                    const arr = Array.isArray(list) ? list : (list?.assets || []);
+                    assets = arr.filter(a => (isMedia ? (a.kind === 'image' || a.kind === 'video') : a.kind === kind));
+                    loaded = true;
+                    draw();
+                }
+            })
             .catch(() => { if (!closed) grid.innerHTML = '<div class="mp-empty">Could not load the Asset Library.</div>'; });
 
         file.addEventListener('change', async () => {

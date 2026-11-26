@@ -36,74 +36,10 @@ function getPatternPalettes() {
     return ['midnight', 'neon', 'sunset', 'gold', 'ocean', 'forest'];
 }
 
-function openAssetPickerModal(state, { kind = 'all', onPick }) {
-    const existing = document.getElementById('cs-asset-picker-modal');
-    if (existing) existing.remove();
-
-    const modal = document.createElement('div');
-    modal.id = 'cs-asset-picker-modal';
-    modal.className = 'cs-modal-backdrop';
-    modal.innerHTML = `
-        <div class="cs-modal">
-            <div class="cs-modal-head">
-                <span>Choose from StreamPulse Asset Library</span>
-                <div style="display:flex;gap:8px;align-items:center;">
-                    <a href="/assets.html" target="_blank" class="cs-btn cs-btn-sm" style="text-decoration:none;">Manage Assets</a>
-                    <button type="button" class="cs-btn cs-btn-sm" data-close>Close</button>
-                </div>
-            </div>
-            <div class="cs-modal-body">
-                <div style="display:flex;gap:8px;margin-bottom:12px;">
-                    <input type="search" id="cs-asset-search" placeholder="Search assets by name or tag..." style="flex:1;padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-inset);color:var(--text);font-size:12px;">
-                </div>
-                <div class="cs-asset-grid" id="cs-asset-grid"></div>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(modal);
-
-    const searchInput = modal.querySelector('#cs-asset-search');
-    const grid = modal.querySelector('#cs-asset-grid');
-    const close = () => modal.remove();
-    modal.addEventListener('click', ev => {
-        if (ev.target === modal || ev.target.closest('[data-close]')) close();
-    });
-
-    function draw() {
-        const q = (searchInput.value || '').trim().toLowerCase();
-        const items = (state.store.assets || []).filter(a => {
-            const url = a.url || '';
-            const isVid = /\.(mp4|webm|ogg)$/i.test(url) || a.kind === 'video';
-            const isImg = /\.(png|jpe?g|gif|webp|avif|svg)$/i.test(url) || a.kind === 'image';
-            if (kind === 'image' && !isImg) return false;
-            if (kind === 'video' && !isVid) return false;
-            if (kind === 'media' && !isImg && !isVid) return false;
-            const hay = `${a.name || ''} ${a.label || ''} ${(a.tags || []).join(' ')}`.toLowerCase();
-            return !q || hay.includes(q);
-        });
-        if (!items.length) {
-            grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--text-muted);font-size:12px;">No matching assets found. Upload images or videos in Asset Library first.</div>';
-            return;
-        }
-        grid.innerHTML = items.map(a => {
-            const url = a.url || '';
-            const isVid = /\.(mp4|webm|ogg)$/i.test(url) || a.kind === 'video';
-            const thumb = isVid
-                ? `<video class="cs-asset-thumb" src="${esc(url)}" muted preload="metadata"></video>`
-                : `<img class="cs-asset-thumb" src="${esc(url)}" alt="">`;
-            return `<button type="button" class="cs-asset-tile" data-pick-url="${esc(url)}">${thumb}<div class="cs-asset-name">${esc(a.label || a.name || url)}</div></button>`;
-        }).join('');
-        grid.querySelectorAll('[data-pick-url]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                onPick(btn.dataset.pickUrl);
-                close();
-            });
-        });
+function openAssetPickerModal(_state, { kind = 'image', value = '', onPick }) {
+    if (window.ImagePicker && typeof window.ImagePicker.open === 'function') {
+        window.ImagePicker.open({ value, kind, onPick });
     }
-
-    searchInput.addEventListener('input', draw);
-    state.refreshAssets().then(draw);
-    draw();
 }
 
 function openBulkImportModal({ mode, onImport }) {
@@ -629,7 +565,7 @@ export function mountCreditSuiteInspector({ state, stage }) {
             window.IconPicker?.open({ value: block.mediaIcon || '', onPick: cls => updateBlock(b => { b.mediaIcon = cls; }) });
         });
         bodyEl.querySelector('#cs-pick-block-asset')?.addEventListener('click', () => {
-            openAssetPickerModal(state, { kind: block.mediaKind === 'video' ? 'video' : 'image', onPick: url => updateBlock(b => { b.mediaUrl = url; }) });
+            openAssetPickerModal(state, { value: block.mediaUrl || '', kind: block.mediaKind === 'video' ? 'video' : 'image', onPick: url => updateBlock(b => { b.mediaUrl = url; }) });
         });
 
         // Role-split rows
@@ -1031,7 +967,7 @@ export function mountCreditSuiteInspector({ state, stage }) {
             stage?.play();
         });
         bodyEl.querySelector('#cs-pick-clip-asset')?.addEventListener('click', () => {
-            openAssetPickerModal(state, { kind: t === 'video' ? 'video' : 'image', onPick: url => updateClip(c => { c.mediaUrl = url; }) });
+            openAssetPickerModal(state, { value: clip.mediaUrl || '', kind: t === 'video' ? 'video' : 'image', onPick: url => updateClip(c => { c.mediaUrl = url; }) });
         });
         bodyEl.querySelector('#cs-add-slide-img')?.addEventListener('click', () => {
             openAssetPickerModal(state, { kind: 'image', onPick: url => updateClip(c => { c.slideshowImages = [...(c.slideshowImages || []), url]; }) });
@@ -1374,7 +1310,7 @@ export function mountCreditSuiteInspector({ state, stage }) {
             });
         });
         bodyEl.querySelector('#cs-pick-bg-asset')?.addEventListener('click', () => {
-            openAssetPickerModal(state, { kind: bg.type === 'video' ? 'video' : 'image', onPick: url => state.mutateProject(p => { p.background.mediaUrl = url; }) });
+            openAssetPickerModal(state, { value: bg.mediaUrl || '', kind: bg.type === 'video' ? 'video' : 'image', onPick: url => state.mutateProject(p => { p.background.mediaUrl = url; }) });
         });
     }
 

@@ -717,7 +717,7 @@ function solveTimeline(project, measuredHeights = {}) {
         }
     }
 
-    function computePass(blockZones, extraClearanceByBlock = {}) {
+    function computePass(blockZones, extraClearanceByBlock = {}, blockBoundsByBlock = {}) {
         const segments = [];
         let currentCrawl = null;
 
@@ -725,6 +725,7 @@ function solveTimeline(project, measuredHeights = {}) {
             const zone = block.zoneOverride && block.zoneOverride !== 'auto'
                 ? block.zoneOverride
                 : (blockZones[block.id] || 'center');
+            const zoneBounds = blockBoundsByBlock[block.id] || null;
             if (block.presentation === 'card') {
                 currentCrawl = null;
                 segments.push({
@@ -733,6 +734,7 @@ function solveTimeline(project, measuredHeights = {}) {
                     blockId: block.id,
                     block,
                     zone,
+                    zoneBounds,
                     durationSec: Math.max(0.5, Number(block.duration) || 4.5)
                 });
             } else {
@@ -757,6 +759,7 @@ function solveTimeline(project, measuredHeights = {}) {
                     blockId: block.id,
                     block,
                     zone,
+                    zoneBounds,
                     clearanceTopPx,
                     offsetY: currentCrawl.contentHeight,
                     height: h
@@ -798,6 +801,7 @@ function solveTimeline(project, measuredHeights = {}) {
                     kind: 'card',
                     segmentId: seg.id,
                     zone: seg.zone,
+                    zoneBounds: seg.zoneBounds,
                     startSec: seg.startSec,
                     endSec: seg.endSec,
                     centerSec: (seg.startSec + seg.endSec) * 0.5,
@@ -817,6 +821,7 @@ function solveTimeline(project, measuredHeights = {}) {
                         kind: 'crawl',
                         segmentId: seg.id,
                         zone: bm.zone,
+                        zoneBounds: bm.zoneBounds,
                         clearanceTopPx: bm.clearanceTopPx,
                         startSec: enterSec,
                         endSec: exitSec,
@@ -825,7 +830,9 @@ function solveTimeline(project, measuredHeights = {}) {
                         centerSec,
                         durationSec: Math.max(0.5, exitSec - enterSec),
                         offsetY: bm.offsetY,
-                        height: bm.height
+                        height: bm.height,
+                        runStartSec: seg.startSec,
+                        runSpeed: seg.speedPxPerSec
                     };
                     if (bm.block.marker) {
                         markers.push({ name: bm.block.marker, timeSec: focusStart, blockId: bm.blockId });
@@ -902,39 +909,71 @@ function solveTimeline(project, measuredHeights = {}) {
     const initialZones = { ...blockAnchoredZones };
     let solved = computePass(initialZones);
 
-    // Pass 2 (Per-Section Auto-Center): assign timecode-overlapping blocks to side column,
-    // leave the next section after side media disappears cleanly centered, and auto-calculate
-    // vertical clearance so centered sections enter cleanly right after the side clip fades out!
+    // Pass 2 (Per-Section Auto-Center): mathematically guarantee ZERO overlap between any
+    // side-pushing clip and any credit block by checking exact vertical band intersection
+    // [tEnterBand, tExitBand] and computing exact remaining horizontal clear width beside the clip.
     if (reflowEnabled && reflowMode === 'per-section') {
         const finalZones = { ...initialZones };
+        const blockBounds = {};
         const sideClips = solved.resolvedClips.filter(rc => rc.pushTargetZone !== 'none');
 
+        const recordBound = (blockId, rc) => {
+            const x = Number(rc.clip.x) || 0;
+            const w = Number(rc.clip.width) || 40;
+            const prev = blockBounds[blockId] || { leftEdgePct: 0, rightEdgePct: 100 };
+            if (rc.pushTargetZone === 'right') {
+                prev.leftEdgePct = Math.max(prev.leftEdgePct, Math.min(70, x + w));
+            } else if (rc.pushTargetZone === 'left') {
+                prev.rightEdgePct = Math.min(prev.rightEdgePct, Math.max(30, x));
+            }
+            blockBounds[blockId] = prev;
+        };
+
         if (sideClips.length) {
+            // Record horizontal bounds for block-anchored clips first
+            for (const rc of sideClips) {
+                if (rc.clip.timingMode !== 'block' || !rc.clip.anchorBlockId) continue;
+                const startIdx = enabledBlocks.findIndex(b => b.id === rc.clip.anchorBlockId);
+                if (startIdx < 0) continue;
+                const spanN = Math.max(1, Number(rc.clip.anchorSpanBlocks) || 1);
+                for (let k = 0; k < spanN && startIdx + k < enabledBlocks.length; k++) {
+                    recordBound(enabledBlocks[startIdx + k].id, rc);
+                }
+            }
+
+            // Check exact screen-band intersection for timecode side clips against every block
             for (const block of enabledBlocks) {
                 if (block.zoneOverride && block.zoneOverride !== 'auto') {
                     finalZones[block.id] = block.zoneOverride;
                     continue;
                 }
-                if (finalZones[block.id]) continue;
                 const bt = solved.blockTimings[block.id];
                 if (!bt) continue;
-                // Check if any timecode side clip overlaps when this block is crossing the main stage
                 for (const rc of sideClips) {
                     if (rc.clip.timingMode === 'block') continue;
-                    const blkStart = bt.kind === 'crawl' ? bt.focusStartSec : bt.startSec;
-                    const blkEnd = bt.kind === 'crawl' ? bt.focusEndSec : bt.endSec;
-                    // If the block enters after the side clip has already disappeared, keep it centered!
-                    if (blkStart >= rc.endSec - 0.15) continue;
-                    if (blkEnd > rc.startSec + 0.15 && blkStart < rc.endSec - 0.15) {
-                        finalZones[block.id] = rc.pushTargetZone;
-                        break;
+                    if (bt.kind === 'card') {
+                        if (bt.endSec > rc.startSec + 0.1 && bt.startSec < rc.endSec - 0.1) {
+                            finalZones[block.id] = rc.pushTargetZone;
+                            recordBound(block.id, rc);
+                        }
+                    } else {
+                        const clipTopY = ((Number(rc.clip.y) || 0) / 100) * canvasH;
+                        const clipBotY = Math.min(canvasH, (((Number(rc.clip.y) || 0) + (Number(rc.clip.height) || 70)) / 100) * canvasH);
+                        const tEnterBand = bt.runStartSec + (bt.offsetY + Math.max(0, canvasH - clipBotY)) / bt.runSpeed;
+                        const tExitBand = bt.runStartSec + (bt.offsetY + bt.height + Math.max(0, canvasH - clipTopY)) / bt.runSpeed;
+                        // Only blocks that actually enter the clip's vertical band BEFORE the clip ends move aside;
+                        // the next block entering AFTER the clip ends stays cleanly centered!
+                        if (tExitBand > rc.startSec + 0.1 && tEnterBand < rc.endSec - 0.1) {
+                            finalZones[block.id] = rc.pushTargetZone;
+                            recordBound(block.id, rc);
+                        }
                     }
                 }
             }
 
-            // Re-run with finalized per-block zones, then compute vertical clearance where
+            // Re-run with finalized per-block zones & bounds, then compute vertical clearance where
             // a side-column block transitions back to a centered section!
-            const zonedSolved = computePass(finalZones);
+            const zonedSolved = computePass(finalZones, {}, blockBounds);
             const clearanceMap = {};
             const resolvedSideClips = zonedSolved.resolvedClips.filter(rc => rc.pushTargetZone !== 'none');
 
@@ -943,7 +982,6 @@ function solveTimeline(project, measuredHeights = {}) {
                     const prevBm = run.blockMetrics[i - 1];
                     const curBm = run.blockMetrics[i];
                     if (prevBm.zone !== 'center' && curBm.zone === 'center') {
-                        // Find the latest endSec of any side clip covering prevBm
                         const prevBt = zonedSolved.blockTimings[prevBm.blockId];
                         let latestClipEnd = 0;
                         let lowestClipBottomY = canvasH * 0.85;
@@ -958,18 +996,17 @@ function solveTimeline(project, measuredHeights = {}) {
                             }
                         }
                         if (latestClipEnd > 0) {
-                            // Centered block reaches the clip's bottom band when scroll has traveled (curBm.offsetY + (canvasH - lowestClipBottomY))
                             const reachClipBandSec = run.startSec + (curBm.offsetY + Math.max(0, canvasH - lowestClipBottomY)) / run.speedPxPerSec;
-                            const neededDelaySec = Math.max(0, latestClipEnd - reachClipBandSec);
+                            const neededDelaySec = Math.max(0, latestClipEnd - reachClipBandSec + 0.15);
                             if (neededDelaySec > 0.05) {
-                                clearanceMap[curBm.blockId] = Math.min(Math.round(canvasH * 0.65), Math.round(neededDelaySec * run.speedPxPerSec));
+                                clearanceMap[curBm.blockId] = Math.min(Math.round(canvasH * 0.72), Math.round(neededDelaySec * run.speedPxPerSec));
                             }
                         }
                     }
                 }
             }
 
-            solved = computePass(finalZones, clearanceMap);
+            solved = computePass(finalZones, clearanceMap, blockBounds);
         }
     }
 
