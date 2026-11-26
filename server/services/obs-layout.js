@@ -40,6 +40,7 @@ local obs = obslua
 local MANIFEST_PATH = "${escapedPath}"
 
 local manifest_rev = 0
+local transition_rev = 0
 local source_rules = {}
 local poll_accum = 0.0
 
@@ -118,6 +119,51 @@ local function reload_manifest(force)
         end
     end
     source_rules = next_rules
+
+    local tr_rev = extract_number(raw, "transitionRevision", 0)
+    if tr_rev > 0 and (force or tr_rev ~= transition_rev) then
+        transition_rev = tr_rev
+        local tr_block = string.match(raw, '"itemTransitions"%s*:%s*(%b{})')
+        if tr_block then
+            for key, body in string.gmatch(tr_block, '"([^"]+)"%s*:%s*(%b{})') do
+                local sep = string.find(key, "::", 1, true)
+                if sep then
+                    local sc_name = string.sub(key, 1, sep - 1)
+                    local src_name = string.sub(key, sep + 2)
+                    local sc_src = obs.obs_get_source_by_name(sc_name)
+                    if sc_src ~= nil then
+                        local scene = obs.obs_scene_from_source(sc_src)
+                        if scene ~= nil then
+                            local item = obs.obs_scene_find_source_recursive(scene, src_name)
+                            if item ~= nil then
+                                local function apply_side(is_show, kind, dur_ms, dir)
+                                    if not kind or kind == "" or kind == "none" then
+                                        obs.obs_sceneitem_set_transition(item, is_show, nil)
+                                        obs.obs_sceneitem_set_transition_duration(item, is_show, 0)
+                                        return
+                                    end
+                                    local settings = obs.obs_data_create()
+                                    if dir and dir ~= "" then
+                                        obs.obs_data_set_string(settings, "direction", dir)
+                                    end
+                                    local tr = obs.obs_source_create_private(kind, "sp_item_tr", settings)
+                                    obs.obs_data_release(settings)
+                                    if tr ~= nil then
+                                        obs.obs_sceneitem_set_transition(item, is_show, tr)
+                                        obs.obs_sceneitem_set_transition_duration(item, is_show, math.max(0, math.floor(dur_ms or 300)))
+                                        obs.obs_source_release(tr)
+                                    end
+                                end
+                                apply_side(true, extract_string(body, "showKind", "none"), extract_number(body, "showDurationMs", 300), extract_string(body, "showDir", "left"))
+                                apply_side(false, extract_string(body, "hideKind", "none"), extract_number(body, "hideDurationMs", 300), extract_string(body, "hideDir", "right"))
+                            end
+                        end
+                        obs.obs_source_release(sc_src)
+                    end
+                end
+            end
+        end
+    end
 end
 
 local function ease_in_out_cubic(t)
@@ -148,7 +194,7 @@ filter_def.get_properties = function()
 end
 
 filter_def.update = function(data, settings)
-    pcall(reload_manifest, true)
+    -- Only reload aspect rules on filter update; scene-item transitions apply safely on timer thread
 end
 
 filter_def.create = function(settings, source)
@@ -328,8 +374,10 @@ end
 function defaultState() {
     return {
         revision: 1,
+        transitionRevision: 1,
         sources: {},
-        layouts: []
+        layouts: [],
+        itemTransitions: {}
     };
 }
 
@@ -340,6 +388,19 @@ module.exports = function createObsLayoutService({ dataDir, broadcastToOverlays 
     const luaScriptPath = assetsDir ? path.join(assetsDir, 'streampulse-aspect.lua') : null;
 
     let state = defaultState();
+
+    function normalizeItemTransition(raw) {
+        if (!raw || typeof raw !== 'object') return null;
+        return {
+            scope: raw.scope === 'layout' ? 'layout' : 'shared',
+            showKind: String(raw.showKind || 'none').slice(0, 60),
+            showDurationMs: Math.max(0, Math.min(3000, Number(raw.showDurationMs ?? 300) || 0)),
+            showDir: String(raw.showDir || 'right').slice(0, 20),
+            hideKind: String(raw.hideKind || 'none').slice(0, 60),
+            hideDurationMs: Math.max(0, Math.min(3000, Number(raw.hideDurationMs ?? 300) || 0)),
+            hideDir: String(raw.hideDir || 'left').slice(0, 20)
+        };
+    }
 
     function normalizeLayout(raw, idx = 0) {
         const src = raw && typeof raw === 'object' ? raw : {};
@@ -366,7 +427,8 @@ module.exports = function createObsLayoutService({ dataDir, broadcastToOverlays 
                     transform: it?.transform && typeof it.transform === 'object' ? { ...it.transform } : null,
                     visible: it?.visible !== false,
                     aspect: it?.aspect ? normalizeAspectConfig(it.aspect) : null,
-                    motion
+                    motion,
+                    itemTransition: it?.itemTransition ? normalizeItemTransition(it.itemTransition) : null
                 };
             }).filter(it => it.sourceName)
             : [];
@@ -400,10 +462,19 @@ module.exports = function createObsLayoutService({ dataDir, broadcastToOverlays 
         const layouts = Array.isArray(raw.layouts)
             ? raw.layouts.slice(0, 100).map((l, i) => normalizeLayout(l, i))
             : [];
+        const itemTransitions = {};
+        if (raw.itemTransitions && typeof raw.itemTransitions === 'object') {
+            for (const [k, v] of Object.entries(raw.itemTransitions)) {
+                if (!k.includes('::') || !v || typeof v !== 'object') continue;
+                itemTransitions[k] = normalizeItemTransition(v);
+            }
+        }
         return {
             revision: Math.max(1, Number(raw.revision) || 1),
+            transitionRevision: Math.max(1, Number(raw.transitionRevision) || 1),
             sources,
-            layouts
+            layouts,
+            itemTransitions
         };
     }
 
@@ -422,8 +493,10 @@ module.exports = function createObsLayoutService({ dataDir, broadcastToOverlays 
         }
         const manifest = {
             revision: Math.max(Date.now(), state.revision),
+            transitionRevision: Number(state.transitionRevision) || 1,
             updatedAt: new Date().toISOString(),
-            sources: manifestSources
+            sources: manifestSources,
+            itemTransitions: state.itemTransitions || {}
         };
         writeAtomic(manifestPath, JSON.stringify(manifest, null, 2));
         return manifest;
@@ -515,6 +588,19 @@ module.exports = function createObsLayoutService({ dataDir, broadcastToOverlays 
             }
             persist();
             return getPublicState();
+        },
+        setItemTransition(sceneName, sourceName, cfg = {}) {
+            const sc = String(sceneName || '').trim();
+            const sn = String(sourceName || '').trim();
+            if (!sc || !sn) throw new Error('Missing sceneName or sourceName');
+            const key = `${sc}::${sn}`;
+            const prev = state.itemTransitions?.[key] || {};
+            const next = normalizeItemTransition({ ...prev, ...cfg });
+            if (!state.itemTransitions) state.itemTransitions = {};
+            state.itemTransitions[key] = next;
+            state.transitionRevision = Date.now();
+            persist();
+            return { key, transition: copy(next), state: getPublicState() };
         },
         regenerateLuaScript() {
             const lua = buildObsAspectLuaScript({ manifestPath });

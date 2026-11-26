@@ -93,7 +93,7 @@
 
 .ol-workspace {
     display: grid;
-    grid-template-columns: 275px minmax(0, 1fr) 355px;
+    grid-template-columns: 305px minmax(0, 1fr) 300px;
     gap: 0.85rem;
     align-items: start;
 }
@@ -930,4 +930,328 @@
     background: #dc2626;
     border-color: #dc2626;
     color: #ffffff;
+}
+
+/* Proportion & Compactness Polish: wider Layers/Layouts, narrower Inspector, compact layout buttons */
+.ol-layers-col .ol-inspector-tabs button {
+    font-size: 11px;
+    padding: 5px 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    white-space: nowrap;
+}
+
+.ol-layers-col .ol-inspector-tabs .ol-pill {
+    font-size: 0.6rem;
+    padding: 0.08rem 0.36rem;
+    margin-left: 0 !important;
+}
+
+.ol-layer-row {
+    padding: 5px 7px;
+    gap: 3px;
+}
+
+.ol-layer-top {
+    gap: 2px;
+}
+
+.ol-layer-name {
+    font-size: clamp(11px, 0.78vw, 12px);
+    letter-spacing: -0.01em;
+}
+
+.ol-layer-top .ol-icon-btn {
+    padding: 2px;
+}
+
+.ol-layout-item {
+    padding: 6px 8px;
+    gap: 5px;
+    font-size: 11.5px;
+}
+
+.ol-layout-head strong {
+    font-size: clamp(11px, 0.8vw, 12px);
+}
+
+.ol-layout-head .ol-pill {
+    font-size: 0.58rem;
+    padding: 0.1rem 0.4rem;
+}
+
+.ol-layout-actions {
+    gap: 4px;
+}
+
+.ol-layout-actions .btn {
+    padding: 2px 6px;
+    font-size: 10.5px;
+    line-height: 1.3;
+    min-height: 0;
+    border-radius: 5px;
+}
+
+.ol-inspector-sticky {
+    padding: 0.75rem 0.85rem;
+    gap: 0.6rem;
+}
+
+.ol-inspector-sticky .ol-field label {
+    font-size: 10px;
+}
+
+.ol-inspector-sticky .input {
+    font-size: 12px;
+    padding: 5px 7px;
+}
+
+.ol-inspector-sticky .btn-sm {
+    padding: 4px 7px;
+    font-size: 11px;
+}
+
+/* Pro Motion Path Editor: Direct-Bend Curves, Visual Preset Chips & Timeline Scrubber */
+.ol-path-svg .ol-curve-hit {
+    pointer-events: stroke;
+    cursor: grab;
+    stroke: transparent;
+    stroke-width: 28;
+    fill: none;
+}
+
+.ol-path-svg .ol-curve-hit:hover {
+    stroke: rgba(245, 158, 11, 0.16);
+}
+
+.ol-path-svg .ol-curve-hit:active {
+    cursor: grabbing;
+}
+
+.ol-motion-scrub-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding-top: 4px;
+    border-top: 1px solid rgba(245, 158, 11, 0.22);
+}
+
+.ol-motion-scrub-row input[type="range"] {
+    flex: 1;
+    min-width: 120px;
+    accent-color: #f59e0b;
+    cursor: pointer;
+}
+
+.ol-curve-chips {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+}
+
+.ol-curve-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 5px 2px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-inset);
+    color: var(--text-muted);
+    font-size: 9.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.ol-curve-chip:hover {
+    border-color: var(--accent);
+    color: var(--text-main);
+}
+
+.ol-curve-chip.active {
+    border-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.16);
+    color: #fbbf24;
+}
+
+.ol-ab-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 5px;
+    align-items: end;
+}
+
+/* Unified Motion Layers List (MOVE / IN / OUT / STATIC) */
+.ol-motion-layer-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 145px;
+    overflow-y: auto;
+    padding-right: 2px;
+}
+
+.ol-motion-layer-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 5px 7px;
+    border-radius: 7px;
+    border: 1px solid transparent;
+    background: var(--bg-inset);
+    color: var(--text-main);
+    font-size: 11px;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+}
+
+.ol-motion-layer-row:hover {
+    border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+
+.ol-motion-layer-row.is-selected {
+    border-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.14);
+}
+
+.ol-motion-layer-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+}
+
+.ol-motion-layer-meta {
+    font-size: 9.5px;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.ol-state-pill {
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 1px 5px;
+    border-radius: 4px;
+    flex: none;
+}
+
+.ol-state-pill.move { color: #fbbf24; background: rgba(245, 158, 11, 0.16); border: 1px solid rgba(245, 158, 11, 0.45); }
+.ol-state-pill.in { color: #4ade80; background: rgba(74, 222, 128, 0.16); border: 1px solid rgba(74, 222, 128, 0.45); }
+.ol-state-pill.out { color: #f87171; background: rgba(248, 113, 113, 0.16); border: 1px solid rgba(248, 113, 113, 0.45); }
+.ol-state-pill.static { color: var(--text-muted); background: rgba(148, 163, 184, 0.1); border: 1px solid var(--border); }
+
+.ol-ghost-start-box {
+    position: absolute;
+    border: 1.5px dashed rgba(56, 189, 248, 0.72);
+    background: rgba(56, 189, 248, 0.06);
+    pointer-events: auto;
+    cursor: pointer;
+    box-sizing: border-box;
+    z-index: 235;
+}
+
+.ol-ghost-start-label {
+    position: absolute;
+    left: 4px;
+    top: 3px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: rgba(12, 74, 110, 0.88);
+    color: #bae6fd;
+    font-size: 9.5px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.ol-inspector-sticky .ol-inspector-tabs {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.ol-inspector-sticky .ol-inspector-tabs button {
+    font-size: 11px;
+    padding: 5px 4px;
+}
+
+/* UX/UI Polish Sweep: Calm Sub-Card Sections, Active Layout Indicator & Shortcuts Card */
+.ol-card-section {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding: 8px 9px;
+    border-radius: 8px;
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+}
+
+.ol-card-section.is-highlight {
+    border-color: rgba(245, 158, 11, 0.42);
+}
+
+.ol-scope-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 5px 8px;
+    border-radius: 6px;
+    font-size: 10.5px;
+    font-weight: 600;
+    background: rgba(56, 189, 248, 0.1);
+    border: 1px solid rgba(56, 189, 248, 0.32);
+    color: #bae6fd;
+}
+
+.ol-scope-banner.is-layout {
+    background: rgba(245, 158, 11, 0.12);
+    border-color: rgba(245, 158, 11, 0.4);
+    color: #fde68a;
+}
+
+.ol-layout-item.is-active-layout {
+    border-color: rgba(63, 185, 80, 0.55);
+    background: color-mix(in srgb, #3fb950 8%, var(--bg-inset));
+}
+
+.ol-shortcut-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 10px;
+    font-size: 11px;
+    color: var(--text-muted);
+    align-items: center;
+}
+
+.ol-shortcut-grid kbd {
+    font: 10px ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+    color: var(--text-main);
+    white-space: nowrap;
+}
+
+.ol-locked-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 5px 8px;
+    border-radius: 7px;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    font-size: 11px;
+    color: #fde68a;
 }

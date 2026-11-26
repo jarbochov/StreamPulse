@@ -65,10 +65,104 @@
         .nav-palette-item .palette-hint { font-size: 0.75rem; color: var(--text-muted); }
         .nav-palette-empty { padding: 1.5rem; text-align: center; color: var(--text-muted); font-size: 0.88rem; }
         .nav-palette-footer { padding: 0.5rem 0.9rem; border-top: 1px solid var(--border); font-size: 0.75rem; color: var(--text-faint); display: flex; justify-content: space-between; background: var(--bg-inset); }
+
+        /* Konami Dev Mode Nav & Toast */
+        .nav-dev-group { display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; }
+        .nav-dev-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.25rem; background: color-mix(in srgb, #a371f7 14%, var(--bg-card)); border: 1px solid color-mix(in srgb, #a371f7 45%, var(--border)); border-radius: 6px; padding: 0.28rem 0.42rem; color: #c4b5fd; font-size: 0.74rem; font-weight: 650; cursor: pointer; transition: all 0.2s; line-height: 1; }
+        .nav.has-dev { gap: 0.4rem; }
+        .nav-dev-btn:hover { background: color-mix(in srgb, #a371f7 24%, var(--bg-card)); border-color: #a371f7; color: #fff; }
+        .nav-dev-btn.is-spinning svg { animation: nav-spin 0.8s linear infinite; }
+        @keyframes nav-spin { to { transform: rotate(360deg); } }
+        .nav-dev-toast { position: fixed; right: 18px; bottom: 18px; z-index: 99998; display: inline-flex; align-items: center; gap: 8px; padding: 0.6rem 0.95rem; border-radius: 10px; background: var(--bg-card, #111827); border: 1px solid color-mix(in srgb, #a371f7 55%, var(--border, #334155)); color: var(--text, #f8fafc); font-size: 0.82rem; font-weight: 600; box-shadow: 0 12px 32px rgba(0,0,0,0.45); opacity: 0; transform: translateY(8px); transition: opacity 0.2s ease, transform 0.2s ease; pointer-events: none; }
+        .nav-dev-toast.show { opacity: 1; transform: translateY(0); }
     `;
     document.head.appendChild(style);
 
     const MODULE_STORAGE_KEY = 'streampulse:modules';
+    const DEV_MODE_STORAGE_KEY = 'streampulse:dev_mode';
+    const KONAMI_SEQ = ['arrowup', 'arrowup', 'arrowdown', 'arrowdown', 'arrowleft', 'arrowright', 'arrowleft', 'arrowright', 'b', 'a'];
+    let devModeEnabled = (() => { try { return localStorage.getItem(DEV_MODE_STORAGE_KEY) === '1'; } catch { return false; } })();
+    let konamiIdx = 0;
+    let konamiTimer = null;
+    let devRestarting = false;
+
+    function showDevToast(message, durationMs = 2800) {
+        let el = document.getElementById('nav-dev-toast');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'nav-dev-toast';
+            el.className = 'nav-dev-toast';
+            document.body.appendChild(el);
+        }
+        el.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c4b5fd" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg><span>${message}</span>`;
+        requestAnimationFrame(() => el.classList.add('show'));
+        clearTimeout(el._hideTimer);
+        if (durationMs > 0) {
+            el._hideTimer = setTimeout(() => el.classList.remove('show'), durationMs);
+        }
+    }
+
+    async function triggerServerRestart() {
+        if (devRestarting) return;
+        devRestarting = true;
+        document.getElementById('nav-dev-restart-quick')?.classList.add('is-spinning');
+        showDevToast('Restarting StreamPulse server…', 0);
+        try {
+            await fetch('/api/restart', { method: 'POST' });
+        } catch {
+            // Expected if connection drops immediately on restart
+        }
+        // Poll until server is back online, then auto-reload
+        const started = Date.now();
+        const poll = async () => {
+            if (Date.now() - started > 30000) {
+                devRestarting = false;
+                document.getElementById('nav-dev-restart-quick')?.classList.remove('is-spinning');
+                showDevToast('Restart timed out — reload manually when ready.', 4000);
+                return;
+            }
+            try {
+                const res = await fetch('/api/status?_=' + Date.now(), { cache: 'no-store' });
+                if (res.ok) {
+                    showDevToast('StreamPulse is back online — reloading…', 1200);
+                    setTimeout(() => window.location.reload(), 250);
+                    return;
+                }
+            } catch { /* still restarting */ }
+            setTimeout(poll, 550);
+        };
+        setTimeout(poll, 900);
+    }
+
+    function setDevMode(enabled, announce = true) {
+        devModeEnabled = Boolean(enabled);
+        try { localStorage.setItem(DEV_MODE_STORAGE_KEY, devModeEnabled ? '1' : '0'); } catch { /* ignore */ }
+        buildNav();
+        if (announce) {
+            showDevToast(devModeEnabled ? 'Dev Mode unlocked — Restart & Dev tools added to nav' : 'Dev Mode hidden');
+        }
+    }
+
+    // Konami Code listener (ignored inside inputs, editors, and focused canvases)
+    window.addEventListener('keydown', e => {
+        const el = e.target;
+        const tag = (el?.tagName || '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || tag === 'select' || tag === 'canvas' || el?.isContentEditable) return;
+        if (el?.closest && el.closest('#ol-stage-wrap, .editor-canvas, .canvas-viewport, [data-canvas]')) return;
+        const key = String(e.key || '').toLowerCase();
+        if (key === KONAMI_SEQ[konamiIdx]) {
+            konamiIdx++;
+            clearTimeout(konamiTimer);
+            konamiTimer = setTimeout(() => { konamiIdx = 0; }, 3000);
+            if (konamiIdx === KONAMI_SEQ.length) {
+                konamiIdx = 0;
+                clearTimeout(konamiTimer);
+                setDevMode(!devModeEnabled, true);
+            }
+        } else {
+            konamiIdx = key === KONAMI_SEQ[0] ? 1 : 0;
+        }
+    });
     let moduleState = { chatbot: true, clips: true, weather: true, music: true, hashtags: true, polls: true, versus: true, trivia: true, subathon: false, obsBorders: true, obsPatterns: true };
     try {
         const cached = localStorage.getItem(MODULE_STORAGE_KEY);
@@ -614,6 +708,12 @@
         html += `<a href="/twitch-connect.html" id="nav-twitch-indicator" class="nav-status-pill twitch" title="Twitch connection status" style="display:none;"><span class="dot"></span><span class="label">Twitch</span></a>`;
         html += `<a href="/config-editor.html" id="nav-ssn-indicator" class="nav-status-pill" title="SocialStream connection status" style="display:none;"><span class="dot"></span><span class="label">SocialStream</span></a>`;
 
+        // Konami Dev Mode controls (compact icon pair so nav stays single-row)
+        container.classList.toggle('has-dev', devModeEnabled);
+        if (devModeEnabled) {
+            html += `<span class="nav-dev-group"><button type="button" id="nav-dev-restart-quick" class="nav-dev-btn${devRestarting ? ' is-spinning' : ''}" title="Restart StreamPulse Server" aria-label="Restart StreamPulse Server"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg></button><div class="dropdown" id="nav-dev-dropdown"><a href="#" class="dropdown-toggle nav-dev-btn" role="button" aria-haspopup="true" aria-expanded="false" title="Developer Tools" aria-label="Developer Tools"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg></a><div class="dropdown-menu"><div class="menu-heading">Developer Tools</div><a href="#" id="nav-dev-restart-item"><span>Restart Server</span></a><a href="#" id="nav-dev-reload-item"><span>Reload Page</span></a><a href="#" id="nav-dev-hide-item" style="color:#f87171;"><span>Hide Dev Mode</span></a></div></div></span>`;
+        }
+
         // Command palette button
         html += `<button type="button" id="nav-cmd-k" class="nav-cmd-btn" title="Quick Jump (Ctrl/⌘+K)" aria-label="Search pages"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-1px"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg> <kbd>⌘K</kbd></button>`;
 
@@ -631,6 +731,10 @@
 
         // Command palette click
         document.getElementById('nav-cmd-k')?.addEventListener('click', openCommandPalette);
+        document.getElementById('nav-dev-restart-quick')?.addEventListener('click', () => triggerServerRestart());
+        document.getElementById('nav-dev-restart-item')?.addEventListener('click', e => { e.preventDefault(); triggerServerRestart(); });
+        document.getElementById('nav-dev-reload-item')?.addEventListener('click', e => { e.preventDefault(); window.location.reload(); });
+        document.getElementById('nav-dev-hide-item')?.addEventListener('click', e => { e.preventDefault(); setDevMode(false, true); });
 
         // Dropdown click & tap toggle support
         container.querySelectorAll('.dropdown-toggle').forEach(btn => {
@@ -828,6 +932,11 @@
 
     // Multi-tab synchronization
     window.addEventListener('storage', event => {
+        if (event.key === DEV_MODE_STORAGE_KEY) {
+            devModeEnabled = event.newValue === '1';
+            buildNav();
+            return;
+        }
         if (event.key === MODULE_STORAGE_KEY && event.newValue) {
             try {
                 const parsed = JSON.parse(event.newValue);

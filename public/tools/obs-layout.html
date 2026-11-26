@@ -118,15 +118,18 @@
                 </div>
                 <div class="ol-motion-bar" id="ol-motion-bar" hidden>
                     <div class="ol-toolbar-group">
-                        <strong style="color:#fbbf24;">Motion Path Mode</strong>
+                        <strong style="color:#fbbf24;">Motion Path</strong>
                         <span id="ol-motion-target-label" style="color:var(--text-main);font-weight:600;">—</span>
                     </div>
                     <div class="ol-toolbar-group">
-                        <button type="button" class="btn btn-primary btn-sm" id="ol-btn-play-preview">Play Preview</button>
-                        <button type="button" class="btn btn-secondary btn-sm" id="ol-btn-add-wp">+ Waypoint</button>
                         <button type="button" class="btn btn-secondary btn-sm" id="ol-btn-reset-wp">Reset Curve</button>
                         <button type="button" class="btn btn-primary btn-sm" id="ol-btn-save-path">Save Path</button>
                         <button type="button" class="btn btn-secondary btn-sm" id="ol-btn-exit-path">Exit</button>
+                    </div>
+                    <div class="ol-motion-scrub-row">
+                        <button type="button" class="btn btn-primary btn-sm" id="ol-btn-play-preview" style="min-width:68px;">Play</button>
+                        <input type="range" id="ol-motion-scrub" min="0" max="100" step="0.5" value="0" aria-label="Scrub motion transition preview">
+                        <span class="ol-pill" id="ol-motion-scrub-time" style="min-width:78px;text-align:center;">0 / 450ms</span>
                     </div>
                 </div>
                 <div class="ol-stage-wrap" id="ol-stage-wrap" tabindex="0">
@@ -134,7 +137,7 @@
                 </div>
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;color:var(--text-muted);flex-wrap:wrap;">
                     <span id="ol-notice">Drag sources or handles to move/resize. Green outlines reflect live StreamPulse Border outer edges &amp; snap flush.</span>
-                    <span style="white-space:nowrap;">Arrows: 1px &bull; Shift+Arrows: 10px &bull; Cmd/Ctrl+Z: Undo</span>
+                    <span style="white-space:nowrap;">Arrows: 1/10px &bull; ⌘Z/⇧Z: Undo/Redo &bull; ⌘[/]: Layer Order &bull; ⌘⌥C/V: Copy/Paste &bull; ⌘S: Save</span>
                 </div>
             </div>
 
@@ -144,11 +147,16 @@
                     <span id="ol-sel-title">No Source Selected</span>
                     <span class="ol-pill" id="ol-sel-kind">—</span>
                 </div>
+                <div class="ol-locked-banner" id="ol-locked-banner" hidden>
+                    <span>Layer is locked in OBS</span>
+                    <button type="button" class="btn btn-secondary btn-sm" id="ol-btn-quick-unlock" style="padding:2px 7px;font-size:10.5px;">Unlock</button>
+                </div>
 
                 <div class="ol-inspector-tabs" role="tablist" aria-label="Inspector Sections">
                     <button type="button" class="active" data-insp-tab="transform" role="tab" aria-selected="true">Transform</button>
                     <button type="button" data-insp-tab="aspect" role="tab" aria-selected="false">Aspect</button>
                     <button type="button" data-insp-tab="motion" role="tab" aria-selected="false">Motion</button>
+                    <button type="button" data-insp-tab="scene" role="tab" aria-selected="false">Scene</button>
                 </div>
 
                 <!-- INSPECTOR SUB-TAB 1: TRANSFORM & ALIGNMENT -->
@@ -274,61 +282,189 @@
                     </div>
                 </div>
 
-                <!-- INSPECTOR SUB-TAB 3: MOTION, PATH EDITOR, LAYOUTS & HISTORY -->
-                <div id="ol-insp-motion" data-insp-pane="motion" hidden style="display:flex;flex-direction:column;gap:10px;">
-                    <div class="ol-field">
-                        <label for="ol-motion-target-select">Target Layout (Edit &amp; Preview Motion Paths)</label>
-                        <select id="ol-motion-target-select" class="input">
-                            <option value="">None — Select a Saved Layout to sculpt paths…</option>
-                        </select>
+                <!-- INSPECTOR SUB-TAB 3: MOTION & PATH STUDIO -->
+                <div id="ol-insp-motion" data-insp-pane="motion" hidden style="display:flex;flex-direction:column;gap:9px;">
+                    <div class="ol-micro-head"><span>Animate Between Layouts (A &rarr; B)</span></div>
+                    <div class="ol-ab-row">
+                        <div class="ol-field">
+                            <label for="ol-motion-from-select">From (Start A)</label>
+                            <select id="ol-motion-from-select" class="input">
+                                <option value="">Current Stage</option>
+                            </select>
+                        </div>
+                        <button type="button" class="btn btn-secondary btn-sm" id="ol-btn-swap-ab" title="Swap From &amp; To Layouts" style="padding:5px 7px;">&harr;</button>
+                        <div class="ol-field">
+                            <label for="ol-motion-target-select">To (Target B)</label>
+                            <select id="ol-motion-target-select" class="input">
+                                <option value="">Pick Layout…</option>
+                            </select>
+                        </div>
                     </div>
 
-                    <div id="ol-item-motion-box" hidden style="display:flex;flex-direction:column;gap:8px;padding:8px 9px;border-radius:8px;background:var(--bg-inset);border:1px solid rgba(245,158,11,0.35);">
+                    <div id="ol-moving-sources-wrap" hidden style="display:flex;flex-direction:column;gap:4px;">
+                        <div class="ol-micro-head">
+                            <span>All Scene Layers</span>
+                            <span class="ol-pill" id="ol-motion-summary-pill">0 active</span>
+                        </div>
+                        <div class="ol-motion-layer-list" id="ol-moving-sources-chips"></div>
+                    </div>
+
+                    <div id="ol-item-motion-box" hidden style="display:flex;flex-direction:column;gap:7px;padding:7px 8px;border-radius:8px;background:var(--bg-inset);border:1px solid rgba(245,158,11,0.35);">
                         <div class="ol-micro-head">
                             <span id="ol-item-motion-name" style="color:#fbbf24;">Source Path</span>
                             <span class="ol-pill" id="ol-item-wp-count">0 pts</span>
                         </div>
+                        <div id="ol-item-static-hint" hidden style="font-size:11px;color:var(--text-muted);line-height:1.4;">
+                            This layer is <strong>Stationary</strong> between A and B. Drag or resize it on stage (or toggle its visibility) to animate it.
+                        </div>
+                        <div id="ol-item-motion-controls" style="display:flex;flex-direction:column;gap:7px;">
+                        
+                        <div class="ol-curve-chips" id="ol-item-curve-chips">
+                            <button type="button" class="ol-curve-chip active" data-path-chip="" title="Use Scene Default"><span>Auto</span></button>
+                            <button type="button" class="ol-curve-chip" data-path-chip="direct" title="Direct Straight Line"><svg width="18" height="12" viewBox="0 0 24 14" fill="none" stroke="currentColor" stroke-width="2"><line x1="2" y1="12" x2="22" y2="2"/></svg><span>Direct</span></button>
+                            <button type="button" class="ol-curve-chip" data-path-chip="arc-up" title="Arc Upward"><svg width="18" height="12" viewBox="0 0 24 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12 Q12 -2 22 12"/></svg><span>Arc Up</span></button>
+                            <button type="button" class="ol-curve-chip" data-path-chip="arc-down" title="Arc Downward"><svg width="18" height="12" viewBox="0 0 24 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 2 Q12 16 22 2"/></svg><span>Arc Dn</span></button>
+                            <button type="button" class="ol-curve-chip" data-path-chip="s-curve" title="Smooth S-Curve"><svg width="18" height="12" viewBox="0 0 24 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12 C9 12 9 2 15 2 C19 2 20 2 22 2"/></svg><span>S-Curve</span></button>
+                            <button type="button" class="ol-curve-chip" data-path-chip="elbow-hv" title="90° Horizontal then Vertical"><svg width="18" height="12" viewBox="0 0 24 14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="2 2 21 2 21 12"/></svg><span>90° H&rarr;V</span></button>
+                            <button type="button" class="ol-curve-chip" data-path-chip="elbow-vh" title="90° Vertical then Horizontal"><svg width="18" height="12" viewBox="0 0 24 14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 2 3 12 22 12"/></svg><span>90° V&rarr;H</span></button>
+                            <button type="button" class="ol-curve-chip" data-path-chip="custom" title="Drag directly on curve to bend"><svg width="18" height="12" viewBox="0 0 24 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 11 Q12 1 22 11"/><circle cx="12" cy="5" r="2.2" fill="currentColor"/></svg><span>Custom</span></button>
+                        </div>
                         <div class="ol-grid2">
                             <div class="ol-field">
-                                <label for="ol-item-path-type">Path Override</label>
-                                <select id="ol-item-path-type" class="input">
-                                    <option value="">Inherit Scene Default</option>
-                                    <option value="direct">Direct Line</option>
-                                    <option value="arc-up">Arc Up</option>
-                                    <option value="arc-down">Arc Down</option>
-                                    <option value="s-curve">S-Curve</option>
-                                    <option value="custom">Custom Curve (Handles)</option>
+                                <label for="ol-item-trans-type">Layer Transition</label>
+                                <select id="ol-item-trans-type" class="input">
+                                    <option value="">Scene Default</option>
+                                    <option value="move">Move</option>
+                                    <option value="fade">Fade</option>
+                                    <option value="move-fade">Move + Fade</option>
+                                    <option value="cut">Cut</option>
                                 </select>
                             </div>
                             <div class="ol-field">
-                                <label for="ol-item-delay">Stagger Delay (ms)</label>
+                                <label for="ol-item-delay">Stagger (ms)</label>
                                 <input type="number" id="ol-item-delay" class="input" min="0" max="2000" step="25" value="0">
                             </div>
                         </div>
-                        <div style="font-size:11px;color:var(--text-muted);">
-                            Drag numbered amber handles on stage to bend this source's flight curve. Right-click a handle to remove it.
+                        <div style="font-size:10.5px;color:var(--text-muted);line-height:1.35;">
+                            Drag directly on any curve on stage to bend it. Double-click or right-click a handle to remove it.
+                        </div>
                         </div>
                     </div>
 
-                    <div class="ol-micro-head"><span>Scene Default Transition</span></div>
-                    <div class="ol-grid2">
-                        <div class="ol-field">
-                            <label for="ol-trans-type">Transition Type</label>
-                            <select id="ol-trans-type" class="input">
-                                <option value="move">Move (Smooth)</option>
-                                <option value="fade">Fade (Crossfade)</option>
-                                <option value="move-fade">Move + Fade</option>
-                                <option value="cut">Cut (Instant)</option>
-                            </select>
+                    <div class="ol-card-section" id="ol-showhide-card">
+                        <div class="ol-micro-head">
+                            <span>Show / Hide Transition</span>
+                            <span class="ol-pill">OBS Native</span>
                         </div>
                         <div class="ol-field">
-                            <label for="ol-path-type">Movement Path</label>
-                            <select id="ol-path-type" class="input">
-                                <option value="direct">Direct Line</option>
-                                <option value="arc-up">Arc Up</option>
-                                <option value="arc-down">Arc Down</option>
-                                <option value="s-curve">S-Curve</option>
-                                <option value="custom">Custom Path (Stage)</option>
+                            <label for="ol-tr-scope">Apply Scope</label>
+                            <select id="ol-tr-scope" class="input">
+                                <option value="shared">Shared across all layouts (Scene)</option>
+                                <option value="layout">Independent for a specific layout</option>
+                            </select>
+                        </div>
+                        <div class="ol-field" id="ol-tr-layout-wrap" hidden>
+                            <label for="ol-tr-target-layout">Save To Layout</label>
+                            <select id="ol-tr-target-layout" class="input">
+                                <option value="">Pick a saved layout…</option>
+                            </select>
+                        </div>
+                        <div class="ol-scope-banner" id="ol-tr-scope-banner">
+                            <span id="ol-tr-scope-text">Applies to all layouts in this scene</span>
+                        </div>
+                        <div class="ol-grid2">
+                            <div class="ol-field">
+                                <label for="ol-show-tr-kind">Show (Appear)</label>
+                                <select id="ol-show-tr-kind" class="input">
+                                    <option value="none">None</option>
+                                    <option value="fade_transition">Fade</option>
+                                    <option value="slide_transition">Slide</option>
+                                    <option value="swipe_transition">Swipe</option>
+                                    <option value="fade_to_color_transition">Fade to Color</option>
+                                    <option value="wipe_transition">Luma Wipe</option>
+                                    <option value="cut_transition">Cut</option>
+                                </select>
+                            </div>
+                            <div class="ol-field">
+                                <label for="ol-show-tr-dur">Show (ms)</label>
+                                <input type="number" id="ol-show-tr-dur" class="input" min="0" max="3000" step="50" value="300">
+                            </div>
+                        </div>
+                        <div class="ol-field" id="ol-show-tr-dir-wrap" hidden>
+                            <label for="ol-show-tr-dir">Show Direction</label>
+                            <select id="ol-show-tr-dir" class="input">
+                                <option value="right">From Left (Move Right)</option>
+                                <option value="left">From Right (Move Left)</option>
+                                <option value="down">From Top (Move Down)</option>
+                                <option value="up">From Bottom (Move Up)</option>
+                            </select>
+                        </div>
+                        <div class="ol-grid2">
+                            <div class="ol-field">
+                                <label for="ol-hide-tr-kind">Hide (Disappear)</label>
+                                <select id="ol-hide-tr-kind" class="input">
+                                    <option value="none">None</option>
+                                    <option value="fade_transition">Fade</option>
+                                    <option value="slide_transition">Slide</option>
+                                    <option value="swipe_transition">Swipe</option>
+                                    <option value="fade_to_color_transition">Fade to Color</option>
+                                    <option value="wipe_transition">Luma Wipe</option>
+                                    <option value="cut_transition">Cut</option>
+                                </select>
+                            </div>
+                            <div class="ol-field">
+                                <label for="ol-hide-tr-dur">Hide (ms)</label>
+                                <input type="number" id="ol-hide-tr-dur" class="input" min="0" max="3000" step="50" value="300">
+                            </div>
+                        </div>
+                        <div class="ol-field" id="ol-hide-tr-dir-wrap" hidden>
+                            <label for="ol-hide-tr-dir">Hide Direction</label>
+                            <select id="ol-hide-tr-dir" class="input">
+                                <option value="left">To Left</option>
+                                <option value="right">To Right</option>
+                                <option value="up">To Top</option>
+                                <option value="down">To Bottom</option>
+                            </select>
+                        </div>
+                        <div class="ol-grid2">
+                            <button type="button" class="btn btn-primary btn-sm" id="ol-btn-apply-showhide">Apply to OBS</button>
+                            <button type="button" class="btn btn-secondary btn-sm" id="ol-btn-test-showhide" title="Briefly hides then shows this layer in OBS to preview">Test Toggle</button>
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn btn-secondary btn-sm" id="ol-btn-open-layouts-tab">&larr; Manage Saved Layouts</button>
+                </div>
+
+                <!-- INSPECTOR SUB-TAB 4: SCENE TRANSITION DEFAULTS -->
+                <div id="ol-insp-scene" data-insp-pane="scene" hidden style="display:flex;flex-direction:column;gap:9px;">
+                    <div class="ol-micro-head">
+                        <span>Scene Transition Defaults</span>
+                        <span class="ol-pill beta">All Layers</span>
+                    </div>
+                    <div style="font-size:11px;color:var(--text-muted);line-height:1.4;">
+                        Used by any layer set to <strong>Auto</strong> / <strong>Scene Default</strong> when applying layouts in this scene.
+                    </div>
+                    
+                        <div class="ol-curve-chips" id="ol-scene-curve-chips">
+                            
+                            <button type="button" class="ol-curve-chip active" data-path-chip="direct" title="Direct Straight Line"><svg width="18" height="12" viewBox="0 0 24 14" fill="none" stroke="currentColor" stroke-width="2"><line x1="2" y1="12" x2="22" y2="2"/></svg><span>Direct</span></button>
+                            <button type="button" class="ol-curve-chip" data-path-chip="arc-up" title="Arc Upward"><svg width="18" height="12" viewBox="0 0 24 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12 Q12 -2 22 12"/></svg><span>Arc Up</span></button>
+                            <button type="button" class="ol-curve-chip" data-path-chip="arc-down" title="Arc Downward"><svg width="18" height="12" viewBox="0 0 24 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 2 Q12 16 22 2"/></svg><span>Arc Dn</span></button>
+                            <button type="button" class="ol-curve-chip" data-path-chip="s-curve" title="Smooth S-Curve"><svg width="18" height="12" viewBox="0 0 24 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12 C9 12 9 2 15 2 C19 2 20 2 22 2"/></svg><span>S-Curve</span></button>
+                            <button type="button" class="ol-curve-chip" data-path-chip="elbow-hv" title="90° Horizontal then Vertical"><svg width="18" height="12" viewBox="0 0 24 14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="2 2 21 2 21 12"/></svg><span>90° H&rarr;V</span></button>
+                            <button type="button" class="ol-curve-chip" data-path-chip="elbow-vh" title="90° Vertical then Horizontal"><svg width="18" height="12" viewBox="0 0 24 14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 2 3 12 22 12"/></svg><span>90° V&rarr;H</span></button>
+                            <button type="button" class="ol-curve-chip" data-path-chip="custom" title="Drag directly on curve to bend"><svg width="18" height="12" viewBox="0 0 24 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 11 Q12 1 22 11"/><circle cx="12" cy="5" r="2.2" fill="currentColor"/></svg><span>Custom</span></button>
+                        </div>
+                    <input type="hidden" id="ol-path-type" value="direct">
+
+                    <div class="ol-grid2">
+                        <div class="ol-field">
+                            <label for="ol-trans-type">Transition</label>
+                            <select id="ol-trans-type" class="input">
+                                <option value="move">Move</option>
+                                <option value="fade">Fade</option>
+                                <option value="move-fade">Move + Fade</option>
+                                <option value="cut">Cut</option>
                             </select>
                         </div>
                         <div class="ol-field">
@@ -338,21 +474,31 @@
                                 <option value="ease-out">Ease Out</option>
                                 <option value="ease-in">Ease In</option>
                                 <option value="linear">Linear</option>
-                                <option value="overshoot">Overshoot (Spring)</option>
+                                <option value="overshoot">Overshoot</option>
                             </select>
                         </div>
                         <div class="ol-field">
-                            <label for="ol-trans-dur">Transition (ms)</label>
+                            <label for="ol-trans-dur">Duration (ms)</label>
                             <input type="number" id="ol-trans-dur" class="input" min="0" max="3000" step="50" value="450">
+                        </div>
+                        <div class="ol-field" id="ol-curve-wrap">
+                            <label for="ol-path-curve">Arc (<span id="ol-path-curve-val">28</span>%)</label>
+                            <input type="range" id="ol-path-curve" min="0" max="100" value="28">
                         </div>
                     </div>
 
-                    <div class="ol-field" id="ol-curve-wrap">
-                        <label for="ol-path-curve">Path Curve Intensity (<span id="ol-path-curve-val">28</span>%)</label>
-                        <input type="range" id="ol-path-curve" min="0" max="100" value="28">
+                    <div class="ol-card-section" style="margin-top:4px;">
+                        <div class="ol-micro-head"><span>Keyboard Shortcuts</span></div>
+                        <div class="ol-shortcut-grid">
+                            <kbd>Arrows</kbd><span>Nudge layer 1px (Shift: 10px)</span>
+                            <kbd>⌘Z / ⌘⇧Z</kbd><span>Undo / Redo</span>
+                            <kbd>⌘S</kbd><span>Save Path or Apply Staged</span>
+                            <kbd>⌘[ / ⌘]</kbd><span>Send Backward / Bring Forward</span>
+                            <kbd>⌘⌥C / ⌘⌥V</kbd><span>Copy / Paste Transform</span>
+                            <kbd>Space</kbd><span>Play / Pause Motion Preview</span>
+                            <kbd>Esc</kbd><span>Close modal / Exit Path Mode</span>
+                        </div>
                     </div>
-
-                    <button type="button" class="btn btn-secondary btn-sm" id="ol-btn-open-layouts-tab" style="margin-top:4px;">&larr; Manage Saved Layouts</button>
                 </div>
             </aside>
         </div>

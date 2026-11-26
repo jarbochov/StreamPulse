@@ -47,7 +47,9 @@ function normalizeAspectConfig(raw = {}) {
         zoom: clamp(src.zoom, 1, 3, 1),
         resizeMode: RESIZE_MODES.includes(src.resizeMode) ? src.resizeMode : 'lock-width',
         anchor: Object.prototype.hasOwnProperty.call(ANCHORS, src.anchor) ? src.anchor : 'c',
-        durationMs: clamp(src.durationMs, 0, 3000, 400)
+        durationMs: clamp(src.durationMs, 0, 3000, 400),
+        slotW: clamp(src.slotW, 0, 10000, 0),
+        slotH: clamp(src.slotH, 0, 10000, 0)
     };
 }
 
@@ -388,7 +390,7 @@ function computeNativeObsCropPatch(sourceWidth, sourceHeight, rawCfg = {}, borde
 }
 
 const TRANSITION_TYPES = ['move', 'fade', 'move-fade', 'cut'];
-const PATH_TYPES = ['direct', 'arc-up', 'arc-down', 's-curve', 'custom'];
+const PATH_TYPES = ['direct', 'arc-up', 'arc-down', 's-curve', 'elbow-hv', 'elbow-vh', 'custom'];
 const EASINGS = ['ease-in-out', 'ease-out', 'ease-in', 'linear', 'overshoot'];
 
 function evalEasing(t, easing = 'ease-in-out') {
@@ -432,6 +434,24 @@ function evalPathPoint(x0, y0, x1, y1, t, { pathType = 'direct', pathCurve = 0.2
             x: u * u * x0 + 2 * u * t * midX + t * t * x1,
             y: u * u * y0 + 2 * u * t * midY + t * t * y1
         };
+    }
+    if (pathType === 'elbow-hv' || pathType === 'elbow-vh') {
+        const ax = Math.abs(dx);
+        const ay = Math.abs(dy);
+        const total = Math.max(1, ax + ay);
+        const clampedT = Math.min(1, Math.max(0, t));
+        if (pathType === 'elbow-hv') {
+            const split = ax / total;
+            if (split <= 0.001) return { x: x1, y: y0 + dy * clampedT };
+            if (split >= 0.999) return { x: x0 + dx * clampedT, y: y1 };
+            if (clampedT <= split) return { x: x0 + dx * (clampedT / split), y: y0 };
+            return { x: x1, y: y0 + dy * ((clampedT - split) / (1 - split)) };
+        }
+        const split = ay / total;
+        if (split <= 0.001) return { x: x0 + dx * clampedT, y: y1 };
+        if (split >= 0.999) return { x: x1, y: y0 + dy * clampedT };
+        if (clampedT <= split) return { x: x0, y: y0 + dy * (clampedT / split) };
+        return { x: x0 + dx * ((clampedT - split) / (1 - split)), y: y1 };
     }
     if (pathType === 's-curve') {
         const offset = Math.max(40, dist * Math.abs(curve));

@@ -37,6 +37,8 @@ let stageObserver = null;
 let historyStack = [];
 let historyIndex = -1;
 let previewLayoutId = null;
+let motionFromLayoutId = "";
+let activeLayoutId = null;
 let customControlPoint = null;
 let itemMotionDrafts = {}; // sourceName -> { pathType, delayMs, waypoints: [{x,y}] }
 let previewAnimRaf = null;
@@ -128,6 +130,7 @@ async function applyPendingChangesToObs() {
             body: JSON.stringify({
                 sceneName: currentScene,
                 sceneItemId: item.sceneItemId,
+                sourceName: item.sourceName,
                 transform: patch,
                 visible: item.visible,
                 locked: item.locked
@@ -163,10 +166,10 @@ function getSelectedItem() {
 }
 
 function computeScaledBorderBoxes(item, rect = item?.rect) {
-    if (!item?.hasBorderFilter || !item.borderOuterRect || !item._origRect) {
+    const orig = item?._borderBaseRect || item?._origRect;
+    if (!item?.hasBorderFilter || !item.borderOuterRect || !orig) {
         return { outer: null, content: null };
     }
-    const orig = item._origRect;
     const rx = rect.width / Math.max(1, orig.width);
     const ry = rect.height / Math.max(1, orig.height);
     const mapBox = b => ({
@@ -260,6 +263,7 @@ async function pushTransformNow(item, extraPatch = {}, { refreshBackdrop = false
             body: JSON.stringify({
                 sceneName: currentScene,
                 sceneItemId: item.sceneItemId,
+                sourceName: item.sourceName,
                 transform: patch
             })
         });
@@ -311,6 +315,24 @@ function evalLocalPathPoint(x0, y0, x1, y1, t, { pathType = "direct", pathCurve 
     const dy = y1 - y0;
     const dist = Math.hypot(dx, dy);
     if (pathType === "direct" || dist < 1) return { x: x0 + dx * t, y: y0 + dy * t };
+    if (pathType === "elbow-hv" || pathType === "elbow-vh") {
+        const ax = Math.abs(dx);
+        const ay = Math.abs(dy);
+        const total = Math.max(1, ax + ay);
+        const ct = Math.min(1, Math.max(0, t));
+        if (pathType === "elbow-hv") {
+            const split = ax / total;
+            if (split <= 0.001) return { x: x1, y: y0 + dy * ct };
+            if (split >= 0.999) return { x: x0 + dx * ct, y: y1 };
+            if (ct <= split) return { x: x0 + dx * (ct / split), y: y0 };
+            return { x: x1, y: y0 + dy * ((ct - split) / (1 - split)) };
+        }
+        const split = ay / total;
+        if (split <= 0.001) return { x: x0 + dx * ct, y: y1 };
+        if (split >= 0.999) return { x: x1, y: y0 + dy * ct };
+        if (ct <= split) return { x: x0, y: y0 + dy * (ct / split) };
+        return { x: x0 + dx * ((ct - split) / (1 - split)), y: y1 };
+    }
     if (pathType === "arc-up" || pathType === "arc-down") {
         const dir = pathType === "arc-up" ? -1 : 1;
         const midX = (x0 + x1) * 0.5;
@@ -352,6 +374,11 @@ function getTargetLayout() {
     return (studioState.layouts || []).find(l => l.id === previewLayoutId && l.sceneName === currentScene) || null;
 }
 
+function getFromLayout() {
+    if (!motionFromLayoutId || !studioState) return null;
+    return (studioState.layouts || []).find(l => l.id === motionFromLayoutId && l.sceneName === currentScene) || null;
+}
+
 function getSavedItemTargetRect(curItem, savedItem) {
     const t = savedItem?.transform || {};
     const tx = curItem.transform || {};
@@ -374,32 +401,160 @@ function getSavedItemTargetRect(curItem, savedItem) {
     return { left, top, width, height };
 }
 
+function getStartRectForItem(curItem) {
+    const fromL = getFromLayout();
+    if (fromL) {
+        const saved = (fromL.items || []).find(i => i.sourceName === curItem.sourceName);
+        if (saved?.transform) return getSavedItemTargetRect(curItem, saved);
+    }
+    return { ...curItem.rect };
+}
+
 function getOrInitItemMotion(sourceName, layout) {
     if (!itemMotionDrafts[sourceName]) {
         const saved = (layout?.items || []).find(i => i.sourceName === sourceName);
         const m = saved?.motion || {};
-        itemMotionDrafts[sourceName] = {
-            pathType: m.pathType || "",
-            delayMs: Number(m.delayMs) || 0,
-            waypoints: Array.isArray(m.waypoints) ? m.waypoints.map(p => ({ x: Number(p.x), y: Number(p.y) })) : []
-        };
+        const hasOwn = Boolean(m.pathType || (Array.isArray(m.waypoints) && m.waypoints.length));
+        let pathType = m.pathType || "";
+        let transitionType = m.transitionType || "";
+        let delayMs = Number(m.delayMs) || 0;
+        let waypoints = Array.isArray(m.waypoints) ? m.waypoints.map(p => ({ x: Number(p.x), y: Number(p.y) })) : [];
+        let autoReversed = false;
+
+        // If Target (B) has no custom path of its own, auto-reverse From (A) path for seamless B->A symmetry!
+        const fromL = getFromLayout();
+        if (!hasOwn && fromL && fromL.id !== layout?.id) {
+            const prevItem = (fromL.items || []).find(i => i.sourceName === sourceName);
+            const pm = prevItem?.motion || {};
+            const prevPt = pm.pathType || (fromL.pathType && fromL.pathType !== "direct" ? fromL.pathType : "");
+            const prevWps = Array.isArray(pm.waypoints) ? pm.waypoints : [];
+            if (prevPt || prevWps.length) {
+                pathType = prevPt === "elbow-hv" ? "elbow-vh" : prevPt === "elbow-vh" ? "elbow-hv" : prevPt;
+                transitionType = pm.transitionType || "";
+                delayMs = Number(pm.delayMs) || 0;
+                waypoints = [...prevWps].reverse().map(p => ({ x: Number(p.x), y: Number(p.y) }));
+                autoReversed = true;
+            }
+        }
+        itemMotionDrafts[sourceName] = { transitionType, pathType, delayMs, waypoints, autoReversed };
     }
     return itemMotionDrafts[sourceName];
 }
 
+function classifyLayerMotion(curItem, targetLayout) {
+    const fromL = getFromLayout();
+    const fromSaved = fromL ? (fromL.items || []).find(i => i.sourceName === curItem.sourceName) : null;
+    const toSaved = targetLayout ? (targetLayout.items || []).find(i => i.sourceName === curItem.sourceName) : null;
+    const startRect = getStartRectForItem(curItem);
+    const targetRect = toSaved?.transform ? getSavedItemTargetRect(curItem, toSaved) : { ...startRect };
+    const fromVisible = fromSaved ? (fromSaved.visible !== false) : curItem.visible;
+    const targetVisible = toSaved ? (toSaved.visible !== false) : fromVisible;
+    const posMoved = Math.hypot(targetRect.left - startRect.left, targetRect.top - startRect.top) >= 2;
+    const sizeMoved = Math.abs(targetRect.width - startRect.width) + Math.abs(targetRect.height - startRect.height) >= 2;
+    let kind = "static";
+    if (!fromVisible && targetVisible) kind = "in";
+    else if (fromVisible && !targetVisible) kind = "out";
+    else if (posMoved || sizeMoved) kind = "move";
+    return { kind, startRect, targetRect, fromVisible, targetVisible };
+}
+
+function syncCurveChips(containerId, activeVal) {
+    const box = $(containerId);
+    if (!box) return;
+    box.querySelectorAll("[data-path-chip]").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.pathChip === String(activeVal ?? ""));
+    });
+}
+
+function updateShowHideScopeUI() {
+    const scope = $("ol-tr-scope")?.value === "layout" ? "layout" : "shared";
+    const wrap = $("ol-tr-layout-wrap");
+    const banner = $("ol-tr-scope-banner");
+    const txt = $("ol-tr-scope-text");
+    const btn = $("ol-btn-apply-showhide");
+    const selLayoutId = $("ol-tr-target-layout")?.value || "";
+    const layoutObj = (studioState?.layouts || []).find(l => l.id === selLayoutId);
+
+    if (wrap) wrap.hidden = scope !== "layout";
+    if (banner) banner.classList.toggle("is-layout", scope === "layout");
+    if (scope === "layout") {
+        if (txt) txt.textContent = layoutObj
+            ? `Saved to layout: "${layoutObj.name}"`
+            : "Pick a saved layout above (or save one in Layouts)";
+        if (btn) btn.textContent = layoutObj ? `Save to "${layoutObj.name}"` : "Save to Layout";
+    } else {
+        if (txt) txt.textContent = `Saved to scene: "${currentScene || "Current Scene"}" (All layouts)`;
+        if (btn) btn.textContent = "Save Scene Rule";
+    }
+}
+
 function updateMotionModeUI() {
     const layout = getTargetLayout();
-    const bar = $("ol-motion-bar");
-    if (bar) bar.hidden = !layout;
-    if ($("ol-motion-target-label") && layout) {
-        $("ol-motion-target-label").textContent = `→ ${layout.name}`;
+    const fromL = getFromLayout();
+    const sceneLayouts = (studioState?.layouts || []).filter(l => l.sceneName === currentScene);
+
+    const fromSel = $("ol-motion-from-select");
+    if (fromSel) {
+        fromSel.innerHTML = '<option value="">Current Stage</option>' +
+            sceneLayouts.map(l => `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join("");
+        fromSel.value = fromL ? fromL.id : "";
     }
     const sel = $("ol-motion-target-select");
     if (sel) {
-        const sceneLayouts = (studioState?.layouts || []).filter(l => l.sceneName === currentScene);
-        sel.innerHTML = '<option value="">None — Select a Saved Layout to sculpt paths…</option>' +
-            sceneLayouts.map(l => `<option value="${esc(l.id)}">${esc(l.name)} (${l.transitionType || "move"} · ${l.pathType || "direct"})</option>`).join("");
+        sel.innerHTML = '<option value="">Pick Layout…</option>' +
+            sceneLayouts.map(l => `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join("");
         sel.value = layout ? layout.id : "";
+    }
+
+    const bar = $("ol-motion-bar");
+    if (bar) bar.hidden = !layout;
+
+    const mWrap = $("ol-moving-sources-wrap");
+    const mChips = $("ol-moving-sources-chips");
+    if (layout) {
+        const fromName = fromL ? fromL.name : "Current Stage";
+        const classified = [...items].reverse().map(it => ({
+            item: it,
+            ...classifyLayerMotion(it, layout)
+        }));
+        const order = { move: 0, in: 1, out: 2, static: 3 };
+        classified.sort((a, b) => order[a.kind] - order[b.kind]);
+        const activeCount = classified.filter(c => c.kind !== "static").length;
+
+        if ($("ol-motion-summary-pill")) {
+            $("ol-motion-summary-pill").textContent = `${activeCount} animated / ${classified.length}`;
+        }
+        if ($("ol-motion-target-label")) {
+            $("ol-motion-target-label").textContent = activeCount > 0
+                ? `${fromName} → ${layout.name} (${activeCount} animated)`
+                : `${fromName} → ${layout.name} (identical — pick another From/To or move a layer)`;
+        }
+        if (mWrap && mChips) {
+            mWrap.hidden = classified.length === 0;
+            mChips.innerHTML = classified.map(c => {
+                const isSel = c.item.sceneItemId === selectedItemId;
+                const d = getOrInitItemMotion(c.item.sourceName, layout);
+                const metaParts = [];
+                if (c.kind === "move" && d.pathType) metaParts.push(d.pathType);
+                if (d.transitionType) metaParts.push(d.transitionType);
+                if (d.delayMs > 0) metaParts.push(`+${d.delayMs}ms`);
+                if (d.autoReversed) metaParts.push("rev");
+                const pillLabel = c.kind === "move" ? "MOVE" : c.kind === "in" ? "IN" : c.kind === "out" ? "OUT" : "STATIC";
+                return `<button type="button" class="ol-motion-layer-row${isSel ? " is-selected" : ""}" data-moving-id="${c.item.sceneItemId}">
+                    <span class="ol-state-pill ${c.kind}">${pillLabel}</span>
+                    <span class="ol-motion-layer-name" title="${esc(c.item.sourceName)}">${esc(c.item.sourceName)}</span>
+                    ${metaParts.length ? `<span class="ol-motion-layer-meta">${esc(metaParts.join(" · "))}</span>` : ""}
+                </button>`;
+            }).join("");
+        }
+    } else if (mWrap) {
+        mWrap.hidden = true;
+    }
+
+    const scenePath = $("ol-path-type")?.value || "direct";
+    syncCurveChips("ol-scene-curve-chips", scenePath);
+    if ($("ol-curve-wrap")) {
+        $("ol-curve-wrap").hidden = !["arc-up", "arc-down", "s-curve"].includes(scenePath);
     }
 
     const itemBox = $("ol-item-motion-box");
@@ -410,11 +565,23 @@ function updateMotionModeUI() {
         return;
     }
     itemBox.hidden = false;
+    const cls = classifyLayerMotion(cur, layout);
     const draft = getOrInitItemMotion(cur.sourceName, layout);
-    if ($("ol-item-motion-name")) $("ol-item-motion-name").textContent = `Source Path: ${cur.sourceName}`;
-    if ($("ol-item-path-type")) $("ol-item-path-type").value = draft.pathType || "";
+    if ($("ol-item-motion-name")) {
+        const tag = cls.kind.toUpperCase();
+        $("ol-item-motion-name").textContent = `${cur.sourceName} (${tag})`;
+    }
+    if ($("ol-item-static-hint")) $("ol-item-static-hint").hidden = cls.kind !== "static";
+    if ($("ol-item-motion-controls")) $("ol-item-motion-controls").hidden = cls.kind === "static";
+    if ($("ol-item-curve-chips")) $("ol-item-curve-chips").hidden = cls.kind !== "move";
+    syncCurveChips("ol-item-curve-chips", draft.pathType || "");
+    if ($("ol-item-trans-type")) $("ol-item-trans-type").value = draft.transitionType || "";
     if ($("ol-item-delay")) $("ol-item-delay").value = String(draft.delayMs || 0);
-    if ($("ol-item-wp-count")) $("ol-item-wp-count").textContent = `${draft.waypoints.length} pt${draft.waypoints.length === 1 ? "" : "s"}`;
+    if ($("ol-item-wp-count")) {
+        $("ol-item-wp-count").textContent = cls.kind === "move"
+            ? (draft.autoReversed ? "Auto-Rev" : `${draft.waypoints.length} pt${draft.waypoints.length === 1 ? "" : "s"}`)
+            : cls.kind.toUpperCase();
+    }
 }
 
 function renderMotionPathOverlay(canvas) {
@@ -426,22 +593,51 @@ function renderMotionPathOverlay(canvas) {
     const svg = document.createElementNS(svgNS, "svg");
     svg.setAttribute("class", "ol-path-svg");
     svg.setAttribute("viewBox", `0 0 ${baseWidth} ${baseHeight}`);
+    const defs = document.createElementNS(svgNS, "defs");
+    defs.innerHTML = `
+        <marker id="ol-arrow-sel" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1 L 10 5 L 0 9 z" fill="#f59e0b"></path>
+        </marker>
+        <marker id="ol-arrow-other" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M 0 1 L 10 5 L 0 9 z" fill="rgba(56, 189, 248, 0.85)"></path>
+        </marker>
+    `;
+    svg.appendChild(defs);
 
     const handlesToRender = [];
 
     for (const saved of (layout.items || [])) {
         const cur = items.find(i => i.sourceName === saved.sourceName);
         if (!cur || !saved.transform) continue;
+        const startRect = getStartRectForItem(cur);
         const targetRect = getSavedItemTargetRect(cur, saved);
-        const x0 = cur.rect.left + cur.rect.width * 0.5;
-        const y0 = cur.rect.top + cur.rect.height * 0.5;
+        const x0 = startRect.left + startRect.width * 0.5;
+        const y0 = startRect.top + startRect.height * 0.5;
         const x1 = targetRect.left + targetRect.width * 0.5;
         const y1 = targetRect.top + targetRect.height * 0.5;
         const dist = Math.hypot(x1 - x0, y1 - y0);
-        const sizeDiff = Math.abs(targetRect.width - cur.rect.width) + Math.abs(targetRect.height - cur.rect.height);
+        const sizeDiff = Math.abs(targetRect.width - startRect.width) + Math.abs(targetRect.height - startRect.height);
         if (dist < 2 && sizeDiff < 2) continue;
 
         const isSel = cur.sceneItemId === selectedItemId;
+
+        // Ghost Start Box (State A) when comparing two saved layouts
+        if (getFromLayout()) {
+            const ghostA = document.createElement("div");
+            ghostA.className = "ol-ghost-start-box";
+            ghostA.dataset.ghostId = String(cur.sceneItemId);
+            ghostA.title = `Start (A): ${cur.sourceName} — click to select`;
+            ghostA.style.left = `${startRect.left * canvasScale}px`;
+            ghostA.style.top = `${startRect.top * canvasScale}px`;
+            ghostA.style.width = `${Math.max(4, startRect.width * canvasScale)}px`;
+            ghostA.style.height = `${Math.max(4, startRect.height * canvasScale)}px`;
+            if (!isSel) ghostA.style.opacity = "0.4";
+            const gla = document.createElement("span");
+            gla.className = "ol-ghost-start-label";
+            gla.textContent = `A: ${cur.sourceName}`;
+            ghostA.appendChild(gla);
+            canvas.appendChild(ghostA);
+        }
 
         // Ghost Destination Box (State B) — click to select this source
         const ghost = document.createElement("div");
@@ -452,24 +648,17 @@ function renderMotionPathOverlay(canvas) {
         ghost.style.top = `${targetRect.top * canvasScale}px`;
         ghost.style.width = `${Math.max(4, targetRect.width * canvasScale)}px`;
         ghost.style.height = `${Math.max(4, targetRect.height * canvasScale)}px`;
-        if (!isSel) ghost.style.opacity = "0.48";
+        if (!isSel) ghost.style.opacity = "0.45";
         const gl = document.createElement("span");
         gl.className = "ol-ghost-label";
-        gl.textContent = `To: ${cur.sourceName}`;
+        gl.textContent = `B: ${cur.sourceName}`;
         ghost.appendChild(gl);
         canvas.appendChild(ghost);
 
         const draft = getOrInitItemMotion(cur.sourceName, layout);
         const effPathType = draft.pathType || defaultPathType;
-        if (effPathType === "custom" && !draft.waypoints.length) {
-            draft.waypoints = [{
-                x: Math.round((x0 + x1) * 0.5),
-                y: Math.round(Math.max(60, (y0 + y1) * 0.5 - 120))
-            }];
-        }
 
-        // Sample smooth curve polyline for SVG
-        const samples = 28;
+        const samples = effPathType === "elbow-hv" || effPathType === "elbow-vh" ? 40 : 28;
         const pts = [];
         for (let s = 0; s <= samples; s++) {
             const pt = evalLocalPathPoint(x0, y0, x1, y1, s / samples, {
@@ -480,7 +669,14 @@ function renderMotionPathOverlay(canvas) {
             pts.push(`${pt.x.toFixed(1)},${pt.y.toFixed(1)}`);
         }
 
-        // Keep ALL custom waypoints visible (selected = amber + tangent guides; inactive = clickable teal dots)
+        // Invisible wide direct-bend hit-stroke on EVERY curve (grab anywhere to bend!)
+        const hitEl = document.createElementNS(svgNS, "polyline");
+        hitEl.setAttribute("class", "ol-curve-hit");
+        hitEl.setAttribute("points", pts.join(" "));
+        hitEl.dataset.curveSource = cur.sourceName;
+        hitEl.dataset.curveItemId = String(cur.sceneItemId);
+        svg.appendChild(hitEl);
+
         if (effPathType === "custom" && draft.waypoints.length) {
             if (isSel) {
                 const polyPts = [{ x: x0, y: y0 }, ...draft.waypoints, { x: x1, y: y1 }]
@@ -501,10 +697,19 @@ function renderMotionPathOverlay(canvas) {
         const curveEl = document.createElementNS(svgNS, "polyline");
         curveEl.setAttribute("points", pts.join(" "));
         curveEl.setAttribute("fill", "none");
-        curveEl.setAttribute("stroke", isSel ? "#f59e0b" : "rgba(56, 189, 248, 0.55)");
+        curveEl.setAttribute("stroke", isSel ? "#f59e0b" : "rgba(56, 189, 248, 0.6)");
         curveEl.setAttribute("stroke-width", isSel ? "5" : "3");
         curveEl.setAttribute("stroke-dasharray", isSel ? "14 8" : "8 8");
+        curveEl.setAttribute("marker-end", isSel ? "url(#ol-arrow-sel)" : "url(#ol-arrow-other)");
         svg.appendChild(curveEl);
+
+        // Start dot (A) + Destination dot (B)
+        const startDot = document.createElementNS(svgNS, "circle");
+        startDot.setAttribute("cx", String(x0));
+        startDot.setAttribute("cy", String(y0));
+        startDot.setAttribute("r", isSel ? "7" : "5");
+        startDot.setAttribute("fill", "#38bdf8");
+        svg.appendChild(startDot);
 
         const endDot = document.createElementNS(svgNS, "circle");
         endDot.setAttribute("cx", String(x1));
@@ -521,7 +726,7 @@ function renderMotionPathOverlay(canvas) {
         handle.className = `ol-cp-handle${h.isSel ? "" : " is-inactive"}`;
         handle.textContent = h.isSel ? String(h.wpIndex + 1) : "";
         handle.dataset.cpItemId = String(h.sceneItemId);
-        handle.title = `Drag Waypoint ${h.wpIndex + 1} for ${h.sourceName} (Right-click to remove)`;
+        handle.title = `Drag Waypoint ${h.wpIndex + 1} for ${h.sourceName} (Double-click or right-click to remove)`;
         handle.style.left = `${h.x * canvasScale}px`;
         handle.style.top = `${h.y * canvasScale}px`;
         handle.dataset.cpSource = h.sourceName;
@@ -530,17 +735,10 @@ function renderMotionPathOverlay(canvas) {
     }
 }
 
-function playOffAirPreview() {
+function buildPreviewAnimPlan() {
     const layout = getTargetLayout();
-    if (!layout) return;
-    if (previewAnimRaf) {
-        cancelAnimationFrame(previewAnimRaf);
-        previewAnimRaf = null;
-        previewAnimPositions = null;
-        renderCanvas();
-        return;
-    }
-    const dur = Math.max(100, Number($("ol-trans-dur")?.value) || layout.durationMs || 450);
+    if (!layout) return null;
+    const dur = Math.max(50, Number($("ol-trans-dur")?.value) || layout.durationMs || 450);
     const transType = $("ol-trans-type")?.value || layout.transitionType || "move";
     const defaultPathType = $("ol-path-type")?.value || layout.pathType || "direct";
     const easing = $("ol-easing")?.value || layout.easing || "ease-in-out";
@@ -551,65 +749,114 @@ function playOffAirPreview() {
     for (const saved of (layout.items || [])) {
         const cur = items.find(i => i.sourceName === saved.sourceName);
         if (!cur || !saved.transform) continue;
+        const fromRect = getStartRectForItem(cur);
         const toRect = getSavedItemTargetRect(cur, saved);
         const draft = getOrInitItemMotion(cur.sourceName, layout);
         const delayMs = Math.max(0, Number(draft.delayMs) || 0);
         maxEnd = Math.max(maxEnd, delayMs + dur);
+        const cls = classifyLayerMotion(cur, layout);
         animItems.push({
             id: cur.sceneItemId,
-            from: { ...cur.rect },
-            to: toRect,
+            kind: cls.kind,
+            from: cls.startRect,
+            to: cls.targetRect,
+            transType: draft.transitionType || transType,
             pathType: draft.pathType || defaultPathType,
             waypoints: draft.waypoints,
             delayMs
         });
     }
-    if (!animItems.length) return;
+    return { dur, maxEnd, transType, easing, curve, animItems };
+}
 
-    const startTime = performance.now();
+function applyScrubPercent(pct) {
+    const plan = buildPreviewAnimPlan();
+    if (!plan) return;
+    const clamped = Math.min(100, Math.max(0, Number(pct) || 0));
+    const elapsed = (clamped / 100) * plan.maxEnd;
+    if ($("ol-motion-scrub")) $("ol-motion-scrub").value = String(clamped);
+    if ($("ol-motion-scrub-time")) $("ol-motion-scrub-time").textContent = `${Math.round(elapsed)} / ${Math.round(plan.maxEnd)}ms`;
+
+    if (clamped <= 0.01 && !motionFromLayoutId) {
+        previewAnimPositions = null;
+        renderCanvas();
+        return;
+    }
+
+    previewAnimPositions = {};
+    for (const a of plan.animItems) {
+        const rawT = Math.min(1, Math.max(0, (elapsed - a.delayMs) / plan.dur));
+        const t = evalLocalEasing(rawT, plan.easing);
+        let left = a.from.left;
+        let top = a.from.top;
+        let width = a.from.width;
+        let height = a.from.height;
+        let opacity = 1;
+        const eTrans = a.transType || plan.transType;
+        if (a.kind === "in") {
+            left = a.to.left; top = a.to.top; width = a.to.width; height = a.to.height;
+            opacity = eTrans === "cut" ? (rawT > 0 ? 1 : 0) : Math.min(1, Math.max(0, t));
+        } else if (a.kind === "out") {
+            opacity = eTrans === "cut" ? (rawT >= 1 ? 0 : 1) : Math.min(1, Math.max(0, 1 - t));
+        } else if (eTrans === "fade") {
+            if (rawT < 0.5) {
+                opacity = 1 - evalLocalEasing(rawT * 2, plan.easing);
+            } else {
+                left = a.to.left; top = a.to.top; width = a.to.width; height = a.to.height;
+                opacity = evalLocalEasing((rawT - 0.5) * 2, plan.easing);
+            }
+        } else if (eTrans === "cut") {
+            if (rawT >= 1) { left = a.to.left; top = a.to.top; width = a.to.width; height = a.to.height; }
+        } else {
+            const cx0 = a.from.left + a.from.width * 0.5;
+            const cy0 = a.from.top + a.from.height * 0.5;
+            const cx1 = a.to.left + a.to.width * 0.5;
+            const cy1 = a.to.top + a.to.height * 0.5;
+            const pt = evalLocalPathPoint(cx0, cy0, cx1, cy1, t, {
+                pathType: a.pathType,
+                pathCurve: plan.curve,
+                waypoints: a.waypoints
+            });
+            width = a.from.width + (a.to.width - a.from.width) * t;
+            height = a.from.height + (a.to.height - a.from.height) * t;
+            left = pt.x - width * 0.5;
+            top = pt.y - height * 0.5;
+            if (eTrans === "move-fade") opacity = 1 - 0.65 * Math.sin(rawT * Math.PI);
+        }
+        previewAnimPositions[a.id] = { left, top, width, height, opacity };
+    }
+    renderCanvas();
+}
+
+function stopPreviewPlayback() {
+    if (previewAnimRaf) {
+        cancelAnimationFrame(previewAnimRaf);
+        previewAnimRaf = null;
+    }
+    if ($("ol-btn-play-preview")) $("ol-btn-play-preview").textContent = "Play";
+}
+
+function playOffAirPreview() {
+    if (previewAnimRaf) {
+        stopPreviewPlayback();
+        return;
+    }
+    const plan = buildPreviewAnimPlan();
+    if (!plan || !plan.animItems.length) return;
+    if ($("ol-btn-play-preview")) $("ol-btn-play-preview").textContent = "Pause";
+
+    const curPct = Number($("ol-motion-scrub")?.value) || 0;
+    const startOffsetMs = curPct >= 99 ? 0 : (curPct / 100) * plan.maxEnd;
+    const startTime = performance.now() - startOffsetMs;
+
     const tick = now => {
         const elapsed = now - startTime;
-        previewAnimPositions = {};
-        for (const a of animItems) {
-            const rawT = Math.min(1, Math.max(0, (elapsed - a.delayMs) / dur));
-            const t = evalLocalEasing(rawT, easing);
-            let left = a.from.left;
-            let top = a.from.top;
-            let width = a.from.width;
-            let height = a.from.height;
-            let opacity = 1;
-            if (transType === "fade") {
-                if (rawT < 0.5) {
-                    opacity = 1 - evalLocalEasing(rawT * 2, easing);
-                } else {
-                    left = a.to.left; top = a.to.top; width = a.to.width; height = a.to.height;
-                    opacity = evalLocalEasing((rawT - 0.5) * 2, easing);
-                }
-            } else {
-                const cx0 = a.from.left + a.from.width * 0.5;
-                const cy0 = a.from.top + a.from.height * 0.5;
-                const cx1 = a.to.left + a.to.width * 0.5;
-                const cy1 = a.to.top + a.to.height * 0.5;
-                const pt = evalLocalPathPoint(cx0, cy0, cx1, cy1, t, {
-                    pathType: a.pathType,
-                    pathCurve: curve,
-                    waypoints: a.waypoints
-                });
-                width = a.from.width + (a.to.width - a.from.width) * t;
-                height = a.from.height + (a.to.height - a.from.height) * t;
-                left = pt.x - width * 0.5;
-                top = pt.y - height * 0.5;
-                if (transType === "move-fade") opacity = 1 - 0.65 * Math.sin(rawT * Math.PI);
-            }
-            previewAnimPositions[a.id] = { left, top, width, height, opacity };
-        }
-        renderCanvas();
-        if (elapsed < maxEnd + 220) {
+        const pct = Math.min(100, (elapsed / Math.max(1, plan.maxEnd)) * 100);
+        applyScrubPercent(pct);
+        if (pct < 100) {
             previewAnimRaf = requestAnimationFrame(tick);
         } else {
-            previewAnimRaf = null;
-            previewAnimPositions = null;
-            renderCanvas();
+            stopPreviewPlayback();
         }
     };
     previewAnimRaf = requestAnimationFrame(tick);
@@ -825,6 +1072,42 @@ function renderInspector() {
     [$('ol-btn-paste-tx'), $('ol-btn-paste-pos'), $('ol-btn-paste-size')].forEach(b => {
         if (b) b.disabled = !hasClip || item.locked;
     });
+    // Locked layer banner & Attach GPU Filter state
+    if ($("ol-locked-banner")) $("ol-locked-banner").hidden = !item.locked;
+    const attachBtn = $("ol-btn-attach-aspect");
+    if (attachBtn) {
+        attachBtn.textContent = item.hasAspectFilter ? "GPU Filter Attached" : "Attach GPU Filter";
+        attachBtn.disabled = Boolean(item.hasAspectFilter);
+    }
+
+    // Sync per-layer OBS Native Show/Hide Transition controls & explicit layout target
+    const sceneLayouts = (studioState?.layouts || []).filter(l => l.sceneName === currentScene);
+    const trLayoutSel = $("ol-tr-target-layout");
+    if (trLayoutSel) {
+        const preferred = previewLayoutId || activeLayoutId || trLayoutSel.value || sceneLayouts[0]?.id || "";
+        trLayoutSel.innerHTML = '<option value="">Pick a saved layout…</option>' +
+            sceneLayouts.map(l => `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join("");
+        if (sceneLayouts.some(l => l.id === preferred)) trLayoutSel.value = preferred;
+    }
+    const chosenLayout = sceneLayouts.find(l => l.id === (trLayoutSel?.value || previewLayoutId || activeLayoutId));
+    const layoutItr = chosenLayout ? (chosenLayout.items || []).find(i => i.sourceName === item.sourceName)?.itemTransition : null;
+    const itr = (layoutItr && layoutItr.scope === "layout")
+        ? layoutItr
+        : (item.itemTransition || studioState?.itemTransitions?.[`${currentScene}::${item.sourceName}`] || {
+            scope: "shared", showKind: "none", showDurationMs: 300, showDir: "right",
+            hideKind: "none", hideDurationMs: 300, hideDir: "left"
+        });
+    const isDirectional = k => k === "slide_transition" || k === "swipe_transition";
+    if ($("ol-tr-scope")) $("ol-tr-scope").value = itr.scope === "layout" ? "layout" : "shared";
+    if ($("ol-show-tr-kind")) $("ol-show-tr-kind").value = itr.showKind || "none";
+    if ($("ol-show-tr-dur")) $("ol-show-tr-dur").value = String(itr.showDurationMs ?? 300);
+    if ($("ol-show-tr-dir")) $("ol-show-tr-dir").value = itr.showDir || "right";
+    if ($("ol-show-tr-dir-wrap")) $("ol-show-tr-dir-wrap").hidden = !isDirectional(itr.showKind);
+    if ($("ol-hide-tr-kind")) $("ol-hide-tr-kind").value = itr.hideKind || "none";
+    if ($("ol-hide-tr-dur")) $("ol-hide-tr-dur").value = String(itr.hideDurationMs ?? 300);
+    if ($("ol-hide-tr-dir")) $("ol-hide-tr-dir").value = itr.hideDir || "left";
+    if ($("ol-hide-tr-dir-wrap")) $("ol-hide-tr-dir-wrap").hidden = !isDirectional(itr.hideKind);
+    updateShowHideScopeUI();
     updateMotionModeUI();
 }
 
@@ -837,12 +1120,18 @@ function renderLayoutsList() {
     if (!list) return;
     list.innerHTML = layouts.map(l => {
         const isPrev = previewLayoutId === l.id;
+        const isActive = activeLayoutId === l.id;
+        const hasPerLayoutSH = (l.items || []).some(it => it.itemTransition && it.itemTransition.scope === "layout");
         const meta = `${l.transitionType || "move"} · ${l.pathType || "direct"} · ${l.durationMs ?? 450}ms`;
         return `
-        <div class="ol-layout-item${isPrev ? " is-previewing" : ""}">
+        <div class="ol-layout-item${isPrev ? " is-previewing" : ""}${isActive ? " is-active-layout" : ""}">
             <div class="ol-layout-head">
                 <strong style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(l.name)}">${esc(l.name)}</strong>
-                <span class="ol-pill">${esc(meta)}</span>
+                <span style="display:inline-flex;gap:3px;align-items:center;flex:none;">
+                    ${isActive ? '<span class="ol-pill live">Active</span>' : ""}
+                    ${hasPerLayoutSH ? '<span class="ol-pill warn" title="Has independent Show/Hide transitions">S/H</span>' : ""}
+                    <span class="ol-pill">${esc(meta)}</span>
+                </span>
             </div>
             <div class="ol-layout-actions">
                 <button type="button" class="btn btn-primary btn-sm" data-apply-layout="${esc(l.id)}">Apply</button>
@@ -1073,7 +1362,7 @@ async function loadScene(sceneName, { preserveHistory = false, historyLabel = ''
     const data = await api(`/api/obs-layout/scene?name=${encodeURIComponent(sceneName)}`);
     baseWidth = data.baseWidth || 1920;
     baseHeight = data.baseHeight || 1080;
-    items = (data.items || []).map(it => ({ ...it, _origRect: { ...it.rect }, _origVisible: it.visible, _origLocked: it.locked }));
+    items = (data.items || []).map(it => ({ ...it, _origRect: { ...it.rect }, _borderBaseRect: { ...it.rect }, _origVisible: it.visible, _origLocked: it.locked }));
     pendingItemIds.clear();
     updatePendingBar();
     if (!items.some(i => i.sceneItemId === selectedItemId)) {
@@ -1204,7 +1493,7 @@ function switchTopTab(tab) {
 }
 
 function switchInspectorTab(tab) {
-    const valid = ['transform', 'aspect', 'motion'].includes(tab) ? tab : 'transform';
+    const valid = ['transform', 'aspect', 'motion', 'scene'].includes(tab) ? tab : 'transform';
     try { localStorage.setItem(INSP_STORAGE_KEY, valid); } catch { /* ignore */ }
     document.querySelectorAll('[data-insp-tab]').forEach(btn => {
         const on = btn.dataset.inspTab === valid;
@@ -1228,6 +1517,118 @@ function bindEvents() {
     });
     $('ol-btn-open-layouts-tab')?.addEventListener('click', () => switchLeftTab('layouts'));
 
+    // Quick Unlock button in Inspector
+    $('ol-btn-quick-unlock')?.addEventListener('click', async () => {
+        const sel = getSelectedItem();
+        if (!sel || !sel.locked) return;
+        sel.locked = false;
+        await api('/api/obs-layout/transform', {
+            method: 'POST',
+            body: JSON.stringify({ sceneName: currentScene, sceneItemId: sel.sceneItemId, locked: false })
+        }).catch(() => {});
+        recordHistory(`Unlock ${sel.sourceName}`);
+        renderLayers();
+        renderInspector();
+        renderCanvas();
+    });
+
+    // Per-layer OBS Native Show / Hide Transitions with crystal-clear Scope & Layout ownership
+    const syncDirVisibility = () => {
+        const sk = $('ol-show-tr-kind')?.value || 'none';
+        const hk = $('ol-hide-tr-kind')?.value || 'none';
+        if ($('ol-show-tr-dir-wrap')) $('ol-show-tr-dir-wrap').hidden = !(sk === 'slide_transition' || sk === 'swipe_transition');
+        if ($('ol-hide-tr-dir-wrap')) $('ol-hide-tr-dir-wrap').hidden = !(hk === 'slide_transition' || hk === 'swipe_transition');
+    };
+    $('ol-show-tr-kind')?.addEventListener('change', syncDirVisibility);
+    $('ol-hide-tr-kind')?.addEventListener('change', syncDirVisibility);
+    $('ol-tr-scope')?.addEventListener('change', () => updateShowHideScopeUI());
+    $('ol-tr-target-layout')?.addEventListener('change', () => {
+        const sel = getSelectedItem();
+        const layoutId = $('ol-tr-target-layout')?.value;
+        const layout = (studioState?.layouts || []).find(l => l.id === layoutId);
+        const savedTr = sel && layout ? (layout.items || []).find(i => i.sourceName === sel.sourceName)?.itemTransition : null;
+        if (savedTr) {
+            if ($('ol-show-tr-kind')) $('ol-show-tr-kind').value = savedTr.showKind || 'none';
+            if ($('ol-show-tr-dur')) $('ol-show-tr-dur').value = String(savedTr.showDurationMs ?? 300);
+            if ($('ol-show-tr-dir')) $('ol-show-tr-dir').value = savedTr.showDir || 'right';
+            if ($('ol-hide-tr-kind')) $('ol-hide-tr-kind').value = savedTr.hideKind || 'none';
+            if ($('ol-hide-tr-dur')) $('ol-hide-tr-dur').value = String(savedTr.hideDurationMs ?? 300);
+            if ($('ol-hide-tr-dir')) $('ol-hide-tr-dir').value = savedTr.hideDir || 'left';
+            syncDirVisibility();
+        }
+        updateShowHideScopeUI();
+    });
+
+    $('ol-btn-apply-showhide')?.addEventListener('click', async () => {
+        const sel = getSelectedItem();
+        if (!sel || !currentScene) return;
+        const scope = $('ol-tr-scope')?.value === 'layout' ? 'layout' : 'shared';
+        const payload = {
+            sceneName: currentScene,
+            sourceName: sel.sourceName,
+            scope,
+            showKind: $('ol-show-tr-kind')?.value || 'none',
+            showDurationMs: Number($('ol-show-tr-dur')?.value) || 0,
+            showDir: $('ol-show-tr-dir')?.value || 'right',
+            hideKind: $('ol-hide-tr-kind')?.value || 'none',
+            hideDurationMs: Number($('ol-hide-tr-dur')?.value) || 0,
+            hideDir: $('ol-hide-tr-dir')?.value || 'left'
+        };
+        try {
+            // 1. Always push live to OBS manifest right now
+            const res = await api('/api/obs-layout/item-transition', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+            studioState = { ...studioState, ...res.state };
+            sel.itemTransition = res.transition;
+
+            // 2. If Independent per layout, directly persist into the chosen Saved Layout!
+            if (scope === 'layout') {
+                const targetLayoutId = $('ol-tr-target-layout')?.value || previewLayoutId || activeLayoutId;
+                const targetLayout = (studioState?.layouts || []).find(l => l.id === targetLayoutId);
+                if (targetLayout) {
+                    const updatedItems = (targetLayout.items || []).map(it =>
+                        it.sourceName === sel.sourceName ? { ...it, itemTransition: res.transition } : it
+                    );
+                    const lRes = await api('/api/obs-layout/layouts', {
+                        method: 'POST',
+                        body: JSON.stringify({ ...targetLayout, items: updatedItems })
+                    });
+                    studioState = { ...studioState, ...lRes.state };
+                    renderLayoutsList();
+                    showNotice(`Saved ${sel.sourceName} Show/Hide transition to layout "${targetLayout.name}" & synced to OBS.`);
+                    return;
+                }
+            }
+            showNotice(`Saved shared Scene Show/Hide transition for ${sel.sourceName} in "${currentScene}".`);
+        } catch (err) {
+            showNotice(err.message);
+        }
+    });
+
+    $('ol-btn-test-showhide')?.addEventListener('click', async () => {
+        const sel = getSelectedItem();
+        if (!sel || !currentScene) return;
+        const hideDur = Math.max(250, Number($('ol-hide-tr-dur')?.value) || 300);
+        const origVis = sel.visible;
+        try {
+            await api('/api/obs-layout/transform', {
+                method: 'POST',
+                body: JSON.stringify({ sceneName: currentScene, sceneItemId: sel.sceneItemId, visible: !origVis })
+            });
+            setTimeout(async () => {
+                await api('/api/obs-layout/transform', {
+                    method: 'POST',
+                    body: JSON.stringify({ sceneName: currentScene, sceneItemId: sel.sceneItemId, visible: origVis })
+                }).catch(() => {});
+            }, hideDur + 350);
+            showNotice(`Testing Show/Hide transition on ${sel.sourceName}…`);
+        } catch (err) {
+            showNotice(err.message);
+        }
+    });
+
     $('ol-scene-select').addEventListener('change', e => loadScene(e.target.value));
     $('ol-btn-refresh').addEventListener('click', () => loadScene(currentScene));
     $('ol-btn-undo')?.addEventListener('click', () => restoreHistoryIndex(historyIndex - 1));
@@ -1240,22 +1641,90 @@ function bindEvents() {
         restoreHistoryIndex(Number(btn.dataset.historyIdx));
     });
 
-    window.addEventListener('keydown', e => {
-        const tag = (e.target?.tagName || '').toLowerCase();
-        if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
-        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
+    // Unified Keyboard Shortcuts matching Custom Overlay Editor (editor-main.js)
+    document.addEventListener('keydown', async e => {
+        const mod = e.ctrlKey || e.metaKey;
+        const key = String(e.key || '').toLowerCase();
+        const typing = Boolean(e.target?.matches && e.target.matches('input:not([type="range"]):not([type="checkbox"]):not([type="color"]), textarea, select'));
+
+        if (mod && key === 's') {
+            e.preventDefault();
+            if (previewLayoutId && motionPathDirty) {
+                $('ol-btn-save-path')?.click();
+            } else if (pendingItemIds.size > 0) {
+                $('ol-btn-apply-pending')?.click();
+            }
+            return;
+        }
+        if (typing) return;
+
+        if (e.key === 'Escape') {
+            if (pendingDeleteLayoutId) { closeDeleteLayoutModal(); return; }
+            if (pendingConfirmAction) { closeConfirmModal(); return; }
+            if (previewLayoutId) { $('ol-btn-exit-path')?.click(); return; }
+            selectedItemId = null;
+            renderLayers();
+            renderInspector();
+            renderCanvas();
+            return;
+        }
+        if (mod && key === 'z') {
             e.preventDefault();
             if (e.shiftKey) restoreHistoryIndex(historyIndex + 1);
             else restoreHistoryIndex(historyIndex - 1);
-        } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'y') {
+            return;
+        }
+        if (mod && key === 'y') {
             e.preventDefault();
             restoreHistoryIndex(historyIndex + 1);
-        } else if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'c') {
+            return;
+        }
+        if (mod && (e.altKey || e.shiftKey) && key === 'c') {
             e.preventDefault();
             copySelectedTransform();
-        } else if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'v') {
+            return;
+        }
+        if (mod && (e.altKey || e.shiftKey) && key === 'v') {
             e.preventDefault();
             pasteTransformToSelected('full');
+            return;
+        }
+        if (mod && (e.key === ']' || e.key === '[')) {
+            const sel = getSelectedItem();
+            if (!sel || !items.length) return;
+            e.preventDefault();
+            const curIdx = Number(sel.sceneItemIndex ?? items.indexOf(sel));
+            const nextIdx = e.key === ']'
+                ? (e.shiftKey ? items.length - 1 : Math.min(items.length - 1, curIdx + 1))
+                : (e.shiftKey ? 0 : Math.max(0, curIdx - 1));
+            if (nextIdx !== curIdx) {
+                await api('/api/obs-layout/transform', {
+                    method: 'POST',
+                    body: JSON.stringify({ sceneName: currentScene, sceneItemId: sel.sceneItemId, sceneItemIndex: nextIdx })
+                }).catch(() => {});
+                await loadScene(currentScene, { preserveHistory: true, historyLabel: `Reorder ${sel.sourceName}` });
+            }
+            return;
+        }
+        if (e.key === ' ' && previewLayoutId && !e.target?.closest?.('button, a, summary')) {
+            e.preventDefault();
+            playOffAirPreview();
+            return;
+        }
+        if (e.key.startsWith('Arrow')) {
+            const sel = getSelectedItem();
+            if (!sel || sel.locked) return;
+            const step = e.shiftKey ? 10 : 1;
+            if (e.key === 'ArrowLeft') sel.rect.left -= step;
+            else if (e.key === 'ArrowRight') sel.rect.left += step;
+            else if (e.key === 'ArrowUp') sel.rect.top -= step;
+            else if (e.key === 'ArrowDown') sel.rect.top += step;
+            else return;
+            e.preventDefault();
+            renderCanvas();
+            renderInspector();
+            recordHistory(`Nudge ${sel.sourceName}`);
+            await pushTransformNow(sel, {}, { refreshBackdrop: true });
         }
     });
 
@@ -1346,6 +1815,24 @@ function bindEvents() {
         renderCanvas();
     });
 
+    // Double-click a waypoint handle to remove it
+    $('ol-canvas').addEventListener('dblclick', e => {
+        const cpEl = e.target.closest('[data-cp-source]');
+        if (!cpEl) return;
+        e.preventDefault();
+        const sName = cpEl.dataset.cpSource;
+        const idx = Number(cpEl.dataset.cpIndex);
+        const draft = itemMotionDrafts[sName];
+        if (draft && Array.isArray(draft.waypoints)) {
+            draft.waypoints.splice(idx, 1);
+            if (!draft.waypoints.length && draft.pathType === "custom") draft.pathType = "direct";
+            markMotionDirty(true);
+            updateMotionModeUI();
+            renderCanvas();
+            showNotice(`Removed bend handle from ${sName}`);
+        }
+    });
+
     // Right-click a waypoint handle to remove it
     $('ol-canvas').addEventListener('contextmenu', e => {
         const cpEl = e.target.closest('[data-cp-source]');
@@ -1384,6 +1871,41 @@ function bindEvents() {
                 startX: e.clientX,
                 startY: e.clientY,
                 orig: { x: wp.x, y: wp.y }
+            };
+            window.addEventListener('pointermove', onCpPointerMove);
+            window.addEventListener('pointerup', onCpPointerUp, { once: true });
+            return;
+        }
+        const curveEl = e.target.closest('.ol-curve-hit');
+        if (curveEl && e.button === 0) {
+            e.preventDefault();
+            const layout = getTargetLayout();
+            if (!layout) return;
+            const sName = curveEl.dataset.curveSource;
+            const itemId = Number(curveEl.dataset.curveItemId);
+            if (Number.isFinite(itemId)) selectedItemId = itemId;
+            const canvasRect = $('ol-canvas').getBoundingClientRect();
+            const gx = Math.round(Math.max(0, Math.min(baseWidth, (e.clientX - canvasRect.left) / canvasScale)));
+            const gy = Math.round(Math.max(0, Math.min(baseHeight, (e.clientY - canvasRect.top) / canvasScale)));
+            const draft = getOrInitItemMotion(sName, layout);
+            draft.pathType = "custom";
+            // Grab nearest existing handle if within 36px, else insert a new bend handle right where grabbed!
+            let wpIndex = draft.waypoints.findIndex(w => Math.hypot(w.x - gx, w.y - gy) <= 36);
+            if (wpIndex < 0) {
+                if (draft.waypoints.length >= 6) draft.waypoints[draft.waypoints.length - 1] = { x: gx, y: gy };
+                else draft.waypoints.push({ x: gx, y: gy });
+                wpIndex = draft.waypoints.length - 1;
+            }
+            markMotionDirty(true);
+            renderLayers();
+            renderInspector();
+            renderCanvas();
+            cpDragState = {
+                sourceName: sName,
+                wpIndex,
+                startX: e.clientX,
+                startY: e.clientY,
+                orig: { x: draft.waypoints[wpIndex].x, y: draft.waypoints[wpIndex].y }
             };
             window.addEventListener('pointermove', onCpPointerMove);
             window.addEventListener('pointerup', onCpPointerUp, { once: true });
@@ -1487,22 +2009,7 @@ function bindEvents() {
         await pushTransformNow(item, {}, { refreshBackdrop: true });
     }
 
-    // Keyboard 1px / 10px nudge
-    $('ol-stage-wrap').addEventListener('keydown', async e => {
-        const sel = getSelectedItem();
-        if (!sel || sel.locked) return;
-        const step = e.shiftKey ? 10 : 1;
-        if (e.key === 'ArrowLeft') sel.rect.left -= step;
-        else if (e.key === 'ArrowRight') sel.rect.left += step;
-        else if (e.key === 'ArrowUp') sel.rect.top -= step;
-        else if (e.key === 'ArrowDown') sel.rect.top += step;
-        else return;
-        e.preventDefault();
-        renderCanvas();
-        renderInspector();
-        recordHistory(`Nudge ${sel.sourceName}`);
-        await pushTransformNow(sel, {}, { refreshBackdrop: true });
-    });
+
 
     // Numeric inspector inputs
     ['ol-x', 'ol-y', 'ol-w', 'ol-h', 'ol-rot'].forEach(id => {
@@ -1671,6 +2178,79 @@ function bindEvents() {
     $('ol-btn-apply-aspect').addEventListener('click', () => applyAspectNow());
 
     // Motion & Path controls
+    $('ol-moving-sources-chips')?.addEventListener('click', e => {
+        const btn = e.target.closest('[data-moving-id]');
+        if (!btn) return;
+        selectedItemId = Number(btn.dataset.movingId);
+        renderLayers();
+        renderInspector();
+        renderCanvas();
+    });
+
+    $('ol-motion-from-select')?.addEventListener('change', () => {
+        stopPreviewPlayback();
+        motionFromLayoutId = $('ol-motion-from-select').value || "";
+        applyScrubPercent(0);
+        updateMotionModeUI();
+        renderCanvas();
+    });
+
+    $('ol-btn-swap-ab')?.addEventListener('click', () => {
+        if (!previewLayoutId) return;
+        stopPreviewPlayback();
+        const prevTo = previewLayoutId;
+        const prevFrom = motionFromLayoutId;
+        if (prevFrom) {
+            previewLayoutId = prevFrom;
+            motionFromLayoutId = prevTo;
+            itemMotionDrafts = {};
+            applyScrubPercent(0);
+            renderLayoutsList();
+            renderCanvas();
+        } else {
+            showNotice("Pick a saved layout in From (Start A) to swap A ↔ B.");
+        }
+    });
+
+    $('ol-motion-scrub')?.addEventListener('input', () => {
+        stopPreviewPlayback();
+        applyScrubPercent(Number($('ol-motion-scrub').value) || 0);
+    });
+
+    $('ol-scene-curve-chips')?.addEventListener('click', e => {
+        const btn = e.target.closest('[data-path-chip]');
+        if (!btn) return;
+        const pt = btn.dataset.pathChip || "direct";
+        if ($('ol-path-type')) $('ol-path-type').value = pt;
+        markMotionDirty(true);
+        updateMotionModeUI();
+        if (previewLayoutId) renderCanvas();
+    });
+
+    $('ol-item-curve-chips')?.addEventListener('click', e => {
+        const btn = e.target.closest('[data-path-chip]');
+        if (!btn) return;
+        const layout = getTargetLayout();
+        const sel = getSelectedItem();
+        if (!layout || !sel) return;
+        const draft = getOrInitItemMotion(sel.sourceName, layout);
+        draft.pathType = btn.dataset.pathChip || "";
+        if (draft.pathType === "custom" && !draft.waypoints.length) {
+            const saved = (layout.items || []).find(i => i.sourceName === sel.sourceName);
+            if (saved?.transform) {
+                const sR = getStartRectForItem(sel);
+                const tR = getSavedItemTargetRect(sel, saved);
+                draft.waypoints = [{
+                    x: Math.round((sR.left + sR.width * 0.5 + tR.left + tR.width * 0.5) * 0.5),
+                    y: Math.round(Math.max(50, (sR.top + sR.height * 0.5 + tR.top + tR.height * 0.5) * 0.5 - 100))
+                }];
+            }
+        }
+        markMotionDirty(true);
+        updateMotionModeUI();
+        renderCanvas();
+    });
+
     $('ol-motion-target-select')?.addEventListener('change', () => {
         previewLayoutId = $('ol-motion-target-select').value || null;
         itemMotionDrafts = {};
@@ -1694,6 +2274,17 @@ function bindEvents() {
         markMotionDirty(true);
         updateMotionModeUI();
         renderCanvas();
+    });
+
+    $('ol-item-trans-type')?.addEventListener('change', () => {
+        const layout = getTargetLayout();
+        const sel = getSelectedItem();
+        if (!layout || !sel) return;
+        const draft = getOrInitItemMotion(sel.sourceName, layout);
+        draft.transitionType = $('ol-item-trans-type').value || "";
+        draft.autoReversed = false;
+        markMotionDirty(true);
+        updateMotionModeUI();
     });
 
     $('ol-item-delay')?.addEventListener('input', () => {
@@ -1755,6 +2346,7 @@ function bindEvents() {
             return {
                 ...it,
                 motion: draft ? {
+                    transitionType: draft.transitionType || null,
                     pathType: draft.pathType || null,
                     delayMs: Math.max(0, Number(draft.delayMs) || 0),
                     waypoints: Array.isArray(draft.waypoints) ? draft.waypoints : []
@@ -1784,7 +2376,10 @@ function bindEvents() {
     });
 
     $('ol-btn-exit-path')?.addEventListener('click', () => {
+        stopPreviewPlayback();
         previewLayoutId = null;
+        motionFromLayoutId = "";
+        previewAnimPositions = null;
         itemMotionDrafts = {};
         if (previewAnimRaf) { cancelAnimationFrame(previewAnimRaf); previewAnimRaf = null; previewAnimPositions = null; }
         renderLayoutsList();
@@ -1814,7 +2409,11 @@ function bindEvents() {
                 cropBottom: Number(it.transform?.cropBottom) || 0,
                 ...(it.transform?.boundsType ? { boundsType: it.transform.boundsType } : {})
             },
-            aspect: it.aspect || studioState?.sources?.[it.sourceName] || null
+            aspect: it.aspect || studioState?.sources?.[it.sourceName] || null,
+            itemTransition: (() => {
+                const tr = it.itemTransition || studioState?.itemTransitions?.[`${currentScene}::${it.sourceName}`];
+                return tr && tr.scope === 'layout' ? tr : null;
+            })()
         }));
         const res = await api('/api/obs-layout/layouts', {
             method: 'POST',
@@ -1876,8 +2475,9 @@ function bindEvents() {
                             method: 'POST',
                             body: JSON.stringify(payload)
                         });
-                        showNotice(`Applied layout snapshot (${payload.transitionType} · ${payload.pathType} · ${payload.durationMs}ms)`);
-                        await loadScene(currentScene, { preserveHistory: true, historyLabel: 'Applied Layout Snapshot' });
+                        activeLayoutId = id;
+                        showNotice(`Applied layout "${layout?.name || id}" (${payload.transitionType} · ${payload.pathType} · ${payload.durationMs}ms)`);
+                        await loadScene(currentScene, { preserveHistory: true, historyLabel: `Layout: ${layout?.name || id}` });
                     } catch (err) {
                         showNotice(err.message);
                     }
@@ -1889,6 +2489,7 @@ function bindEvents() {
         if (prevBtn) {
             const id = prevBtn.dataset.previewLayout;
             previewLayoutId = previewLayoutId === id ? null : id;
+            if (previewLayoutId) switchInspectorTab('motion');
             const layout = (studioState?.layouts || []).find(l => l.id === previewLayoutId);
             if (layout) {
                 if ($('ol-trans-type') && layout.transitionType) $('ol-trans-type').value = layout.transitionType;
@@ -1984,18 +2585,14 @@ function bindEvents() {
         closeConfirmModal();
         if (typeof fn === 'function') await fn();
     });
-    window.addEventListener('keydown', e => {
-        if (e.key === 'Escape' && pendingConfirmAction) closeConfirmModal();
-    });
+
 
     // Delete confirmation modal handlers
     $('ol-delete-cancel')?.addEventListener('click', () => closeDeleteLayoutModal());
     $('ol-delete-modal')?.addEventListener('click', e => {
         if (e.target === $('ol-delete-modal')) closeDeleteLayoutModal();
     });
-    window.addEventListener('keydown', e => {
-        if (e.key === 'Escape' && pendingDeleteLayoutId) closeDeleteLayoutModal();
-    });
+
     $('ol-delete-confirm')?.addEventListener('click', async () => {
         const id = pendingDeleteLayoutId;
         if (!id) return;

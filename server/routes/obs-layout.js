@@ -23,8 +23,68 @@ module.exports = function createObsLayoutRoutes({
     isObsLayoutEnabled = () => false,
     isLoopbackRequest = () => true
 } = {}) {
+    let activeAnimToken = 0;
+    const lastAppliedLayoutByScene = new Map();
+
     function isObsReady() {
         return Boolean(obsService && typeof obsService.callRequest === 'function' && obsService.getStatus().connected);
+    }
+
+    function sanitizeObsTransformPatch(patch, { includeBoundsType = false } = {}) {
+        const out = {};
+        if (!patch || typeof patch !== 'object') return out;
+        for (const [k, raw] of Object.entries(patch)) {
+            if (k === 'boundsType') {
+                if (includeBoundsType && typeof raw === 'string' && raw) out.boundsType = raw;
+                continue;
+            }
+            const n = Number(raw);
+            if (!Number.isFinite(n)) continue;
+            if (k === 'cropLeft' || k === 'cropRight' || k === 'cropTop' || k === 'cropBottom') {
+                out[k] = Math.max(0, Math.round(n));
+            } else if (k === 'boundsWidth' || k === 'boundsHeight') {
+                out[k] = Number(Math.max(2, n).toFixed(2));
+            } else if (k === 'scaleX' || k === 'scaleY') {
+                const sign = n < 0 ? -1 : 1;
+                out[k] = Number((sign * Math.max(0.001, Math.abs(n))).toFixed(6));
+            } else if (k === 'positionX' || k === 'positionY' || k === 'rotation') {
+                out[k] = Number(n.toFixed(3));
+            }
+        }
+        return out;
+    }
+
+    function hasTransformDelta(fromTx, toPatch) {
+        if (!fromTx || !toPatch) return true;
+        for (const [k, v] of Object.entries(toPatch)) {
+            if (k === 'boundsType') {
+                if (String(fromTx.boundsType || '') !== String(v || '')) return true;
+                continue;
+            }
+            const a = Number(fromTx[k]);
+            const b = Number(v);
+            if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+            const eps = (k === 'scaleX' || k === 'scaleY') ? 0.001 : 0.5;
+            if (Math.abs(a - b) > eps) return true;
+        }
+        return false;
+    }
+
+    function reverseMotionSpec(motion, fallbackPathType = 'direct') {
+        const pt = motion?.pathType || fallbackPathType || 'direct';
+        let revPt = pt;
+        if (pt === 'elbow-hv') revPt = 'elbow-vh';
+        else if (pt === 'elbow-vh') revPt = 'elbow-hv';
+        const wps = Array.isArray(motion?.waypoints) && motion.waypoints.length
+            ? [...motion.waypoints].reverse().map(p => ({ x: Number(p.x), y: Number(p.y) }))
+            : [];
+        return {
+            transitionType: motion?.transitionType || null,
+            pathType: revPt,
+            pathCurve: motion?.pathCurve ?? null,
+            waypoints: wps,
+            delayMs: Number(motion?.delayMs) || 0
+        };
     }
 
     async function setSourceOpacity(sourceName, opacity) {
@@ -50,110 +110,191 @@ module.exports = function createObsLayoutRoutes({
     }
 
     async function animateTransforms(entries, options = {}) {
-        if (!entries.length || !isObsReady()) return;
+        const active = (entries || []).filter(e =>
+            hasTransformDelta(e.from, e.to)
+            || (typeof e.targetVisible === 'boolean' && e.targetVisible !== e.fromVisible)
+        );
+        if (!active.length || !isObsReady()) return;
+        const myToken = ++activeAnimToken;
         const opts = typeof options === 'number' ? { durationMs: options } : (options || {});
-        const transitionType = String(opts.transitionType || 'move');
+        const defaultTransType = String(opts.transitionType || 'move');
         const pathType = String(opts.pathType || 'direct');
         const pathCurve = Number.isFinite(Number(opts.pathCurve)) ? Number(opts.pathCurve) : 0.28;
         const controlPoint = opts.pathControlPoint || opts.controlPoint || null;
         const easing = String(opts.easing || 'ease-in-out');
-        const dur = transitionType === 'cut' ? 0 : Math.max(0, Math.min(3000, Number(opts.durationMs) || 0));
+        const dur = defaultTransType === 'cut' ? 0 : Math.max(0, Math.min(3000, Number(opts.durationMs) || 0));
 
-        if (dur < 25 || transitionType === 'cut') {
-            for (const e of entries) {
-                await obsService.callRequest('SetSceneItemTransform', {
-                    sceneName: e.sceneName,
-                    sceneItemId: e.sceneItemId,
-                    sceneItemTransform: e.to
-                }).catch(() => {});
-            }
-            return;
-        }
-
-        const uniqueSources = [...new Set(entries.map(e => e.sourceName).filter(Boolean))];
-
-        // Pure Fade transition: fade out -> snap transform -> fade in
-        if (transitionType === 'fade') {
-            const halfSteps = Math.max(3, Math.min(24, Math.round((dur * 0.5) / 24)));
-            const stepMs = (dur * 0.5) / halfSteps;
-            for (let i = 1; i <= halfSteps; i++) {
-                const op = 1 - evalEasing(i / halfSteps, easing);
-                await Promise.all(uniqueSources.map(s => setSourceOpacity(s, op)));
-                if (i < halfSteps) await new Promise(r => setTimeout(r, stepMs));
-            }
-            for (const e of entries) {
-                await obsService.callRequest('SetSceneItemTransform', {
-                    sceneName: e.sceneName,
-                    sceneItemId: e.sceneItemId,
-                    sceneItemTransform: e.to
-                }).catch(() => {});
-            }
-            for (let i = 1; i <= halfSteps; i++) {
-                const op = evalEasing(i / halfSteps, easing);
-                await Promise.all(uniqueSources.map(s => setSourceOpacity(s, op)));
-                if (i < halfSteps) await new Promise(r => setTimeout(r, stepMs));
-            }
-            return;
-        }
-
-        // Move or Move + Fade with per-item movement paths (direct / arc / s-curve / custom multi-waypoint Bezier) & stagger delayMs
-        const maxDelay = Math.max(0, ...entries.map(e => Math.max(0, Number(e.motion?.delayMs) || 0)));
-        const totalDur = dur + maxDelay;
-        const steps = Math.max(3, Math.min(72, Math.round(totalDur / 22)));
-        const stepMs = totalDur / steps;
-        const withFade = transitionType === 'move-fade';
-        for (let i = 1; i <= steps; i++) {
-            const elapsedMs = (i / steps) * totalDur;
-            for (const e of entries) {
-                const delayMs = Math.max(0, Number(e.motion?.delayMs) || 0);
-                const localRawT = Math.min(1, Math.max(0, (elapsedMs - delayMs) / Math.max(1, dur)));
-                if (elapsedMs < delayMs && i < steps) continue;
-                const t = evalEasing(localRawT, easing);
-                if (withFade && e.sourceName) {
-                    const dip = 1 - 0.65 * Math.sin(localRawT * Math.PI);
-                    await setSourceOpacity(e.sourceName, dip);
+        // Instant Cut path
+        if (dur < 25 || defaultTransType === 'cut') {
+            for (const e of active) {
+                if (typeof e.targetVisible === 'boolean' && e.targetVisible !== e.fromVisible) {
+                    await obsService.callRequest('SetSceneItemEnabled', {
+                        sceneName: e.sceneName,
+                        sceneItemId: e.sceneItemId,
+                        sceneItemEnabled: e.targetVisible
+                    }).catch(() => {});
                 }
-                const ePathType = e.motion?.pathType || pathType;
-                const ePathCurve = e.motion?.pathCurve ?? pathCurve;
-                const eWaypoints = Array.isArray(e.motion?.waypoints) && e.motion.waypoints.length ? e.motion.waypoints : null;
-                const framePatch = {};
-                for (const key of Object.keys(e.to)) {
-                    if (key === 'positionX' || key === 'positionY') continue;
-                    const fromVal = Number(e.from?.[key]);
-                    const toVal = Number(e.to[key]);
-                    if (Number.isFinite(fromVal) && Number.isFinite(toVal)) {
-                        framePatch[key] = Number(lerpNum(fromVal, toVal, t).toFixed(4));
-                    } else {
-                        framePatch[key] = e.to[key];
+                if (hasTransformDelta(e.from, e.to)) {
+                    const safe = sanitizeObsTransformPatch(e.to, { includeBoundsType: true });
+                    if (Object.keys(safe).length) {
+                        await obsService.callRequest('SetSceneItemTransform', {
+                            sceneName: e.sceneName,
+                            sceneItemId: e.sceneItemId,
+                            sceneItemTransform: safe
+                        }).catch(() => {});
                     }
                 }
-                const hasPos = e.to.positionX !== undefined || e.to.positionY !== undefined;
-                if (hasPos) {
-                    const x0 = Number(e.from?.positionX ?? e.to.positionX ?? 0);
-                    const y0 = Number(e.from?.positionY ?? e.to.positionY ?? 0);
-                    const x1 = Number(e.to.positionX ?? x0);
-                    const y1 = Number(e.to.positionY ?? y0);
-                    const pt = evalPathPoint(x0, y0, x1, y1, t, {
-                        pathType: ePathType,
-                        pathCurve: ePathCurve,
-                        controlPoint,
-                        waypoints: eWaypoints
-                    });
-                    if (e.to.positionX !== undefined) framePatch.positionX = Number(pt.x.toFixed(3));
-                    if (e.to.positionY !== undefined) framePatch.positionY = Number(pt.y.toFixed(3));
+            }
+            return;
+        }
+
+        // Prepare Entering (IN) items: set opacity 0 and enable before timeline starts
+        const fadeTouchedSources = new Set();
+        for (const e of active) {
+            const eTrans = e.motion?.transitionType || defaultTransType;
+            e._trans = eTrans;
+            e._hasMove = hasTransformDelta(e.from, e.to);
+            e._entering = e.targetVisible === true && e.fromVisible === false;
+            e._exiting = e.targetVisible === false && e.fromVisible === true;
+            e._swappedMid = false;
+            if (e._entering) {
+                if (eTrans !== 'cut' && e.sourceName) {
+                    await setSourceOpacity(e.sourceName, 0);
+                    fadeTouchedSources.add(e.sourceName);
                 }
-                await obsService.callRequest('SetSceneItemTransform', {
+                await obsService.callRequest('SetSceneItemEnabled', {
                     sceneName: e.sceneName,
                     sceneItemId: e.sceneItemId,
-                    sceneItemTransform: framePatch
+                    sceneItemEnabled: true
                 }).catch(() => {});
             }
-            if (i < steps) {
+            if ((e._exiting || eTrans === 'fade' || eTrans === 'move-fade') && e.sourceName && eTrans !== 'cut') {
+                fadeTouchedSources.add(e.sourceName);
+            }
+        }
+
+        const maxDelay = Math.max(0, ...active.map(e => Math.max(0, Number(e.motion?.delayMs) || 0)));
+        const totalDur = dur + maxDelay;
+        const steps = Math.max(3, Math.min(54, Math.round(totalDur / 33)));
+        const stepMs = totalDur / steps;
+
+        for (let i = 1; i <= steps; i++) {
+            if (myToken !== activeAnimToken) return;
+            const isFinal = i === steps;
+            const elapsedMs = (i / steps) * totalDur;
+
+            for (const e of active) {
+                if (myToken !== activeAnimToken) return;
+                const delayMs = Math.max(0, Number(e.motion?.delayMs) || 0);
+                if (elapsedMs < delayMs && !isFinal) continue;
+                const localRawT = isFinal ? 1 : Math.min(1, Math.max(0, (elapsedMs - delayMs) / Math.max(1, dur)));
+                const t = isFinal ? 1 : evalEasing(localRawT, easing);
+                const eTrans = e._trans;
+
+                // Handle visibility fades for Entering / Exiting items
+                if (e._entering && eTrans !== 'cut' && e.sourceName) {
+                    await setSourceOpacity(e.sourceName, isFinal ? 1 : Math.min(1, Math.max(0, t)));
+                } else if (e._exiting && eTrans !== 'cut' && e.sourceName) {
+                    await setSourceOpacity(e.sourceName, isFinal ? 0 : Math.min(1, Math.max(0, 1 - t)));
+                } else if (eTrans === 'fade' && e._hasMove && e.sourceName) {
+                    if (localRawT < 0.5 && !isFinal) {
+                        await setSourceOpacity(e.sourceName, 1 - Math.min(1, Math.max(0, evalEasing(localRawT * 2, easing))));
+                    } else {
+                        if (!e._swappedMid) {
+                            e._swappedMid = true;
+                            const safe = sanitizeObsTransformPatch(e.to, { includeBoundsType: true });
+                            if (Object.keys(safe).length) {
+                                await obsService.callRequest('SetSceneItemTransform', {
+                                    sceneName: e.sceneName,
+                                    sceneItemId: e.sceneItemId,
+                                    sceneItemTransform: safe
+                                }).catch(() => {});
+                            }
+                        }
+                        await setSourceOpacity(e.sourceName, isFinal ? 1 : Math.min(1, Math.max(0, evalEasing((localRawT - 0.5) * 2, easing))));
+                    }
+                    continue;
+                } else if (eTrans === 'move-fade' && e.sourceName) {
+                    const dip = isFinal ? 1 : (1 - 0.65 * Math.sin(localRawT * Math.PI));
+                    await setSourceOpacity(e.sourceName, dip);
+                }
+
+                // Apply interpolated transform for moving items (when not pure fade)
+                if (e._hasMove && eTrans !== 'fade') {
+                    if (eTrans === 'cut') {
+                        if (!e._swappedMid) {
+                            e._swappedMid = true;
+                            const safe = sanitizeObsTransformPatch(e.to, { includeBoundsType: true });
+                            if (Object.keys(safe).length) {
+                                await obsService.callRequest('SetSceneItemTransform', {
+                                    sceneName: e.sceneName,
+                                    sceneItemId: e.sceneItemId,
+                                    sceneItemTransform: safe
+                                }).catch(() => {});
+                            }
+                        }
+                        continue;
+                    }
+                    const ePathType = e.motion?.pathType || pathType;
+                    const ePathCurve = e.motion?.pathCurve ?? pathCurve;
+                    const eWaypoints = Array.isArray(e.motion?.waypoints) && e.motion.waypoints.length ? e.motion.waypoints : null;
+                    const rawPatch = {};
+                    for (const key of Object.keys(e.to)) {
+                        if (key === 'positionX' || key === 'positionY') continue;
+                        if (key === 'boundsType') {
+                            if (isFinal) rawPatch.boundsType = e.to.boundsType;
+                            continue;
+                        }
+                        const fromVal = Number(e.from?.[key]);
+                        const toVal = Number(e.to[key]);
+                        if (Number.isFinite(fromVal) && Number.isFinite(toVal)) {
+                            rawPatch[key] = isFinal ? toVal : lerpNum(fromVal, toVal, t);
+                        }
+                    }
+                    const hasPos = e.to.positionX !== undefined || e.to.positionY !== undefined;
+                    if (hasPos) {
+                        const x0 = Number(e.from?.positionX ?? e.to.positionX ?? 0);
+                        const y0 = Number(e.from?.positionY ?? e.to.positionY ?? 0);
+                        const x1 = Number(e.to.positionX ?? x0);
+                        const y1 = Number(e.to.positionY ?? y0);
+                        const pt = isFinal
+                            ? { x: x1, y: y1 }
+                            : evalPathPoint(x0, y0, x1, y1, t, {
+                                pathType: ePathType,
+                                pathCurve: ePathCurve,
+                                controlPoint,
+                                waypoints: eWaypoints
+                            });
+                        if (e.to.positionX !== undefined) rawPatch.positionX = pt.x;
+                        if (e.to.positionY !== undefined) rawPatch.positionY = pt.y;
+                    }
+                    const safePatch = sanitizeObsTransformPatch(rawPatch, { includeBoundsType: isFinal });
+                    if (Object.keys(safePatch).length) {
+                        await obsService.callRequest('SetSceneItemTransform', {
+                            sceneName: e.sceneName,
+                            sceneItemId: e.sceneItemId,
+                            sceneItemTransform: safePatch
+                        }).catch(() => {});
+                    }
+                }
+            }
+            if (!isFinal) {
                 await new Promise(resolve => setTimeout(resolve, stepMs));
             }
         }
-        if (withFade) {
-            await Promise.all(uniqueSources.map(s => setSourceOpacity(s, 1)));
+
+        // Disable exited items & restore opacity to 1 so sources are clean when re-enabled later
+        for (const e of active) {
+            if (e._exiting) {
+                await obsService.callRequest('SetSceneItemEnabled', {
+                    sceneName: e.sceneName,
+                    sceneItemId: e.sceneItemId,
+                    sceneItemEnabled: false
+                }).catch(() => {});
+            }
+        }
+        for (const sName of fadeTouchedSources) {
+            await setSourceOpacity(sName, 1);
         }
     }
 
@@ -343,7 +484,8 @@ module.exports = function createObsLayoutRoutes({
                         borderReach,
                         borderOuterRect,
                         contentRect,
-                        aspect: layoutState.sources?.[sourceName] || null
+                        aspect: layoutState.sources?.[sourceName] || null,
+                        itemTransition: layoutState.itemTransitions?.[`${sceneName}::${sourceName}`] || null
                     });
                 }
 
@@ -396,6 +538,12 @@ module.exports = function createObsLayoutRoutes({
                         sceneItemId,
                         sceneItemTransform: body.transform
                     });
+                    if (body.sourceName && (body.transform.boundsWidth !== undefined || body.transform.scaleX !== undefined)) {
+                        const existingAspect = obsLayoutService.getState().sources?.[body.sourceName];
+                        if (existingAspect && (existingAspect.slotW > 0 || existingAspect.slotH > 0)) {
+                            obsLayoutService.setSourceAspect(body.sourceName, { slotW: 0, slotH: 0 });
+                        }
+                    }
                 }
                 if (typeof body.visible === 'boolean') {
                     await obsService.callRequest('SetSceneItemEnabled', {
@@ -524,12 +672,28 @@ module.exports = function createObsLayoutRoutes({
                                         baseH = bRects.baseH;
                                     }
                                 }
+                                let slotW = Number(saved.aspect.slotW) || 0;
+                                let slotH = Number(saved.aspect.slotH) || 0;
+                                if (saved.aspect.resizeMode === 'fit-slot') {
+                                    if (slotW < 8 || slotH < 8) {
+                                        const curRect = sceneItemScreenRect(curTx);
+                                        slotW = Number(curRect.width.toFixed(2));
+                                        slotH = Number(curRect.height.toFixed(2));
+                                        obsLayoutService.setSourceAspect(sourceName, { slotW, slotH });
+                                    }
+                                } else if (slotW > 0 || slotH > 0) {
+                                    slotW = 0;
+                                    slotH = 0;
+                                    obsLayoutService.setSourceAspect(sourceName, { slotW: 0, slotH: 0 });
+                                }
                                 let anchored;
                                 if (filterAttached) {
                                     const crop = computeAspectCrop(baseW, baseH, saved.aspect);
                                     anchored = computeAnchoredTransform(curTx, crop.outW + borderPad * 2, crop.outH + borderPad * 2, {
                                         resizeMode: saved.aspect.resizeMode,
-                                        anchor: saved.aspect.anchor
+                                        anchor: saved.aspect.anchor,
+                                        slotW,
+                                        slotH
                                     });
                                     anchored.patch.cropLeft = 0;
                                     anchored.patch.cropRight = 0;
@@ -539,7 +703,9 @@ module.exports = function createObsLayoutRoutes({
                                     const nativeCrop = computeNativeObsCropPatch(curTx.sourceWidth || 1920, curTx.sourceHeight || 1080, saved.aspect, borderPad);
                                     anchored = computeAnchoredTransform(curTx, nativeCrop.effW, nativeCrop.effH, {
                                         resizeMode: saved.aspect.resizeMode,
-                                        anchor: saved.aspect.anchor
+                                        anchor: saved.aspect.anchor,
+                                        slotW,
+                                        slotH
                                     });
                                     anchored.patch.cropLeft = nativeCrop.cropLeft;
                                     anchored.patch.cropRight = nativeCrop.cropRight;
@@ -556,7 +722,7 @@ module.exports = function createObsLayoutRoutes({
                             }
                         } catch { /* ignore */ }
                     }
-                    await animateTransforms(animEntries, {
+                await animateTransforms(animEntries, {
                         durationMs: saved.aspect.durationMs,
                         transitionType,
                         pathType,
@@ -565,6 +731,38 @@ module.exports = function createObsLayoutRoutes({
                 }
 
                 sendJson(res, { ok: true, mode: aspectMode, filterAttached, hasBorderFilter, ...saved });
+                return true;
+            }
+
+            // GET /api/obs-layout/transition-kinds — list installed OBS transition kinds
+            if (pathname === '/api/obs-layout/transition-kinds' && req.method === 'GET') {
+                const defaults = ['fade_transition', 'slide_transition', 'swipe_transition', 'fade_to_color_transition', 'wipe_transition', 'cut_transition'];
+                if (!isObsReady()) {
+                    sendJson(res, { kinds: defaults, fromObs: false });
+                    return true;
+                }
+                const tk = await obsService.callRequest('GetTransitionKindList').catch(() => null);
+                const kinds = Array.isArray(tk?.transitionKinds) && tk.transitionKinds.length ? tk.transitionKinds : defaults;
+                sendJson(res, { kinds, fromObs: Boolean(tk?.transitionKinds) });
+                return true;
+            }
+
+            // GET|POST /api/obs-layout/item-transition — set native OBS Show / Hide transition on a scene layer
+            if (pathname === '/api/obs-layout/item-transition' && (req.method === 'GET' || req.method === 'POST')) {
+                const body = req.method === 'POST' ? JSON.parse(await readRequestBody(req, 16 * 1024) || '{}') : {};
+                const sceneName = String(url.searchParams.get('scene') ?? body.sceneName ?? '').trim();
+                const sourceName = String(url.searchParams.get('source') ?? body.sourceName ?? '').trim();
+                if (!sceneName || !sourceName) throw new Error('Missing sceneName or sourceName');
+                const saved = obsLayoutService.setItemTransition(sceneName, sourceName, {
+                    scope: url.searchParams.get('scope') ?? body.scope,
+                    showKind: url.searchParams.get('showKind') ?? body.showKind,
+                    showDurationMs: url.searchParams.has('showDurationMs') ? Number(url.searchParams.get('showDurationMs')) : body.showDurationMs,
+                    showDir: url.searchParams.get('showDir') ?? body.showDir,
+                    hideKind: url.searchParams.get('hideKind') ?? body.hideKind,
+                    hideDurationMs: url.searchParams.has('hideDurationMs') ? Number(url.searchParams.get('hideDurationMs')) : body.hideDurationMs,
+                    hideDir: url.searchParams.get('hideDir') ?? body.hideDir
+                });
+                sendJson(res, { ok: true, ...saved });
                 return true;
             }
 
@@ -601,25 +799,27 @@ module.exports = function createObsLayoutRoutes({
                 const pathCurve = url.searchParams.has('pathCurve') ? Number(url.searchParams.get('pathCurve')) : (body.pathCurve ?? layout.pathCurve ?? 0.28);
                 const pathControlPoint = body.pathControlPoint ?? layout.pathControlPoint ?? null;
                 const easing = String(url.searchParams.get('easing') ?? body.easing ?? layout.easing ?? 'ease-in-out');
+                const prevLayoutId = lastAppliedLayoutByScene.get(layout.sceneName) || null;
+                const prevLayout = prevLayoutId && prevLayoutId !== layout.id
+                    ? (obsLayoutService.getState().layouts || []).find(l => l.id === prevLayoutId && l.sceneName === layout.sceneName)
+                    : null;
+                const reverseReturn = url.searchParams.get('reverseReturn') !== '0' && body.reverseReturn !== false;
+
                 const il = await obsService.callRequest('GetSceneItemList', { sceneName: layout.sceneName });
                 const sceneItems = Array.isArray(il?.sceneItems) ? il.sceneItems : [];
                 const animEntries = [];
 
                 for (const savedItem of layout.items) {
+                    if (savedItem.itemTransition && savedItem.itemTransition.scope === 'layout') {
+                        obsLayoutService.setItemTransition(layout.sceneName, savedItem.sourceName, savedItem.itemTransition);
+                    }
                     if (savedItem.aspect) {
                         obsLayoutService.setSourceAspect(savedItem.sourceName, { ...savedItem.aspect, durationMs });
                         await ensureAndPokeAspectFilter(savedItem.sourceName);
                     }
                     const match = sceneItems.find(si => si.sourceName === savedItem.sourceName);
                     if (!match) continue;
-                    if (typeof savedItem.visible === 'boolean') {
-                        await obsService.callRequest('SetSceneItemEnabled', {
-                            sceneName: layout.sceneName,
-                            sceneItemId: match.sceneItemId,
-                            sceneItemEnabled: savedItem.visible
-                        }).catch(() => {});
-                    }
-                    if (savedItem.transform) {
+                    if (savedItem.transform || typeof savedItem.visible === 'boolean') {
                         const curRes = await obsService.callRequest('GetSceneItemTransform', {
                             sceneName: layout.sceneName,
                             sceneItemId: match.sceneItemId
@@ -628,12 +828,26 @@ module.exports = function createObsLayoutRoutes({
                             sceneName: layout.sceneName,
                             sceneItemId: match.sceneItemId,
                             sourceName: savedItem.sourceName,
-                            from: curRes?.sceneItemTransform || savedItem.transform,
-                            to: savedItem.transform,
-                            motion: savedItem.motion || null
+                            fromVisible: match.sceneItemEnabled !== false,
+                            targetVisible: typeof savedItem.visible === 'boolean' ? savedItem.visible : (match.sceneItemEnabled !== false),
+                            from: curRes?.sceneItemTransform || savedItem.transform || {},
+                            to: savedItem.transform || {},
+                            motion: (() => {
+                                const hasOwn = Boolean(savedItem.motion?.pathType || (Array.isArray(savedItem.motion?.waypoints) && savedItem.motion.waypoints.length));
+                                if (hasOwn) return savedItem.motion;
+                                if (reverseReturn && prevLayout) {
+                                    const prevItem = (prevLayout.items || []).find(pi => pi.sourceName === savedItem.sourceName);
+                                    const prevHasMotion = Boolean(prevItem?.motion?.pathType || (Array.isArray(prevItem?.motion?.waypoints) && prevItem.motion.waypoints.length) || (prevLayout.pathType && prevLayout.pathType !== 'direct'));
+                                    if (prevHasMotion) {
+                                        return reverseMotionSpec(prevItem?.motion, prevLayout.pathType);
+                                    }
+                                }
+                                return savedItem.motion || null;
+                            })()
                         });
                     }
                 }
+                lastAppliedLayoutByScene.set(layout.sceneName, layout.id);
                 await animateTransforms(animEntries, {
                     durationMs,
                     transitionType,
