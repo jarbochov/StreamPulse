@@ -6,6 +6,7 @@
     <title>StreamPulse — OBS Border Studio (Beta)</title>
     <link rel="stylesheet" href="/admin.css">
     <script src="/appearance.js"></script>
+    <script src="/icon-picker.js"></script>
     <script src="/js/border-catalog.js"></script>
     <script src="/js/wizard-variable-binder.js"></script>
     <link rel="stylesheet" href="/css/studio-common.css">
@@ -324,12 +325,15 @@
                                     </div>
                                 </div>
 
-                                <div class="ob-micro-head"><span>Fill &amp; Gradient</span></div>
-                                <div class="grid2" style="align-items:center;">
-                                    <label class="ob-check">
-                                        <input type="checkbox" id="ob-inner-grad">
-                                        <span>Gradient fill (Color 1 → Color 2)</span>
-                                    </label>
+                                <div class="ob-micro-head"><span>Fill &amp; Color Palette</span></div>
+                                <div class="grid2">
+                                    <div class="field">
+                                        <label for="ob-inner-pal-mode">Fill Mode</label>
+                                        <select id="ob-inner-pal-mode">
+                                            <option value="two-color">Solid / 2-Color Gradient</option>
+                                            <option value="palette">Multi-Color Palette</option>
+                                        </select>
+                                    </div>
                                     <div class="field">
                                         <label for="ob-inner-gap">Inner Offset Gap (px)</label>
                                         <div class="ob-input-row">
@@ -338,28 +342,78 @@
                                     </div>
                                 </div>
 
-                                <div class="grid2">
-                                    <div class="field">
-                                        <label for="ob-inner-c1">Color 1</label>
-                                        <div class="ob-color-row">
-                                            <input type="color" id="ob-inner-c1-pick" value="#ffffff">
-                                            <input type="text" id="ob-inner-c1" placeholder="#FFFFFFFF" data-var-kind="color" data-var-label="Primary Color 1">
+                                <div id="ob-inner-twocolor-wrap" style="display:flex;flex-direction:column;gap:8px;">
+                                    <label class="ob-check">
+                                        <input type="checkbox" id="ob-inner-grad">
+                                        <span>Gradient fill (Color 1 &rarr; Color 2)</span>
+                                    </label>
+                                    <div class="grid2">
+                                        <div class="field">
+                                            <label for="ob-inner-c1">Color 1</label>
+                                            <div class="ob-color-row">
+                                                <input type="color" id="ob-inner-c1-pick" value="#ffffff">
+                                                <input type="text" id="ob-inner-c1" placeholder="#FFFFFFFF" data-var-kind="color" data-var-label="Primary Color 1">
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div class="field">
-                                        <label for="ob-inner-c2">Color 2 (Gradient / Bevel)</label>
-                                        <div class="ob-color-row">
-                                            <input type="color" id="ob-inner-c2-pick" value="#999999">
-                                            <input type="text" id="ob-inner-c2" placeholder="#999999FF" data-var-kind="color" data-var-label="Primary Color 2">
+                                        <div class="field">
+                                            <label for="ob-inner-c2">Color 2 (Gradient / Bevel)</label>
+                                            <div class="ob-color-row">
+                                                <input type="color" id="ob-inner-c2-pick" value="#999999">
+                                                <input type="text" id="ob-inner-c2" placeholder="#999999FF" data-var-kind="color" data-var-label="Primary Color 2">
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="grid2" id="ob-inner-angle-wrap" hidden>
+                                <div id="ob-inner-pal-preset-wrap" hidden style="display:flex;flex-direction:column;gap:8px;">
                                     <div class="field">
-                                        <label for="ob-inner-angle">Gradient Angle (deg)</label>
-                                        <div class="ob-input-row">
-                                            <input type="number" id="ob-inner-angle" min="-360" max="360" step="15" data-var-kind="number" data-var-label="Primary Gradient Angle">
+                                        <label for="ob-inner-pal-preset">Color Palette</label>
+                                        <select id="ob-inner-pal-preset"></select>
+                                    </div>
+                                    <div class="ob-pal-bar-row">
+                                        <div id="ob-inner-pal-bar" aria-label="Active palette swatches"></div>
+                                        <button type="button" class="btn btn-secondary btn-sm" id="ob-inner-customize-btn" style="white-space:nowrap;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:3px;"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>Customize</button>
+                                    </div>
+                                    <div id="ob-inner-pal-stops-wrap" class="ob-custom-pal-card" hidden>
+                                        <div class="ob-custom-pal-head">
+                                            <span class="ob-custom-pal-title">Custom Stops (2–8)</span>
+                                            <div class="ob-custom-pal-actions">
+                                                <button type="button" class="btn btn-secondary btn-sm" id="ob-inner-add-stop" style="padding:2px 7px;font-size:10.5px;">+ Add Color</button>
+                                                <button type="button" class="btn btn-secondary btn-sm" id="ob-inner-reverse-stops" style="padding:2px 6px;font-size:10.5px;">Reverse</button>
+                                                <button type="button" class="btn btn-secondary btn-sm" id="ob-inner-shuffle-stops" style="padding:2px 6px;font-size:10.5px;">Shuffle</button>
+                                            </div>
+                                        </div>
+                                        <div class="ob-stop-list" id="ob-inner-stop-list"></div>
+                                    </div>
+                                </div>
+
+                                <div id="ob-inner-angle-wrap" hidden style="display:flex;flex-direction:column;gap:7px;">
+                                    <div class="grid2">
+                                        <div class="field">
+                                            <label for="ob-inner-grad-mode">Gradient Style</label>
+                                            <select id="ob-inner-grad-mode">
+                                                <option value="smooth">Smooth Blend</option>
+                                                <option value="stepped">Hard Steps (Banded)</option>
+                                            </select>
+                                        </div>
+                                        <div class="field">
+                                            <label for="ob-inner-grad-map">Mapping</label>
+                                            <select id="ob-inner-grad-map">
+                                                <option value="linear">Linear Angle</option>
+                                                <option value="perimeter">Perimeter Sweep</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="grid2">
+                                        <div class="field">
+                                            <label for="ob-inner-spread">Spread / Repeat (<span id="ob-inner-spread-val">1.0</span>x)</label>
+                                            <input type="range" id="ob-inner-spread" min="0.25" max="8" step="0.25" value="1">
+                                        </div>
+                                        <div class="field" id="ob-inner-angle-field">
+                                            <label for="ob-inner-angle">Angle (deg)</label>
+                                            <div class="ob-input-row">
+                                                <input type="number" id="ob-inner-angle" min="-360" max="360" step="15" data-var-kind="number" data-var-label="Primary Gradient Angle">
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -389,45 +443,179 @@
                                     </div>
                                 </div>
 
-                                <div class="ob-micro-head"><span>Fill &amp; Gradient</span></div>
-                                <div class="grid2" style="align-items:center;">
-                                    <label class="ob-check">
-                                        <input type="checkbox" id="ob-outer-grad">
-                                        <span>Gradient outer ring (Color 1 → Color 2)</span>
-                                    </label>
+                                <div class="ob-micro-head"><span>Fill &amp; Color Palette</span></div>
+                                <div class="grid2">
                                     <div class="field">
-                                        <label for="ob-outer-gap">Gap Outside Primary Ring (px)</label>
+                                        <label for="ob-outer-pal-mode">Fill Mode</label>
+                                        <select id="ob-outer-pal-mode">
+                                            <option value="two-color">Solid / 2-Color Gradient</option>
+                                            <option value="inherit">Inherit Primary Palette</option>
+                                            <option value="palette">Own Multi-Color Palette</option>
+                                        </select>
+                                    </div>
+                                    <div class="field">
+                                        <label for="ob-outer-gap">Gap Outside Primary (px)</label>
                                         <div class="ob-input-row">
                                             <input type="number" id="ob-outer-gap" min="0" max="100" step="1" data-var-kind="number" data-var-label="Outer Ring Gap">
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="grid2">
-                                    <div class="field">
-                                        <label for="ob-outer-c1">Color 1</label>
-                                        <div class="ob-color-row">
-                                            <input type="color" id="ob-outer-c1-pick" value="#99a443">
-                                            <input type="text" id="ob-outer-c1" placeholder="#99A443FF" data-var-kind="color" data-var-label="Outer Ring Color 1">
+                                <div id="ob-outer-twocolor-wrap" style="display:flex;flex-direction:column;gap:8px;">
+                                    <label class="ob-check">
+                                        <input type="checkbox" id="ob-outer-grad">
+                                        <span>Gradient outer ring (Color 1 &rarr; Color 2)</span>
+                                    </label>
+                                    <div class="grid2">
+                                        <div class="field">
+                                            <label for="ob-outer-c1">Color 1</label>
+                                            <div class="ob-color-row">
+                                                <input type="color" id="ob-outer-c1-pick" value="#99a443">
+                                                <input type="text" id="ob-outer-c1" placeholder="#99A443FF" data-var-kind="color" data-var-label="Outer Ring Color 1">
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div class="field">
-                                        <label for="ob-outer-c2">Color 2</label>
-                                        <div class="ob-color-row">
-                                            <input type="color" id="ob-outer-c2-pick" value="#026e54">
-                                            <input type="text" id="ob-outer-c2" placeholder="#026E54FF" data-var-kind="color" data-var-label="Outer Ring Color 2">
+                                        <div class="field">
+                                            <label for="ob-outer-c2">Color 2</label>
+                                            <div class="ob-color-row">
+                                                <input type="color" id="ob-outer-c2-pick" value="#026e54">
+                                                <input type="text" id="ob-outer-c2" placeholder="#026E54FF" data-var-kind="color" data-var-label="Outer Ring Color 2">
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="grid2" id="ob-outer-angle-wrap" hidden>
+                                <div id="ob-outer-pal-preset-wrap" hidden style="display:flex;flex-direction:column;gap:8px;">
                                     <div class="field">
-                                        <label for="ob-outer-angle">Gradient Angle (deg)</label>
-                                        <div class="ob-input-row">
-                                            <input type="number" id="ob-outer-angle" min="-360" max="360" step="15" data-var-kind="number" data-var-label="Outer Gradient Angle">
+                                        <label for="ob-outer-pal-preset">Outer Color Palette</label>
+                                        <select id="ob-outer-pal-preset"></select>
+                                    </div>
+                                    <div class="ob-pal-bar-row">
+                                        <div id="ob-outer-pal-bar" aria-label="Active outer palette swatches"></div>
+                                        <button type="button" class="btn btn-secondary btn-sm" id="ob-outer-customize-btn" style="white-space:nowrap;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:3px;"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>Customize</button>
+                                    </div>
+                                    <div id="ob-outer-pal-stops-wrap" class="ob-custom-pal-card" hidden>
+                                        <div class="ob-custom-pal-head">
+                                            <span class="ob-custom-pal-title">Custom Stops (2–4)</span>
+                                            <div class="ob-custom-pal-actions">
+                                                <button type="button" class="btn btn-secondary btn-sm" id="ob-outer-add-stop" style="padding:2px 7px;font-size:10.5px;">+ Add Color</button>
+                                                <button type="button" class="btn btn-secondary btn-sm" id="ob-outer-reverse-stops" style="padding:2px 6px;font-size:10.5px;">Reverse</button>
+                                                <button type="button" class="btn btn-secondary btn-sm" id="ob-outer-shuffle-stops" style="padding:2px 6px;font-size:10.5px;">Shuffle</button>
+                                            </div>
+                                        </div>
+                                        <div class="ob-stop-list" id="ob-outer-stop-list"></div>
+                                    </div>
+                                </div>
+
+                                <div id="ob-outer-angle-wrap" hidden style="display:flex;flex-direction:column;gap:7px;">
+                                    <div class="grid2">
+                                        <div class="field">
+                                            <label for="ob-outer-grad-mode">Gradient Style</label>
+                                            <select id="ob-outer-grad-mode">
+                                                <option value="smooth">Smooth Blend</option>
+                                                <option value="stepped">Hard Steps (Banded)</option>
+                                            </select>
+                                        </div>
+                                        <div class="field">
+                                            <label for="ob-outer-grad-map">Mapping</label>
+                                            <select id="ob-outer-grad-map">
+                                                <option value="linear">Linear Angle</option>
+                                                <option value="perimeter">Perimeter Sweep</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="grid2">
+                                        <div class="field">
+                                            <label for="ob-outer-spread">Spread / Repeat (<span id="ob-outer-spread-val">1.0</span>x)</label>
+                                            <input type="range" id="ob-outer-spread" min="0.25" max="8" step="0.25" value="1">
+                                        </div>
+                                        <div class="field" id="ob-outer-angle-field">
+                                            <label for="ob-outer-angle">Angle (deg)</label>
+                                            <div class="ob-input-row">
+                                                <input type="number" id="ob-outer-angle" min="-360" max="360" step="15" data-var-kind="number" data-var-label="Outer Gradient Angle">
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                        </section>
+
+                        <section class="sect" id="ob-sect-icons">
+                            <div class="sect-head">
+                                <span class="sect-title">Icon Border</span>
+                                <label class="ob-check">
+                                    <input type="checkbox" id="ob-icons-enabled">
+                                    <span>Enabled</span>
+                                </label>
+                            </div>
+                            <div class="sect-body" id="ob-icons-body">
+                                <div class="ob-micro-head">
+                                    <span>Icons &amp; Assets (1–8)</span>
+                                    <div style="display:flex;gap:4px;">
+                                        <button type="button" class="btn btn-primary btn-sm" id="ob-icons-add" style="padding:2px 8px;font-size:11px;">+ Icon</button>
+                                        <button type="button" class="btn btn-secondary btn-sm" id="ob-icons-add-asset" style="padding:2px 8px;font-size:11px;">+ Asset</button>
+                                    </div>
+                                </div>
+                                <div class="ob-icon-seq-list" id="ob-icons-list"></div>
+
+                                <div class="grid2">
+                                    <div class="field">
+                                        <label for="ob-icons-size">Icon Size (<span id="ob-icons-size-val">28</span>px)</label>
+                                        <input type="range" id="ob-icons-size" min="8" max="120" step="1" value="28">
+                                    </div>
+                                    <div class="field">
+                                        <label for="ob-icons-spacing">Spacing (<span id="ob-icons-spacing-val">16</span>px)</label>
+                                        <input type="range" id="ob-icons-spacing" min="0" max="120" step="1" value="16">
+                                    </div>
+                                </div>
+
+                                <div class="grid2">
+                                    <div class="field">
+                                        <label for="ob-icons-offset">Radial Offset (<span id="ob-icons-offset-val">0</span>px)</label>
+                                        <input type="range" id="ob-icons-offset" min="-40" max="80" step="1" value="0">
+                                    </div>
+                                    <div class="field">
+                                        <label for="ob-icons-rot">Rotation (<span id="ob-icons-rot-val">0</span>°)</label>
+                                        <input type="range" id="ob-icons-rot" min="-180" max="180" step="5" value="0">
+                                    </div>
+                                </div>
+
+                                <div class="grid2">
+                                    <div class="field">
+                                        <label for="ob-icons-speed">Scroll Speed (<span id="ob-icons-speed-val">0</span>)</label>
+                                        <input type="range" id="ob-icons-speed" min="-4" max="4" step="0.25" value="0">
+                                    </div>
+                                    <div class="field">
+                                        <label for="ob-icons-opacity">Opacity (<span id="ob-icons-opacity-val">100</span>%)</label>
+                                        <input type="range" id="ob-icons-opacity" min="0" max="1" step="0.05" value="1">
+                                    </div>
+                                </div>
+
+                                <div class="grid2">
+                                    <div class="field">
+                                        <label for="ob-icons-color-mode">Icon Coloring</label>
+                                        <select id="ob-icons-color-mode">
+                                            <option value="per-icon">Per-Icon Colors</option>
+                                            <option value="palette">Use Primary Border Palette</option>
+                                        </select>
+                                    </div>
+                                    <div class="field">
+                                        <label for="ob-icons-blend">Blend Mode</label>
+                                        <select id="ob-icons-blend">
+                                            <option value="normal">Normal</option>
+                                            <option value="add">Additive (Glow)</option>
+                                            <option value="screen">Screen</option>
+                                            <option value="multiply">Multiply</option>
+                                            <option value="overlay">Overlay</option>
+                                            <option value="soft-light">Soft Light</option>
+                                            <option value="punchout">Punchout (Cutout)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <label class="ob-check">
+                                    <input type="checkbox" id="ob-icons-follow-edge" checked>
+                                    <span>Follow Border Edge</span>
+                                </label>
                             </div>
                         </section>
                     </div>
@@ -444,7 +632,7 @@
                             </div>
                             <div class="sect-body" id="ob-glow-body">
                                 <div class="grid2">
-                                    <div class="field">
+                                    <div class="field" id="ob-glow-solid-wrap">
                                         <label for="ob-glow-color">Glow Color</label>
                                         <div class="ob-color-row">
                                             <input type="color" id="ob-glow-color-pick" value="#38bdf8">
@@ -468,6 +656,50 @@
                                         <input type="checkbox" id="ob-glow-inner">
                                         <span>Inner glow</span>
                                     </label>
+                                </div>
+                                <div class="grid2">
+                                    <div class="field">
+                                        <label for="ob-glow-pal-mode">Glow Color Mode</label>
+                                        <select id="ob-glow-pal-mode">
+                                            <option value="solid">Solid Glow Color</option>
+                                            <option value="inherit">Inherit Primary Palette</option>
+                                            <option value="palette">Own Palette (2–4 stops)</option>
+                                        </select>
+                                    </div>
+                                    <div class="field" id="ob-glow-pal-preset-wrap" hidden>
+                                        <label for="ob-glow-pal-preset">Glow Palette</label>
+                                        <select id="ob-glow-pal-preset"></select>
+                                    </div>
+                                </div>
+
+                                <div id="ob-glow-pal-bar-row" class="ob-pal-bar-row" hidden>
+                                    <div id="ob-glow-pal-bar" aria-label="Active glow palette swatches"></div>
+                                    <button type="button" class="btn btn-secondary btn-sm" id="ob-glow-customize-btn" style="white-space:nowrap;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:3px;"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>Customize</button>
+                                </div>
+                                <div id="ob-glow-pal-stops-wrap" class="ob-custom-pal-card" hidden>
+                                    <div class="ob-custom-pal-head">
+                                        <span class="ob-custom-pal-title">Glow Stops (2–4)</span>
+                                        <div class="ob-custom-pal-actions">
+                                            <button type="button" class="btn btn-secondary btn-sm" id="ob-glow-add-stop" style="padding:2px 7px;font-size:10.5px;">+ Add Color</button>
+                                            <button type="button" class="btn btn-secondary btn-sm" id="ob-glow-reverse-stops" style="padding:2px 6px;font-size:10.5px;">Reverse</button>
+                                            <button type="button" class="btn btn-secondary btn-sm" id="ob-glow-shuffle-stops" style="padding:2px 6px;font-size:10.5px;">Shuffle</button>
+                                        </div>
+                                    </div>
+                                    <div class="ob-stop-list" id="ob-glow-stop-list"></div>
+                                </div>
+
+                                <div id="ob-glow-pal-opts-wrap" hidden class="grid2">
+                                    <div class="field">
+                                        <label for="ob-glow-grad-mode">Glow Style</label>
+                                        <select id="ob-glow-grad-mode">
+                                            <option value="smooth">Smooth Blend</option>
+                                            <option value="stepped">Hard Steps</option>
+                                        </select>
+                                    </div>
+                                    <div class="field">
+                                        <label for="ob-glow-spread">Spread (<span id="ob-glow-spread-val">1.0</span>x)</label>
+                                        <input type="range" id="ob-glow-spread" min="0.25" max="8" step="0.25" value="1">
+                                    </div>
                                 </div>
                                 <div class="ob-dirty-pill is-dirty" id="ob-glow-inside-note" hidden style="border-radius:6px;white-space:normal;padding:0.42rem 0.6rem;line-height:1.4;">
                                     Border Placement is set to <strong>Inside</strong> (0px expansion): external glow cannot extend outside the frame. Enable <strong>Inner glow</strong> or switch Placement to Outside / Middle.
@@ -788,6 +1020,18 @@ GET /api/obs-borders/status</div>
             </div>
         </div>
     </div>
+
+    <dialog id="ob-asset-dialog" class="ob-asset-dialog" aria-labelledby="ob-asset-dialog-title">
+        <div class="ob-asset-dialog-head">
+            <h3 id="ob-asset-dialog-title">Pick Image from Asset Library</h3>
+            <button type="button" class="btn btn-secondary btn-sm" id="ob-asset-dialog-close" aria-label="Close">Close</button>
+        </div>
+        <div class="ob-asset-dialog-bar">
+            <input type="search" id="ob-asset-search" placeholder="Search assets…" autocomplete="off">
+            <a href="/library/assets.html" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">Manage Library</a>
+        </div>
+        <div id="ob-asset-grid" class="ob-asset-grid"></div>
+    </dialog>
 
     <div class="ob-toast" id="ob-toast"></div>
     <script src="/js/obs-borders/obs-borders-studio.js"></script>

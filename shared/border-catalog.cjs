@@ -11,6 +11,8 @@
 
 'use strict';
 
+const { PALETTES: BORDER_PALETTES } = require('./pattern-catalog.cjs');
+
 const BORDER_STYLE_GROUPS = [
     {
         label: 'Standard',
@@ -213,8 +215,15 @@ function computeAutoBorderPad(profile = {}) {
         shadowBleed = Math.max(0, Math.ceil(Math.max(shOffX, shOffY) + shSpread + tail));
     }
 
-    const minSafeBleed = (inT > 0 || outT > 0 || glowBleed > 0 || shadowBleed > 0) ? 2 : 0;
-    const totalBleed = Math.ceil(outerBorderReach + Math.max(finialOverhang, glowBleed, shadowBleed) + extraPad + minSafeBleed);
+    let iconOverhang = 0;
+    if (profile.icons?.enabled) {
+        const iconSize = clampFinite(profile.icons?.size, 28, 8, 120);
+        const iconOff = clampFinite(profile.icons?.offset, 0, -40, 80);
+        iconOverhang = Math.max(0, Math.ceil(iconSize * 0.55 + Math.max(0, iconOff) - inT * 0.5 + 2));
+    }
+
+    const minSafeBleed = (inT > 0 || outT > 0 || glowBleed > 0 || shadowBleed > 0 || iconOverhang > 0) ? 2 : 0;
+    const totalBleed = Math.ceil(outerBorderReach + Math.max(finialOverhang, iconOverhang, glowBleed, shadowBleed) + extraPad + minSafeBleed);
     return Math.max(0, Math.min(400, totalBleed));
 }
 
@@ -229,5 +238,6 @@ module.exports = {
     BACKGROUND_MODE_MAP,
     SHADOW_MODES,
     SHADOW_MODE_MAP,
+    BORDER_PALETTES,
     computeAutoBorderPad
 };

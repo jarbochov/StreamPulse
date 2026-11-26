@@ -393,10 +393,10 @@ function createSessionService(options = {}) {
         return true;
     }
 
-    async function lifecycleOnLive(stream, cfg) {
+    async function lifecycleOnLive(stream, cfg, opts = {}) {
         lifecycle.offlineSince = 0;
         lifecycle.lastLiveAt = Date.now();
-        lifecycle.liveStreak++;
+        lifecycle.liveStreak = opts.immediate ? Math.max(lifecycle.liveStreak + 1, 2) : (lifecycle.liveStreak + 1);
         if (lifecycle.suppressed || lifecycle.liveStreak < 2 || lifecycle.liveId === stream.id) return;
         lifecycle.liveId = stream.id;
 
@@ -460,6 +460,24 @@ function createSessionService(options = {}) {
     }
 
     let lastLifecycleRestPoll = 0;
+    async function handleStreamOnline(ev = {}) {
+        const config = getConfig();
+        const cfg = normalizeLifecycleConfig(config?.session_lifecycle);
+        if (!cfg.auto) return;
+        // EventSub stream.online is authoritative; Helix /streams can lag 15-60s behind it.
+        // Mark the REST poll timestamp so a lagging Helix check doesn't immediately flip us offline.
+        lastLifecycleRestPoll = Date.now();
+        const stream = {
+            id: ev?.id || `eventsub-${Date.now()}`,
+            started_at: ev?.startedAt || new Date().toISOString()
+        };
+        try {
+            await lifecycleOnLive(stream, cfg, { immediate: true });
+        } catch (err) {
+            warn('[Lifecycle] EventSub stream.online handling failed:', err.message);
+        }
+    }
+
     async function pollLifecycle(force = false) {
         const config = getConfig();
         const cfg = normalizeLifecycleConfig(config?.session_lifecycle);
@@ -467,7 +485,8 @@ function createSessionService(options = {}) {
         const broadcasterId = getBroadcasterId();
         if (!cfg.auto || !clientId || !broadcasterId) return;
         const now = Date.now();
-        if (!force && isEventSubActive() && (now - lastLifecycleRestPoll < 120000)) {
+        const confirmingLive = lifecycle.liveStreak === 1;
+        if (!force && !confirmingLive && isEventSubActive() && (now - lastLifecycleRestPoll < 120000)) {
             return;
         }
         lastLifecycleRestPoll = now;
@@ -741,6 +760,7 @@ function createSessionService(options = {}) {
         resumeArchivedSession,
         lifecycleOnLive,
         lifecycleOnOffline,
+        handleStreamOnline,
         pollLifecycle,
         getLifecycleStatus,
         getSessionPhase,

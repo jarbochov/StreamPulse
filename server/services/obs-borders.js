@@ -18,6 +18,7 @@ const {
     BACKGROUND_MODE_MAP,
     SHADOW_MODES,
     SHADOW_MODE_MAP,
+    BORDER_PALETTES,
     computeAutoBorderPad
 } = require('../../shared/border-catalog.cjs');
 
@@ -397,6 +398,74 @@ function buildDefaultProfiles() {
     ];
 }
 
+function normalizePaletteColors(rawColors, paletteName, fallback = ['#38BDF8FF', '#A855F7FF', '#F43F5EFF'], maxCount = 8) {
+    if (paletteName && paletteName !== 'custom' && BORDER_PALETTES[paletteName]) {
+        return BORDER_PALETTES[paletteName].slice(0, maxCount).map(c => sanitizeColorOrVar(c, '#FFFFFFFF'));
+    }
+    const list = Array.isArray(rawColors) ? rawColors : [];
+    const cleaned = list.slice(0, maxCount).map(c => sanitizeColorOrVar(c, '#FFFFFFFF')).filter(Boolean);
+    return cleaned.length >= 2 ? cleaned : fallback.slice(0, maxCount);
+}
+
+const ICON_BLEND_MODES = ['normal', 'add', 'screen', 'multiply', 'overlay', 'soft-light', 'punchout'];
+const ICON_BLEND_MAP = Object.fromEntries(ICON_BLEND_MODES.map((m, i) => [m, i]));
+
+function sanitizeLocalAssetUrl(raw) {
+    const s = String(raw || '').trim();
+    if (!s || s.includes('..') || s.includes('\\')) return '';
+    if (s.startsWith('/custom-overlay-assets/') || s.startsWith('/uploads/')) {
+        return s.slice(0, 512);
+    }
+    return '';
+}
+
+function normalizeIcons(raw = {}) {
+    const srcIcons = raw && typeof raw === 'object' ? raw : {};
+    const rawItems = Array.isArray(srcIcons.items) ? srcIcons.items : [];
+    const items = rawItems.slice(0, 8).map(it => {
+        const assetUrl = sanitizeLocalAssetUrl(it?.assetUrl);
+        const kind = (it?.kind === 'asset' || (!it?.kind && assetUrl)) && assetUrl ? 'asset' : 'icon';
+        if (kind === 'asset') {
+            const fallbackName = decodeURIComponent(assetUrl.split('/').pop() || 'Asset');
+            return {
+                kind: 'asset',
+                assetUrl,
+                assetName: String(it?.assetName || fallbackName).trim().slice(0, 96) || fallbackName,
+                iconClass: '',
+                color: sanitizeColorOrVar(it?.color, '#FFFFFFFF')
+            };
+        }
+        return {
+            kind: 'icon',
+            assetUrl: '',
+            assetName: '',
+            iconClass: String(it?.iconClass || 'fa-solid fa-star').trim().replace(/[^a-z0-9\s-]/gi, '').slice(0, 64) || 'fa-solid fa-star',
+            color: sanitizeColorOrVar(it?.color, '#FACC15FF')
+        };
+    });
+    if (!items.length) {
+        items.push(
+            { kind: 'icon', assetUrl: '', assetName: '', iconClass: 'fa-solid fa-star', color: '#FACC15FF' },
+            { kind: 'icon', assetUrl: '', assetName: '', iconClass: 'fa-solid fa-bolt', color: '#38BDF8FF' }
+        );
+    }
+    const atlasFile = String(srcIcons.atlasFile || '').replace(/[^a-z0-9_.-]/gi, '').slice(0, 120);
+    return {
+        enabled: Boolean(srcIcons.enabled),
+        items,
+        size: sanitizeNumberOrVar(srcIcons.size, 28, 8, 120),
+        spacing: sanitizeNumberOrVar(srcIcons.spacing, 16, 0, 120),
+        offset: sanitizeNumberOrVar(srcIcons.offset, 0, -40, 80),
+        rotation: sanitizeNumberOrVar(srcIcons.rotation, 0, -180, 180),
+        followEdge: srcIcons.followEdge !== undefined ? Boolean(srcIcons.followEdge) : true,
+        speed: sanitizeNumberOrVar(srcIcons.speed, 0, -4, 4),
+        colorMode: srcIcons.colorMode === 'palette' ? 'palette' : 'per-icon',
+        blendMode: ICON_BLEND_MODES.includes(srcIcons.blendMode) ? srcIcons.blendMode : 'normal',
+        opacity: sanitizeNumberOrVar(srcIcons.opacity, 1, 0, 1),
+        atlasFile
+    };
+}
+
 function normalizeLayer(raw = {}, defaults = {}) {
     const rawStyle = normalizeStyleAlias(raw.style || defaults.style || 'solid');
     const hadGradientFlag = raw.style === 'gradient' || raw.style === 'conic-gradient' || Boolean(raw.gradient);
@@ -408,7 +477,13 @@ function normalizeLayer(raw = {}, defaults = {}) {
         gap: sanitizeNumberOrVar(raw.gap, defaults.gap ?? 0, 0, 100),
         color1: sanitizeColorOrVar(raw.color1, defaults.color1 || '#FFFFFFFF'),
         color2: sanitizeColorOrVar(raw.color2, defaults.color2 || '#888888FF'),
-        angle: sanitizeNumberOrVar(raw.angle, defaults.angle ?? 180, -360, 360)
+        angle: sanitizeNumberOrVar(raw.angle, defaults.angle ?? 180, -360, 360),
+        paletteMode: ['two-color', 'palette', 'inherit'].includes(raw.paletteMode) ? raw.paletteMode : 'two-color',
+        palette: (raw.palette === 'custom' || BORDER_PALETTES[raw.palette]) ? raw.palette : 'neon',
+        paletteColors: normalizePaletteColors(raw.paletteColors, raw.palette === 'custom' ? 'custom' : raw.palette, defaults.paletteColors || BORDER_PALETTES.neon),
+        gradientMode: raw.gradientMode === 'stepped' ? 'stepped' : 'smooth',
+        gradientSpread: sanitizeNumberOrVar(raw.gradientSpread, 1.0, 0.25, 8.0),
+        gradientMapping: raw.gradientMapping === 'perimeter' ? 'perimeter' : 'linear'
     };
 }
 
@@ -463,8 +538,16 @@ function normalizeProfile(raw = {}, fallbackIndex = 0) {
             color: sanitizeColorOrVar(raw.glow?.color, defaults.glow.color),
             blur: sanitizeNumberOrVar(raw.glow?.blur ?? raw.glow?.size, defaults.glow.blur, 0, 120),
             neon: Boolean(raw.glow?.neon),
-            inner: Boolean(raw.glow?.inner)
+            inner: Boolean(raw.glow?.inner),
+            paletteMode: ['solid', 'inherit', 'palette'].includes(raw.glow?.paletteMode) ? raw.glow.paletteMode : 'solid',
+            palette: (raw.glow?.palette === 'custom' || BORDER_PALETTES[raw.glow?.palette]) ? raw.glow.palette : 'neon',
+            paletteColors: normalizePaletteColors(raw.glow?.paletteColors, raw.glow?.palette === 'custom' ? 'custom' : raw.glow?.palette, BORDER_PALETTES.neon, 4),
+            gradientMode: raw.glow?.gradientMode === 'stepped' ? 'stepped' : 'smooth',
+            gradientSpread: sanitizeNumberOrVar(raw.glow?.gradientSpread, 1.0, 0.25, 8.0),
+            gradientMapping: raw.glow?.gradientMapping === 'linear' ? 'linear' : 'perimeter',
+            angle: sanitizeNumberOrVar(raw.glow?.angle, 180, -360, 360)
         },
+        icons: normalizeIcons(raw.icons || {}),
         shadow: {
             enabled: Boolean(raw.shadow?.enabled),
             mode: SHADOW_MODE_MAP[raw.shadow?.mode] !== undefined ? raw.shadow.mode : 'soft',
@@ -486,7 +569,7 @@ function normalizeProfile(raw = {}, fallbackIndex = 0) {
     };
 }
 
-function resolveProfileForManifest(profile, varValues = {}) {
+function resolveProfileForManifest(profile, varValues = {}, { atlasesDir = '' } = {}) {
     const num = (val, def, min, max) => {
         const resolved = resolveValue(val, varValues, def);
         const n = Number(resolved);
@@ -528,7 +611,13 @@ function resolveProfileForManifest(profile, varValues = {}) {
         color2: innerColor2,
         color1Rgba: hexToRgbaFloats(innerColor1, [1, 1, 1, 1]),
         color2Rgba: hexToRgbaFloats(innerColor2, [0.6, 0.6, 0.6, 1]),
-        angle: num(profile.inner?.angle, 180, -360, 360)
+        angle: num(profile.inner?.angle, 180, -360, 360),
+        paletteMode: profile.inner?.paletteMode === 'palette' ? 'palette' : 'two-color',
+        palModeCode: profile.inner?.paletteMode === 'palette' ? 1 : 0,
+        paletteRgba: (normalizePaletteColors(profile.inner?.paletteColors, profile.inner?.palette, BORDER_PALETTES.neon, 8)).map(c => hexToRgbaFloats(col(c, '#FFFFFFFF'), [1, 1, 1, 1])),
+        gradStepped: profile.inner?.gradientMode === 'stepped' ? 1 : 0,
+        gradSpread: num(profile.inner?.gradientSpread, 1.0, 0.25, 8.0),
+        gradPerim: profile.inner?.gradientMapping === 'perimeter' ? 1 : 0
     };
     const outerResolved = {
         enabled: Boolean(profile.outer?.enabled),
@@ -541,7 +630,13 @@ function resolveProfileForManifest(profile, varValues = {}) {
         color2: outerColor2,
         color1Rgba: hexToRgbaFloats(outerColor1, [0.6, 0.64, 0.26, 1]),
         color2Rgba: hexToRgbaFloats(outerColor2, [0.01, 0.43, 0.33, 1]),
-        angle: num(profile.outer?.angle, 180, -360, 360)
+        angle: num(profile.outer?.angle, 180, -360, 360),
+        paletteMode: ['two-color', 'inherit', 'palette'].includes(profile.outer?.paletteMode) ? profile.outer.paletteMode : 'two-color',
+        palModeCode: profile.outer?.paletteMode === 'inherit' ? 1 : (profile.outer?.paletteMode === 'palette' ? 2 : 0),
+        paletteRgba: (normalizePaletteColors(profile.outer?.paletteColors, profile.outer?.palette, BORDER_PALETTES.neon, 4)).map(c => hexToRgbaFloats(col(c, '#FFFFFFFF'), [1, 1, 1, 1])),
+        gradStepped: profile.outer?.gradientMode === 'stepped' ? 1 : 0,
+        gradSpread: num(profile.outer?.gradientSpread, 1.0, 0.25, 8.0),
+        gradPerim: profile.outer?.gradientMapping === 'perimeter' ? 1 : 0
     };
     const glowResolved = {
         enabled: Boolean(profile.glow?.enabled),
@@ -549,7 +644,32 @@ function resolveProfileForManifest(profile, varValues = {}) {
         colorRgba: hexToRgbaFloats(glowColor, [0.22, 0.74, 0.97, 1]),
         blur: num(profile.glow?.blur, 16, 0, 120),
         neon: Boolean(profile.glow?.neon),
-        inner: Boolean(profile.glow?.inner)
+        inner: Boolean(profile.glow?.inner),
+        paletteMode: ['solid', 'inherit', 'palette'].includes(profile.glow?.paletteMode) ? profile.glow.paletteMode : 'solid',
+        palModeCode: profile.glow?.paletteMode === 'inherit' ? 1 : (profile.glow?.paletteMode === 'palette' ? 2 : 0),
+        paletteRgba: (normalizePaletteColors(profile.glow?.paletteColors, profile.glow?.palette, BORDER_PALETTES.neon, 4)).map(c => hexToRgbaFloats(col(c, '#FFFFFFFF'), [1, 1, 1, 1])),
+        gradStepped: profile.glow?.gradientMode === 'stepped' ? 1 : 0,
+        gradSpread: num(profile.glow?.gradientSpread, 1.0, 0.25, 8.0),
+        gradPerim: profile.glow?.gradientMapping === 'linear' ? 0 : 1,
+        angle: num(profile.glow?.angle, 180, -360, 360)
+    };
+    const ic = normalizeIcons(profile.icons || {});
+    const iconsResolved = {
+        enabled: ic.enabled ? 1 : 0,
+        count: ic.items.length,
+        size: num(ic.size, 28, 8, 120),
+        spacing: num(ic.spacing, 16, 0, 120),
+        offset: num(ic.offset, 0, -40, 80),
+        rotation: num(ic.rotation, 0, -180, 180),
+        followEdge: ic.followEdge ? 1 : 0,
+        speed: num(ic.speed, 0, -4, 4),
+        colorModeCode: ic.colorMode === 'palette' ? 1 : 0,
+        blendMode: ic.blendMode || 'normal',
+        blendCode: ICON_BLEND_MAP[ic.blendMode] ?? 0,
+        opacity: num(ic.opacity, 1, 0, 1),
+        colorsRgba: ic.items.map(it => hexToRgbaFloats(col(it.color, '#FACC15FF'), [1, 0.8, 0.1, 1])),
+        atlasFile: ic.atlasFile,
+        atlasPath: (ic.atlasFile && atlasesDir) ? path.join(atlasesDir, ic.atlasFile) : ''
     };
     const shMode = SHADOW_MODE_MAP[profile.shadow?.mode] !== undefined ? profile.shadow.mode : 'soft';
     const shadowResolved = {
@@ -604,6 +724,7 @@ function resolveProfileForManifest(profile, varValues = {}) {
         inner: innerResolved,
         outer: outerResolved,
         glow: glowResolved,
+        icons: iconsResolved,
         shadow: shadowResolved,
         animation: {
             type: animType,
@@ -723,6 +844,63 @@ uniform float bg_static_scale;
 uniform float bg_static_speed;
 uniform float bg_static_color;
 uniform float bg_static_glitch;
+
+uniform float inner_pal_mode;
+uniform float inner_pal_count;
+uniform float inner_grad_stepped;
+uniform float inner_grad_spread;
+uniform float inner_grad_perim;
+uniform float4 in_pal0;
+uniform float4 in_pal1;
+uniform float4 in_pal2;
+uniform float4 in_pal3;
+uniform float4 in_pal4;
+uniform float4 in_pal5;
+uniform float4 in_pal6;
+uniform float4 in_pal7;
+
+uniform float outer_pal_mode;
+uniform float outer_pal_count;
+uniform float outer_grad_stepped;
+uniform float outer_grad_spread;
+uniform float outer_grad_perim;
+uniform float4 out_pal0;
+uniform float4 out_pal1;
+uniform float4 out_pal2;
+uniform float4 out_pal3;
+
+uniform float glow_pal_mode;
+uniform float glow_pal_count;
+uniform float glow_grad_stepped;
+uniform float glow_grad_spread;
+uniform float glow_grad_perim;
+uniform float glow_angle_rad;
+uniform float4 glow_pal0;
+uniform float4 glow_pal1;
+uniform float4 glow_pal2;
+uniform float4 glow_pal3;
+
+uniform texture2d icon_atlas;
+uniform float icons_enabled;
+uniform float icons_has_tex;
+uniform float icons_count;
+uniform float icons_size;
+uniform float icons_spacing;
+uniform float icons_offset;
+uniform float icons_rot_rad;
+uniform float icons_follow_edge;
+uniform float icons_speed;
+uniform float icons_color_mode;
+uniform float icons_blend;
+uniform float icons_opacity;
+uniform float4 icon_col0;
+uniform float4 icon_col1;
+uniform float4 icon_col2;
+uniform float4 icon_col3;
+uniform float4 icon_col4;
+uniform float4 icon_col5;
+uniform float4 icon_col6;
+uniform float4 icon_col7;
 
 sampler_state textureSampler {
     Filter   = Linear;
@@ -927,6 +1105,179 @@ float4 applyBorderAnimOverlay(
     return float4(anim_rgb, clamp(anim_a, 0.0, 1.0));
 }
 
+float4 pickInPal(int idx) {
+    if (idx <= 0) return in_pal0;
+    if (idx == 1) return in_pal1;
+    if (idx == 2) return in_pal2;
+    if (idx == 3) return in_pal3;
+    if (idx == 4) return in_pal4;
+    if (idx == 5) return in_pal5;
+    if (idx == 6) return in_pal6;
+    return in_pal7;
+}
+
+float4 pickOutPal(int idx) {
+    if (idx <= 0) return out_pal0;
+    if (idx == 1) return out_pal1;
+    if (idx == 2) return out_pal2;
+    return out_pal3;
+}
+
+float4 pickGlowPal(int idx) {
+    if (idx <= 0) return glow_pal0;
+    if (idx == 1) return glow_pal1;
+    if (idx == 2) return glow_pal2;
+    return glow_pal3;
+}
+
+float4 pickIconCol(int idx) {
+    if (idx <= 0) return icon_col0;
+    if (idx == 1) return icon_col1;
+    if (idx == 2) return icon_col2;
+    if (idx == 3) return icon_col3;
+    if (idx == 4) return icon_col4;
+    if (idx == 5) return icon_col5;
+    if (idx == 6) return icon_col6;
+    return icon_col7;
+}
+
+float computeGradT(float2 p, float2 half_base, float angle_rad, float use_perim) {
+    if (use_perim > 0.5) {
+        float total_p = max(1.0, 4.0 * (half_base.x + half_base.y));
+        return frac(clockwisePerimDist(p, half_base) / total_p);
+    }
+    float2 dir = float2(sin(angle_rad), -cos(angle_rad));
+    float2 norm_p = p / max(half_base, float2(1.0, 1.0));
+    float max_proj = max(0.001, abs(dir.x) + abs(dir.y));
+    return dot(norm_p, dir) / max_proj * 0.5 + 0.5;
+}
+
+float4 sampleInnerPalette(float t, float count_f, float stepped, float spread, float use_perim) {
+    int cnt = clamp(int(count_f + 0.5), 2, 8);
+    float sp = max(0.05, spread);
+    bool wrap = (use_perim > 0.5) || (sp > 1.001);
+    float u = wrap ? frac(t * sp) : clamp((t - 0.5) * sp + 0.5, 0.0, 0.99999);
+    if (stepped > 0.5) {
+        int idx = clamp(int(floor(u * float(cnt))), 0, cnt - 1);
+        return pickInPal(idx);
+    }
+    if (wrap) {
+        float sc = u * float(cnt);
+        int i0 = clamp(int(floor(sc)), 0, cnt - 1);
+        int i1 = (i0 + 1) % cnt;
+        return lerp(pickInPal(i0), pickInPal(i1), frac(sc));
+    }
+    float sc = u * float(cnt - 1);
+    int i0 = clamp(int(floor(sc)), 0, cnt - 2);
+    return lerp(pickInPal(i0), pickInPal(i0 + 1), clamp(sc - float(i0), 0.0, 1.0));
+}
+
+float4 sampleOuterPalette(float t, float count_f, float stepped, float spread, float use_perim) {
+    int cnt = clamp(int(count_f + 0.5), 2, 4);
+    float sp = max(0.05, spread);
+    bool wrap = (use_perim > 0.5) || (sp > 1.001);
+    float u = wrap ? frac(t * sp) : clamp((t - 0.5) * sp + 0.5, 0.0, 0.99999);
+    if (stepped > 0.5) {
+        int idx = clamp(int(floor(u * float(cnt))), 0, cnt - 1);
+        return pickOutPal(idx);
+    }
+    if (wrap) {
+        float sc = u * float(cnt);
+        int i0 = clamp(int(floor(sc)), 0, cnt - 1);
+        int i1 = (i0 + 1) % cnt;
+        return lerp(pickOutPal(i0), pickOutPal(i1), frac(sc));
+    }
+    float sc = u * float(cnt - 1);
+    int i0 = clamp(int(floor(sc)), 0, cnt - 2);
+    return lerp(pickOutPal(i0), pickOutPal(i0 + 1), clamp(sc - float(i0), 0.0, 1.0));
+}
+
+float4 sampleGlowPalette(float t, float count_f, float stepped, float spread, float use_perim) {
+    int cnt = clamp(int(count_f + 0.5), 2, 4);
+    float sp = max(0.05, spread);
+    bool wrap = (use_perim > 0.5) || (sp > 1.001);
+    float u = wrap ? frac(t * sp) : clamp((t - 0.5) * sp + 0.5, 0.0, 0.99999);
+    if (stepped > 0.5) {
+        int idx = clamp(int(floor(u * float(cnt))), 0, cnt - 1);
+        return pickGlowPal(idx);
+    }
+    if (wrap) {
+        float sc = u * float(cnt);
+        int i0 = clamp(int(floor(sc)), 0, cnt - 1);
+        int i1 = (i0 + 1) % cnt;
+        return lerp(pickGlowPal(i0), pickGlowPal(i1), frac(sc));
+    }
+    float sc = u * float(cnt - 1);
+    int i0 = clamp(int(floor(sc)), 0, cnt - 2);
+    return lerp(pickGlowPal(i0), pickGlowPal(i0 + 1), clamp(sc - float(i0), 0.0, 1.0));
+}
+
+float4 evalIconBorder(float2 p, float2 half_base, float d_shape, float center_d) {
+    if (icons_enabled < 0.5 || icons_has_tex < 0.5 || icons_size < 4.0) return float4(0.0, 0.0, 0.0, 0.0);
+    float ly = (d_shape - (center_d + icons_offset)) / max(icons_size, 1.0);
+    if (abs(ly) > 0.55) return float4(0.0, 0.0, 0.0, 0.0);
+
+    float total_p = max(1.0, 4.0 * (half_base.x + half_base.y));
+    float pitch = max(8.0, icons_size + max(0.0, icons_spacing));
+    float cell_cnt = max(4.0, floor(total_p / pitch + 0.5));
+    float adj_pitch = total_p / cell_cnt;
+    float p_dist = clockwisePerimDist(p, half_base);
+    float s = p_dist + anim_time * icons_speed * 80.0;
+    float cell_f = s / adj_pitch;
+    float cell_idx = floor(cell_f);
+    float lx = (frac(cell_f) - 0.5) * adj_pitch / max(icons_size, 1.0);
+    if (abs(lx) > 0.55) return float4(0.0, 0.0, 0.0, 0.0);
+
+    // Optional tangent edge orientation + user rotation
+    float rot = icons_rot_rad;
+    if (icons_follow_edge < 0.5) {
+        float hx = max(half_base.x, 1.0);
+        float hy = max(half_base.y, 1.0);
+        if (abs(p.y) / hy >= abs(p.x) / hx) {
+            if (p.y >= 0.0) rot += 3.14159265;
+        } else {
+            rot += (p.x >= 0.0) ? -1.5707963 : 1.5707963;
+        }
+    }
+    float cr = cos(rot);
+    float sr = sin(rot);
+    float2 ruv = float2(lx * cr - ly * sr, lx * sr + ly * cr) + float2(0.5, 0.5);
+    if (ruv.x < 0.0 || ruv.x > 1.0 || ruv.y < 0.0 || ruv.y > 1.0) return float4(0.0, 0.0, 0.0, 0.0);
+
+    int cnt = clamp(int(icons_count + 0.5), 1, 8);
+    int slot = int(floor(cell_idx - floor(cell_idx / float(cnt)) * float(cnt) + 0.5));
+    slot = clamp(slot, 0, cnt - 1);
+    float2 atlas_uv = float2((float(slot) + ruv.x) / float(cnt), ruv.y);
+    float4 samp = icon_atlas.Sample(textureSampler, atlas_uv);
+    float mask_a = samp.a * clamp(icons_opacity, 0.0, 1.0);
+    if (mask_a <= 0.002) return float4(0.0, 0.0, 0.0, 0.0);
+
+    float4 tint = pickIconCol(slot);
+    if (icons_color_mode > 0.5) {
+        float pt = frac(p_dist / total_p);
+        tint = sampleInnerPalette(pt, inner_pal_count, inner_grad_stepped, inner_grad_spread, 1.0);
+    }
+    float a = clamp(mask_a * tint.a, 0.0, 1.0);
+    return float4(samp.rgb * tint.rgb * a, a);
+}
+
+float4 compositeIconOver(float4 dst, float4 src, float mode) {
+    if (src.a <= 0.001) return dst;
+    if (mode > 5.5) return dst * (1.0 - clamp(src.a, 0.0, 1.0));
+    if (mode < 0.5) return src + dst * (1.0 - src.a);
+    if (mode < 1.5) return float4(clamp(dst.rgb + src.rgb, 0.0, 1.0), clamp(dst.a + src.a * (1.0 - dst.a), 0.0, 1.0));
+    float3 Cs = src.rgb / max(src.a, 0.0005);
+    float3 Cb = (dst.a > 0.0005) ? (dst.rgb / dst.a) : float3(0.0, 0.0, 0.0);
+    float3 B = Cs;
+    if (mode < 2.5) B = 1.0 - (1.0 - Cb) * (1.0 - Cs);
+    else if (mode < 3.5) B = Cb * Cs;
+    else if (mode < 4.5) B = lerp(2.0 * Cb * Cs, 1.0 - 2.0 * (1.0 - Cb) * (1.0 - Cs), step(0.5, Cb));
+    else B = (1.0 - 2.0 * Cs) * Cb * Cb + 2.0 * Cs * Cb;
+    float out_a = clamp(src.a + dst.a * (1.0 - src.a), 0.0, 1.0);
+    float3 out_rgb = dst.rgb * (1.0 - src.a) + src.rgb * (1.0 - dst.a) + (src.a * dst.a) * clamp(B, 0.0, 1.0);
+    return float4(clamp(out_rgb, 0.0, 1.0), out_a);
+}
+
 float4 evalStyledLayer(
     float2 p,
     float2 half_base,
@@ -942,7 +1293,8 @@ float4 evalStyledLayer(
     if (use_grad > 0.5) {
         float2 dir = float2(sin(angle_rad), -cos(angle_rad));
         float2 norm_p = p / max(half_base, float2(1.0, 1.0));
-        float proj = clamp(dot(norm_p, dir) * 0.5 + 0.5, 0.0, 1.0);
+        float max_proj = max(0.001, abs(dir.x) + abs(dir.y));
+        float proj = clamp(dot(norm_p, dir) / max_proj * 0.5 + 0.5, 0.0, 1.0);
         col = lerp(c1, c2, proj);
     }
 
@@ -1426,7 +1778,23 @@ float4 PSDefault(VertDataOut v_in) : TARGET {
         if (in_mask > 0.001) {
             float band_t = clamp((d_shape - in_start) / max(total_inner, 0.001), 0.0, 1.0);
             float eff_style = (orn_mask > 0.5) ? 0.0 : inner_style;
-            float4 ic = evalStyledLayer(p, half_base, band_t, total_inner, eff_style, inner_grad, inner_color1, inner_color2, inner_angle_rad);
+            float4 ic1 = inner_color1;
+            float4 ic2 = inner_color2;
+            float i_use_grad = inner_grad;
+            if (inner_pal_mode > 0.5) {
+                float it = computeGradT(p, half_base, inner_angle_rad, inner_grad_perim);
+                ic1 = sampleInnerPalette(it, inner_pal_count, inner_grad_stepped, inner_grad_spread, inner_grad_perim);
+                ic2 = ic1;
+                i_use_grad = 0.0;
+            } else if (inner_grad > 0.5 && (inner_grad_stepped > 0.5 || abs(inner_grad_spread - 1.0) > 0.01 || inner_grad_perim > 0.5)) {
+                float it = computeGradT(p, half_base, inner_angle_rad, inner_grad_perim);
+                float sp = max(0.05, inner_grad_spread);
+                bool wrap = (inner_grad_perim > 0.5) || (sp > 1.001);
+                float u = wrap ? frac(it * sp) : clamp((it - 0.5) * sp + 0.5, 0.0, 0.99999);
+                ic1 = (inner_grad_stepped > 0.5) ? ((u < 0.5) ? inner_color1 : inner_color2) : lerp(inner_color1, inner_color2, u);
+                i_use_grad = 0.0;
+            }
+            float4 ic = evalStyledLayer(p, half_base, band_t, total_inner, eff_style, i_use_grad, ic1, ic2, inner_angle_rad);
             ic = applyBorderAnimOverlay(ic, p, half_base, anim_type, anim_time, anim_speed, anim_size, anim_dir, anim_color2);
             float a = clamp(ic.a * in_mask, 0.0, 1.0);
             border_pm = float4(ic.rgb * a, a);
@@ -1445,7 +1813,28 @@ float4 PSDefault(VertDataOut v_in) : TARGET {
         if (out_mask > 0.001) {
             float band_t = clamp((d_shape - out_start) / max(total_outer, 0.001), 0.0, 1.0);
             float eff_style = (orn_mask > 0.5) ? 0.0 : outer_style;
-            float4 oc = evalStyledLayer(p, half_base, band_t, total_outer, eff_style, outer_grad, outer_color1, outer_color2, outer_angle_rad);
+            float4 oc1 = outer_color1;
+            float4 oc2 = outer_color2;
+            float o_use_grad = outer_grad;
+            if (outer_pal_mode > 0.5 && outer_pal_mode < 1.5) {
+                float ot = computeGradT(p, half_base, outer_angle_rad, inner_grad_perim);
+                oc1 = sampleInnerPalette(ot, inner_pal_count, inner_grad_stepped, inner_grad_spread, inner_grad_perim);
+                oc2 = oc1;
+                o_use_grad = 0.0;
+            } else if (outer_pal_mode >= 1.5) {
+                float ot = computeGradT(p, half_base, outer_angle_rad, outer_grad_perim);
+                oc1 = sampleOuterPalette(ot, outer_pal_count, outer_grad_stepped, outer_grad_spread, outer_grad_perim);
+                oc2 = oc1;
+                o_use_grad = 0.0;
+            } else if (outer_grad > 0.5 && (outer_grad_stepped > 0.5 || abs(outer_grad_spread - 1.0) > 0.01 || outer_grad_perim > 0.5)) {
+                float ot = computeGradT(p, half_base, outer_angle_rad, outer_grad_perim);
+                float sp = max(0.05, outer_grad_spread);
+                bool wrap = (outer_grad_perim > 0.5) || (sp > 1.001);
+                float u = wrap ? frac(ot * sp) : clamp((ot - 0.5) * sp + 0.5, 0.0, 0.99999);
+                oc1 = (outer_grad_stepped > 0.5) ? ((u < 0.5) ? outer_color1 : outer_color2) : lerp(outer_color1, outer_color2, u);
+                o_use_grad = 0.0;
+            }
+            float4 oc = evalStyledLayer(p, half_base, band_t, total_outer, eff_style, o_use_grad, oc1, oc2, outer_angle_rad);
             oc = applyBorderAnimOverlay(oc, p, half_base, anim_type, anim_time, anim_speed, anim_size, anim_dir, anim_color2);
             float oa = clamp(oc.a * out_mask, 0.0, 1.0);
             float4 oc_pm = float4(oc.rgb * oa, oa);
@@ -1498,25 +1887,33 @@ float4 PSDefault(VertDataOut v_in) : TARGET {
 
     float4 glow_pm = float4(0.0, 0.0, 0.0, 0.0);
     if (glow_enabled > 0.5 && glow_blur > 0.5) {
+        float4 g_col = glow_color;
+        if (glow_pal_mode > 0.5 && glow_pal_mode < 1.5) {
+            float gt = computeGradT(p, half_base, glow_angle_rad, inner_grad_perim);
+            g_col = sampleInnerPalette(gt, inner_pal_count, inner_grad_stepped, inner_grad_spread, inner_grad_perim);
+        } else if (glow_pal_mode >= 1.5) {
+            float gt = computeGradT(p, half_base, glow_angle_rad, glow_grad_perim);
+            g_col = sampleGlowPalette(gt, glow_pal_count, glow_grad_stepped, glow_grad_spread, glow_grad_perim);
+        }
         float pulse = (anim_type > 5.5 && anim_type < 6.5) ? (0.65 + 0.35 * sin(anim_time / max(anim_speed, 0.25) * 6.2831853)) : 1.0;
         if (glow_inner > 0.5 && d_shape < in_start) {
             float gd_in = max(0.0, in_start - d_shape);
             float ga = exp(-gd_in / max(glow_blur * 0.45, 1.0)) * 0.65 * pulse;
             ga *= (1.0 - smoothstep(glow_blur * 1.4, glow_blur * 1.9, gd_in));
-            float a = clamp(glow_color.a * ga, 0.0, 1.0);
-            glow_pm = float4(glow_color.rgb * a, a);
+            float a = clamp(g_col.a * ga, 0.0, 1.0);
+            glow_pm = float4(g_col.rgb * a, a);
         } else if (glow_inner < 0.5 && placement_code < 1.5 && d_shape > glow_edge - 0.5) {
             float gd_out = max(0.0, d_shape - glow_edge);
             float ga = exp(-gd_out / max(glow_blur * 0.45, 1.0)) * 0.75 * pulse;
             ga *= (1.0 - smoothstep(glow_blur * 1.4, glow_blur * 1.9, gd_out));
             if (glow_neon > 0.5) {
                 float core = exp(-gd_out / max(glow_blur * 0.14, 1.0));
-                float a = clamp(glow_color.a * max(ga, core), 0.0, 1.0);
-                float3 neon_rgb = lerp(glow_color.rgb, float3(1.0, 1.0, 1.0), core * 0.65);
+                float a = clamp(g_col.a * max(ga, core), 0.0, 1.0);
+                float3 neon_rgb = lerp(g_col.rgb, float3(1.0, 1.0, 1.0), core * 0.65);
                 glow_pm = float4(neon_rgb * a, a);
             } else {
-                float a = clamp(glow_color.a * ga, 0.0, 1.0);
-                glow_pm = float4(glow_color.rgb * a, a);
+                float a = clamp(g_col.a * ga, 0.0, 1.0);
+                glow_pm = float4(g_col.rgb * a, a);
             }
         }
     }
@@ -1529,6 +1926,11 @@ float4 PSDefault(VertDataOut v_in) : TARGET {
         result = result + glow_pm * (1.0 - result.a);
     }
     result = result + shadow_pm * (1.0 - clamp(result.a, 0.0, 1.0));
+    if (icons_enabled > 0.5 && icons_has_tex > 0.5) {
+        float icon_center_d = (inner_enabled > 0.5 && total_inner > 0.0) ? (in_start + total_inner * 0.5) : shift;
+        float4 icon_pm = evalIconBorder(p, half_base, d_shape, icon_center_d);
+        border_pm = compositeIconOver(border_pm, icon_pm, icons_blend);
+    }
     result = border_pm + result * (1.0 - border_pm.a);
     // Un-premultiply back to straight alpha for OBS's SRCALPHA/INVSRCALPHA filter pipeline
     // so semi-transparent glows don't get double-multiplied (darkened) by OBS compositing.
@@ -1899,7 +2301,16 @@ filter_def.create = function(settings, source)
             "shadow_enabled", "shadow_mode", "shadow_color", "shadow_offset", "shadow_blur", "shadow_spread", "shadow_multiply",
             "anim_type", "anim_time", "anim_speed", "anim_size", "anim_dir", "anim_color2",
             "bg_mode", "bg_standby", "bg_color1", "bg_color2", "bg_angle_rad", "bg_icon_color",
-            "bg_static_noise", "bg_static_scale", "bg_static_speed", "bg_static_color", "bg_static_glitch"
+            "bg_static_noise", "bg_static_scale", "bg_static_speed", "bg_static_color", "bg_static_glitch",
+            "inner_pal_mode", "inner_pal_count", "inner_grad_stepped", "inner_grad_spread", "inner_grad_perim",
+            "in_pal0", "in_pal1", "in_pal2", "in_pal3", "in_pal4", "in_pal5", "in_pal6", "in_pal7",
+            "outer_pal_mode", "outer_pal_count", "outer_grad_stepped", "outer_grad_spread", "outer_grad_perim",
+            "out_pal0", "out_pal1", "out_pal2", "out_pal3",
+            "glow_pal_mode", "glow_pal_count", "glow_grad_stepped", "glow_grad_spread", "glow_grad_perim", "glow_angle_rad",
+            "glow_pal0", "glow_pal1", "glow_pal2", "glow_pal3",
+            "icon_atlas", "icons_enabled", "icons_has_tex", "icons_count", "icons_size", "icons_spacing",
+            "icons_offset", "icons_rot_rad", "icons_follow_edge", "icons_speed", "icons_color_mode", "icons_blend", "icons_opacity",
+            "icon_col0", "icon_col1", "icon_col2", "icon_col3", "icon_col4", "icon_col5", "icon_col6", "icon_col7"
         }
         for _, n in ipairs(names) do
             data.params[n] = obs.gs_effect_get_param_by_name(data.effect, n)
@@ -1916,6 +2327,11 @@ end
 
 filter_def.destroy = function(data)
     obs.obs_enter_graphics()
+    if data.icon_img ~= nil then
+        obs.gs_image_file_free(data.icon_img)
+        data.icon_img = nil
+        data.icon_atlas_path = ""
+    end
     if data.effect ~= nil then
         obs.gs_effect_destroy(data.effect)
         data.effect = nil
@@ -2092,6 +2508,80 @@ filter_def.video_render = function(data)
     obs.gs_effect_set_float(p.bg_static_color, bg.staticColor or 0.0)
     obs.gs_effect_set_float(p.bg_static_glitch, bg.staticGlitch or 0.35)
 
+    -- Multi-stop Palettes (Inner 8-stop, Outer 4-stop/inherit, Glow 4-stop/inherit)
+    local in_pal = prof.inner.paletteRgba or {}
+    obs.gs_effect_set_float(p.inner_pal_mode, prof.inner.palModeCode or 0.0)
+    obs.gs_effect_set_float(p.inner_pal_count, math.max(2, #in_pal))
+    obs.gs_effect_set_float(p.inner_grad_stepped, prof.inner.gradStepped or 0.0)
+    obs.gs_effect_set_float(p.inner_grad_spread, prof.inner.gradSpread or 1.0)
+    obs.gs_effect_set_float(p.inner_grad_perim, prof.inner.gradPerim or 0.0)
+    for idx = 0, 7 do
+        set_vec4(v4, p["in_pal" .. idx], in_pal[idx + 1] or in_pal[#in_pal] or prof.inner.color1Rgba)
+    end
+
+    local out_pal = prof.outer.paletteRgba or {}
+    obs.gs_effect_set_float(p.outer_pal_mode, prof.outer.palModeCode or 0.0)
+    obs.gs_effect_set_float(p.outer_pal_count, math.max(2, #out_pal))
+    obs.gs_effect_set_float(p.outer_grad_stepped, prof.outer.gradStepped or 0.0)
+    obs.gs_effect_set_float(p.outer_grad_spread, prof.outer.gradSpread or 1.0)
+    obs.gs_effect_set_float(p.outer_grad_perim, prof.outer.gradPerim or 0.0)
+    for idx = 0, 3 do
+        set_vec4(v4, p["out_pal" .. idx], out_pal[idx + 1] or out_pal[#out_pal] or prof.outer.color1Rgba)
+    end
+
+    local glow_pal = prof.glow.paletteRgba or {}
+    obs.gs_effect_set_float(p.glow_pal_mode, prof.glow.palModeCode or 0.0)
+    obs.gs_effect_set_float(p.glow_pal_count, math.max(2, #glow_pal))
+    obs.gs_effect_set_float(p.glow_grad_stepped, prof.glow.gradStepped or 0.0)
+    obs.gs_effect_set_float(p.glow_grad_spread, prof.glow.gradSpread or 1.0)
+    obs.gs_effect_set_float(p.glow_grad_perim, prof.glow.gradPerim ~= nil and prof.glow.gradPerim or 1.0)
+    obs.gs_effect_set_float(p.glow_angle_rad, (prof.glow.angle or 180.0) * 3.14159265 / 180.0)
+    for idx = 0, 3 do
+        set_vec4(v4, p["glow_pal" .. idx], glow_pal[idx + 1] or glow_pal[#glow_pal] or prof.glow.colorRgba)
+    end
+
+    -- Font Awesome Perimeter Icon Border Atlas
+    local ic = prof.icons or {}
+    local ic_on = (ic.enabled or 0.0) > 0.5
+    local want_path = (ic_on and ic.atlasPath) or ""
+    if want_path ~= (data.icon_atlas_path or "") then
+        if data.icon_img ~= nil then
+            obs.gs_image_file_free(data.icon_img)
+            data.icon_img = nil
+        end
+        data.icon_atlas_path = want_path
+        if want_path ~= "" then
+            local img = obs.gs_image_file()
+            obs.gs_image_file_init(img, want_path)
+            if img.loaded then
+                obs.gs_image_file_init_texture(img)
+                data.icon_img = img
+            else
+                obs.gs_image_file_free(img)
+            end
+        end
+    end
+    local has_tex = (ic_on and data.icon_img ~= nil and data.icon_img.texture ~= nil)
+    obs.gs_effect_set_float(p.icons_enabled, ic_on and 1.0 or 0.0)
+    obs.gs_effect_set_float(p.icons_has_tex, has_tex and 1.0 or 0.0)
+    if has_tex and p.icon_atlas ~= nil then
+        obs.gs_effect_set_texture(p.icon_atlas, data.icon_img.texture)
+    end
+    obs.gs_effect_set_float(p.icons_count, math.max(1, ic.count or 1))
+    obs.gs_effect_set_float(p.icons_size, (ic.size or 28.0) * sc)
+    obs.gs_effect_set_float(p.icons_spacing, (ic.spacing or 16.0) * sc)
+    obs.gs_effect_set_float(p.icons_offset, (ic.offset or 0.0) * sc)
+    obs.gs_effect_set_float(p.icons_rot_rad, (ic.rotation or 0.0) * 3.14159265 / 180.0)
+    obs.gs_effect_set_float(p.icons_follow_edge, ic.followEdge ~= nil and ic.followEdge or 1.0)
+    obs.gs_effect_set_float(p.icons_speed, ic.speed or 0.0)
+    obs.gs_effect_set_float(p.icons_color_mode, ic.colorModeCode or 0.0)
+    obs.gs_effect_set_float(p.icons_blend, ic.blendCode or 0.0)
+    obs.gs_effect_set_float(p.icons_opacity, ic.opacity ~= nil and ic.opacity or 1.0)
+    local ic_cols = ic.colorsRgba or {}
+    for idx = 0, 7 do
+        set_vec4(v4, p["icon_col" .. idx], ic_cols[idx + 1] or ic_cols[#ic_cols] or {1, 0.8, 0.1, 1})
+    end
+
     obs.obs_source_process_filter_end(data.context, data.effect, data.total_w, data.total_h)
 end
 
@@ -2160,6 +2650,7 @@ function createObsBordersService({
     const exportDir = path.join(dataDir, 'obs-borders');
     const manifestPath = path.join(exportDir, 'manifest.json');
     const luaScriptPath = path.join(exportDir, 'streampulse-borders.lua');
+    const atlasesDir = path.join(exportDir, 'atlases');
 
     let lastManifestFingerprint = '';
     let lastManifestObj = null;
@@ -2673,10 +3164,38 @@ function createObsBordersService({
         };
     }
 
+    function saveIconAtlas(profileId, pngBase64) {
+        const cleanId = sanitizeId(profileId, 'border-icons');
+        const raw = String(pngBase64 || '').replace(/^data:image\/png;base64,/i, '');
+        const buf = Buffer.from(raw, 'base64');
+        if (!buf.length || buf.length > 4 * 1024 * 1024) throw new Error('Invalid icon atlas PNG');
+        if (!fs.existsSync(atlasesDir)) fs.mkdirSync(atlasesDir, { recursive: true });
+        const filename = `${cleanId}-${Date.now()}.png`;
+        const target = path.join(atlasesDir, filename);
+        fs.writeFileSync(target, buf);
+        try {
+            for (const f of fs.readdirSync(atlasesDir)) {
+                if (f !== filename && f.startsWith(`${cleanId}-`) && f.endsWith('.png')) {
+                    fs.unlinkSync(path.join(atlasesDir, f));
+                }
+            }
+        } catch { /* ignore */ }
+        return { filename, path: target, url: `/api/obs-borders/atlases/${encodeURIComponent(filename)}` };
+    }
+
+    function getAtlasFilePath(filename) {
+        const clean = String(filename || '').replace(/[^a-z0-9_.-]/gi, '');
+        if (!clean || !clean.endsWith('.png')) return null;
+        return path.join(atlasesDir, clean);
+    }
+
     loadState();
 
     return {
         BORDER_STYLES,
+        BORDER_PALETTES,
+        saveIconAtlas,
+        getAtlasFilePath,
         PLACEMENT_MODES,
         ANIMATION_TYPES,
         getState: getPublicState,

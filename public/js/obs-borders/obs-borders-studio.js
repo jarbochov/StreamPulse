@@ -188,6 +188,7 @@
         };
         toggleSect('ob-sect-inner', 'ob-inner-body', innerOn);
         toggleSect('ob-sect-outer', 'ob-outer-body', outerOn);
+        toggleSect('ob-sect-icons', 'ob-icons-body', Boolean(p.icons?.enabled));
         toggleSect('ob-sect-glow', 'ob-glow-body', glowOn);
         toggleSect('ob-sect-shadow', 'ob-shadow-body', Boolean(p.shadow?.enabled));
 
@@ -205,10 +206,42 @@
             if (opt.value !== 'inset') opt.disabled = isInside;
         });
 
+        const inPalOn = p.inner?.paletteMode === 'palette';
+        const outPalMode = p.outer?.paletteMode || 'two-color';
+        const glPalMode = p.glow?.paletteMode || 'solid';
+
+        const inTwoCol = document.getElementById('ob-inner-twocolor-wrap');
+        if (inTwoCol) inTwoCol.hidden = inPalOn;
         const innerAng = document.getElementById('ob-inner-angle-wrap');
-        if (innerAng) innerAng.hidden = !p.inner?.gradient;
+        if (innerAng) innerAng.hidden = !(p.inner?.gradient || inPalOn);
+        const innerAngField = document.getElementById('ob-inner-angle-field');
+        if (innerAngField) innerAngField.hidden = p.inner?.gradientMapping === 'perimeter';
+        const inPresetWrap = document.getElementById('ob-inner-pal-preset-wrap');
+        if (inPresetWrap) inPresetWrap.hidden = !inPalOn;
+        const inStopsWrap = document.getElementById('ob-inner-pal-stops-wrap');
+        if (inStopsWrap) inStopsWrap.hidden = !(inPalOn && p.inner?.palette === 'custom');
+
+        const outTwoCol = document.getElementById('ob-outer-twocolor-wrap');
+        if (outTwoCol) outTwoCol.hidden = outPalMode !== 'two-color';
         const outerAng = document.getElementById('ob-outer-angle-wrap');
-        if (outerAng) outerAng.hidden = !p.outer?.gradient;
+        if (outerAng) outerAng.hidden = !((outPalMode === 'two-color' && p.outer?.gradient) || outPalMode === 'palette');
+        const outerAngField = document.getElementById('ob-outer-angle-field');
+        if (outerAngField) outerAngField.hidden = p.outer?.gradientMapping === 'perimeter';
+        const outPresetWrap = document.getElementById('ob-outer-pal-preset-wrap');
+        if (outPresetWrap) outPresetWrap.hidden = outPalMode !== 'palette';
+        const outStopsWrap = document.getElementById('ob-outer-pal-stops-wrap');
+        if (outStopsWrap) outStopsWrap.hidden = !(outPalMode === 'palette' && p.outer?.palette === 'custom');
+
+        const glSolidWrap = document.getElementById('ob-glow-solid-wrap');
+        if (glSolidWrap) glSolidWrap.hidden = glPalMode !== 'solid';
+        const glPresetWrap = document.getElementById('ob-glow-pal-preset-wrap');
+        if (glPresetWrap) glPresetWrap.hidden = glPalMode !== 'palette';
+        const glBarRow = document.getElementById('ob-glow-pal-bar-row');
+        if (glBarRow) glBarRow.hidden = glPalMode !== 'palette';
+        const glStopsWrap = document.getElementById('ob-glow-pal-stops-wrap');
+        if (glStopsWrap) glStopsWrap.hidden = !(glPalMode === 'palette' && p.glow?.palette === 'custom');
+        const glOptsWrap = document.getElementById('ob-glow-pal-opts-wrap');
+        if (glOptsWrap) glOptsWrap.hidden = glPalMode !== 'palette';
 
         const animSpeed = document.getElementById('ob-anim-speed-wrap');
         const animParams = document.getElementById('ob-anim-params-wrap');
@@ -384,6 +417,11 @@
         p.inner.thickness = getFieldRawValue('ob-inner-thickness', 12);
         p.inner.gap = getFieldRawValue('ob-inner-gap', 0);
         p.inner.angle = getFieldRawValue('ob-inner-angle', 180);
+        p.inner.paletteMode = document.getElementById('ob-inner-pal-mode')?.value || 'two-color';
+        p.inner.palette = document.getElementById('ob-inner-pal-preset')?.value || 'neon';
+        p.inner.gradientMode = document.getElementById('ob-inner-grad-mode')?.value || 'smooth';
+        p.inner.gradientMapping = document.getElementById('ob-inner-grad-map')?.value || 'linear';
+        p.inner.gradientSpread = Number(document.getElementById('ob-inner-spread')?.value) || 1;
         p.inner.color1 = getFieldRawValue('ob-inner-c1', '#FFFFFFFF');
         p.inner.color2 = getFieldRawValue('ob-inner-c2', '#999999FF');
 
@@ -393,12 +431,32 @@
         p.outer.thickness = getFieldRawValue('ob-outer-thickness', 2);
         p.outer.gap = getFieldRawValue('ob-outer-gap', 0);
         p.outer.angle = getFieldRawValue('ob-outer-angle', 180);
+        p.outer.paletteMode = document.getElementById('ob-outer-pal-mode')?.value || 'two-color';
+        p.outer.palette = document.getElementById('ob-outer-pal-preset')?.value || 'neon';
+        p.outer.gradientMode = document.getElementById('ob-outer-grad-mode')?.value || 'smooth';
+        p.outer.gradientMapping = document.getElementById('ob-outer-grad-map')?.value || 'linear';
+        p.outer.gradientSpread = Number(document.getElementById('ob-outer-spread')?.value) || 1;
         p.outer.color1 = getFieldRawValue('ob-outer-c1', '#99A443FF');
         p.outer.color2 = getFieldRawValue('ob-outer-c2', '#026E54FF');
 
         p.glow.enabled = Boolean(document.getElementById('ob-glow-enabled')?.checked);
         p.glow.color = getFieldRawValue('ob-glow-color', '#38BDF8FF');
         p.glow.blur = getFieldRawValue('ob-glow-blur', 16);
+        p.glow.paletteMode = document.getElementById('ob-glow-pal-mode')?.value || 'solid';
+        p.glow.palette = document.getElementById('ob-glow-pal-preset')?.value || 'neon';
+        p.glow.gradientMode = document.getElementById('ob-glow-grad-mode')?.value || 'smooth';
+        p.glow.gradientSpread = Number(document.getElementById('ob-glow-spread')?.value) || 1;
+        p.icons = p.icons || { items: [] };
+        p.icons.enabled = Boolean(document.getElementById('ob-icons-enabled')?.checked);
+        p.icons.size = Number(document.getElementById('ob-icons-size')?.value) || 28;
+        p.icons.spacing = Number(document.getElementById('ob-icons-spacing')?.value) || 0;
+        p.icons.offset = Number(document.getElementById('ob-icons-offset')?.value) || 0;
+        p.icons.rotation = Number(document.getElementById('ob-icons-rot')?.value) || 0;
+        p.icons.speed = Number(document.getElementById('ob-icons-speed')?.value) || 0;
+        p.icons.opacity = Number(document.getElementById('ob-icons-opacity')?.value ?? 1);
+        p.icons.colorMode = document.getElementById('ob-icons-color-mode')?.value || 'per-icon';
+        p.icons.blendMode = document.getElementById('ob-icons-blend')?.value || 'normal';
+        p.icons.followEdge = Boolean(document.getElementById('ob-icons-follow-edge')?.checked);
         p.glow.neon = Boolean(document.getElementById('ob-glow-neon')?.checked);
         p.glow.inner = Boolean(document.getElementById('ob-glow-inner')?.checked);
 
@@ -540,6 +598,51 @@
         setControlValue('ob-glow-color', p.glow?.color, '#38BDF8FF', { isColor: true });
         syncColorPicker('ob-glow-color', 'ob-glow-color-pick');
         setControlValue('ob-glow-blur', p.glow?.blur ?? 16, 16);
+        populatePaletteSelects();
+        const setSel = (id, v) => { const el = document.getElementById(id); if (el) el.value = String(v ?? ''); };
+        setSel('ob-inner-pal-mode', p.inner?.paletteMode || 'two-color');
+        setSel('ob-inner-pal-preset', p.inner?.palette || 'neon');
+        setSel('ob-inner-grad-mode', p.inner?.gradientMode || 'smooth');
+        setSel('ob-inner-grad-map', p.inner?.gradientMapping || 'linear');
+        setSel('ob-inner-spread', p.inner?.gradientSpread ?? 1);
+        if (document.getElementById('ob-inner-spread-val')) document.getElementById('ob-inner-spread-val').textContent = Number(p.inner?.gradientSpread ?? 1).toFixed(2).replace(/\.00$/, '.0');
+
+        setSel('ob-outer-pal-mode', p.outer?.paletteMode || 'two-color');
+        setSel('ob-outer-pal-preset', p.outer?.palette || 'neon');
+        setSel('ob-outer-grad-mode', p.outer?.gradientMode || 'smooth');
+        setSel('ob-outer-grad-map', p.outer?.gradientMapping || 'linear');
+        setSel('ob-outer-spread', p.outer?.gradientSpread ?? 1);
+        if (document.getElementById('ob-outer-spread-val')) document.getElementById('ob-outer-spread-val').textContent = Number(p.outer?.gradientSpread ?? 1).toFixed(2).replace(/\.00$/, '.0');
+
+        setSel('ob-glow-pal-mode', p.glow?.paletteMode || 'solid');
+        setSel('ob-glow-pal-preset', p.glow?.palette || 'neon');
+        setSel('ob-glow-grad-mode', p.glow?.gradientMode || 'smooth');
+        setSel('ob-glow-spread', p.glow?.gradientSpread ?? 1);
+        if (document.getElementById('ob-glow-spread-val')) document.getElementById('ob-glow-spread-val').textContent = Number(p.glow?.gradientSpread ?? 1).toFixed(2).replace(/\.00$/, '.0');
+
+        renderPaletteStops('inner', 8);
+        renderPaletteStops('outer', 4);
+        renderPaletteStops('glow', 4);
+
+        const ic = p.icons || {};
+        if (document.getElementById('ob-icons-enabled')) document.getElementById('ob-icons-enabled').checked = Boolean(ic.enabled);
+        setSel('ob-icons-size', ic.size ?? 28);
+        if (document.getElementById('ob-icons-size-val')) document.getElementById('ob-icons-size-val').textContent = String(ic.size ?? 28);
+        setSel('ob-icons-spacing', ic.spacing ?? 16);
+        if (document.getElementById('ob-icons-spacing-val')) document.getElementById('ob-icons-spacing-val').textContent = String(ic.spacing ?? 16);
+        setSel('ob-icons-offset', ic.offset ?? 0);
+        if (document.getElementById('ob-icons-offset-val')) document.getElementById('ob-icons-offset-val').textContent = String(ic.offset ?? 0);
+        setSel('ob-icons-rot', ic.rotation ?? 0);
+        if (document.getElementById('ob-icons-rot-val')) document.getElementById('ob-icons-rot-val').textContent = String(ic.rotation ?? 0);
+        setSel('ob-icons-speed', ic.speed ?? 0);
+        if (document.getElementById('ob-icons-speed-val')) document.getElementById('ob-icons-speed-val').textContent = String(ic.speed ?? 0);
+        setSel('ob-icons-opacity', ic.opacity ?? 1);
+        if (document.getElementById('ob-icons-opacity-val')) document.getElementById('ob-icons-opacity-val').textContent = String(Math.round((ic.opacity ?? 1) * 100));
+        setSel('ob-icons-color-mode', ic.colorMode || 'per-icon');
+        setSel('ob-icons-blend', ic.blendMode || 'normal');
+        if (document.getElementById('ob-icons-follow-edge')) document.getElementById('ob-icons-follow-edge').checked = ic.followEdge !== false;
+        renderIconSequenceList();
+        if (ic.enabled) rebuildBorderIconAtlas(false);
         setControlValue('ob-glow-neon', Boolean(p.glow?.neon), false);
         setControlValue('ob-glow-inner', Boolean(p.glow?.inner), false);
 
@@ -1256,6 +1359,63 @@
         uniform float bg_static_color;
         uniform float bg_static_glitch;
 
+        uniform float inner_pal_mode;
+        uniform float inner_pal_count;
+        uniform float inner_grad_stepped;
+        uniform float inner_grad_spread;
+        uniform float inner_grad_perim;
+        uniform vec4 in_pal0;
+        uniform vec4 in_pal1;
+        uniform vec4 in_pal2;
+        uniform vec4 in_pal3;
+        uniform vec4 in_pal4;
+        uniform vec4 in_pal5;
+        uniform vec4 in_pal6;
+        uniform vec4 in_pal7;
+
+        uniform float outer_pal_mode;
+        uniform float outer_pal_count;
+        uniform float outer_grad_stepped;
+        uniform float outer_grad_spread;
+        uniform float outer_grad_perim;
+        uniform vec4 out_pal0;
+        uniform vec4 out_pal1;
+        uniform vec4 out_pal2;
+        uniform vec4 out_pal3;
+
+        uniform float glow_pal_mode;
+        uniform float glow_pal_count;
+        uniform float glow_grad_stepped;
+        uniform float glow_grad_spread;
+        uniform float glow_grad_perim;
+        uniform float glow_angle_rad;
+        uniform vec4 glow_pal0;
+        uniform vec4 glow_pal1;
+        uniform vec4 glow_pal2;
+        uniform vec4 glow_pal3;
+
+        uniform sampler2D icon_atlas;
+        uniform float icons_enabled;
+        uniform float icons_has_tex;
+        uniform float icons_count;
+        uniform float icons_size;
+        uniform float icons_spacing;
+        uniform float icons_offset;
+        uniform float icons_rot_rad;
+        uniform float icons_follow_edge;
+        uniform float icons_speed;
+        uniform float icons_color_mode;
+        uniform float icons_blend;
+        uniform float icons_opacity;
+        uniform vec4 icon_col0;
+        uniform vec4 icon_col1;
+        uniform vec4 icon_col2;
+        uniform vec4 icon_col3;
+        uniform vec4 icon_col4;
+        uniform vec4 icon_col5;
+        uniform vec4 icon_col6;
+        uniform vec4 icon_col7;
+
         uniform float show_guides;
 
         float sdRoundedBox(vec2 p, vec2 b, vec4 r) {
@@ -1417,6 +1577,166 @@
             return vec4(anim_rgb, clamp(anim_a, 0.0, 1.0));
         }
 
+        vec4 pickInPal(int idx) {
+            if (idx <= 0) return in_pal0;
+            if (idx == 1) return in_pal1;
+            if (idx == 2) return in_pal2;
+            if (idx == 3) return in_pal3;
+            if (idx == 4) return in_pal4;
+            if (idx == 5) return in_pal5;
+            if (idx == 6) return in_pal6;
+            return in_pal7;
+        }
+        vec4 pickOutPal(int idx) {
+            if (idx <= 0) return out_pal0;
+            if (idx == 1) return out_pal1;
+            if (idx == 2) return out_pal2;
+            return out_pal3;
+        }
+        vec4 pickGlowPal(int idx) {
+            if (idx <= 0) return glow_pal0;
+            if (idx == 1) return glow_pal1;
+            if (idx == 2) return glow_pal2;
+            return glow_pal3;
+        }
+        vec4 pickIconCol(int idx) {
+            if (idx <= 0) return icon_col0;
+            if (idx == 1) return icon_col1;
+            if (idx == 2) return icon_col2;
+            if (idx == 3) return icon_col3;
+            if (idx == 4) return icon_col4;
+            if (idx == 5) return icon_col5;
+            if (idx == 6) return icon_col6;
+            return icon_col7;
+        }
+        float computeGradT(vec2 p, vec2 half_base, float angle_rad, float use_perim) {
+            if (use_perim > 0.5) {
+                float total_p = max(1.0, 4.0 * (half_base.x + half_base.y));
+                return fract(clockwisePerimDist(p, half_base) / total_p);
+            }
+            vec2 dir = vec2(sin(angle_rad), -cos(angle_rad));
+            vec2 norm_p = p / max(half_base, vec2(1.0));
+            float max_proj = max(0.001, abs(dir.x) + abs(dir.y));
+            return dot(norm_p, dir) / max_proj * 0.5 + 0.5;
+        }
+        vec4 sampleInnerPalette(float t, float count_f, float stepped, float spread, float use_perim) {
+            int cnt = int(clamp(floor(count_f + 0.5), 2.0, 8.0));
+            float sp = max(0.05, spread);
+            bool wrap = (use_perim > 0.5) || (sp > 1.001);
+            float u = wrap ? fract(t * sp) : clamp((t - 0.5) * sp + 0.5, 0.0, 0.99999);
+            if (stepped > 0.5) {
+                int idx = int(clamp(floor(u * float(cnt)), 0.0, float(cnt - 1)));
+                return pickInPal(idx);
+            }
+            if (wrap) {
+                float sc = u * float(cnt);
+                int i0 = int(clamp(floor(sc), 0.0, float(cnt - 1)));
+                int i1 = (i0 + 1 >= cnt) ? 0 : (i0 + 1);
+                return mix(pickInPal(i0), pickInPal(i1), fract(sc));
+            }
+            float sc = u * float(cnt - 1);
+            int i0 = int(clamp(floor(sc), 0.0, float(cnt - 2)));
+            return mix(pickInPal(i0), pickInPal(i0 + 1), clamp(sc - float(i0), 0.0, 1.0));
+        }
+        vec4 sampleOuterPalette(float t, float count_f, float stepped, float spread, float use_perim) {
+            int cnt = int(clamp(floor(count_f + 0.5), 2.0, 4.0));
+            float sp = max(0.05, spread);
+            bool wrap = (use_perim > 0.5) || (sp > 1.001);
+            float u = wrap ? fract(t * sp) : clamp((t - 0.5) * sp + 0.5, 0.0, 0.99999);
+            if (stepped > 0.5) {
+                int idx = int(clamp(floor(u * float(cnt)), 0.0, float(cnt - 1)));
+                return pickOutPal(idx);
+            }
+            if (wrap) {
+                float sc = u * float(cnt);
+                int i0 = int(clamp(floor(sc), 0.0, float(cnt - 1)));
+                int i1 = (i0 + 1 >= cnt) ? 0 : (i0 + 1);
+                return mix(pickOutPal(i0), pickOutPal(i1), fract(sc));
+            }
+            float sc = u * float(cnt - 1);
+            int i0 = int(clamp(floor(sc), 0.0, float(cnt - 2)));
+            return mix(pickOutPal(i0), pickOutPal(i0 + 1), clamp(sc - float(i0), 0.0, 1.0));
+        }
+        vec4 sampleGlowPalette(float t, float count_f, float stepped, float spread, float use_perim) {
+            int cnt = int(clamp(floor(count_f + 0.5), 2.0, 4.0));
+            float sp = max(0.05, spread);
+            bool wrap = (use_perim > 0.5) || (sp > 1.001);
+            float u = wrap ? fract(t * sp) : clamp((t - 0.5) * sp + 0.5, 0.0, 0.99999);
+            if (stepped > 0.5) {
+                int idx = int(clamp(floor(u * float(cnt)), 0.0, float(cnt - 1)));
+                return pickGlowPal(idx);
+            }
+            if (wrap) {
+                float sc = u * float(cnt);
+                int i0 = int(clamp(floor(sc), 0.0, float(cnt - 1)));
+                int i1 = (i0 + 1 >= cnt) ? 0 : (i0 + 1);
+                return mix(pickGlowPal(i0), pickGlowPal(i1), fract(sc));
+            }
+            float sc = u * float(cnt - 1);
+            int i0 = int(clamp(floor(sc), 0.0, float(cnt - 2)));
+            return mix(pickGlowPal(i0), pickGlowPal(i0 + 1), clamp(sc - float(i0), 0.0, 1.0));
+        }
+        vec4 evalIconBorder(vec2 p, vec2 half_base, float d_shape, float center_d) {
+            if (icons_enabled < 0.5 || icons_has_tex < 0.5 || icons_size < 4.0) return vec4(0.0);
+            float ly = (d_shape - (center_d + icons_offset)) / max(icons_size, 1.0);
+            if (abs(ly) > 0.55) return vec4(0.0);
+            float total_p = max(1.0, 4.0 * (half_base.x + half_base.y));
+            float pitch = max(8.0, icons_size + max(0.0, icons_spacing));
+            float cell_cnt = max(4.0, floor(total_p / pitch + 0.5));
+            float adj_pitch = total_p / cell_cnt;
+            float p_dist = clockwisePerimDist(p, half_base);
+            float s = p_dist + anim_time * icons_speed * 80.0;
+            float cell_f = s / adj_pitch;
+            float cell_idx = floor(cell_f);
+            float lx = (fract(cell_f) - 0.5) * adj_pitch / max(icons_size, 1.0);
+            if (abs(lx) > 0.55) return vec4(0.0);
+            float rot = icons_rot_rad;
+            if (icons_follow_edge < 0.5) {
+                float hx = max(half_base.x, 1.0);
+                float hy = max(half_base.y, 1.0);
+                if (abs(p.y) / hy >= abs(p.x) / hx) {
+                    if (p.y >= 0.0) rot += 3.14159265;
+                } else {
+                    rot += (p.x >= 0.0) ? -1.5707963 : 1.5707963;
+                }
+            }
+            float cr = cos(rot);
+            float sr = sin(rot);
+            vec2 ruv = vec2(lx * cr - ly * sr, lx * sr + ly * cr) + vec2(0.5);
+            if (ruv.x < 0.0 || ruv.x > 1.0 || ruv.y < 0.0 || ruv.y > 1.0) return vec4(0.0);
+            int cnt = int(clamp(floor(icons_count + 0.5), 1.0, 8.0));
+            int slot = int(floor(mod(cell_idx, float(cnt)) + 0.5));
+            slot = int(clamp(float(slot), 0.0, float(cnt - 1)));
+            vec2 atlas_uv = vec2((float(slot) + ruv.x) / float(cnt), ruv.y);
+            vec4 samp = texture2D(icon_atlas, atlas_uv);
+            float mask_a = samp.a * clamp(icons_opacity, 0.0, 1.0);
+            if (mask_a <= 0.002) return vec4(0.0);
+            vec4 tint = pickIconCol(slot);
+            if (icons_color_mode > 0.5) {
+                float pt = fract(p_dist / total_p);
+                tint = sampleInnerPalette(pt, inner_pal_count, inner_grad_stepped, inner_grad_spread, 1.0);
+            }
+            float a = clamp(mask_a * tint.a, 0.0, 1.0);
+            return vec4(samp.rgb * tint.rgb * a, a);
+        }
+
+        vec4 compositeIconOver(vec4 dst, vec4 src, float mode) {
+            if (src.a <= 0.001) return dst;
+            if (mode > 5.5) return dst * (1.0 - clamp(src.a, 0.0, 1.0));
+            if (mode < 0.5) return src + dst * (1.0 - src.a);
+            if (mode < 1.5) return vec4(clamp(dst.rgb + src.rgb, 0.0, 1.0), clamp(dst.a + src.a * (1.0 - dst.a), 0.0, 1.0));
+            vec3 Cs = src.rgb / max(src.a, 0.0005);
+            vec3 Cb = (dst.a > 0.0005) ? (dst.rgb / dst.a) : vec3(0.0);
+            vec3 B = Cs;
+            if (mode < 2.5) B = 1.0 - (1.0 - Cb) * (1.0 - Cs);
+            else if (mode < 3.5) B = Cb * Cs;
+            else if (mode < 4.5) B = mix(2.0 * Cb * Cs, 1.0 - 2.0 * (1.0 - Cb) * (1.0 - Cs), step(0.5, Cb));
+            else B = (1.0 - 2.0 * Cs) * Cb * Cb + 2.0 * Cs * Cb;
+            float out_a = clamp(src.a + dst.a * (1.0 - src.a), 0.0, 1.0);
+            vec3 out_rgb = dst.rgb * (1.0 - src.a) + src.rgb * (1.0 - dst.a) + (src.a * dst.a) * clamp(B, 0.0, 1.0);
+            return vec4(clamp(out_rgb, 0.0, 1.0), out_a);
+        }
+
         vec4 evalStyledLayer(
             vec2 p, vec2 half_base, float band_t, float thickness,
             float style_code, float use_grad, vec4 c1, vec4 c2, float angle_rad
@@ -1425,7 +1745,8 @@
             if (use_grad > 0.5) {
                 vec2 dir = vec2(sin(angle_rad), -cos(angle_rad));
                 vec2 norm_p = p / max(half_base, vec2(1.0, 1.0));
-                float proj = clamp(dot(norm_p, dir) * 0.5 + 0.5, 0.0, 1.0);
+                float max_proj = max(0.001, abs(dir.x) + abs(dir.y));
+                float proj = clamp(dot(norm_p, dir) / max_proj * 0.5 + 0.5, 0.0, 1.0);
                 col = mix(c1, c2, proj);
             }
 
@@ -1825,7 +2146,23 @@
                 if (in_mask > 0.001) {
                     float band_t = clamp((d_shape - in_start) / max(total_inner, 0.001), 0.0, 1.0);
                     float eff_style = (orn_mask > 0.5) ? 0.0 : inner_style;
-                    vec4 ic = evalStyledLayer(p, half_base, band_t, total_inner, eff_style, inner_grad, inner_color1, inner_color2, inner_angle_rad);
+                    vec4 ic1 = inner_color1;
+                    vec4 ic2 = inner_color2;
+                    float i_use_grad = inner_grad;
+                    if (inner_pal_mode > 0.5) {
+                        float it = computeGradT(p, half_base, inner_angle_rad, inner_grad_perim);
+                        ic1 = sampleInnerPalette(it, inner_pal_count, inner_grad_stepped, inner_grad_spread, inner_grad_perim);
+                        ic2 = ic1;
+                        i_use_grad = 0.0;
+                    } else if (inner_grad > 0.5 && (inner_grad_stepped > 0.5 || abs(inner_grad_spread - 1.0) > 0.01 || inner_grad_perim > 0.5)) {
+                        float it = computeGradT(p, half_base, inner_angle_rad, inner_grad_perim);
+                        float sp = max(0.05, inner_grad_spread);
+                        bool wrap = (inner_grad_perim > 0.5) || (sp > 1.001);
+                        float u = wrap ? fract(it * sp) : clamp((it - 0.5) * sp + 0.5, 0.0, 0.99999);
+                        ic1 = (inner_grad_stepped > 0.5) ? ((u < 0.5) ? inner_color1 : inner_color2) : mix(inner_color1, inner_color2, u);
+                        i_use_grad = 0.0;
+                    }
+                    vec4 ic = evalStyledLayer(p, half_base, band_t, total_inner, eff_style, i_use_grad, ic1, ic2, inner_angle_rad);
                     ic = applyBorderAnimOverlay(ic, p, half_base, anim_type, anim_time, anim_speed, anim_size, anim_dir, anim_color2);
                     float a = clamp(ic.a * in_mask, 0.0, 1.0);
                     border_pm = vec4(ic.rgb * a, a);
@@ -1844,7 +2181,28 @@
                 if (out_mask > 0.001) {
                     float band_t = clamp((d_shape - out_start) / max(total_outer, 0.001), 0.0, 1.0);
                     float eff_style = (orn_mask > 0.5) ? 0.0 : outer_style;
-                    vec4 oc = evalStyledLayer(p, half_base, band_t, total_outer, eff_style, outer_grad, outer_color1, outer_color2, outer_angle_rad);
+                    vec4 oc1 = outer_color1;
+                    vec4 oc2 = outer_color2;
+                    float o_use_grad = outer_grad;
+                    if (outer_pal_mode > 0.5 && outer_pal_mode < 1.5) {
+                        float ot = computeGradT(p, half_base, outer_angle_rad, inner_grad_perim);
+                        oc1 = sampleInnerPalette(ot, inner_pal_count, inner_grad_stepped, inner_grad_spread, inner_grad_perim);
+                        oc2 = oc1;
+                        o_use_grad = 0.0;
+                    } else if (outer_pal_mode >= 1.5) {
+                        float ot = computeGradT(p, half_base, outer_angle_rad, outer_grad_perim);
+                        oc1 = sampleOuterPalette(ot, outer_pal_count, outer_grad_stepped, outer_grad_spread, outer_grad_perim);
+                        oc2 = oc1;
+                        o_use_grad = 0.0;
+                    } else if (outer_grad > 0.5 && (outer_grad_stepped > 0.5 || abs(outer_grad_spread - 1.0) > 0.01 || outer_grad_perim > 0.5)) {
+                        float ot = computeGradT(p, half_base, outer_angle_rad, outer_grad_perim);
+                        float sp = max(0.05, outer_grad_spread);
+                        bool wrap = (outer_grad_perim > 0.5) || (sp > 1.001);
+                        float u = wrap ? fract(ot * sp) : clamp((ot - 0.5) * sp + 0.5, 0.0, 0.99999);
+                        oc1 = (outer_grad_stepped > 0.5) ? ((u < 0.5) ? outer_color1 : outer_color2) : mix(outer_color1, outer_color2, u);
+                        o_use_grad = 0.0;
+                    }
+                    vec4 oc = evalStyledLayer(p, half_base, band_t, total_outer, eff_style, o_use_grad, oc1, oc2, outer_angle_rad);
                     oc = applyBorderAnimOverlay(oc, p, half_base, anim_type, anim_time, anim_speed, anim_size, anim_dir, anim_color2);
                     float oa = clamp(oc.a * out_mask, 0.0, 1.0);
                     vec4 oc_pm = vec4(oc.rgb * oa, oa);
@@ -1896,25 +2254,33 @@
 
             vec4 glow_pm = vec4(0.0);
             if (glow_enabled > 0.5 && glow_blur > 0.5) {
+                vec4 g_col = glow_color;
+                if (glow_pal_mode > 0.5 && glow_pal_mode < 1.5) {
+                    float gt = computeGradT(p, half_base, glow_angle_rad, inner_grad_perim);
+                    g_col = sampleInnerPalette(gt, inner_pal_count, inner_grad_stepped, inner_grad_spread, inner_grad_perim);
+                } else if (glow_pal_mode >= 1.5) {
+                    float gt = computeGradT(p, half_base, glow_angle_rad, glow_grad_perim);
+                    g_col = sampleGlowPalette(gt, glow_pal_count, glow_grad_stepped, glow_grad_spread, glow_grad_perim);
+                }
                 float pulse = (anim_type > 5.5 && anim_type < 6.5) ? (0.65 + 0.35 * sin(anim_time / max(anim_speed, 0.25) * 6.2831853)) : 1.0;
                 if (glow_inner > 0.5 && d_shape < in_start) {
                     float gd_in = max(0.0, in_start - d_shape);
                     float ga = exp(-gd_in / max(glow_blur * 0.45, 1.0)) * 0.65 * pulse;
                     ga *= (1.0 - smoothstep(glow_blur * 1.4, glow_blur * 1.9, gd_in));
-                    float a = clamp(glow_color.a * ga, 0.0, 1.0);
-                    glow_pm = vec4(glow_color.rgb * a, a);
+                    float a = clamp(g_col.a * ga, 0.0, 1.0);
+                    glow_pm = vec4(g_col.rgb * a, a);
                 } else if (glow_inner < 0.5 && placement_code < 1.5 && d_shape > glow_edge - 0.5) {
                     float gd_out = max(0.0, d_shape - glow_edge);
                     float ga = exp(-gd_out / max(glow_blur * 0.45, 1.0)) * 0.75 * pulse;
                     ga *= (1.0 - smoothstep(glow_blur * 1.4, glow_blur * 1.9, gd_out));
                     if (glow_neon > 0.5) {
                         float core = exp(-gd_out / max(glow_blur * 0.14, 1.0));
-                        float a = clamp(glow_color.a * max(ga, core), 0.0, 1.0);
-                        vec3 neon_rgb = mix(glow_color.rgb, vec3(1.0), core * 0.65);
+                        float a = clamp(g_col.a * max(ga, core), 0.0, 1.0);
+                        vec3 neon_rgb = mix(g_col.rgb, vec3(1.0), core * 0.65);
                         glow_pm = vec4(neon_rgb * a, a);
                     } else {
-                        float a = clamp(glow_color.a * ga, 0.0, 1.0);
-                        glow_pm = vec4(glow_color.rgb * a, a);
+                        float a = clamp(g_col.a * ga, 0.0, 1.0);
+                        glow_pm = vec4(g_col.rgb * a, a);
                     }
                 }
             }
@@ -1923,6 +2289,11 @@
             if (glow_inner > 0.5) result = glow_pm + result * (1.0 - glow_pm.a * 0.35);
             else result = result + glow_pm * (1.0 - result.a);
             result = result + shadow_pm * (1.0 - clamp(result.a, 0.0, 1.0));
+            if (icons_enabled > 0.5 && icons_has_tex > 0.5) {
+                float icon_center_d = (inner_enabled > 0.5 && total_inner > 0.0) ? (in_start + total_inner * 0.5) : shift;
+                vec4 icon_pm = evalIconBorder(p, half_base, d_shape, icon_center_d);
+                border_pm = compositeIconOver(border_pm, icon_pm, icons_blend);
+            }
             result = border_pm + result * (1.0 - border_pm.a);
 
             if (show_guides > 0.5) {
@@ -1940,6 +2311,11 @@
     let glCtx = null;
     let glProg = null;
     let glTex = null;
+    let glIconTex = null;
+    let glIconHasTex = false;
+    let iconAtlasDirty = false;
+    let lastIconAtlasDataUrl = '';
+    let lastIconAtlasSig = '';
     let glUniforms = null;
     let glLastBgMode = '';
     let previewDirty = true;
@@ -2048,6 +2424,15 @@
             'anim_type', 'anim_time', 'anim_speed', 'anim_size', 'anim_dir', 'anim_color2',
             'bg_mode', 'bg_standby', 'bg_color1', 'bg_color2', 'bg_angle_rad', 'bg_icon_color',
             'bg_static_noise', 'bg_static_scale', 'bg_static_speed', 'bg_static_color', 'bg_static_glitch',
+            'inner_pal_mode', 'inner_pal_count', 'inner_grad_stepped', 'inner_grad_spread', 'inner_grad_perim',
+            'in_pal0', 'in_pal1', 'in_pal2', 'in_pal3', 'in_pal4', 'in_pal5', 'in_pal6', 'in_pal7',
+            'outer_pal_mode', 'outer_pal_count', 'outer_grad_stepped', 'outer_grad_spread', 'outer_grad_perim',
+            'out_pal0', 'out_pal1', 'out_pal2', 'out_pal3',
+            'glow_pal_mode', 'glow_pal_count', 'glow_grad_stepped', 'glow_grad_spread', 'glow_grad_perim', 'glow_angle_rad',
+            'glow_pal0', 'glow_pal1', 'glow_pal2', 'glow_pal3',
+            'icon_atlas', 'icons_enabled', 'icons_has_tex', 'icons_count', 'icons_size', 'icons_spacing',
+            'icons_offset', 'icons_rot_rad', 'icons_follow_edge', 'icons_speed', 'icons_color_mode', 'icons_blend', 'icons_opacity',
+            'icon_col0', 'icon_col1', 'icon_col2', 'icon_col3', 'icon_col4', 'icon_col5', 'icon_col6', 'icon_col7',
             'show_guides'
         ];
         glUniforms = {};
@@ -2269,6 +2654,80 @@
         gl.uniform1f(u.bg_static_color, bg.staticColor ? 1 : 0);
         gl.uniform1f(u.bg_static_glitch, Math.max(0, Math.min(100, Number(bg.staticGlitch ?? 35))) / 100);
 
+        // Multi-stop Palettes (Inner 8-stop, Outer 4-stop/inherit, Glow 4-stop/inherit)
+        const getPalRgba = (layerObj, fallbackC, maxN) => {
+            const pals = studioState?.palettes || {};
+            const pName = layerObj?.palette;
+            const srcArr = (pName && pName !== 'custom' && pals[pName])
+                ? pals[pName]
+                : (Array.isArray(layerObj?.paletteColors) && layerObj.paletteColors.length >= 2 ? layerObj.paletteColors : [fallbackC, fallbackC]);
+            return srcArr.slice(0, maxN).map(c => hexToRgbaFloats(resolveColor(c, '#FFFFFFFF'), [1, 1, 1, 1]));
+        };
+        const inPal = getPalRgba(p.inner, '#FFFFFFFF', 8);
+        gl.uniform1f(u.inner_pal_mode, p.inner?.paletteMode === 'palette' ? 1 : 0);
+        gl.uniform1f(u.inner_pal_count, Math.max(2, inPal.length));
+        gl.uniform1f(u.inner_grad_stepped, p.inner?.gradientMode === 'stepped' ? 1 : 0);
+        gl.uniform1f(u.inner_grad_spread, Math.max(0.25, Math.min(8, Number(p.inner?.gradientSpread ?? 1) || 1)));
+        gl.uniform1f(u.inner_grad_perim, p.inner?.gradientMapping === 'perimeter' ? 1 : 0);
+        for (let i = 0; i < 8; i++) {
+            const c = inPal[i] || inPal[inPal.length - 1] || inC1;
+            gl.uniform4f(u[`in_pal${i}`], c[0], c[1], c[2], c[3]);
+        }
+
+        const outPal = getPalRgba(p.outer, '#FFFFFFFF', 4);
+        const outPalMode = p.outer?.paletteMode === 'inherit' ? 1 : (p.outer?.paletteMode === 'palette' ? 2 : 0);
+        gl.uniform1f(u.outer_pal_mode, outPalMode);
+        gl.uniform1f(u.outer_pal_count, Math.max(2, outPal.length));
+        gl.uniform1f(u.outer_grad_stepped, p.outer?.gradientMode === 'stepped' ? 1 : 0);
+        gl.uniform1f(u.outer_grad_spread, Math.max(0.25, Math.min(8, Number(p.outer?.gradientSpread ?? 1) || 1)));
+        gl.uniform1f(u.outer_grad_perim, p.outer?.gradientMapping === 'perimeter' ? 1 : 0);
+        for (let i = 0; i < 4; i++) {
+            const c = outPal[i] || outPal[outPal.length - 1] || outC1;
+            gl.uniform4f(u[`out_pal${i}`], c[0], c[1], c[2], c[3]);
+        }
+
+        const glPal = getPalRgba(p.glow, '#38BDF8FF', 4);
+        const glPalMode = p.glow?.paletteMode === 'inherit' ? 1 : (p.glow?.paletteMode === 'palette' ? 2 : 0);
+        gl.uniform1f(u.glow_pal_mode, glPalMode);
+        gl.uniform1f(u.glow_pal_count, Math.max(2, glPal.length));
+        gl.uniform1f(u.glow_grad_stepped, p.glow?.gradientMode === 'stepped' ? 1 : 0);
+        gl.uniform1f(u.glow_grad_spread, Math.max(0.25, Math.min(8, Number(p.glow?.gradientSpread ?? 1) || 1)));
+        gl.uniform1f(u.glow_grad_perim, p.glow?.gradientMapping === 'linear' ? 0 : 1);
+        gl.uniform1f(u.glow_angle_rad, (Number(p.glow?.angle ?? 180) || 180) * Math.PI / 180);
+        for (let i = 0; i < 4; i++) {
+            const c = glPal[i] || glPal[glPal.length - 1] || glC;
+            gl.uniform4f(u[`glow_pal${i}`], c[0], c[1], c[2], c[3]);
+        }
+
+        // Font Awesome Perimeter Icon Border
+        const ic = p.icons || {};
+        const icOn = Boolean(ic.enabled) && Array.isArray(ic.items) && ic.items.length > 0;
+        gl.uniform1f(u.icons_enabled, icOn ? 1 : 0);
+        gl.uniform1f(u.icons_has_tex, (icOn && glIconHasTex && glIconTex) ? 1 : 0);
+        if (icOn && glIconHasTex && glIconTex) {
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, glIconTex);
+            gl.uniform1i(u.icon_atlas, 1);
+            gl.activeTexture(gl.TEXTURE0);
+        }
+        gl.uniform1f(u.icons_count, Math.max(1, (ic.items || []).length));
+        gl.uniform1f(u.icons_size, (Number(ic.size ?? 28) || 28) * sizeScale);
+        gl.uniform1f(u.icons_spacing, (Number(ic.spacing ?? 16) || 0) * sizeScale);
+        gl.uniform1f(u.icons_offset, (Number(ic.offset ?? 0) || 0) * sizeScale);
+        gl.uniform1f(u.icons_rot_rad, (Number(ic.rotation ?? 0) || 0) * Math.PI / 180);
+        gl.uniform1f(u.icons_follow_edge, ic.followEdge !== false ? 1 : 0);
+        gl.uniform1f(u.icons_speed, Number(ic.speed ?? 0) || 0);
+        const iconBlendMap = { normal: 0, add: 1, screen: 2, multiply: 3, overlay: 4, 'soft-light': 5, punchout: 6 };
+        gl.uniform1f(u.icons_color_mode, ic.colorMode === 'palette' ? 1 : 0);
+        gl.uniform1f(u.icons_blend, iconBlendMap[ic.blendMode] ?? 0);
+        gl.uniform1f(u.icons_opacity, Math.max(0, Math.min(1, Number(ic.opacity ?? 1))));
+        const icItems = Array.isArray(ic.items) ? ic.items : [];
+        for (let i = 0; i < 8; i++) {
+            const itemCol = icItems[i]?.color || icItems[icItems.length - 1]?.color || '#FACC15FF';
+            const c = hexToRgbaFloats(resolveColor(itemCol, '#FACC15FF'), [1, 0.8, 0.1, 1]);
+            gl.uniform4f(u[`icon_col${i}`], c[0], c[1], c[2], c[3]);
+        }
+
         gl.uniform1f(u.show_guides, showGuides ? 1 : 0);
 
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -2482,6 +2941,21 @@
         if (!workingProfile) return;
         syncWorkingProfileFromDom();
         try {
+            if (workingProfile.icons?.enabled) {
+                await rebuildBorderIconAtlas(false);
+                if (lastIconAtlasDataUrl && (iconAtlasDirty || !workingProfile.icons.atlasFile)) {
+                    const upRes = await fetch('/api/obs-borders/icon-atlas', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ profileId: workingProfile.id || 'border-icons', pngBase64: lastIconAtlasDataUrl })
+                    });
+                    const upData = await upRes.json().catch(() => ({}));
+                    if (upRes.ok && upData.filename) {
+                        workingProfile.icons.atlasFile = upData.filename;
+                        iconAtlasDirty = false;
+                    }
+                }
+            }
             const res = await fetch('/api/obs-borders/profile', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -2834,4 +3308,492 @@
         switchTab(activeTab);
         loadStudioData();
     });
+
+    // ---- Multi-Stop Palettes & Font Awesome Perimeter Icon Border Helpers ----
+    function populatePaletteSelects() {
+        const pals = studioState?.palettes || {};
+        const names = Object.keys(pals);
+        const optionsHtml = names.map(k => `<option value="${k}">${k.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>`).join('')
+            + '<option value="custom">Custom Stops</option>';
+        ['ob-inner-pal-preset', 'ob-outer-pal-preset', 'ob-glow-pal-preset'].forEach(id => {
+            const el = document.getElementById(id);
+            if (!el || el.dataset.populated === '1') return;
+            el.innerHTML = optionsHtml;
+            el.dataset.populated = '1';
+        });
+    }
+
+    function getLayerPaletteStops(layerKey, maxStops) {
+        const layer = workingProfile?.[layerKey];
+        if (!layer) return ['#38BDF8', '#A855F7'];
+        const pals = studioState?.palettes || {};
+        if (layer.palette && layer.palette !== 'custom' && pals[layer.palette]) {
+            return pals[layer.palette].slice(0, maxStops);
+        }
+        return (Array.isArray(layer.paletteColors) && layer.paletteColors.length >= 2)
+            ? layer.paletteColors.slice(0, maxStops)
+            : ['#38BDF8', '#A855F7'];
+    }
+
+    function renderPaletteStops(layerKey, maxStops) {
+        const listEl = document.getElementById(`ob-${layerKey}-stop-list`);
+        if (!listEl || !workingProfile) return;
+        const stops = getLayerPaletteStops(layerKey, maxStops);
+        const barEl = document.getElementById(`ob-${layerKey}-pal-bar`);
+        if (barEl) {
+            const isStepped = workingProfile?.[layerKey]?.gradientMode === 'stepped';
+            if (isStepped) {
+                barEl.style.background = '';
+                barEl.innerHTML = stops.map(hex => `<span style="flex:1;background:${String(hex || '#fff').slice(0, 7)};"></span>`).join('');
+            } else {
+                barEl.innerHTML = '';
+                barEl.style.background = `linear-gradient(90deg, ${stops.map(hex => String(hex || '#fff').slice(0, 7)).join(', ')})`;
+            }
+        }
+        listEl.innerHTML = stops.map((hex, idx) => {
+            const h6 = String(hex || '#ffffff').slice(0, 7);
+            return `<span class="ob-stop-chip">
+                <input type="color" value="${h6}" data-stop-layer="${layerKey}" data-stop-idx="${idx}" title="Stop ${idx + 1}">
+                ${stops.length > 2 ? `<button type="button" data-del-stop="${layerKey}" data-stop-idx="${idx}" title="Remove stop">&times;</button>` : ''}
+            </span>`;
+        }).join('');
+        const addBtn = document.getElementById(`ob-${layerKey}-add-stop`);
+        if (addBtn) addBtn.disabled = stops.length >= maxStops;
+    }
+
+    const escapeHtml = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+    function renderIconSequenceList() {
+        const listEl = document.getElementById('ob-icons-list');
+        if (!listEl || !workingProfile) return;
+        const items = workingProfile.icons?.items || [];
+        if (window.IconPicker?.ensureFont) window.IconPicker.ensureFont();
+        listEl.innerHTML = items.map((it, idx) => {
+            const isAsset = it.kind === 'asset' && it.assetUrl;
+            const h6 = String(it.color || (isAsset ? '#ffffff' : '#facc15')).slice(0, 7);
+            if (isAsset) {
+                const label = escapeHtml(it.assetName || decodeURIComponent(it.assetUrl.split('/').pop() || 'Asset'));
+                const safeUrl = escapeHtml(it.assetUrl);
+                return `<div class="ob-icon-seq-row">
+                    <span class="ob-icon-seq-preview"><img class="ob-icon-seq-thumb" src="${safeUrl}" alt=""></span>
+                    <button type="button" class="btn btn-secondary btn-sm" data-change-asset="${idx}" title="Swap image asset" style="flex:1;text-align:left;padding:3px 7px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</button>
+                    <input type="color" value="${h6}" data-icon-color="${idx}" title="Tint Color (White = original colors)">
+                    ${items.length > 1 ? `<button type="button" class="btn btn-secondary btn-sm" data-del-icon="${idx}" style="padding:2px 6px;font-size:11px;">&times;</button>` : ''}
+                </div>`;
+            }
+            const label = escapeHtml(String(it.iconClass || 'fa-solid fa-star').replace(/^fa-\w+\s+fa-/, ''));
+            return `<div class="ob-icon-seq-row">
+                <span class="ob-icon-seq-preview" style="color:${h6};"><i class="${escapeHtml(it.iconClass || 'fa-solid fa-star')}"></i></span>
+                <button type="button" class="btn btn-secondary btn-sm" data-change-icon="${idx}" title="Swap icon" style="flex:1;text-align:left;padding:3px 7px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</button>
+                <input type="color" value="${h6}" data-icon-color="${idx}" title="Icon Color">
+                ${items.length > 1 ? `<button type="button" class="btn btn-secondary btn-sm" data-del-icon="${idx}" style="padding:2px 6px;font-size:11px;">&times;</button>` : ''}
+            </div>`;
+        }).join('');
+        const atMax = items.length >= 8;
+        const addBtn = document.getElementById('ob-icons-add');
+        if (addBtn) addBtn.disabled = atMax;
+        const addAssetBtn = document.getElementById('ob-icons-add-asset');
+        if (addAssetBtn) addAssetBtn.disabled = atMax;
+    }
+
+    let cachedAssetLibrary = null;
+    let activeAssetPickCb = null;
+
+    function renderBorderAssetGrid(query = '') {
+        const grid = document.getElementById('ob-asset-grid');
+        if (!grid) return;
+        const q = String(query || '').trim().toLowerCase();
+        const list = (cachedAssetLibrary || []).filter(a => !q || String(a.label || a.name || '').toLowerCase().includes(q));
+        if (!list.length) {
+            grid.innerHTML = '<p class="ob-hint" style="grid-column:1/-1;text-align:center;padding:24px 0;">No image assets found. Upload images in the Asset Library.</p>';
+            return;
+        }
+        grid.innerHTML = list.map(a => `
+            <button type="button" class="ob-asset-tile" data-pick-asset-url="${escapeHtml(a.url)}" data-pick-asset-name="${escapeHtml(a.label || a.name)}">
+                <img src="${escapeHtml(a.url)}" loading="lazy" decoding="async" alt="">
+                <span>${escapeHtml(a.label || a.name)}</span>
+            </button>`).join('');
+    }
+
+    async function openBorderAssetPicker(onSelect) {
+        const dlg = document.getElementById('ob-asset-dialog');
+        const grid = document.getElementById('ob-asset-grid');
+        const search = document.getElementById('ob-asset-search');
+        if (!dlg || !grid) return;
+        activeAssetPickCb = onSelect;
+        if (search) search.value = '';
+        grid.innerHTML = '<p class="ob-hint" style="grid-column:1/-1;text-align:center;padding:24px 0;">Loading Asset Library…</p>';
+        if (!dlg.open) dlg.showModal();
+        try {
+            const res = await fetch('/api/asset-library?kinds=image', { cache: 'no-store' });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            cachedAssetLibrary = await res.json();
+            renderBorderAssetGrid('');
+        } catch {
+            grid.innerHTML = '<p class="ob-hint" style="grid-column:1/-1;text-align:center;padding:24px 0;">Could not load Asset Library.</p>';
+        }
+    }
+
+    function loadAtlasImage(url) {
+        return new Promise(resolve => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => resolve(img);
+            img.onerror = () => resolve(null);
+            img.src = url;
+        });
+    }
+
+    async function rebuildBorderIconAtlas(markDirty = true) {
+        if (!workingProfile?.icons?.enabled) return;
+        const items = workingProfile.icons.items || [];
+        if (!items.length) return;
+        const sig = items.map(i => (i.kind === 'asset' && i.assetUrl) ? `asset:${i.assetUrl}` : `icon:${i.iconClass}`).join('|');
+        if (!markDirty && sig === lastIconAtlasSig && glIconHasTex) return;
+
+        if (items.some(i => i.kind !== 'asset')) {
+            if (window.IconPicker?.ensureFont) window.IconPicker.ensureFont();
+            if (document.fonts?.ready) await document.fonts.ready;
+        }
+
+        const cell = 256;
+        const c = document.createElement('canvas');
+        c.width = cell * items.length;
+        c.height = cell;
+        const ctx = c.getContext('2d');
+        ctx.clearRect(0, 0, c.width, c.height);
+
+        for (let i = 0; i < items.length; i++) {
+            const it = items[i];
+            const cx = i * cell + cell * 0.5;
+            const cy = cell * 0.5;
+            if (it.kind === 'asset' && it.assetUrl) {
+                const img = await loadAtlasImage(it.assetUrl);
+                if (img && img.naturalWidth > 0 && img.naturalHeight > 0) {
+                    const maxDim = cell * 0.84;
+                    const scale = Math.min(maxDim / img.naturalWidth, maxDim / img.naturalHeight);
+                    const dw = img.naturalWidth * scale;
+                    const dh = img.naturalHeight * scale;
+                    ctx.drawImage(img, cx - dw * 0.5, cy - dh * 0.5, dw, dh);
+                }
+                continue;
+            }
+            const cls = it.iconClass || 'fa-solid fa-star';
+            const probe = document.createElement('i');
+            probe.className = cls;
+            probe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;visibility:hidden;pointer-events:none;font-size:160px;';
+            document.body.appendChild(probe);
+            let glyph = '';
+            let fontFamily = '"Font Awesome 6 Free", "Font Awesome 6 Brands", sans-serif';
+            let fontWeight = cls.includes('fa-brands') ? '400' : '900';
+            for (let attempt = 0; attempt < 10; attempt++) {
+                const bs = getComputedStyle(probe, '::before');
+                const es = getComputedStyle(probe);
+                const raw = bs.content;
+                if (raw && raw !== 'none' && raw !== 'normal') {
+                    glyph = raw.replace(/^["']|["']$/g, '');
+                    fontFamily = bs.fontFamily || es.fontFamily || fontFamily;
+                    fontWeight = bs.fontWeight || es.fontWeight || fontWeight;
+                    break;
+                }
+                await new Promise(r => setTimeout(r, 60));
+            }
+            probe.remove();
+            if (glyph) {
+                const fontSize = Math.round(cell * 0.72);
+                await document.fonts?.load?.(`${fontWeight} ${fontSize}px ${fontFamily}`).catch(() => {});
+                ctx.save();
+                ctx.fillStyle = '#FFFFFF';
+                ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(glyph, cx, cy);
+                ctx.restore();
+            }
+        }
+
+        lastIconAtlasDataUrl = c.toDataURL('image/png');
+        lastIconAtlasSig = sig;
+        if (markDirty) iconAtlasDirty = true;
+
+        if (glCtx) {
+            if (!glIconTex) glIconTex = glCtx.createTexture();
+            glCtx.activeTexture(glCtx.TEXTURE1);
+            glCtx.bindTexture(glCtx.TEXTURE_2D, glIconTex);
+            glCtx.texParameteri(glCtx.TEXTURE_2D, glCtx.TEXTURE_WRAP_S, glCtx.CLAMP_TO_EDGE);
+            glCtx.texParameteri(glCtx.TEXTURE_2D, glCtx.TEXTURE_WRAP_T, glCtx.CLAMP_TO_EDGE);
+            glCtx.texParameteri(glCtx.TEXTURE_2D, glCtx.TEXTURE_MIN_FILTER, glCtx.LINEAR);
+            glCtx.texParameteri(glCtx.TEXTURE_2D, glCtx.TEXTURE_MAG_FILTER, glCtx.LINEAR);
+            glCtx.texImage2D(glCtx.TEXTURE_2D, 0, glCtx.RGBA, glCtx.RGBA, glCtx.UNSIGNED_BYTE, c);
+            glCtx.activeTexture(glCtx.TEXTURE0);
+            glIconHasTex = true;
+            previewDirty = true;
+            schedulePreviewDraw();
+        }
+    }
+
+    // Bind Palette & FA Icon Border Inspector Events
+    function bindPaletteAndIconEvents() {
+        const triggerChange = () => {
+            syncWorkingProfileFromDom();
+            updateBorderDesignerVisibility();
+            updateDirtyIndicators();
+            previewDirty = true;
+            schedulePreviewDraw();
+        };
+
+        ['inner', 'outer', 'glow'].forEach(layerKey => {
+            const maxStops = layerKey === 'inner' ? 8 : 4;
+            document.getElementById(`ob-${layerKey}-customize-btn`)?.addEventListener('click', () => {
+                if (!workingProfile?.[layerKey]) return;
+                const curStops = getLayerPaletteStops(layerKey, maxStops).map(c => c.length === 7 ? c + 'FF' : c);
+                workingProfile[layerKey].palette = 'custom';
+                workingProfile[layerKey].paletteColors = curStops;
+                const pSel = document.getElementById(`ob-${layerKey}-pal-preset`);
+                if (pSel) pSel.value = 'custom';
+                renderPaletteStops(layerKey, maxStops);
+                triggerChange();
+            });
+            document.getElementById(`ob-${layerKey}-pal-mode`)?.addEventListener('change', () => {
+                triggerChange();
+                renderPaletteStops(layerKey, maxStops);
+            });
+            document.getElementById(`ob-${layerKey}-pal-preset`)?.addEventListener('change', () => {
+                const preset = document.getElementById(`ob-${layerKey}-pal-preset`)?.value;
+                if (workingProfile?.[layerKey]) {
+                    workingProfile[layerKey].palette = preset;
+                    const pals = studioState?.palettes || {};
+                    if (preset !== 'custom' && pals[preset]) {
+                        workingProfile[layerKey].paletteColors = pals[preset].slice(0, maxStops).map(c => c.length === 7 ? c + 'FF' : c);
+                    }
+                }
+                renderPaletteStops(layerKey, maxStops);
+                triggerChange();
+            });
+            document.getElementById(`ob-${layerKey}-grad-mode`)?.addEventListener('change', () => {
+                triggerChange();
+                renderPaletteStops(layerKey, maxStops);
+            });
+            document.getElementById(`ob-${layerKey}-reverse-stops`)?.addEventListener('click', () => {
+                if (!workingProfile?.[layerKey]) return;
+                workingProfile[layerKey].palette = 'custom';
+                workingProfile[layerKey].paletteColors = [...getLayerPaletteStops(layerKey, maxStops)].reverse();
+                const pSel = document.getElementById(`ob-${layerKey}-pal-preset`);
+                if (pSel) pSel.value = 'custom';
+                renderPaletteStops(layerKey, maxStops);
+                triggerChange();
+            });
+            document.getElementById(`ob-${layerKey}-shuffle-stops`)?.addEventListener('click', () => {
+                if (!workingProfile?.[layerKey]) return;
+                const arr = [...getLayerPaletteStops(layerKey, maxStops)];
+                for (let i = arr.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [arr[i], arr[j]] = [arr[j], arr[i]];
+                }
+                workingProfile[layerKey].palette = 'custom';
+                workingProfile[layerKey].paletteColors = arr;
+                const pSel = document.getElementById(`ob-${layerKey}-pal-preset`);
+                if (pSel) pSel.value = 'custom';
+                renderPaletteStops(layerKey, maxStops);
+                triggerChange();
+            });
+            document.getElementById(`ob-${layerKey}-grad-map`)?.addEventListener('change', triggerChange);
+            document.getElementById(`ob-${layerKey}-spread`)?.addEventListener('input', e => {
+                const vEl = document.getElementById(`ob-${layerKey}-spread-val`);
+                if (vEl) vEl.textContent = Number(e.target.value).toFixed(2).replace(/\.00$/, '.0');
+                triggerChange();
+            });
+            document.getElementById(`ob-${layerKey}-add-stop`)?.addEventListener('click', () => {
+                if (!workingProfile?.[layerKey]) return;
+                const cur = getLayerPaletteStops(layerKey, maxStops);
+                if (cur.length >= maxStops) return;
+                workingProfile[layerKey].palette = 'custom';
+                workingProfile[layerKey].paletteColors = [...cur, '#FACC15FF'];
+                const pSel = document.getElementById(`ob-${layerKey}-pal-preset`);
+                if (pSel) pSel.value = 'custom';
+                renderPaletteStops(layerKey, maxStops);
+                triggerChange();
+            });
+            document.getElementById(`ob-${layerKey}-stop-list`)?.addEventListener('input', e => {
+                const inp = e.target.closest('[data-stop-idx]');
+                if (!inp || !workingProfile?.[layerKey]) return;
+                const idx = Number(inp.dataset.stopIdx);
+                const cur = [...getLayerPaletteStops(layerKey, maxStops)];
+                cur[idx] = inp.value.toUpperCase() + 'FF';
+                workingProfile[layerKey].palette = 'custom';
+                workingProfile[layerKey].paletteColors = cur;
+                const pSel = document.getElementById(`ob-${layerKey}-pal-preset`);
+                if (pSel) pSel.value = 'custom';
+                triggerChange();
+            });
+            document.getElementById(`ob-${layerKey}-stop-list`)?.addEventListener('click', e => {
+                const btn = e.target.closest('[data-del-stop]');
+                if (!btn || !workingProfile?.[layerKey]) return;
+                const idx = Number(btn.dataset.stopIdx);
+                const cur = [...getLayerPaletteStops(layerKey, maxStops)];
+                if (cur.length <= 2) return;
+                cur.splice(idx, 1);
+                workingProfile[layerKey].palette = 'custom';
+                workingProfile[layerKey].paletteColors = cur;
+                const pSel = document.getElementById(`ob-${layerKey}-pal-preset`);
+                if (pSel) pSel.value = 'custom';
+                renderPaletteStops(layerKey, maxStops);
+                triggerChange();
+            });
+        });
+
+        // Font Awesome Icon Border bindings
+        document.getElementById('ob-icons-enabled')?.addEventListener('change', () => {
+            triggerChange();
+            if (workingProfile?.icons?.enabled) rebuildBorderIconAtlas(true);
+        });
+        [
+            ['ob-icons-size', 'ob-icons-size-val', v => String(v)],
+            ['ob-icons-spacing', 'ob-icons-spacing-val', v => String(v)],
+            ['ob-icons-offset', 'ob-icons-offset-val', v => String(v)],
+            ['ob-icons-rot', 'ob-icons-rot-val', v => String(v)],
+            ['ob-icons-speed', 'ob-icons-speed-val', v => String(v)],
+            ['ob-icons-opacity', 'ob-icons-opacity-val', v => String(Math.round(Number(v) * 100))]
+        ].forEach(([id, valId, fmt]) => {
+            document.getElementById(id)?.addEventListener('input', e => {
+                const vEl = document.getElementById(valId);
+                if (vEl) vEl.textContent = fmt(e.target.value);
+                triggerChange();
+            });
+        });
+        document.getElementById('ob-icons-color-mode')?.addEventListener('change', triggerChange);
+        document.getElementById('ob-icons-blend')?.addEventListener('change', triggerChange);
+        document.getElementById('ob-icons-follow-edge')?.addEventListener('change', triggerChange);
+
+        document.getElementById('ob-icons-add')?.addEventListener('click', () => {
+            if (!workingProfile) return;
+            workingProfile.icons = workingProfile.icons || { enabled: true, items: [] };
+            if (workingProfile.icons.items.length >= 8) return;
+            const pick = cls => {
+                workingProfile.icons.items.push({ kind: 'icon', assetUrl: '', assetName: '', iconClass: cls, color: '#38BDF8FF' });
+                renderIconSequenceList();
+                triggerChange();
+                rebuildBorderIconAtlas(true);
+            };
+            if (window.IconPicker?.open) {
+                window.IconPicker.open({ onSelect: pick });
+            } else {
+                pick('fa-solid fa-star');
+            }
+        });
+
+        document.getElementById('ob-icons-add-asset')?.addEventListener('click', () => {
+            if (!workingProfile) return;
+            workingProfile.icons = workingProfile.icons || { enabled: true, items: [] };
+            if (workingProfile.icons.items.length >= 8) return;
+            openBorderAssetPicker(({ url, name }) => {
+                workingProfile.icons.items.push({ kind: 'asset', assetUrl: url, assetName: name, iconClass: '', color: '#FFFFFFFF' });
+                renderIconSequenceList();
+                triggerChange();
+                rebuildBorderIconAtlas(true);
+            });
+        });
+
+        const assetDlg = document.getElementById('ob-asset-dialog');
+        document.getElementById('ob-asset-dialog-close')?.addEventListener('click', () => assetDlg?.close());
+        assetDlg?.addEventListener('click', e => {
+            if (e.target === assetDlg) assetDlg.close();
+        });
+        document.getElementById('ob-asset-search')?.addEventListener('input', e => {
+            renderBorderAssetGrid(e.target.value);
+        });
+        document.getElementById('ob-asset-grid')?.addEventListener('click', e => {
+            const tile = e.target.closest('[data-pick-asset-url]');
+            if (!tile) return;
+            const url = tile.dataset.pickAssetUrl;
+            const name = tile.dataset.pickAssetName || 'Asset';
+            assetDlg?.close();
+            if (typeof activeAssetPickCb === 'function') {
+                const cb = activeAssetPickCb;
+                activeAssetPickCb = null;
+                cb({ url, name });
+            }
+        });
+
+        document.getElementById('ob-icons-list')?.addEventListener('click', e => {
+            if (!workingProfile?.icons?.items) return;
+            const changeAssetBtn = e.target.closest('[data-change-asset]');
+            if (changeAssetBtn) {
+                const idx = Number(changeAssetBtn.dataset.changeAsset);
+                openBorderAssetPicker(({ url, name }) => {
+                    workingProfile.icons.items[idx] = {
+                        kind: 'asset',
+                        assetUrl: url,
+                        assetName: name,
+                        iconClass: '',
+                        color: workingProfile.icons.items[idx]?.color || '#FFFFFFFF'
+                    };
+                    renderIconSequenceList();
+                    triggerChange();
+                    rebuildBorderIconAtlas(true);
+                });
+                return;
+            }
+            const changeBtn = e.target.closest('[data-change-icon]');
+            if (changeBtn) {
+                const idx = Number(changeBtn.dataset.changeIcon);
+                if (window.IconPicker?.open) {
+                    window.IconPicker.open({
+                        current: workingProfile.icons.items[idx]?.iconClass,
+                        onSelect: cls => {
+                            workingProfile.icons.items[idx] = {
+                                kind: 'icon',
+                                assetUrl: '',
+                                assetName: '',
+                                iconClass: cls,
+                                color: workingProfile.icons.items[idx]?.color || '#38BDF8FF'
+                            };
+                            renderIconSequenceList();
+                            triggerChange();
+                            rebuildBorderIconAtlas(true);
+                        }
+                    });
+                }
+                return;
+            }
+            const delBtn = e.target.closest('[data-del-icon]');
+            if (delBtn) {
+                const idx = Number(delBtn.dataset.delIcon);
+                if (workingProfile.icons.items.length <= 1) return;
+                workingProfile.icons.items.splice(idx, 1);
+                renderIconSequenceList();
+                triggerChange();
+                rebuildBorderIconAtlas(true);
+            }
+        });
+
+        document.getElementById('ob-icons-list')?.addEventListener('input', e => {
+            const colInp = e.target.closest('[data-icon-color]');
+            if (!colInp || !workingProfile?.icons?.items) return;
+            const idx = Number(colInp.dataset.iconColor);
+            if (workingProfile.icons.items[idx]) {
+                workingProfile.icons.items[idx].color = colInp.value.toUpperCase() + 'FF';
+                const row = colInp.closest('.ob-icon-seq-row');
+                const prev = row?.querySelector('.ob-icon-seq-preview');
+                if (prev) prev.style.color = colInp.value;
+                triggerChange();
+            }
+        });
+    }
+    bindPaletteAndIconEvents();
+    fetch('/api/obs-patterns').then(r => r.ok ? r.json() : null).then(patData => {
+        if (!patData?.customPalettes?.length || !studioState) return;
+        studioState.palettes = studioState.palettes || {};
+        for (const cp of patData.customPalettes) {
+            if (cp?.name && Array.isArray(cp.colors) && cp.colors.length >= 2) {
+                const key = `saved-${String(cp.id || cp.name).toLowerCase().replace(/[^a-z0-9_-]/g, '-')}`;
+                studioState.palettes[key] = cp.colors;
+            }
+        }
+        ['ob-inner-pal-preset', 'ob-outer-pal-preset', 'ob-glow-pal-preset'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.dataset.populated = '';
+        });
+        populatePaletteSelects();
+    }).catch(() => {});
 })();

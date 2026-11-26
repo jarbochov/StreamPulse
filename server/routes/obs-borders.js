@@ -1,3 +1,4 @@
+const fs = require('fs');
 /**
  * OBS Border Studio API & Companion Routes
  */
@@ -184,7 +185,7 @@ function createObsBordersRoutes({
 
         // GET /api/obs-borders — full studio state
         if (pathname === '/api/obs-borders' && req.method === 'GET') {
-            sendJson(res, obsBordersService.getState());
+            sendJson(res, { ...obsBordersService.getState(), palettes: obsBordersService.BORDER_PALETTES || {} });
             return true;
         }
 
@@ -224,6 +225,29 @@ function createObsBordersRoutes({
         }
 
         // GET or POST /api/obs-borders/activate?profile=<id>&target=<optionalSource>&scene=<optionalScene>
+        if (pathname === '/api/obs-borders/icon-atlas' && req.method === 'POST') {
+            try {
+                const body = JSON.parse(await readRequestBody(req, 6 * 1024 * 1024) || '{}');
+                const saved = obsBordersService.saveIconAtlas(body.profileId || 'border-icons', body.pngBase64 || body.dataUrl);
+                sendJson(res, { ok: true, ...saved });
+            } catch (err) {
+                sendError(res, err, 400);
+            }
+            return true;
+        }
+
+        const atlasMatch = pathname.match(/^\/api\/obs-borders\/atlases\/([a-z0-9_.-]+\.png)$/i);
+        if (atlasMatch && req.method === 'GET') {
+            const fullPath = obsBordersService.getAtlasFilePath(atlasMatch[1]);
+            if (!fullPath || !fs.existsSync(fullPath)) {
+                sendError(res, 'Atlas not found', 404);
+                return true;
+            }
+            res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' });
+            fs.createReadStream(fullPath).pipe(res);
+            return true;
+        }
+
         if (pathname === '/api/obs-borders/activate' && (req.method === 'GET' || req.method === 'POST')) {
             try {
                 let profileId = url.searchParams.get('profile') || url.searchParams.get('id') || '';

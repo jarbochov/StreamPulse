@@ -751,8 +751,12 @@ const twitchService = createTwitchService({
         const seconds = data.startedAt && data.endedAt ? Math.max(0, Math.round((Date.parse(data.endedAt) - Date.parse(data.startedAt)) / 1000)) : 0;
         alertEngine.handleEvent({ type: 'hype_train', phase, level: data.level, amount: data.level, total: data.total, goal: data.goal, user: data.topUser, seconds, golden: data.isGolden });
     },
-    onStreamOnline: () => {
-        if (typeof sessionService !== 'undefined' && sessionService?.pollLifecycle) sessionService.pollLifecycle(true);
+    onStreamOnline: (ev) => {
+        if (typeof sessionService !== 'undefined' && sessionService?.handleStreamOnline) {
+            sessionService.handleStreamOnline(ev);
+        } else if (typeof sessionService !== 'undefined' && sessionService?.pollLifecycle) {
+            sessionService.pollLifecycle(true);
+        }
     },
     onStreamOffline: () => {
         if (typeof sessionService !== 'undefined' && sessionService?.pollLifecycle) sessionService.pollLifecycle(true);
