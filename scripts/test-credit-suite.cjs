@@ -408,6 +408,35 @@ describe('Credit Suite — Independent Cinematic Credits Module', () => {
         }
     });
 
+    it('honors the credit_suite_enabled module gate (403 when disabled, status stays readable)', async () => {
+        let enabled = false;
+        const gated = createCreditSuiteRoutes({
+            creditSuiteService: service,
+            creditSuiteExporter: exporter,
+            isCreditSuiteEnabled: () => enabled
+        });
+        const gateServer = http.createServer(async (req, res) => {
+            const url = new URL(req.url, 'http://127.0.0.1');
+            if (await gated(req, res, url, url.pathname)) return;
+            res.writeHead(404); res.end();
+        });
+        await new Promise(resolve => gateServer.listen(0, '127.0.0.1', resolve));
+        try {
+            const gp = gateServer.address().port;
+            const st = await requestRaw(gp, 'GET', '/api/credit-suite/status');
+            assert.equal(st.status, 200);
+            assert.equal(st.body.enabled, false);
+            const root = await requestRaw(gp, 'GET', '/api/credit-suite');
+            assert.equal(root.body.enabled, false);
+            assert.equal((await requestRaw(gp, 'GET', '/api/credit-suite/play')).status, 403);
+            assert.equal((await requestRaw(gp, 'GET', '/api/credit-suite/projects/cinematic-feature')).status, 403);
+            enabled = true;
+            assert.equal((await requestRaw(gp, 'GET', '/api/credit-suite/projects/cinematic-feature')).status, 200);
+        } finally {
+            await new Promise(resolve => gateServer.close(resolve));
+        }
+    });
+
     it('ships modular Studio HTML/CSS/JS, Live Overlay, Nav links, Backup spec, and Operator card without raw emojis', () => {
         const root = path.resolve(__dirname, '..');
         const studioHtml = fs.readFileSync(path.join(root, 'public/tools/credit-suite.html'), 'utf8');

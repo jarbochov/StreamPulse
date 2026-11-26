@@ -134,13 +134,23 @@
             } catch {}
         }
 
+        let moduleDisabled = false;
+
         async function loadProject() {
             const url = requestedProjectId
                 ? `/api/credit-suite/projects/${encodeURIComponent(requestedProjectId)}`
                 : '/api/credit-suite';
             const res = await fetch(url);
+            if (res.status === 403) {
+                moduleDisabled = true;
+                return;
+            }
             if (!res.ok) throw new Error('Failed to load Credit Suite project');
             const data = await res.json();
+            if (data && data.enabled === false) {
+                moduleDisabled = true;
+                return;
+            }
             const raw = requestedProjectId
                 ? data.project
                 : ((data.projects || []).find(p => p.id === data.activeProjectId) || data.projects?.[0]);
@@ -257,6 +267,10 @@
         // Bootstrap
         Promise.all([loadVariables(), loadProject()])
             .then(async () => {
+                if (moduleDisabled) {
+                    window.__creditSuiteReady = true;
+                    return;
+                }
                 if (document.fonts && document.fonts.ready) {
                     try { await document.fonts.ready; } catch {}
                 }

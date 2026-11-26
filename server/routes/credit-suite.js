@@ -3,7 +3,7 @@
 const fs = require('fs');
 const { readRequestBody, sendJson, sendText, sendError } = require('./helpers');
 
-function createCreditSuiteRoutes({ creditSuiteService, creditSuiteExporter } = {}) {
+function createCreditSuiteRoutes({ creditSuiteService, creditSuiteExporter, isCreditSuiteEnabled = () => true } = {}) {
     async function parseOptionalJson(req) {
         if (req.method === 'GET' || req.method === 'HEAD') return {};
         const raw = await readRequestBody(req, 10 * 1024 * 1024);
@@ -15,11 +15,26 @@ function createCreditSuiteRoutes({ creditSuiteService, creditSuiteExporter } = {
         if (!pathname.startsWith('/api/credit-suite')) return false;
 
         try {
+            const enabled = isCreditSuiteEnabled();
+            // Status & root state stay readable when disabled so UIs can explain why.
+            if (!enabled && pathname === '/api/credit-suite/status' && req.method === 'GET') {
+                sendJson(res, { enabled: false, ...creditSuiteService.getStatus() });
+                return true;
+            }
+            if (!enabled && pathname === '/api/credit-suite' && req.method === 'GET') {
+                sendJson(res, { enabled: false, projects: [], themes: [], activeProjectId: '' });
+                return true;
+            }
+            if (!enabled) {
+                sendError(res, 'Credit Suite is disabled in System Config (Modules)', 403);
+                return true;
+            }
+
             // GET /api/credit-suite
             if (pathname === '/api/credit-suite' && req.method === 'GET') {
                 const state = creditSuiteService.getState();
                 const capabilities = creditSuiteExporter ? creditSuiteExporter.getCapabilities() : null;
-                sendJson(res, { ...state, capabilities });
+                sendJson(res, { enabled: true, ...state, capabilities });
                 return true;
             }
 

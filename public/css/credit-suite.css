@@ -18,6 +18,22 @@ body.cs-studio-body {
     flex-shrink: 0;
 }
 
+.cs-disabled-banner {
+    margin: 24px auto;
+    max-width: 640px;
+    padding: 18px 22px;
+    border: 1px solid var(--border, #30363d);
+    border-radius: 10px;
+    background: var(--bg-card, #161b22);
+    color: var(--text, #e6edf3);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.cs-disabled-banner a {
+    color: var(--accent, #58a6ff);
+}
+
 .cs-app {
     flex: 1 1 0;
     min-height: 0;

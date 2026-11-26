@@ -17,6 +17,11 @@
         <script src="/js/nav.js"></script>
     </div>
 
+    <div id="cs-disabled-banner" class="cs-disabled-banner" hidden>
+        <strong>Credit Suite is disabled.</strong>
+        Enable it in <a href="/config-editor.html#modules">System Config &rarr; Modules</a> to use the studio and live overlay.
+    </div>
+
     <div class="cs-app">
         <!-- Calm, Uncluttered Studio Sub-Bar -->
         <div class="cs-topbar">
@@ -208,5 +213,13 @@
     <script src="/js/overlay-shared.js"></script>
     <script src="/js/credit-suite-engine.js"></script>
     <script type="module" src="/js/credit-suite/credit-suite-main.js"></script>
+    <script>
+        fetch('/api/credit-suite/status').then(r => r.json()).then(s => {
+            if (s && s.enabled === false) {
+                document.getElementById('cs-disabled-banner').hidden = false;
+                document.querySelector('.cs-app').style.display = 'none';
+            }
+        }).catch(() => {});
+    </script>
 </body>
 </html>

@@ -721,6 +721,25 @@
                         </div>
                     </div>
 
+                    <div class="module-card" data-module="credit-suite">
+                        <div class="module-card-head">
+                            <div class="module-card-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><path d="M7 8h10M7 12h6"/></svg>
+                                <span>Credit Suite</span>
+                                <span class="beta-tag">NEW</span>
+                            </div>
+                            <span class="module-badge" id="badge-credit-suite">Active</span>
+                        </div>
+                        <p class="hint">Cinematic film-style credits studio with a scrubbable timeline, side-media auto-placement, live OBS overlay, and MP4 / transparent WebM / ProRes exports.</p>
+                        <div class="cfg-toggle">
+                            <input type="checkbox" id="cfg-credit-suite-enabled" checked>
+                            <label for="cfg-credit-suite-enabled">Enable Credit Suite module</label>
+                        </div>
+                        <div class="module-links">
+                            <a class="module-link" href="/tools/credit-suite.html">Open Credit Suite <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
+                        </div>
+                    </div>
+
                     <!-- OBS Layout & Aspect Studio (Opt-In) Card -->
                     <div class="module-card" data-module="obs-layout">
                         <div class="module-card-head">
@@ -1119,6 +1138,7 @@
         updateBadge('badge-obs-borders', document.getElementById('cfg-obs-borders-enabled')?.checked);
         updateBadge('badge-obs-patterns', document.getElementById('cfg-obs-patterns-enabled')?.checked);
         updateBadge('badge-obs-layout', document.getElementById('cfg-obs-layout-enabled')?.checked);
+        updateBadge('badge-credit-suite', document.getElementById('cfg-credit-suite-enabled')?.checked);
         updateBadge('badge-multiplayer-bingo', document.getElementById('cfg-multiplayer-bingo-enabled')?.checked);
         updateBadge('badge-variable-sets', document.getElementById('cfg-variable-sets-enabled')?.checked);
         updateBadge('badge-variable-settings', document.getElementById('cfg-variable-settings-enabled')?.checked);
@@ -1213,6 +1233,7 @@
             document.getElementById('cfg-obs-borders-enabled').checked = cfg.obs_borders_enabled !== false;
             document.getElementById('cfg-obs-patterns-enabled').checked = cfg.obs_patterns_enabled !== false;
             document.getElementById('cfg-obs-layout-enabled').checked = cfg.obs_layout_enabled === true;
+            document.getElementById('cfg-credit-suite-enabled').checked = cfg.credit_suite_enabled !== false;
             document.getElementById('cfg-multiplayer-bingo-enabled').checked = cfg.multiplayer_bingo_enabled === true;
             document.getElementById('cfg-obs-host').value = obs.host || '127.0.0.1';
             document.getElementById('cfg-obs-port').value = obs.port || 4455;
@@ -1283,6 +1304,7 @@
             obs_borders_enabled: document.getElementById('cfg-obs-borders-enabled').checked,
             obs_patterns_enabled: document.getElementById('cfg-obs-patterns-enabled').checked,
             obs_layout_enabled: document.getElementById('cfg-obs-layout-enabled').checked,
+            credit_suite_enabled: document.getElementById('cfg-credit-suite-enabled').checked,
             multiplayer_bingo_enabled: document.getElementById('cfg-multiplayer-bingo-enabled').checked,
             polls_enabled: document.getElementById('cfg-polls-enabled').checked,
             versus_enabled: document.getElementById('cfg-versus-enabled').checked,
@@ -1384,7 +1406,7 @@
     document.getElementById('ssn-session-toggle').addEventListener('click', toggleSsnSession);
 
     // Module toggles update badges live
-    ['cfg-chatbot-enabled', 'cfg-music-enabled', 'cfg-wx-enabled', 'cfg-clips-enabled', 'cfg-polls-enabled', 'cfg-versus-enabled', 'cfg-trivia-enabled', 'cfg-subathon-enabled', 'cfg-variable-sets-enabled', 'cfg-variable-settings-enabled', 'cfg-obs-enabled', 'cfg-obs-scene-sync-enabled', 'cfg-obs-borders-enabled', 'cfg-obs-patterns-enabled', 'cfg-obs-layout-enabled', 'cfg-multiplayer-bingo-enabled', 'cfg-speaker-badges-enabled'].forEach(id => {
+    ['cfg-chatbot-enabled', 'cfg-music-enabled', 'cfg-wx-enabled', 'cfg-clips-enabled', 'cfg-polls-enabled', 'cfg-versus-enabled', 'cfg-trivia-enabled', 'cfg-subathon-enabled', 'cfg-variable-sets-enabled', 'cfg-variable-settings-enabled', 'cfg-obs-enabled', 'cfg-obs-scene-sync-enabled', 'cfg-obs-borders-enabled', 'cfg-obs-patterns-enabled', 'cfg-obs-layout-enabled', 'cfg-credit-suite-enabled', 'cfg-multiplayer-bingo-enabled', 'cfg-speaker-badges-enabled'].forEach(id => {
         document.getElementById(id)?.addEventListener('change', updateModuleBadges);
     });
 

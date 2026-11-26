@@ -1368,7 +1368,8 @@ const creditSuiteExporter = createCreditSuiteExporter({
 });
 const handleCreditSuiteRoutes = createCreditSuiteRoutes({
     creditSuiteService,
-    creditSuiteExporter
+    creditSuiteExporter,
+    isCreditSuiteEnabled: () => config.credit_suite_enabled !== false
 });
 
 

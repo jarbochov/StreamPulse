@@ -204,6 +204,7 @@ function createStatusService({
                 obsBorders: config.obs_borders_enabled !== false,
                 obsPatterns: config.obs_patterns_enabled !== false,
                 obsLayout: config.obs_layout_enabled === true,
+                creditSuite: config.credit_suite_enabled !== false,
                 multiplayerBingo: config.multiplayer_bingo_enabled === true,
                 clips: config.clip_candidates?.enabled !== false,
                 weather: config.weather?.enabled === true,

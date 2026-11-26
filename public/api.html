@@ -1102,12 +1102,12 @@
                 {
                     method: 'GET', path: '/api/credit-suite',
                     desc: 'Get all saved Credit Suite projects, active project ID, transport snapshot, and FFmpeg export capabilities',
-                    details: 'Returns { activeProjectId, projects, revision, transport, themes, canvasPresets, blockTypes, capabilities }.'
+                    details: 'Returns { enabled, activeProjectId, projects, revision, transport, themes, canvasPresets, blockTypes, capabilities }. When disabled via System Config → Modules (credit_suite_enabled: false), returns { enabled: false, projects: [] } and all write/playback/export endpoints return HTTP 403.'
                 },
                 {
                     method: 'GET', path: '/api/credit-suite/status',
                     desc: 'Companion-friendly Credit Suite status summary',
-                    details: 'Returns { activeProjectId, activeProjectName, projectsCount, playing, timeSec, durationSec, speedRate, markers, revision }.'
+                    details: 'Returns { enabled, activeProjectId, activeProjectName, projectsCount, playing, timeSec, durationSec, speedRate, markers, revision }. Remains readable when credit_suite_enabled is false so Companion/Studio can detect module state.'
                 },
                 {
                     method: 'POST / PUT / DELETE', path: '/api/credit-suite/projects/:id',
