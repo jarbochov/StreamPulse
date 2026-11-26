@@ -91,15 +91,19 @@ export function proceduralPatternSection(el) {
         ? p.customColors
         : (customPalObj?.colors || palettesDict[palette] || null);
 
-    let colorFields = F.select('pattern.palette', 'Color palette', palette, paletteOptions)
-        + `<div style="display:flex;justify-content:flex-end;margin:-4px 0 8px;"><button type="button" class="sp-pal-btn primary" data-pat-palette-lib="1">Shared Palettes Library…</button></div>`;
+    let colorFields = `<div class="sp-pal-inline">
+        <div class="sp-pal-inline-head">
+            <span class="sp-pal-inline-title">Palette${activeSwatchColors ? ` (${activeSwatchColors.length})` : ''}</span>
+            <div class="sp-pal-inline-acts">
+                <button type="button" class="sp-pal-btn primary" data-pat-palette-lib="1" title="Open Shared Color Palettes Library">Library</button>
+            </div>
+        </div>
+        ${F.select('pattern.palette', '', palette, paletteOptions)}
+        ${palette !== 'dual' && activeSwatchColors ? `<div class="sp-pal-preview-bar" style="display:flex;overflow:hidden;padding:0;" title="Active palette preview">${activeSwatchColors.map(c => `<span style="flex:1;background:${c};height:100%;"></span>`).join('')}</div>` : ''}
+    </div>`;
 
     if (palette !== 'dual' && activeSwatchColors) {
-        const swatches = activeSwatchColors.map(c => `<span style="flex:1;background:${c};height:100%;"></span>`).join('');
         colorFields += `
-            <div class="pattern-palette-bar" style="display:flex;height:8px;border-radius:4px;overflow:hidden;margin:4px 0 10px;" title="Active palette preview">
-                ${swatches}
-            </div>
             <p class="hint" style="margin:2px 0 8px;">Shapes, lights, and foliage alternate through the active palette.</p>
             <details class="sub-details" style="margin-bottom:8px;">
                 <summary>Custom fallback colors</summary>

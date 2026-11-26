@@ -2,8 +2,8 @@
 
 import { api, esc, toast } from '../shared/client-core.js';
 import { OP_ICONS } from './operator-icons.js';
-import { registerCardType } from './operator-registry.js';
-import { isEditLocked } from './operator-state.js';
+import { getCardType, registerCardType, registerOperatorModule } from './operator-registry.js';
+import { getCurrentProfile, isEditLocked } from './operator-state.js';
 
 let displaysCache = null;
 let varsCache = null;
@@ -66,7 +66,7 @@ async function renderBingoCard(el, card) {
 
 registerCardType({
     type: 'bingo-display',
-    moduleId: 'variables',
+    moduleId: 'displays',
     label: 'Bingo Stamp Card',
     description: 'Interactive click-to-stamp Bingo grid with automatic line detection and Shuffle/Reset.',
     iconSvg: OP_ICONS.board,
@@ -172,7 +172,7 @@ async function renderMeterCard(el, card) {
 
 registerCardType({
     type: 'meter-display',
-    moduleId: 'variables',
+    moduleId: 'displays',
     label: 'Meter & Gauge Controls',
     description: 'Quick HP bar / meter controls (-10, -1, +1, +10, Full, 0) for a saved Meter display.',
     iconSvg: OP_ICONS.variables,
@@ -255,7 +255,7 @@ async function renderTickerCard(el, card) {
 
 registerCardType({
     type: 'ticker-display',
-    moduleId: 'variables',
+    moduleId: 'displays',
     label: 'News Ticker Feed',
     description: 'View and quick-add live headlines for a saved News Ticker display.',
     iconSvg: OP_ICONS.variables,
@@ -347,7 +347,7 @@ async function renderVersusCard(el) {
 
 registerCardType({
     type: 'versus-quick',
-    moduleId: 'board',
+    moduleId: 'versus',
     label: 'Versus Match Score',
     description: 'Live Player 1 / Player 2 score buttons, Swap, and Reset.',
     iconSvg: OP_ICONS.board,
@@ -423,7 +423,7 @@ async function renderPollCard(el) {
 
 registerCardType({
     type: 'poll-quick',
-    moduleId: 'board',
+    moduleId: 'polls',
     label: 'Active Poll Controls',
     description: 'Monitor live poll votes and End or Clear the active poll.',
     iconSvg: OP_ICONS.board,
@@ -472,7 +472,7 @@ async function renderTriviaCard(el) {
 
 registerCardType({
     type: 'trivia-quick',
-    moduleId: 'board',
+    moduleId: 'trivia',
     label: 'Trivia Controls',
     description: 'Run Next Question, Reveal Answer, and Reset from the Live Board.',
     iconSvg: OP_ICONS.board,
@@ -522,7 +522,7 @@ function saveRunbook(cardId, items) {
 
 registerCardType({
     type: 'runbook-cue',
-    moduleId: 'board',
+    moduleId: 'runbook',
     label: 'Session Runbook / Cues',
     description: 'Pin a pre-show or live show checklist with one-click Reset for the next broadcast.',
     iconSvg: OP_ICONS.board,
@@ -595,7 +595,7 @@ registerCardType({
 // ============================================================
 registerCardType({
     type: 'live-monitor',
-    moduleId: 'overlays',
+    moduleId: 'displays',
     label: 'Display Mini-Monitor',
     description: 'Collapsible live preview of any saved Display Library design (pauses completely when collapsed).',
     iconSvg: OP_ICONS.overlays,
@@ -667,4 +667,254 @@ registerCardType({
         }
     },
     unmount(el) { el._opCleanup?.(); }
+});
+
+// ============================================================
+// Top-Level Operator Domain Tabs for Displays, Versus, Polls, Trivia & Runbook
+// ============================================================
+
+function registerCardBackedDomain({ id, label, iconSvg, order, cardType, studioHref, studioLabel, description, isEnabled = () => true, getCardId = () => `domain-${id}` }) {
+    let mountedBody = null;
+    let mountedCard = null;
+    let mountedDef = null;
+
+    registerOperatorModule({
+        id,
+        label,
+        iconSvg,
+        order,
+        isEnabled,
+        async mount(container, ctx) {
+            if (mountedDef && mountedBody) {
+                try { mountedDef.unmount?.(mountedBody); } catch { /* ignore */ }
+            }
+            mountedDef = getCardType(cardType);
+            mountedCard = { id: getCardId(ctx), type: cardType, title: label, config: {} };
+            container.innerHTML = `
+                <div class="op-domain-stack">
+                    <section class="op-toolbar" aria-label="${esc(label)} controls">
+                        <div class="op-toolbar-left">
+                            <span style="display:inline-flex;align-items:center;gap:.45rem;font-weight:700;font-size:.9rem;">${iconSvg} ${esc(label)}</span>
+                            <span style="font-size:.78rem;color:var(--text-muted);">${esc(description || '')}</span>
+                        </div>
+                        <div class="op-toolbar-right">
+                            ${studioHref ? `<a class="op-btn sm" href="${esc(studioHref)}">${esc(studioLabel || `Open ${label}`)}</a>` : ''}
+                        </div>
+                    </section>
+                    <section class="op-panel" style="max-width:780px;">
+                        <div class="op-panel-body" data-domain-card-host="1"></div>
+                    </section>
+                </div>`;
+            mountedBody = container.querySelector('[data-domain-card-host]');
+            if (mountedDef && mountedBody) {
+                await mountedDef.mount(mountedBody, mountedCard, ctx);
+            }
+        },
+        unmount() {
+            if (mountedDef && mountedBody) {
+                try { mountedDef.unmount?.(mountedBody); } catch { /* ignore */ }
+            }
+            mountedBody = null;
+            mountedCard = null;
+            mountedDef = null;
+        },
+        onSocket(type, payload) {
+            if (mountedDef && mountedBody && mountedCard) {
+                mountedDef.onSocket?.(mountedBody, mountedCard, type, payload);
+            }
+        }
+    });
+}
+
+// Displays Domain Tab (Bingo, Counters & Pips, Meters & Gauges, News Tickers, Mini-Monitors)
+(() => {
+    const KIND_TO_CARD = {
+        bingo: 'bingo-display',
+        counter: 'counter-display',
+        meter: 'meter-display',
+        ticker: 'ticker-display'
+    };
+    const KIND_LABELS = {
+        all: 'All',
+        bingo: 'Bingo',
+        counter: 'Counters',
+        meter: 'Meters',
+        ticker: 'Tickers',
+        monitor: 'Monitors'
+    };
+    let activeFilter = 'all';
+    let mountedEntries = [];
+    let hostContainer = null;
+    let hostCtx = null;
+    let onContainerClick = null;
+
+    const cleanupMounted = () => {
+        for (const entry of mountedEntries) {
+            try { entry.def?.unmount?.(entry.body); } catch { /* ignore */ }
+        }
+        mountedEntries = [];
+    };
+
+    const renderDisplaysDomain = async () => {
+        if (!hostContainer) return;
+        cleanupMounted();
+        const grid = hostContainer.querySelector('[data-displays-grid]');
+        const countEl = hostContainer.querySelector('[data-displays-count]');
+        if (!grid) return;
+        grid.innerHTML = '<div style="font-size:.82rem;color:var(--text-muted);">Loading Display Library…</div>';
+
+        let displays = [];
+        try {
+            const res = await fetchDisplays(true);
+            displays = res.displays || [];
+        } catch (err) {
+            grid.innerHTML = `<div style="color:#f87171;font-size:.82rem;">${esc(err.message)}</div>`;
+            return;
+        }
+
+        const items = activeFilter === 'monitor'
+            ? displays.map(d => ({ display: d, cardType: 'live-monitor', badge: 'Monitor' }))
+            : displays
+                .filter(d => KIND_TO_CARD[d.kind] && (activeFilter === 'all' || d.kind === activeFilter))
+                .map(d => ({ display: d, cardType: KIND_TO_CARD[d.kind], badge: d.kind }));
+
+        if (countEl) countEl.textContent = `${items.length} display${items.length === 1 ? '' : 's'}`;
+        if (!items.length) {
+            grid.innerHTML = `<div class="op-panel" style="padding:1rem;font-size:.84rem;color:var(--text-muted);">
+                No ${activeFilter === 'all' ? 'interactive ' : `${esc(KIND_LABELS[activeFilter] || activeFilter)} `}displays found yet. Create counters, meters, tickers, or bingo cards in <a href="/variable-displays.html">Display Library</a>.
+            </div>`;
+            return;
+        }
+
+        grid.innerHTML = '';
+        for (const item of items) {
+            const def = getCardType(item.cardType);
+            if (!def) continue;
+            const panel = document.createElement('section');
+            panel.className = 'op-panel';
+            panel.innerHTML = `
+                <div class="op-panel-head">
+                    <span class="op-panel-title">${esc(item.display.name)}</span>
+                    <span class="op-pill">${esc(item.badge)}</span>
+                </div>
+                <div class="op-panel-body"></div>`;
+            const body = panel.querySelector('.op-panel-body');
+            const card = {
+                id: `domain-disp-${item.cardType}-${item.display.id}`,
+                type: item.cardType,
+                title: item.display.name,
+                config: { displayId: item.display.id }
+            };
+            grid.appendChild(panel);
+            mountedEntries.push({ def, body, card });
+            Promise.resolve(def.mount(body, card, hostCtx)).catch(() => {});
+        }
+    };
+
+    registerOperatorModule({
+        id: 'displays',
+        label: 'Displays',
+        iconSvg: OP_ICONS.displays,
+        order: 25,
+        isEnabled: () => true,
+        async mount(container, ctx) {
+            if (hostContainer && onContainerClick) {
+                hostContainer.removeEventListener('click', onContainerClick);
+                onContainerClick = null;
+            }
+            cleanupMounted();
+            hostContainer = container;
+            hostCtx = ctx;
+            container.innerHTML = `
+                <div class="op-domain-stack">
+                    <section class="op-toolbar" aria-label="Displays controls">
+                        <div class="op-toolbar-left">
+                            <span style="display:inline-flex;align-items:center;gap:.45rem;font-weight:700;font-size:.9rem;">${OP_ICONS.displays} Displays</span>
+                            <span class="op-pill" data-displays-count>Loading…</span>
+                            <div class="op-filter-seg" role="group" aria-label="Filter display kind">
+                                ${Object.entries(KIND_LABELS).map(([k, lbl]) => `<button type="button" class="op-filter-btn ${activeFilter === k ? 'active' : ''}" data-disp-filter="${k}">${esc(lbl)}</button>`).join('')}
+                            </div>
+                        </div>
+                        <div class="op-toolbar-right">
+                            <a class="op-btn sm" href="/variable-displays.html">Display Library</a>
+                        </div>
+                    </section>
+                    <div class="op-board-grid" style="grid-template-columns:repeat(auto-fill,minmax(320px,1fr));" data-displays-grid="1"></div>
+                </div>`;
+            onContainerClick = e => {
+                const btn = e.target.closest('[data-disp-filter]');
+                if (!btn) return;
+                activeFilter = btn.dataset.dispFilter;
+                container.querySelectorAll('[data-disp-filter]').forEach(b => b.classList.toggle('active', b === btn));
+                renderDisplaysDomain();
+            };
+            container.addEventListener('click', onContainerClick);
+            await renderDisplaysDomain();
+        },
+        unmount() {
+            if (hostContainer && onContainerClick) {
+                hostContainer.removeEventListener('click', onContainerClick);
+                onContainerClick = null;
+            }
+            cleanupMounted();
+            hostContainer = null;
+            hostCtx = null;
+        },
+        onSocket(type, payload) {
+            if (['variables', 'variables-update', 'variable-displays', 'variable-displays-update'].includes(type)) {
+                displaysCache = null;
+                varsCache = null;
+            }
+            for (const entry of mountedEntries) {
+                entry.def?.onSocket?.(entry.body, entry.card, type, payload);
+            }
+        }
+    });
+})();
+
+registerCardBackedDomain({
+    id: 'versus',
+    label: 'Versus',
+    iconSvg: OP_ICONS.versus,
+    order: 60,
+    cardType: 'versus-quick',
+    studioHref: '/versus.html',
+    studioLabel: 'Open Versus Studio',
+    description: 'Live scoreboard controls & bracket scoring.',
+    isEnabled: status => status?.modules?.versus !== false
+});
+
+registerCardBackedDomain({
+    id: 'polls',
+    label: 'Polls',
+    iconSvg: OP_ICONS.polls,
+    order: 65,
+    cardType: 'poll-quick',
+    studioHref: '/poll-manager.html',
+    studioLabel: 'Open Poll Manager',
+    description: 'Start, close, and monitor live polls.',
+    isEnabled: status => status?.modules?.polls !== false
+});
+
+registerCardBackedDomain({
+    id: 'trivia',
+    label: 'Trivia',
+    iconSvg: OP_ICONS.trivia,
+    order: 70,
+    cardType: 'trivia-quick',
+    studioHref: '/trivia.html',
+    studioLabel: 'Open Trivia Studio',
+    description: 'Advance questions, reveal answers, and control live trivia rounds.',
+    isEnabled: status => status?.modules?.trivia !== false
+});
+
+registerCardBackedDomain({
+    id: 'runbook',
+    label: 'Runbook',
+    iconSvg: OP_ICONS.runbook,
+    order: 75,
+    cardType: 'runbook-cue',
+    description: 'Interactive pre-show & live show cue checklist.',
+    isEnabled: () => true,
+    getCardId: () => `domain-runbook-${getCurrentProfile()?.id || 'default'}`
 });

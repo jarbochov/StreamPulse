@@ -20,12 +20,17 @@ StreamPulse **Operator Mode** is your unified live-show control console, built f
 Operator Mode brings two complementary views together:
 
 1. **Live Board**: A customizable multi-column pinboard (`1–4` columns). Pin only the widgets your show needs — like **Alert Queue**, **Live Timers**, **Broadcast Layout**, **Variable Set** switchers, or **Music Now Playing** — drag to reorder, and collapse panels or switch on **Focus** to keep only one panel expanded at a time.
-2. **Domain Tabs**: Dedicated tabs for deeper adjustments mid-show:
+2. **Domain Tabs** (toggleable per preset via **Tabs**): Dedicated tabs for live show control:
    - **Variables**: Inline table editing, Trackers, Single Variable cards, and Variable Groups.
+   - **Displays**: Filterable live view of all Display Library interactive controls (Bingo Stamp Cards, Counters & Pips, Meters & Gauges, News Tickers, and collapsible Display Mini-Monitors).
    - **Overlays**: Add just the Custom Overlays used in your broadcast to switch pages, control Videos/YouTube & Slideshows, toggle Cutouts, or update Speaker Badges.
    - **Timers**: Start, pause, reset, and adjust (`-1m`, `+1m`, `+5m`) live timers and toggle overlay visibility (including Subathon controls when enabled).
    - **Alerts**: Pause or resume the alert queue, skip current alerts, mute SFX, inspect waiting & recent alerts, replay past alerts, and trigger manual announcements.
    - **Music**: Monitor current track metadata and show or hide the Music Overlay.
+   - **Versus**: Live match scoreboard & bracket controls (auto-hidden if disabled in System Config).
+   - **Polls**: Start, close, and monitor active live polls (auto-hidden if disabled in System Config).
+   - **Trivia**: Advance trivia questions, reveal answers, and run live rounds (auto-hidden if disabled in System Config).
+   - **Runbook**: Interactive pre-show & live show cue checklist with one-click reset.
 
 > **Focused Creation Studios Stay Separate**: Multi-step setup studios (**Polls**, **Trivia**, **Versus**, and **Tier Lists**) stay on their dedicated pages so Operator Mode remains fast and focused during live shows.
 

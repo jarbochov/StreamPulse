@@ -225,7 +225,10 @@
                                     <select id="op-bg-type"></select>
                                 </div>
 
-                                <div id="op-bg-gradient-bar" style="height:10px;border-radius:5px;border:1px solid var(--border);" hidden></div>
+                                <div style="display:flex;align-items:center;gap:6px;" id="op-bg-grad-bar-row">
+                                    <div id="op-bg-gradient-bar" style="flex:1;height:10px;border-radius:5px;border:1px solid var(--border);" hidden></div>
+                                    <button type="button" class="btn sm" id="op-bg-pal-lib-btn" title="Pick from Shared Color Palettes Library" style="white-space:nowrap;" hidden>Library</button>
+                                </div>
 
                                 <div class="grid2" id="op-bg-colors-wrap">
                                     <div class="field">

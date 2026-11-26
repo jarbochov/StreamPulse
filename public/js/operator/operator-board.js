@@ -29,7 +29,12 @@ const MODULE_LABELS = {
     timers: 'Timers & Subathon',
     overlays: 'Overlays',
     variables: 'Variables',
+    displays: 'Displays',
     music: 'Music',
+    versus: 'Versus',
+    polls: 'Polls',
+    trivia: 'Trivia',
+    runbook: 'Runbook',
     board: 'Other'
 };
 

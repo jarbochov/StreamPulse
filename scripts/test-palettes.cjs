@@ -170,6 +170,9 @@ describe('Shared Color Palettes Library & Multi-Stop Overlay Gradients', () => {
                     enabled: true,
                     type: 'linear',
                     angle: 135,
+                    blendMode: 'stepped',
+                    spread: 50,
+                    repeat: true,
                     paletteId: 'cyber-dawn',
                     colors: ['#0F172A', '#3B82F6', '#A855F7', '#EC4899'],
                     animate: true,
@@ -217,6 +220,9 @@ describe('Shared Color Palettes Library & Multi-Stop Overlay Gradients', () => {
         });
 
         assert.equal(saved.canvas.gradient.enabled, true);
+        assert.equal(saved.canvas.gradient.blendMode, 'stepped');
+        assert.equal(saved.canvas.gradient.spread, 50);
+        assert.equal(saved.canvas.gradient.repeat, true);
         assert.deepEqual(saved.canvas.gradient.colors, ['#0F172A', '#3B82F6', '#A855F7', '#EC4899']);
         assert.equal(saved.canvas.gradient.paletteId, 'cyber-dawn');
 

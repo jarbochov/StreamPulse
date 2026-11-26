@@ -624,6 +624,9 @@ function normalizeGradient(g) {
         to,
         angle: Number.isFinite(Number(g.angle)) && g.angle !== '' && g.angle !== null ? Math.max(0, Math.min(360, Number(g.angle))) : 135,
         type: g.type === 'radial' ? 'radial' : 'linear',
+        blendMode: g.blendMode === 'stepped' ? 'stepped' : 'smooth',
+        spread: Number.isFinite(Number(g.spread)) && g.spread !== '' && g.spread !== null ? Math.max(10, Math.min(400, Number(g.spread))) : 100,
+        repeat: g.repeat === true,
         mid,
         ...(colors ? { colors } : {}),
         ...(paletteId ? { paletteId } : {}),
@@ -1520,10 +1523,20 @@ function generateSvgThumbnail(overlay, { customOverlayAssetsDir = '', page = nul
         const stops = (Array.isArray(canvasGrad.colors) && canvasGrad.colors.length >= 2)
             ? canvasGrad.colors
             : [canvasGrad.from || '#1f6feb', canvasGrad.mid || '', canvasGrad.to || '#8957e5'].filter(Boolean);
-        const stopTags = stops.map((col, i) => {
-            const pct = stops.length > 1 ? Math.round((i / (stops.length - 1)) * 100) : 0;
-            return `<stop offset="${pct}%" stop-color="${escapeXml(col)}" />`;
-        }).join('\n            ');
+        const stepped = canvasGrad.blendMode === 'stepped';
+        const stopTags = stepped
+            ? stops.flatMap((col, i) => {
+                const a = Math.round((i / stops.length) * 100);
+                const b = Math.round(((i + 1) / stops.length) * 100);
+                return [
+                    `<stop offset="${a}%" stop-color="${escapeXml(col)}" />`,
+                    `<stop offset="${b}%" stop-color="${escapeXml(col)}" />`
+                ];
+            }).join('\n            ')
+            : stops.map((col, i) => {
+                const pct = stops.length > 1 ? Math.round((i / (stops.length - 1)) * 100) : 0;
+                return `<stop offset="${pct}%" stop-color="${escapeXml(col)}" />`;
+            }).join('\n            ');
         defs.push(`<linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%">
             ${stopTags}
         </linearGradient>`);

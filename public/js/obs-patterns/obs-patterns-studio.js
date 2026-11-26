@@ -3427,6 +3427,35 @@
             schedulePreviewDraw();
         });
 
+        const bgLibBtn = document.getElementById('op-bg-pal-lib-btn');
+        const bgGradBar = document.getElementById('op-bg-gradient-bar');
+        if (bgLibBtn && bgGradBar) {
+            const syncBgLibVis = () => { bgLibBtn.hidden = bgGradBar.hidden; };
+            new MutationObserver(syncBgLibVis).observe(bgGradBar, { attributes: true, attributeFilter: ['hidden'] });
+            syncBgLibVis();
+            bgLibBtn.addEventListener('click', () => {
+                if (!workingProfile || !window.StreamPulsePalettes?.openManagerModal) return;
+                const c1 = resolveColor(workingProfile.bgColor, '#0B101BFF').slice(0, 7);
+                const c2 = resolveColor(workingProfile.bgColor2, '#1E1B4BFF').slice(0, 7);
+                window.StreamPulsePalettes.openManagerModal({
+                    title: 'Shared Color Palettes (Canvas Gradient)',
+                    currentColors: [c1, c2],
+                    onApply: picked => {
+                        const cols = picked.colors || [];
+                        if (cols.length >= 2) {
+                            const start = cols[0].length === 7 ? cols[0].toUpperCase() + 'FF' : cols[0].toUpperCase();
+                            const end = cols[cols.length - 1].length === 7 ? cols[cols.length - 1].toUpperCase() + 'FF' : cols[cols.length - 1].toUpperCase();
+                            setControlValue('op-bg-color', start, start, { isColor: true });
+                            syncColorPicker('op-bg-color', 'op-bg-color-pick');
+                            setControlValue('op-bg-color2', end, end, { isColor: true });
+                            syncColorPicker('op-bg-color2', 'op-bg-color2-pick');
+                            syncWorkingProfileFromDom();
+                        }
+                    }
+                });
+            });
+        }
+
         document.getElementById('op-proc-preset')?.addEventListener('change', (e) => {
             if (!workingProfile) return;
             const preset = e.target.value;

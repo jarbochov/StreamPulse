@@ -156,7 +156,10 @@
                 <button type="button" class="btn" onclick="clearBg()" title="Transparent">None</button>
             </div>
 
-            <div class="group-title">Animated gradient</div>
+            <div class="group-title" style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+                <span>Animated gradient</span>
+                <button type="button" class="btn" style="padding:2px 8px;font-size:0.72rem;" onclick="openSharedTimerPaletteLibrary()">Palettes Library</button>
+            </div>
             <div class="toggles"><label class="toggle"><input type="checkbox" id="gradient-on" onchange="refreshWizard()"><span>Animate timer background</span></label></div>
             <div class="cfg-row color-row"><label>Colors</label>
                 <input type="color" id="grad1" value="#ff0080" oninput="refreshWizard()">
@@ -203,7 +206,29 @@
         </div>
     </div>
 
+    <script src="/js/palette-library.js"></script>
     <script>
+    function openSharedTimerPaletteLibrary() {
+        if (!window.StreamPulsePalettes?.openManagerModal) return;
+        const cur = ['grad1', 'grad2', 'grad3'].map(id => document.getElementById(id)?.value || '#38bdf8');
+        window.StreamPulsePalettes.openManagerModal({
+            title: 'Shared Color Palettes Library',
+            currentColors: cur,
+            onApply: picked => {
+                const cols = picked.colors || [];
+                if (cols.length >= 2) {
+                    const c1 = cols[0].slice(0, 7);
+                    const c2 = cols[Math.floor((cols.length - 1) / 2)].slice(0, 7);
+                    const c3 = cols[cols.length - 1].slice(0, 7);
+                    document.getElementById('grad1').value = c1;
+                    document.getElementById('grad2').value = c2;
+                    document.getElementById('grad3').value = c3;
+                    document.getElementById('gradient-on').checked = true;
+                    refreshWizard();
+                }
+            }
+        });
+    }
     let timers = {};
     const wizardParams = new URLSearchParams(location.search);
     const requestedTimerId = (wizardParams.get('timer') || '').trim();

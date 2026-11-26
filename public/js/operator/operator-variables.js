@@ -823,7 +823,7 @@ async function renderCounterDisplayCard(el, card) {
 
 registerCardType({
     type: 'counter-display',
-    moduleId: 'variables',
+    moduleId: 'displays',
     label: 'Counter & Pips Display',
     description: 'Live pips, hearts, and tally controls for a saved Counter display.',
     iconSvg: OP_ICONS.variables,

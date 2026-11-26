@@ -40,17 +40,50 @@
         return arr.length >= MIN_STOPS ? arr : ['#1f6feb', '#8957e5'];
     }
 
+    function buildGradientStops(colors, opts = {}) {
+        const list = normalizeColors(colors);
+        const n = list.length;
+        const stepped = opts.blendMode === 'stepped';
+        const repeat = opts.repeat === true;
+        const spread = Number.isFinite(Number(opts.spread)) ? Math.max(10, Math.min(400, Number(opts.spread))) : 100;
+        const start = repeat ? 0 : (50 - spread * 0.5);
+        const span = spread;
+        const fmtPct = v => `${Math.round(v * 100) / 100}%`;
+
+        if (stepped) {
+            const parts = [];
+            for (let i = 0; i < n; i++) {
+                const a = start + (i / n) * span;
+                const b = start + ((i + 1) / n) * span;
+                parts.push(`${list[i]} ${fmtPct(a)}`, `${list[i]} ${fmtPct(b)}`);
+            }
+            return parts.join(', ');
+        }
+
+        if (!repeat && Math.abs(spread - 100) < 0.01) {
+            return list.join(', ');
+        }
+
+        const parts = [];
+        for (let i = 0; i < n; i++) {
+            const pos = start + (n > 1 ? (i / (n - 1)) * span : 0);
+            parts.push(`${list[i]} ${fmtPct(pos)}`);
+        }
+        return parts.join(', ');
+    }
+
     function buildGradientCss(colors, opts = {}) {
-        const stops = normalizeColors(colors).join(', ');
+        const stops = buildGradientStops(colors, opts);
         const type = opts.type === 'radial' ? 'radial' : (opts.type === 'conic' ? 'conic' : 'linear');
+        const rep = opts.repeat === true ? 'repeating-' : '';
         if (type === 'radial') {
-            return `radial-gradient(circle at ${opts.position || 'center'}, ${stops})`;
+            return `${rep}radial-gradient(circle at ${opts.position || 'center'}, ${stops})`;
         }
         if (type === 'conic') {
-            return `conic-gradient(from ${Number(opts.angle) || 0}deg, ${stops})`;
+            return `${rep}conic-gradient(from ${Number(opts.angle) || 0}deg, ${stops})`;
         }
         const angle = Number.isFinite(Number(opts.angle)) ? Number(opts.angle) : 135;
-        return `linear-gradient(${angle}deg, ${stops})`;
+        return `${rep}linear-gradient(${angle}deg, ${stops})`;
     }
 
     function seedFallbackBuiltins() {

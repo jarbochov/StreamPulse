@@ -200,7 +200,7 @@ export function alignSection(items) {
     return F.section('arrange', 'Align', alignBody(items));
 }
 
-export const gradOf = (s, key) => ({ from: '#1f6feb', to: '#8957e5', angle: 135, type: 'linear', position: 'center', speed: 8, ...(s[key] || {}) });
+export const gradOf = (s, key) => ({ from: '#1f6feb', to: '#8957e5', angle: 135, type: 'linear', blendMode: 'smooth', spread: 100, repeat: false, position: 'center', speed: 8, ...(s[key] || {}) });
 export const hasMidStop = val => Boolean(val && val !== 'transparent' && val !== 'none');
 export const fillSeg = (s, key, label, prefix = 'style') => F.seg(`${prefix}.${key}.enabled`, label, s[key]?.enabled ? 'true' : 'false', [['false', 'Solid color', 'Solid'], ['true', 'Gradient', 'Gradient']]);
 
@@ -222,7 +222,7 @@ function paletteSelectHtml(gradBasePath, g, stops) {
     const builtin = lib?.getBuiltin?.() || [];
     const selId = g.paletteId || '';
     const previewCss = lib?.buildGradientCss
-        ? lib.buildGradientCss(stops, { type: 'linear', angle: 90 })
+        ? lib.buildGradientCss(stops, { type: 'linear', angle: 90, blendMode: g.blendMode, spread: g.spread, repeat: g.repeat })
         : `linear-gradient(90deg, ${stops.join(', ')})`;
     const customGroup = custom.length
         ? `<optgroup label="My Custom Palettes">${custom.map(p => `<option value="${esc(p.id)}"${selId === p.id ? ' selected' : ''}>${esc(p.name)} (${p.colors.length})</option>`).join('')}</optgroup>`
@@ -234,12 +234,12 @@ function paletteSelectHtml(gradBasePath, g, stops) {
 
     return `<div class="sp-pal-inline">
         <div class="sp-pal-inline-head">
-            <span class="sp-pal-inline-title">Color Palette (${stops.length} stops)</span>
+            <span class="sp-pal-inline-title">Palette (${stops.length})</span>
             <div class="sp-pal-inline-acts">
-                <button type="button" class="sp-pal-btn" data-grad-stop-add="${esc(gradBasePath)}" title="Add color stop (up to 8)" ${stops.length >= 8 ? 'disabled' : ''}>+ Stop</button>
-                <button type="button" class="sp-pal-btn" data-grad-stop-rev="${esc(gradBasePath)}" title="Reverse color order">Flip</button>
-                <button type="button" class="sp-pal-btn" data-grad-palette-save="${esc(gradBasePath)}" title="Save current stops to Shared Palettes Library">Save</button>
-                <button type="button" class="sp-pal-btn primary" data-grad-palette-lib="${esc(gradBasePath)}" title="Browse or build palettes in the Shared Library">Library</button>
+                <button type="button" class="sp-pal-btn icon-only" data-grad-stop-add="${esc(gradBasePath)}" title="Add color stop (up to 8)" aria-label="Add color stop" ${stops.length >= 8 ? 'disabled' : ''}><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+                <button type="button" class="sp-pal-btn icon-only" data-grad-stop-rev="${esc(gradBasePath)}" title="Reverse stop order" aria-label="Reverse stops"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="17 2 21 6 17 10"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 22 3 18 7 14"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></button>
+                <button type="button" class="sp-pal-btn icon-only" data-grad-palette-save="${esc(gradBasePath)}" title="Save current stops to Shared Palettes Library" aria-label="Save to Library"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.1"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg></button>
+                <button type="button" class="sp-pal-btn primary" data-grad-palette-lib="${esc(gradBasePath)}" title="Open Shared Color Palettes Library">Library</button>
             </div>
         </div>
         <select data-grad-palette="${esc(gradBasePath)}" aria-label="Choose color palette">
@@ -264,12 +264,13 @@ export function gradientFields(s, key = 'gradient', prefix = 'style') {
     const hasMid = !isMulti && hasMidStop(g.mid);
     return `${paletteSelectHtml(gradBase, g, stops)}
         <div class="grid2">${F.select(at('type'), 'Type', g.type, [['linear', 'Linear'], ['radial', 'Radial']])}${g.type === 'radial' ? F.select(at('position'), 'Center', g.position, [['center', 'Center'], ['top', 'Top'], ['bottom', 'Bottom'], ['left', 'Left'], ['right', 'Right']]) : F.number(at('angle'), 'Angle (°)', g.angle, { min: 0, max: 360 })}</div>
+        <div class="grid2">${F.select(at('blendMode'), 'Blend', g.blendMode || 'smooth', [['smooth', 'Smooth'], ['stepped', 'Hard Steps']])}${F.number(at('spread'), 'Width (%)', g.spread ?? 100, { min: 10, max: 400, step: 5 })}</div>
         ${isMulti ? '' : `
             <div class="grid2">${F.color(at('from'), 'From', g.from)}${F.color(at('to'), 'To', g.to)}</div>
             <label class="check"><input type="checkbox" data-grad-mid-toggle="${esc(at('mid'))}" ${hasMid ? 'checked' : ''}> Middle color stop (optional)</label>
             ${hasMid ? F.color(at('mid'), 'Middle color', g.mid, { clear: true, clearValue: '', clearLabel: 'Off' }) : ''}
         `}
-        ${F.check(at('animate'), 'Animate', g.animate)}
+        <div class="grid2">${F.check(at('repeat'), 'Repeat bands', g.repeat)}${F.check(at('animate'), 'Animate', g.animate)}</div>
         ${g.animate ? F.number(at('speed'), 'Speed (sec per sweep)', g.speed, { min: 1, max: 120 }) : ''}`;
 }
 
@@ -2108,8 +2109,11 @@ export function initInspectorEvents() {
             const bar = stopPicker.closest('.sp-pal-inline')?.querySelector('.sp-pal-preview-bar');
             const first = targets[0];
             if (bar && first) {
-                const stops = gradStopsOf(getPath(first, gradPath) || {});
-                bar.style.background = `linear-gradient(90deg, ${stops.join(', ')})`;
+                const cur = getPath(first, gradPath) || {};
+                const stops = gradStopsOf(cur);
+                bar.style.background = window.StreamPulsePalettes?.buildGradientCss
+                    ? window.StreamPulsePalettes.buildGradientCss(stops, { type: 'linear', angle: 90, blendMode: cur.blendMode, spread: cur.spread, repeat: cur.repeat })
+                    : `linear-gradient(90deg, ${stops.join(', ')})`;
             }
             onAfterChange(false);
         });
@@ -2201,7 +2205,7 @@ export function initInspectorEvents() {
     if (settingsEl) {
         bindFields(settingsEl, () => [state.overlay], path => {
             syncCanvasUI();
-            if (/^canvas\.gradient\.(enabled|type|animate)$/.test(path)) renderSettings();
+            if (/^canvas\.gradient\.(enabled|type|animate|blendMode|repeat|spread)$/.test(path)) renderSettings();
             if (path.startsWith('canvas.') && state.autoFit) fitView(true);
             changed(false);
         });
@@ -2449,8 +2453,8 @@ export function initInspectorEvents() {
             updateStatusBarHandler();
             if (path === 'name' || path.startsWith('obsLink.')) renderLayers();
             const editingColor = ['input', 'change'].includes(event?.type) && (event?.target?.type === 'color' || event?.target?.classList?.contains('color-text'));
-            if (!editingColor && (path === 'style.shape' || path === 'progress.kind' || path === 'gameList.layout' || path === 'style.textAnimation.mode' || RERENDER_PATHS.has(path) || /^style\.(gradient|textGradient|borderGradient)\.(enabled|type|animate)$/.test(path))) {
-                if (path === 'style.textAnimation.mode' || numberCrossedZero(actualPath, event)) renderProperties();
+            if (!editingColor && (path === 'style.shape' || path === 'progress.kind' || path === 'gameList.layout' || path === 'style.textAnimation.mode' || RERENDER_PATHS.has(path) || /^style\.(gradient|textGradient|borderGradient)\.(enabled|type|animate|blendMode|repeat)$/.test(path))) {
+                if (path === 'style.textAnimation.mode' || /^style\.(gradient|textGradient|borderGradient)\.(blendMode|repeat)$/.test(path) || numberCrossedZero(actualPath, event)) renderProperties();
             }
             if (/^alert\.looks\.\d+\.name$/.test(actualPath) && event?.type === 'change') renderProperties();
             if (path === 'src') {

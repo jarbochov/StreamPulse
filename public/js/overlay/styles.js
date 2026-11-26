@@ -59,10 +59,42 @@ function gradientStops(g) {
     return [g.from || '#1f6feb', mid, g.to || '#8957e5'].filter(Boolean);
 }
 
-// Linear or radial fill with 2-8 stops; animated gradients slide an oversized fill back and forth like the timer wizard.
+// Format 2-8 color stops with optional Hard Steps (stepped bands), Gradient Width (spread %), and Repeat.
+function formatGradientStopList(list, g = {}) {
+    const n = list.length;
+    const stepped = g.blendMode === 'stepped';
+    const repeat = g.repeat === true;
+    const spread = Number.isFinite(Number(g.spread)) ? Math.max(10, Math.min(400, Number(g.spread))) : 100;
+    const start = repeat ? 0 : (50 - spread * 0.5);
+    const fmtPct = v => `${Math.round(v * 100) / 100}%`;
+
+    if (stepped) {
+        const parts = [];
+        for (let i = 0; i < n; i++) {
+            const a = start + (i / n) * spread;
+            const b = start + ((i + 1) / n) * spread;
+            parts.push(`${list[i]} ${fmtPct(a)}`, `${list[i]} ${fmtPct(b)}`);
+        }
+        return parts.join(', ');
+    }
+    if (!repeat && Math.abs(spread - 100) < 0.01) {
+        return list.join(', ');
+    }
+    const parts = [];
+    for (let i = 0; i < n; i++) {
+        const pos = start + (n > 1 ? (i / (n - 1)) * spread : 0);
+        parts.push(`${list[i]} ${fmtPct(pos)}`);
+    }
+    return parts.join(', ');
+}
+
+// Linear or radial fill with 2-8 stops, smooth or hard-stepped bands, adjustable width/spread, and repeat.
 function gradientCss(g) {
-    const stops = gradientStops(g).join(', ');
-    return g.type === 'radial' ? `radial-gradient(circle at ${g.position || 'center'}, ${stops})` : `linear-gradient(${g.angle ?? 135}deg, ${stops})`;
+    const stops = formatGradientStopList(gradientStops(g), g);
+    const rep = g.repeat === true ? 'repeating-' : '';
+    return g.type === 'radial'
+        ? `${rep}radial-gradient(circle at ${g.position || 'center'}, ${stops})`
+        : `${rep}linear-gradient(${g.angle ?? 135}deg, ${stops})`;
 }
 
 // Slide along the axis the gradient actually changes on; a 0/180deg linear gradient doesn't vary horizontally.
@@ -1092,9 +1124,19 @@ function applyBorderEffects(node, style = {}, element = {}) {
             } else if (animType === 'palette-flow') {
                 const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 4));
                 const list = borderStops.length >= 2
-                    ? [...borderStops, borderStops[0]]
-                    : [basePaint1, basePaintMid || anim.color2 || '', basePaint2 || anim.color2 || '#8957e5', basePaint1].filter(Boolean);
-                paintBg = `conic-gradient(from var(--sp-angle), ${list.join(', ')})`;
+                    ? borderStops
+                    : [basePaint1, basePaintMid || anim.color2 || '', basePaint2 || anim.color2 || '#8957e5'].filter(Boolean);
+                if (g?.blendMode === 'stepped') {
+                    const degs = [];
+                    for (let i = 0; i < list.length; i++) {
+                        const a = Math.round((i / list.length) * 3600) / 10;
+                        const b = Math.round(((i + 1) / list.length) * 3600) / 10;
+                        degs.push(`${list[i]} ${a}deg`, `${list[i]} ${b}deg`);
+                    }
+                    paintBg = `conic-gradient(from var(--sp-angle), ${degs.join(', ')})`;
+                } else {
+                    paintBg = `conic-gradient(from var(--sp-angle), ${[...list, list[0]].join(', ')})`;
+                }
                 animRule = `sp-border-spin ${speed}s linear infinite`;
             } else if (animType === 'pulsing' || animType === 'strobe-flash' || animType === 'heartbeat' || animType === 'neon-flicker' || animType === 'glitch-split') {
                 const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 2));
@@ -1115,7 +1157,9 @@ function applyBorderEffects(node, style = {}, element = {}) {
                         (anim.color3 && anim.color3 !== 'transparent' && anim.color3 !== 'none') ? anim.color3 : basePaintMid,
                         anim.color2 || basePaint2 || '#8957e5'
                     ].filter(Boolean);
-                paintBg = `linear-gradient(${g?.angle ?? 135}deg, ${list.join(', ')})`;
+                const stopStr = formatGradientStopList(list, g || {});
+                const rep = g?.repeat === true ? 'repeating-' : '';
+                paintBg = `${rep}linear-gradient(${g?.angle ?? 135}deg, ${stopStr})`;
                 bgSize = '200% 200%';
                 animRule = `sp-border-gradient-shift ${speed}s ease-in-out infinite alternate`;
             } else if (animType === 'rainbow') {
