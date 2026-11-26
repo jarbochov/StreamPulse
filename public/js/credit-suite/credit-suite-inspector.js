@@ -56,6 +56,67 @@ function getBorderAnims() {
     return window.StreamPulseBorderCatalog?.BORDER_ANIM_TYPES || ['none', 'rotate', 'beam', 'dual-beam', 'pulse', 'palette-flow', 'shimmer-glint'];
 }
 
+const MEDIA_MOTION_LABELS = {
+    none: 'Static (None)',
+    'scroll-up': 'Scroll Bottom to Top',
+    'scroll-down': 'Scroll Top to Bottom',
+    'scroll-left': 'Scroll Right to Left',
+    'scroll-right': 'Scroll Left to Right',
+    'scroll-diag-ul': 'Diagonal Scroll (Up-Left)',
+    'scroll-diag-dr': 'Diagonal Scroll (Down-Right)',
+    'zoom-in': 'Ken Burns: Slow Zoom In',
+    'zoom-out': 'Ken Burns: Slow Zoom Out',
+    'pan-left': 'Ken Burns: Pan Left',
+    'pan-right': 'Ken Burns: Pan Right',
+    float: 'Ambient Float',
+    sway: 'Pendulum Sway',
+    breathe: 'Soft Breathe Pulse',
+    'parallax-up': 'Parallax Crawl Up'
+};
+
+const CLIP_PATH_LABELS = {
+    none: 'Stationary (Pinned)',
+    'bottom-to-top': 'Scroll Bottom to Top',
+    'top-to-bottom': 'Scroll Top to Bottom',
+    'left-to-right': 'Scroll Left to Right',
+    'right-to-left': 'Scroll Right to Left',
+    'diag-up-left': 'Glide Diagonal (Up-Left)',
+    'diag-down-right': 'Glide Diagonal (Down-Right)',
+    'float-bob': 'Gentle Floating Bob',
+    'sway-pendulum': 'Hanging Pendulum Sway',
+    'orbit-drift': 'Orbital Drift'
+};
+
+const EDGE_ANCHOR_LABELS = {
+    'hanging-top-right': 'Hanging Off Top-Right',
+    'hanging-top-left': 'Hanging Off Top-Left',
+    'peeking-left': 'Peeking From Left Edge',
+    'peeking-right': 'Peeking From Right Edge',
+    'perched-top': 'Perched On Top Center',
+    'bottom-left': 'Dangling Bottom-Left',
+    'bottom-right': 'Dangling Bottom-Right'
+};
+
+const EDGE_ANIM_LABELS = {
+    'hang-swing': 'Hang & Swing',
+    'peek-bob': 'Peek & Bob',
+    bounce: 'Playful Bounce',
+    float: 'Gentle Float',
+    wiggle: 'Playful Wiggle',
+    'walk-across': 'Walk Across Edge',
+    none: 'Static'
+};
+
+const FONT_WEIGHT_OPTIONS = [
+    ['', 'Inherit'],
+    ['300', '300 Light'],
+    ['400', '400 Regular'],
+    ['500', '500 Medium'],
+    ['600', '600 SemiBold'],
+    ['700', '700 Bold'],
+    ['800', '800 ExtraBold']
+];
+
 function getPatternCatalog() {
     return window.StreamPulsePatternCatalog || window.StreamPulsePatterns || {};
 }
@@ -571,6 +632,32 @@ export function mountCreditSuiteInspector({ state, stage }) {
                             <div class="cs-field"><label>Width (px)</label><input type="number" min="40" max="1600" data-b-num="mediaWidth" value="${block.mediaWidth || 320}"></div>
                             <div class="cs-field"><label>Height (0=Auto)</label><input type="number" min="0" max="1200" data-b-num="mediaHeight" value="${block.mediaHeight || 0}"></div>
                         </div>
+                        ${block.mediaKind !== 'icon' ? `
+                            <div class="cs-grid-2">
+                                <div class="cs-field">
+                                    <label>Fit Mode</label>
+                                    <select data-b="mediaFit">
+                                        <option value="cover" ${(block.mediaFit || 'cover') === 'cover' ? 'selected' : ''}>Cover (Crop)</option>
+                                        <option value="contain" ${block.mediaFit === 'contain' ? 'selected' : ''}>Contain (Fit)</option>
+                                        <option value="contain-blur" ${block.mediaFit === 'contain-blur' ? 'selected' : ''}>Contain + Blurred Fill</option>
+                                        <option value="fill" ${block.mediaFit === 'fill' ? 'selected' : ''}>Stretch</option>
+                                    </select>
+                                </div>
+                                ${block.type === 'split-row' ? `<div class="cs-field"><label>Radius (px)</label><input type="number" min="0" max="200" data-b-num="mediaRadius" value="${block.mediaRadius ?? 12}"></div>` : '<div></div>'}
+                            </div>
+                        ` : ''}
+                        ${block.mediaKind === 'video' ? `
+                            <div class="cs-grid-3">
+                                <div class="cs-field"><label>Start (s)</label><input type="number" min="0" step="0.5" data-b-num="mediaStartSec" value="${block.mediaStartSec || 0}"></div>
+                                <div class="cs-field"><label>Rate</label><input type="number" min="0.25" max="4" step="0.25" data-b-num="mediaRate" value="${block.mediaRate || 1}"></div>
+                                <div class="cs-field"><label>Volume %</label><input type="number" min="0" max="100" step="5" data-b-num="mediaVolume" value="${block.mediaVolume ?? 80}"></div>
+                            </div>
+                            <div class="cs-grid-3">
+                                <label class="cs-check-row"><input type="checkbox" data-b-chk="mediaAutoplay" ${block.mediaAutoplay !== false ? 'checked' : ''}> Autoplay</label>
+                                <label class="cs-check-row"><input type="checkbox" data-b-chk="mediaLoop" ${block.mediaLoop !== false ? 'checked' : ''}> Loop</label>
+                                <label class="cs-check-row"><input type="checkbox" data-b-chk="mediaMuted" ${block.mediaMuted !== false ? 'checked' : ''}> Muted</label>
+                            </div>
+                        ` : ''}
                         ${block.type === 'media' ? `<div class="cs-field"><label>Caption</label><input type="text" data-b="caption" value="${esc(block.caption || '')}"></div>` : ''}
                     </div>
                 `;
@@ -663,8 +750,11 @@ export function mountCreditSuiteInspector({ state, stage }) {
             ${contentHtml}
 
             <details class="cs-acc">
-                <summary>Typography, Padding &amp; Borders</summary>
+                <summary>Style Overrides (Fonts, Colors, Width, BG &amp; Borders)</summary>
                 <div class="cs-acc-body">
+                <div style="display:flex;justify-content:flex-end;margin-bottom:4px;">
+                    <button type="button" class="cs-btn cs-btn-sm" id="cs-reset-block-style">Reset Overrides</button>
+                </div>
                 <div class="cs-grid-2">
                     <div class="cs-field"><label>Heading Font</label><select data-bs="headingFont">${fontOptionsHtml(st.headingFont, true)}</select></div>
                     <div class="cs-field"><label>Content Font</label><select data-bs="contentFont">${fontOptionsHtml(st.contentFont, true)}</select></div>
@@ -681,10 +771,31 @@ export function mountCreditSuiteInspector({ state, stage }) {
                         </select>
                     </div>
                 </div>
+                <div class="cs-grid-2">
+                    <div class="cs-field">
+                        <label>Heading Weight</label>
+                        <select data-bs="headingWeight">${FONT_WEIGHT_OPTIONS.map(([v, lbl]) => `<option value="${v}" ${(st.headingWeight || '') === v ? 'selected' : ''}>${lbl}</option>`).join('')}</select>
+                    </div>
+                    <div class="cs-field">
+                        <label>Content Weight</label>
+                        <select data-bs="contentWeight">${FONT_WEIGHT_OPTIONS.map(([v, lbl]) => `<option value="${v}" ${(st.contentWeight || '') === v ? 'selected' : ''}>${lbl}</option>`).join('')}</select>
+                    </div>
+                </div>
+                <div class="cs-grid-2">
+                    <div class="cs-field">
+                        <label>Heading Case</label>
+                        <select data-bs-tri="uppercase">
+                            <option value="" ${st.uppercase === '' ? 'selected' : ''}>Inherit Theme</option>
+                            <option value="true" ${st.uppercase === true ? 'selected' : ''}>UPPERCASE</option>
+                            <option value="false" ${st.uppercase === false ? 'selected' : ''}>Normal Case</option>
+                        </select>
+                    </div>
+                    <div class="cs-field"><label>Tracking (em)</label><input type="number" min="-0.05" max="0.8" step="0.02" placeholder="Theme" data-bs-optnum="letterSpacing" value="${esc(st.letterSpacing)}"></div>
+                </div>
                 <div class="cs-grid-3">
-                    <div class="cs-field"><label>Pad Top</label><input type="number" min="0" max="400" placeholder="Auto" data-b-optnum="paddingTop" value="${esc(block.paddingTop)}"></div>
-                    <div class="cs-field"><label>Pad Bot</label><input type="number" min="0" max="400" placeholder="Auto" data-b-optnum="paddingBottom" value="${esc(block.paddingBottom)}"></div>
-                    <div class="cs-field"><label>Pad H</label><input type="number" min="0" max="400" placeholder="Auto" data-b-optnum="paddingH" value="${esc(block.paddingH)}"></div>
+                    <label class="cs-check-row"><input type="checkbox" data-bs-chk="italic" ${st.italic ? 'checked' : ''}> Italic</label>
+                    <label class="cs-check-row"><input type="checkbox" data-bs-chk="underline" ${st.underline ? 'checked' : ''}> Underline</label>
+                    <label class="cs-check-row"><input type="checkbox" data-bs-chk="textShadow" ${st.textShadow ? 'checked' : ''}> Shadow</label>
                 </div>
                 <div class="cs-grid-2">
                     <div class="cs-field">
@@ -704,19 +815,148 @@ export function mountCreditSuiteInspector({ state, stage }) {
                 </div>
                 <div class="cs-grid-2">
                     <div class="cs-field">
+                        <label>Subtitle Color</label>
+                        <div class="cs-color-row">
+                            <input type="color" data-bs-color="subtitleColor" value="${toColorHex6(st.subtitleColor, toColorHex6(proj.theme?.subtitleColor, '#9ca3af'))}">
+                            <input type="text" data-bs="subtitleColor" value="${esc(st.subtitleColor || '')}" placeholder="Inherit">
+                        </div>
+                    </div>
+                    <div class="cs-field">
+                        <label>Icon Color</label>
+                        <div class="cs-color-row">
+                            <input type="color" data-bs-color="iconColor" value="${toColorHex6(st.iconColor, toColorHex6(proj.theme?.accentColor, '#e5c07b'))}">
+                            <input type="text" data-bs="iconColor" value="${esc(st.iconColor || '')}" placeholder="Inherit">
+                        </div>
+                    </div>
+                </div>
+                <div class="cs-field">
+                    <label>Section Header Icon (optional)</label>
+                    <div style="display:flex;gap:6px;">
+                        <input type="text" data-bs="iconClass" value="${esc(st.iconClass || '')}" placeholder="e.g. fa-solid fa-crown">
+                        <button type="button" class="cs-btn cs-btn-sm" id="cs-pick-block-style-icon">Pick</button>
+                    </div>
+                </div>
+                <div class="cs-grid-2">
+                    <div class="cs-field"><label>Max Width (px)</label><input type="number" min="200" max="3200" step="20" placeholder="Column" data-bs-optnum="maxWidth" value="${esc(st.maxWidth)}"></div>
+                    <div class="cs-field"><label>Opacity (0.05–1)</label><input type="number" min="0.05" max="1" step="0.05" data-bs-num="opacity" value="${st.opacity ?? 1}"></div>
+                </div>
+                <div class="cs-grid-3">
+                    <div class="cs-field"><label>Pad Top</label><input type="number" min="0" max="400" placeholder="Auto" data-b-optnum="paddingTop" value="${esc(block.paddingTop)}"></div>
+                    <div class="cs-field"><label>Pad Bot</label><input type="number" min="0" max="400" placeholder="Auto" data-b-optnum="paddingBottom" value="${esc(block.paddingBottom)}"></div>
+                    <div class="cs-field"><label>Pad H</label><input type="number" min="0" max="400" placeholder="Auto" data-b-optnum="paddingH" value="${esc(block.paddingH)}"></div>
+                </div>
+                <div class="cs-grid-2">
+                    <div class="cs-field">
+                        <label>Card Background</label>
+                        <div class="cs-color-row">
+                            <input type="color" data-bs-color="bgColor" value="${toColorHex6(st.bgColor, '#0f172a')}">
+                            <input type="text" data-bs="bgColor" value="${esc(st.bgColor || '')}" placeholder="None">
+                        </div>
+                    </div>
+                    <div class="cs-field"><label>BG Opacity (0–1)</label><input type="number" min="0" max="1" step="0.05" data-bs-num="bgOpacity" value="${st.bgOpacity ?? 0}"></div>
+                </div>
+                <div class="cs-grid-2">
+                    <div class="cs-field"><label>Corner Radius</label><input type="number" min="0" max="120" data-bs-num="bgRadius" value="${st.bgRadius ?? 12}"></div>
+                    <div class="cs-field"><label>Card Padding</label><input type="number" min="0" max="160" data-bs-num="bgPadding" value="${st.bgPadding ?? 28}"></div>
+                </div>
+                <div class="cs-grid-2">
+                    <div class="cs-field">
                         <label>Block Border</label>
                         <select data-bs="borderStyle">
                             <option value="none" ${(!st.borderStyle || st.borderStyle === 'none') ? 'selected' : ''}>None</option>
                             ${getBorderStyles().map(bs => `<option value="${bs}" ${st.borderStyle === bs ? 'selected' : ''}>${bs}</option>`).join('')}
                         </select>
                     </div>
+                    <div class="cs-field"><label>Border Width</label><input type="number" min="0" max="24" data-bs-num="borderWidth" value="${st.borderWidth || 0}"></div>
+                </div>
+                <div class="cs-grid-2">
+                    <div class="cs-field"><label>Border Color 1</label><input type="color" data-bs-color="borderColor" value="${toColorHex6(st.borderColor, '#ffffff')}"></div>
+                    <div class="cs-field"><label>Border Color 2</label><input type="color" data-bs-color="borderColor2" value="${toColorHex6(st.borderColor2, '#38bdf8')}"></div>
+                </div>
+                <div class="cs-grid-2">
                     <div class="cs-field">
-                        <label>Border Width</label>
-                        <input type="number" min="0" max="24" data-bs-num="borderWidth" value="${st.borderWidth || 0}">
+                        <label>Border Anim</label>
+                        <select data-bs="borderAnim">
+                            ${getBorderAnims().map(ba => `<option value="${ba}" ${(st.borderAnim || 'none') === ba ? 'selected' : ''}>${ba}</option>`).join('')}
+                        </select>
                     </div>
+                    <div class="cs-field"><label>Anim Speed</label><input type="number" min="0.25" max="20" step="0.25" data-bs-num="borderAnimSpeed" value="${st.borderAnimSpeed ?? 3}"></div>
                 </div>
                 </div>
             </details>
+
+            ${block.type !== 'spacer' ? (() => {
+                const att = block.edgeAttachment || {};
+                return `
+                <details class="cs-acc">
+                    <summary>Section Edge Character / Mascot</summary>
+                    <div class="cs-acc-body">
+                        <label class="cs-check-row"><input type="checkbox" data-ea-chk="enabled" ${att.enabled ? 'checked' : ''}> Attach animated character / badge to section edge</label>
+                        ${att.enabled ? `
+                            <div class="cs-grid-2">
+                                <div class="cs-field">
+                                    <label>Character Type</label>
+                                    <select data-ea="mediaKind">
+                                        <option value="icon" ${(att.mediaKind || 'icon') === 'icon' ? 'selected' : ''}>Icon</option>
+                                        <option value="image" ${att.mediaKind === 'image' ? 'selected' : ''}>Image / GIF / Sticker</option>
+                                        <option value="video" ${att.mediaKind === 'video' ? 'selected' : ''}>Transparent Video</option>
+                                    </select>
+                                </div>
+                                <div class="cs-field">
+                                    <label>Edge Anchor</label>
+                                    <select data-ea="anchor">
+                                        ${engine.EDGE_ANCHORS.map(a => `<option value="${a}" ${(att.anchor || 'hanging-top-right') === a ? 'selected' : ''}>${esc(EDGE_ANCHOR_LABELS[a] || a)}</option>`).join('')}
+                                    </select>
+                                </div>
+                            </div>
+                            ${(att.mediaKind || 'icon') === 'icon' ? `
+                                <div class="cs-grid-2">
+                                    <div class="cs-field">
+                                        <label>Icon Class</label>
+                                        <div style="display:flex;gap:4px;">
+                                            <input type="text" data-ea="iconClass" value="${esc(att.iconClass || 'fa-solid fa-ghost')}">
+                                            <button type="button" class="cs-btn cs-btn-sm" id="cs-pick-ea-icon">Pick</button>
+                                        </div>
+                                    </div>
+                                    <div class="cs-field"><label>Icon Color</label><input type="color" data-ea-color="iconColor" value="${toColorHex6(att.iconColor, '#e5c07b')}"></div>
+                                </div>
+                            ` : `
+                                <div class="cs-field">
+                                    <label>Character Asset</label>
+                                    <div style="display:flex;gap:6px;">
+                                        <input type="text" data-ea="mediaUrl" value="${esc(att.mediaUrl || '')}" placeholder="/custom-overlay-assets/...">
+                                        <button type="button" class="cs-btn cs-btn-sm" id="cs-pick-ea-asset">Library</button>
+                                    </div>
+                                </div>
+                            `}
+                            <div class="cs-grid-2">
+                                <div class="cs-field">
+                                    <label>Idle Animation</label>
+                                    <select data-ea="anim">
+                                        ${engine.EDGE_ANIMS.map(an => `<option value="${an}" ${(att.anim || 'hang-swing') === an ? 'selected' : ''}>${esc(EDGE_ANIM_LABELS[an] || an)}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div class="cs-field"><label>Anim Speed</label><input type="number" min="0.1" max="5" step="0.1" data-ea-num="animSpeed" value="${att.animSpeed ?? 1}"></div>
+                            </div>
+                            <div class="cs-grid-3">
+                                <div class="cs-field"><label>Size (px)</label><input type="number" min="24" max="420" step="4" data-ea-num="size" value="${att.size ?? 88}"></div>
+                                <div class="cs-field"><label>Offset X</label><input type="number" min="-400" max="400" step="4" data-ea-num="offsetX" value="${att.offsetX ?? 0}"></div>
+                                <div class="cs-field"><label>Offset Y</label><input type="number" min="-400" max="400" step="4" data-ea-num="offsetY" value="${att.offsetY ?? 0}"></div>
+                            </div>
+                            <div class="cs-grid-2">
+                                <div class="cs-field">
+                                    <label>Depth Layer</label>
+                                    <select data-ea="zLayer">
+                                        <option value="front" ${(att.zLayer || 'front') === 'front' ? 'selected' : ''}>In Front of Section</option>
+                                        <option value="back" ${att.zLayer === 'back' ? 'selected' : ''}>Behind Section</option>
+                                    </select>
+                                </div>
+                                <label class="cs-check-row" style="align-self:end;padding-bottom:6px;"><input type="checkbox" data-ea-chk="flipX" ${att.flipX ? 'checked' : ''}> Flip Horizontal</label>
+                            </div>
+                        ` : ''}
+                    </div>
+                </details>`;
+            })() : ''}
         `;
 
         bodyEl.querySelector('#cs-insp-dup-block')?.addEventListener('click', () => {
@@ -802,9 +1042,63 @@ export function mountCreditSuiteInspector({ state, stage }) {
                 if (textPair) textPair.value = hex8;
             });
         });
+        bodyEl.querySelectorAll('[data-bs-chk]').forEach(el => {
+            el.addEventListener('change', () => {
+                updateBlock(b => { b.style = b.style || {}; b.style[el.dataset.bsChk] = el.checked; });
+            });
+        });
+        bodyEl.querySelectorAll('[data-bs-tri]').forEach(el => {
+            el.addEventListener('change', () => {
+                const val = el.value === '' ? '' : (el.value === 'true');
+                updateBlock(b => { b.style = b.style || {}; b.style[el.dataset.bsTri] = val; });
+            });
+        });
+        bodyEl.querySelector('#cs-reset-block-style')?.addEventListener('click', () => {
+            updateBlock(b => {
+                b.style = window.StreamPulseCreditSuiteEngine.normalizeBlockStyle({});
+                b.paddingTop = '';
+                b.paddingBottom = '';
+                b.paddingH = '';
+            }, { reason: 'project-structure' });
+        });
+
+        // Section Edge Character / Mascot bindings
+        bodyEl.querySelectorAll('[data-ea]').forEach(el => {
+            const isSel = el.tagName === 'SELECT';
+            el.addEventListener(isSel ? 'change' : 'input', () => {
+                updateBlock(
+                    b => { b.edgeAttachment = b.edgeAttachment || {}; b.edgeAttachment[el.dataset.ea] = el.value; },
+                    isSel ? { reason: 'project-structure' } : { undoGroup: `ea:${block.id}:${el.dataset.ea}` }
+                );
+            });
+        });
+        bodyEl.querySelectorAll('[data-ea-num]').forEach(el => {
+            el.addEventListener('change', () => {
+                const parsed = Number(el.value);
+                if (el.value === '' || !Number.isFinite(parsed)) return;
+                updateBlock(b => { b.edgeAttachment = b.edgeAttachment || {}; b.edgeAttachment[el.dataset.eaNum] = parsed; });
+            });
+        });
+        bodyEl.querySelectorAll('[data-ea-chk]').forEach(el => {
+            el.addEventListener('change', () => {
+                const isEnable = el.dataset.eaChk === 'enabled';
+                updateBlock(
+                    b => { b.edgeAttachment = b.edgeAttachment || {}; b.edgeAttachment[el.dataset.eaChk] = el.checked; },
+                    isEnable ? { reason: 'project-structure' } : {}
+                );
+            });
+        });
+        bodyEl.querySelectorAll('[data-ea-color]').forEach(el => {
+            el.addEventListener('input', () => {
+                updateBlock(b => { b.edgeAttachment = b.edgeAttachment || {}; b.edgeAttachment[el.dataset.eaColor] = `${el.value.toUpperCase()}FF`; }, { undoGroup: `eac:${block.id}:${el.dataset.eaColor}` });
+            });
+        });
 
         // Pickers
         bodyEl.querySelector('#cs-pick-block-icon')?.addEventListener('click', () => {
+            window.IconPicker?.open({ value: st.iconClass || '', onPick: cls => updateBlock(b => { b.style = b.style || {}; b.style.iconClass = cls; }, { reason: 'project-structure' }) });
+        });
+        bodyEl.querySelector('#cs-pick-block-style-icon')?.addEventListener('click', () => {
             window.IconPicker?.open({ value: st.iconClass || '', onPick: cls => updateBlock(b => { b.style = b.style || {}; b.style.iconClass = cls; }, { reason: 'project-structure' }) });
         });
         bodyEl.querySelector('#cs-pick-media-icon')?.addEventListener('click', () => {
@@ -812,6 +1106,13 @@ export function mountCreditSuiteInspector({ state, stage }) {
         });
         bodyEl.querySelector('#cs-pick-block-asset')?.addEventListener('click', () => {
             openAssetPickerModal(state, { value: block.mediaUrl || '', kind: block.mediaKind === 'video' ? 'video' : 'image', onPick: url => updateBlock(b => { b.mediaUrl = url; }, { reason: 'project-structure' }) });
+        });
+        bodyEl.querySelector('#cs-pick-ea-icon')?.addEventListener('click', () => {
+            window.IconPicker?.open({ value: block.edgeAttachment?.iconClass || '', onPick: cls => updateBlock(b => { b.edgeAttachment = b.edgeAttachment || {}; b.edgeAttachment.iconClass = cls; }, { reason: 'project-structure' }) });
+        });
+        bodyEl.querySelector('#cs-pick-ea-asset')?.addEventListener('click', () => {
+            const kind = block.edgeAttachment?.mediaKind === 'video' ? 'video' : 'image';
+            openAssetPickerModal(state, { value: block.edgeAttachment?.mediaUrl || '', kind, onPick: url => updateBlock(b => { b.edgeAttachment = b.edgeAttachment || {}; b.edgeAttachment.mediaUrl = url; }, { reason: 'project-structure' }) });
         });
 
         // Role-split rows
@@ -1062,12 +1363,14 @@ export function mountCreditSuiteInspector({ state, stage }) {
                         <div class="cs-field"><label>Caption</label><input type="text" data-c="caption" value="${esc(clip.caption || '')}"></div>
                     </div>
                     ${t === 'video' ? `
-                        <div class="cs-grid-2">
-                            <div class="cs-field"><label>Start Offset (s)</label><input type="number" min="0" step="0.5" data-c-num="videoStartSec" value="${clip.videoStartSec || 0}"></div>
-                            <div class="cs-field"><label>Playback Rate</label><input type="number" min="0.25" max="4" step="0.25" data-c-num="videoRate" value="${clip.videoRate || 1}"></div>
+                        <div class="cs-grid-3">
+                            <div class="cs-field"><label>Start (s)</label><input type="number" min="0" step="0.5" data-c-num="videoStartSec" value="${clip.videoStartSec || 0}"></div>
+                            <div class="cs-field"><label>Rate</label><input type="number" min="0.25" max="4" step="0.25" data-c-num="videoRate" value="${clip.videoRate || 1}"></div>
+                            <div class="cs-field"><label>Volume %</label><input type="number" min="0" max="100" step="5" data-c-num="videoVolume" value="${clip.videoVolume ?? 80}"></div>
                         </div>
-                        <div class="cs-grid-2">
-                            <label class="cs-check-row"><input type="checkbox" data-c-chk="videoLoop" ${clip.videoLoop !== false ? 'checked' : ''}> Loop video</label>
+                        <div class="cs-grid-3">
+                            <label class="cs-check-row"><input type="checkbox" data-c-chk="videoAutoplay" ${clip.videoAutoplay !== false ? 'checked' : ''}> Autoplay</label>
+                            <label class="cs-check-row"><input type="checkbox" data-c-chk="videoLoop" ${clip.videoLoop !== false ? 'checked' : ''}> Loop</label>
                             <label class="cs-check-row"><input type="checkbox" data-c-chk="videoMuted" ${clip.videoMuted !== false ? 'checked' : ''}> Muted</label>
                         </div>
                     ` : ''}
@@ -1091,10 +1394,6 @@ export function mountCreditSuiteInspector({ state, stage }) {
                 ${(t === 'text' || t === 'shape') ? `
                     <div class="cs-field"><label>Heading / Text</label><textarea data-c="text">${esc(clip.text || '')}</textarea></div>
                     ${t === 'shape' ? `<div class="cs-field"><label>Subtext</label><textarea data-c="subtext">${esc(clip.subtext || '')}</textarea></div>` : ''}
-                    <div class="cs-grid-2">
-                        <div class="cs-field"><label>Font</label><select data-c="fontFamily">${fontOptionsHtml(clip.fontFamily, true)}</select></div>
-                        <div class="cs-field"><label>Size (px)</label><input type="number" min="10" max="240" data-c-num="fontSize" value="${clip.fontSize || 34}"></div>
-                    </div>
                 ` : ''}
                 ${(t === 'icon' || t === 'shape' || t === 'badge') ? `
                     <div class="cs-field">
@@ -1117,6 +1416,56 @@ export function mountCreditSuiteInspector({ state, stage }) {
                     <div class="cs-field"><label>Base Fill Color</label><input type="color" data-c-color="fillColor" value="${toColorHex6(clip.fillColor, '#07080c')}"></div>
                     ${renderPatternControlsHtml(clip, { attrStr: 'data-c', attrNum: 'data-c-num', attrColor: 'data-c-color', prefix: '', showOpacity: false })}
                 ` : ''}
+                ${['text', 'shape', 'badge', 'counter', 'meter', 'icon'].includes(t) ? `
+                    <details class="cs-acc" style="margin-top:6px;">
+                        <summary>Typography &amp; Color Overrides</summary>
+                        <div class="cs-acc-body">
+                            ${t !== 'icon' ? `
+                                <div class="cs-grid-2">
+                                    <div class="cs-field"><label>Font</label><select data-c="fontFamily">${fontOptionsHtml(clip.fontFamily, true)}</select></div>
+                                    <div class="cs-field"><label>Size (px)</label><input type="number" min="10" max="240" data-c-num="fontSize" value="${clip.fontSize || 34}"></div>
+                                </div>
+                                <div class="cs-grid-3">
+                                    <div class="cs-field"><label>Weight</label><select data-c="fontWeight">${FONT_WEIGHT_OPTIONS.filter(([v]) => v !== '').map(([v, lbl]) => `<option value="${v}" ${(clip.fontWeight || '700') === v ? 'selected' : ''}>${lbl}</option>`).join('')}</select></div>
+                                    <div class="cs-field">
+                                        <label>Align</label>
+                                        <select data-c="textAlign">
+                                            <option value="center" ${(clip.textAlign || 'center') === 'center' ? 'selected' : ''}>Center</option>
+                                            <option value="left" ${clip.textAlign === 'left' ? 'selected' : ''}>Left</option>
+                                            <option value="right" ${clip.textAlign === 'right' ? 'selected' : ''}>Right</option>
+                                        </select>
+                                    </div>
+                                    <div class="cs-field"><label>Tracking</label><input type="number" min="-0.05" max="0.8" step="0.02" placeholder="Auto" data-c-optnum="letterSpacing" value="${esc(clip.letterSpacing)}"></div>
+                                </div>
+                                <div class="cs-grid-2">
+                                    <label class="cs-check-row"><input type="checkbox" data-c-chk="italic" ${clip.italic ? 'checked' : ''}> Italic</label>
+                                    <label class="cs-check-row"><input type="checkbox" data-c-chk="underline" ${clip.underline ? 'checked' : ''}> Underline</label>
+                                    <label class="cs-check-row"><input type="checkbox" data-c-chk="uppercase" ${clip.uppercase ? 'checked' : ''}> UPPERCASE</label>
+                                    <label class="cs-check-row"><input type="checkbox" data-c-chk="textShadow" ${clip.textShadow ? 'checked' : ''}> Text Shadow</label>
+                                </div>
+                            ` : `
+                                <div class="cs-grid-2">
+                                    <div class="cs-field"><label>Icon Size (px)</label><input type="number" min="24" max="240" data-c-num="fontSize" value="${clip.fontSize || 96}"></div>
+                                    <label class="cs-check-row" style="align-self:end;padding-bottom:6px;"><input type="checkbox" data-c-chk="textShadow" ${clip.textShadow ? 'checked' : ''}> Icon Shadow</label>
+                                </div>
+                            `}
+                            <div class="cs-grid-2">
+                                ${t !== 'icon' ? `<div class="cs-field"><label>Text Color</label><input type="color" data-c-color="textColor" value="${toColorHex6(clip.textColor, '#ffffff')}"></div>` : ''}
+                                ${['icon', 'shape', 'badge'].includes(t) ? `<div class="cs-field"><label>Icon Color</label><input type="color" data-c-color="iconColor" value="${toColorHex6(clip.iconColor, '#e5c07b')}"></div>` : ''}
+                            </div>
+                            ${['shape', 'badge', 'counter', 'meter', 'text'].includes(t) ? `
+                                <div class="cs-grid-2">
+                                    <div class="cs-field"><label>Fill Color 1</label><input type="color" data-c-color="fillColor" value="${toColorHex6(clip.fillColor, '#111827')}"></div>
+                                    <div class="cs-field"><label>Fill Color 2</label><input type="color" data-c-color="fillColor2" value="${toColorHex6(clip.fillColor2, '#1e293b')}"></div>
+                                </div>
+                                <div class="cs-grid-2">
+                                    <label class="cs-check-row" style="align-self:end;padding-bottom:6px;"><input type="checkbox" data-c-chk="fillGradient" ${clip.fillGradient ? 'checked' : ''}> Gradient Fill</label>
+                                    <div class="cs-field"><label>Grad Angle</label><input type="number" min="0" max="360" step="15" data-c-num="fillAngle" value="${clip.fillAngle ?? 135}"></div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </details>
+                ` : ''}
             </div>
 
             <div class="cs-section">
@@ -1130,12 +1479,27 @@ export function mountCreditSuiteInspector({ state, stage }) {
                     <div class="cs-field"><label>Exit FX</label><select data-c="exitAnim">${engine.TRANSITION_TYPES.map(tr => `<option value="${tr}" ${clip.exitAnim === tr ? 'selected' : ''}>${tr}</option>`).join('')}</select></div>
                     <div class="cs-field"><label>Exit (s)</label><input type="number" min="0" max="10" step="0.1" data-c-num="exitSec" value="${clip.exitSec ?? 0.75}"></div>
                 </div>
-                <div class="cs-field">
-                    <label>Ken Burns Motion</label>
-                    <select data-c="kenBurns">
-                        ${engine.KEN_BURNS_TYPES.map(kb => `<option value="${kb}" ${clip.kenBurns === kb ? 'selected' : ''}>${kb}</option>`).join('')}
-                    </select>
+                <div class="cs-grid-2">
+                    <div class="cs-field">
+                        <label>Stage Scroll / Path</label>
+                        <select data-c="clipScrollPath">
+                            ${engine.CLIP_SCROLL_PATHS.map(p => `<option value="${p}" ${(clip.clipScrollPath || 'none') === p ? 'selected' : ''}>${esc(CLIP_PATH_LABELS[p] || p)}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="cs-field"><label>Path Speed</label><input type="number" min="0.1" max="5" step="0.1" data-c-num="clipScrollSpeed" value="${clip.clipScrollSpeed ?? 1}"></div>
                 </div>
+                ${['image', 'video', 'slideshow'].includes(t) ? `
+                    <div class="cs-grid-2">
+                        <div class="cs-field">
+                            <label>Media Scroll / Motion</label>
+                            <select data-c="kenBurns">
+                                ${engine.KEN_BURNS_TYPES.map(kb => `<option value="${kb}" ${clip.kenBurns === kb ? 'selected' : ''}>${esc(MEDIA_MOTION_LABELS[kb] || kb)}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="cs-field"><label>Motion Speed</label><input type="number" min="0.1" max="5" step="0.1" data-c-num="motionSpeed" value="${clip.motionSpeed ?? 1}"></div>
+                    </div>
+                    ${t === 'image' ? `<label class="cs-check-row"><input type="checkbox" data-c-chk="motionTile" ${clip.motionTile ? 'checked' : ''}> Seamless repeating tile scroll</label>` : ''}
+                ` : ''}
             </div>
 
             <details class="cs-acc">
@@ -1159,15 +1523,20 @@ export function mountCreditSuiteInspector({ state, stage }) {
                             ${getBorderAnims().map(ba => `<option value="${ba}" ${clip.borderAnim === ba ? 'selected' : ''}>${ba}</option>`).join('')}
                         </select>
                     </div>
-                    <div class="cs-field">
-                        <label>Border Color</label>
-                        <input type="color" data-c-color="borderColor" value="${toColorHex6(clip.borderColor, '#e5c07b')}">
-                    </div>
+                    <div class="cs-field"><label>Anim Speed</label><input type="number" min="0.25" max="20" step="0.25" data-c-num="borderAnimSpeed" value="${clip.borderAnimSpeed ?? 3}"></div>
+                </div>
+                <div class="cs-grid-2">
+                    <div class="cs-field"><label>Border Color 1</label><input type="color" data-c-color="borderColor" value="${toColorHex6(clip.borderColor, '#e5c07b')}"></div>
+                    <div class="cs-field"><label>Border Color 2</label><input type="color" data-c-color="borderColor2" value="${toColorHex6(clip.borderColor2, '#38bdf8')}"></div>
                 </div>
                 <div class="cs-grid-3">
                     <div class="cs-field"><label>Bright %</label><input type="number" min="0" max="200" data-c-num="filterBrightness" value="${clip.filterBrightness ?? 100}"></div>
                     <div class="cs-field"><label>Contrast %</label><input type="number" min="0" max="200" data-c-num="filterContrast" value="${clip.filterContrast ?? 100}"></div>
+                    <div class="cs-field"><label>Saturate %</label><input type="number" min="0" max="200" data-c-num="filterSaturate" value="${clip.filterSaturate ?? 100}"></div>
+                </div>
+                <div class="cs-grid-2">
                     <div class="cs-field"><label>Blur px</label><input type="number" min="0" max="40" data-c-num="filterBlur" value="${clip.filterBlur ?? 0}"></div>
+                    <div class="cs-field"><label>Grayscale %</label><input type="number" min="0" max="100" data-c-num="filterGrayscale" value="${clip.filterGrayscale ?? 0}"></div>
                 </div>
                 <label class="cs-check-row"><input type="checkbox" data-c-chk="shadow" ${clip.shadow ? 'checked' : ''}> Drop Shadow</label>
                 </div>
@@ -1212,6 +1581,11 @@ export function mountCreditSuiteInspector({ state, stage }) {
                 const parsed = Number(el.value);
                 if (el.value === '' || !Number.isFinite(parsed)) return;
                 updateClip(c => { c[el.dataset.cNum] = parsed; });
+            });
+        });
+        bodyEl.querySelectorAll('[data-c-optnum]').forEach(el => {
+            el.addEventListener('change', () => {
+                updateClip(c => { c[el.dataset.cOptnum] = el.value === '' ? '' : Number(el.value); });
             });
         });
         bodyEl.querySelectorAll('[data-c-chk]').forEach(el => {
@@ -1414,6 +1788,28 @@ export function mountCreditSuiteInspector({ state, stage }) {
                         <div class="cs-field"><label>Opacity</label><input type="number" min="0" max="1" step="0.05" data-p-num="background.mediaOpacity" value="${bg.mediaOpacity ?? 0.45}"></div>
                         <div class="cs-field"><label>Blur (px)</label><input type="number" min="0" max="40" data-p-num="background.mediaBlur" value="${bg.mediaBlur ?? 0}"></div>
                     </div>
+                    <div class="cs-grid-2">
+                        <div class="cs-field">
+                            <label>Backdrop Motion / Scroll</label>
+                            <select data-p="background.mediaMotion">
+                                ${engine.KEN_BURNS_TYPES.map(kb => `<option value="${kb}" ${(bg.mediaMotion || 'none') === kb ? 'selected' : ''}>${esc(MEDIA_MOTION_LABELS[kb] || kb)}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="cs-field"><label>Motion Speed</label><input type="number" min="0.1" max="5" step="0.1" data-p-num="background.mediaMotionSpeed" value="${bg.mediaMotionSpeed ?? 1}"></div>
+                    </div>
+                    ${bg.type === 'image' ? `<label class="cs-check-row"><input type="checkbox" data-p-chk="background.mediaTile" ${bg.mediaTile ? 'checked' : ''}> Seamless repeating tile scroll</label>` : ''}
+                    ${bg.type === 'video' ? `
+                        <div class="cs-grid-3">
+                            <div class="cs-field"><label>Start (s)</label><input type="number" min="0" step="0.5" data-p-num="background.mediaStartSec" value="${bg.mediaStartSec || 0}"></div>
+                            <div class="cs-field"><label>Rate</label><input type="number" min="0.25" max="4" step="0.25" data-p-num="background.mediaRate" value="${bg.mediaRate || 1}"></div>
+                            <div class="cs-field"><label>Volume %</label><input type="number" min="0" max="100" step="5" data-p-num="background.mediaVolume" value="${bg.mediaVolume ?? 80}"></div>
+                        </div>
+                        <div class="cs-grid-3">
+                            <label class="cs-check-row"><input type="checkbox" data-p-chk="background.mediaAutoplay" ${bg.mediaAutoplay !== false ? 'checked' : ''}> Autoplay</label>
+                            <label class="cs-check-row"><input type="checkbox" data-p-chk="background.mediaLoop" ${bg.mediaLoop !== false ? 'checked' : ''}> Loop</label>
+                            <label class="cs-check-row"><input type="checkbox" data-p-chk="background.mediaMuted" ${bg.mediaMuted !== false ? 'checked' : ''}> Muted</label>
+                        </div>
+                    ` : ''}
                 ` : ''}
                 ${bg.type === 'chroma' ? `<div class="cs-field"><label>Chroma Color</label><input type="color" data-p-color="background.chromaColor" value="${toColorHex6(bg.chromaColor, '#00ff00')}"></div>` : ''}
             </div>

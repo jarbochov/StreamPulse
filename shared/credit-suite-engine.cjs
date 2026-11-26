@@ -215,7 +215,50 @@ const KEN_BURNS_TYPES = Object.freeze([
     'zoom-in',
     'zoom-out',
     'pan-left',
-    'pan-right'
+    'pan-right',
+    'scroll-up',
+    'scroll-down',
+    'scroll-left',
+    'scroll-right',
+    'scroll-diag-ul',
+    'scroll-diag-dr',
+    'float',
+    'sway',
+    'breathe',
+    'parallax-up'
+]);
+
+const CLIP_SCROLL_PATHS = Object.freeze([
+    'none',
+    'bottom-to-top',
+    'top-to-bottom',
+    'left-to-right',
+    'right-to-left',
+    'diag-up-left',
+    'diag-down-right',
+    'float-bob',
+    'sway-pendulum',
+    'orbit-drift'
+]);
+
+const EDGE_ANCHORS = Object.freeze([
+    'hanging-top-right',
+    'hanging-top-left',
+    'peeking-left',
+    'peeking-right',
+    'perched-top',
+    'bottom-left',
+    'bottom-right'
+]);
+
+const EDGE_ANIMS = Object.freeze([
+    'hang-swing',
+    'peek-bob',
+    'bounce',
+    'float',
+    'wiggle',
+    'walk-across',
+    'none'
 ]);
 
 const DIVIDER_STYLES = Object.freeze([
@@ -291,22 +334,46 @@ function normalizeBlockStyle(raw = {}) {
         contentWeight: String(s.contentWeight || '').slice(0, 16),
         headingColor: s.headingColor ? sanitizeColor(s.headingColor, '') : '',
         contentColor: s.contentColor ? sanitizeColor(s.contentColor, '') : '',
+        subtitleColor: s.subtitleColor ? sanitizeColor(s.subtitleColor, '') : '',
         align: ['left', 'center', 'right'].includes(s.align) ? s.align : 'center',
         italic: Boolean(s.italic),
         underline: Boolean(s.underline),
         uppercase: (s.uppercase === undefined || s.uppercase === null || s.uppercase === '') ? '' : Boolean(s.uppercase),
         letterSpacing: s.letterSpacing === '' || s.letterSpacing === undefined || s.letterSpacing === null ? '' : clamp(s.letterSpacing, -0.05, 0.8, ''),
         textShadow: Boolean(s.textShadow),
+        maxWidth: s.maxWidth === '' || s.maxWidth === undefined || s.maxWidth === null ? '' : clamp(s.maxWidth, 200, 3200, ''),
+        opacity: clamp(s.opacity, 0.05, 1, 1),
         bgColor: s.bgColor ? sanitizeColor(s.bgColor, '') : '',
         bgOpacity: clamp(s.bgOpacity, 0, 1, 0),
         bgRadius: clamp(s.bgRadius, 0, 120, 12),
+        bgPadding: clamp(s.bgPadding, 0, 160, 28),
         borderStyle: String(s.borderStyle || 'none').slice(0, 32),
         borderWidth: clamp(s.borderWidth, 0, 24, 0),
         borderColor: s.borderColor ? sanitizeColor(s.borderColor, '#FFFFFF44') : '#FFFFFF44',
         borderColor2: s.borderColor2 ? sanitizeColor(s.borderColor2, '#38BDF8FF') : '#38BDF8FF',
         borderAnim: String(s.borderAnim || 'none').slice(0, 32),
+        borderAnimSpeed: clamp(s.borderAnimSpeed, 0.25, 20, 3),
         iconClass: String(s.iconClass || '').replace(/[^a-z0-9\s-]/gi, '').trim().slice(0, 64),
         iconColor: s.iconColor ? sanitizeColor(s.iconColor, '') : ''
+    };
+}
+
+function normalizeEdgeAttachment(raw = {}) {
+    const a = raw && typeof raw === 'object' ? raw : {};
+    return {
+        enabled: Boolean(a.enabled),
+        mediaKind: ['image', 'video', 'icon'].includes(a.mediaKind) ? a.mediaKind : 'icon',
+        mediaUrl: sanitizeMediaUrl(a.mediaUrl),
+        iconClass: String(a.iconClass || 'fa-solid fa-ghost').replace(/[^a-z0-9\s-]/gi, '').trim().slice(0, 64),
+        iconColor: sanitizeColor(a.iconColor, '#E5C07BFF'),
+        anchor: EDGE_ANCHORS.includes(a.anchor) ? a.anchor : 'hanging-top-right',
+        anim: EDGE_ANIMS.includes(a.anim) ? a.anim : 'hang-swing',
+        animSpeed: clamp(a.animSpeed, 0.1, 5, 1),
+        size: clamp(a.size, 24, 420, 88),
+        offsetX: clamp(a.offsetX, -400, 400, 0),
+        offsetY: clamp(a.offsetY, -400, 400, 0),
+        flipX: Boolean(a.flipX),
+        zLayer: ['front', 'back'].includes(a.zLayer) ? a.zLayer : 'front'
     };
 }
 
@@ -380,6 +447,13 @@ function normalizeBlock(raw = {}, idx = 0) {
         mediaWidth: clamp(b.mediaWidth, 40, 1600, type === 'split-row' ? 320 : 520),
         mediaHeight: clamp(b.mediaHeight, 0, 1200, 0),
         mediaRadius: clamp(b.mediaRadius, 0, 200, 12),
+        mediaFit: ['cover', 'contain', 'contain-blur', 'fill'].includes(b.mediaFit) ? b.mediaFit : 'cover',
+        mediaAutoplay: b.mediaAutoplay !== undefined ? Boolean(b.mediaAutoplay) : true,
+        mediaLoop: b.mediaLoop !== undefined ? Boolean(b.mediaLoop) : true,
+        mediaMuted: b.mediaMuted !== undefined ? Boolean(b.mediaMuted) : true,
+        mediaVolume: clamp(b.mediaVolume, 0, 100, 80),
+        mediaStartSec: clamp(b.mediaStartSec, 0, 36000, 0),
+        mediaRate: clamp(b.mediaRate, 0.25, 4, 1),
         mediaPosition: ['left', 'right'].includes(b.mediaPosition) ? b.mediaPosition : 'left',
         caption: String(b.caption ?? '').slice(0, 300),
         // Logo strip items: [{ id, url, label, height }]
@@ -395,6 +469,7 @@ function normalizeBlock(raw = {}, idx = 0) {
         logoGap: clamp(b.logoGap, 8, 160, 48),
         logoMono: Boolean(b.logoMono),
         logoTint: b.logoTint ? sanitizeColor(b.logoTint, '#FFFFFFFF') : '',
+        edgeAttachment: normalizeEdgeAttachment(b.edgeAttachment),
         style: normalizeBlockStyle(b.style)
     };
     return base;
@@ -416,7 +491,7 @@ function normalizePatternFields(raw = {}, defaultSpeed = 0.6) {
         patternScale: clamp(r.patternScale, 15, 400, 100),
         patternLineWidth: clamp(r.patternLineWidth, 0.5, 24, 2),
         patternFillMode: validFillModes.includes(r.patternFillMode) ? r.patternFillMode : 'tinted',
-        patternFillOpacity: clamp(r.patternFillOpacity, 0, 100, 35),
+        patternFillOpacity: clamp(r.patternFillOpacity, 0, 100, 75),
         patternDensity: clamp(r.patternDensity, 0.25, 4, 1),
         patternSpacing: clamp(r.patternSpacing, 50, 300, 100),
         patternScatter: clamp(r.patternScatter, 0, 100, 0),
@@ -436,7 +511,7 @@ function normalizePatternFields(raw = {}, defaultSpeed = 0.6) {
         patternColorMode: validColorModes.includes(r.patternColorMode) ? r.patternColorMode : 'mosaic',
         patternColorAnim: validColorAnims.includes(r.patternColorAnim) ? r.patternColorAnim : 'none',
         patternColorSpeed: clamp(r.patternColorSpeed, 0, 5, 0.5),
-        patternOpacity: clamp(r.patternOpacity, 0, 1, 0.65),
+        patternOpacity: clamp(r.patternOpacity, 0, 1, 0.85),
         patternVignette: clamp(r.patternVignette, 0, 100, 0),
         patternVignetteColor: sanitizeColor(r.patternVignetteColor, '#000000FF')
     };
@@ -469,10 +544,16 @@ function normalizeClip(raw = {}, idx = 0) {
         enterSec: clamp(c.enterSec, 0, 10, 0.75),
         exitSec: clamp(c.exitSec, 0, 10, 0.75),
         kenBurns: KEN_BURNS_TYPES.includes(c.kenBurns) ? c.kenBurns : 'none',
+        motionSpeed: clamp(c.motionSpeed, 0.1, 5, 1),
+        motionTile: Boolean(c.motionTile),
+        clipScrollPath: CLIP_SCROLL_PATHS.includes(c.clipScrollPath) ? c.clipScrollPath : 'none',
+        clipScrollSpeed: clamp(c.clipScrollSpeed, 0.1, 5, 1),
         // Media & content props
         mediaUrl: sanitizeMediaUrl(c.mediaUrl),
         mediaFit: ['cover', 'contain', 'contain-blur', 'fill'].includes(c.mediaFit) ? c.mediaFit : 'cover',
+        videoAutoplay: c.videoAutoplay !== undefined ? Boolean(c.videoAutoplay) : true,
         videoMuted: c.videoMuted !== undefined ? Boolean(c.videoMuted) : true,
+        videoVolume: clamp(c.videoVolume, 0, 100, 80),
         videoLoop: c.videoLoop !== undefined ? Boolean(c.videoLoop) : true,
         videoStartSec: clamp(c.videoStartSec, 0, 36000, 0),
         videoRate: clamp(c.videoRate, 0.25, 4, 1),
@@ -487,6 +568,11 @@ function normalizeClip(raw = {}, idx = 0) {
         fontWeight: String(c.fontWeight || '700').slice(0, 16),
         textAlign: ['left', 'center', 'right'].includes(c.textAlign) ? c.textAlign : 'center',
         textColor: sanitizeColor(c.textColor, '#FFFFFFFF'),
+        italic: Boolean(c.italic),
+        underline: Boolean(c.underline),
+        uppercase: Boolean(c.uppercase),
+        letterSpacing: c.letterSpacing === '' || c.letterSpacing === undefined || c.letterSpacing === null ? '' : clamp(c.letterSpacing, -0.05, 0.8, ''),
+        textShadow: Boolean(c.textShadow),
         iconClass: String(c.iconClass || 'fa-solid fa-star').replace(/[^a-z0-9\s-]/gi, '').trim().slice(0, 64),
         iconColor: sanitizeColor(c.iconColor, '#E5C07BFF'),
         // Shape / pattern / counter / meter / badge props
@@ -614,7 +700,16 @@ function normalizeProject(raw = {}, fallbackIndex = 0) {
             mediaUrl: sanitizeMediaUrl(p.background?.mediaUrl),
             mediaFit: ['cover', 'contain', 'contain-blur'].includes(p.background?.mediaFit) ? p.background.mediaFit : 'cover',
             mediaOpacity: clamp(p.background?.mediaOpacity, 0, 1, 0.45),
-            mediaBlur: clamp(p.background?.mediaBlur, 0, 40, 0)
+            mediaBlur: clamp(p.background?.mediaBlur, 0, 40, 0),
+            mediaMotion: KEN_BURNS_TYPES.includes(p.background?.mediaMotion) ? p.background.mediaMotion : 'none',
+            mediaMotionSpeed: clamp(p.background?.mediaMotionSpeed, 0.1, 5, 1),
+            mediaTile: Boolean(p.background?.mediaTile),
+            mediaAutoplay: p.background?.mediaAutoplay !== undefined ? Boolean(p.background.mediaAutoplay) : true,
+            mediaLoop: p.background?.mediaLoop !== undefined ? Boolean(p.background.mediaLoop) : true,
+            mediaMuted: p.background?.mediaMuted !== undefined ? Boolean(p.background.mediaMuted) : true,
+            mediaVolume: clamp(p.background?.mediaVolume, 0, 100, 80),
+            mediaStartSec: clamp(p.background?.mediaStartSec, 0, 36000, 0),
+            mediaRate: clamp(p.background?.mediaRate, 0.25, 4, 1)
         },
         timing: {
             mode: ['speed', 'duration'].includes(p.timing?.mode) ? p.timing.mode : 'speed',
@@ -1207,6 +1302,213 @@ function evaluateTransition(type, progress, isExit) {
     return res;
 }
 
+function evaluateMediaMotion(mode, localT, dur, speed = 1, tile = false) {
+    const m = mode || 'none';
+    const spd = Math.max(0.1, Number(speed) || 1);
+    const frac = dur > 0 ? Math.max(0, Math.min(1, localT / dur)) : 0;
+    let scale = 1;
+    let xPct = 0;
+    let yPct = 0;
+    let rotDeg = 0;
+    let tileX = 0;
+    let tileY = 0;
+    const scrollPxPerSec = 90 * spd;
+
+    if (tile && (m.startsWith('scroll-') || m === 'parallax-up')) {
+        if (m === 'scroll-up' || m === 'parallax-up') tileY = -(localT * scrollPxPerSec);
+        else if (m === 'scroll-down') tileY = localT * scrollPxPerSec;
+        else if (m === 'scroll-left') tileX = -(localT * scrollPxPerSec);
+        else if (m === 'scroll-right') tileX = localT * scrollPxPerSec;
+        else if (m === 'scroll-diag-ul') { tileX = -(localT * scrollPxPerSec * 0.72); tileY = -(localT * scrollPxPerSec * 0.72); }
+        else if (m === 'scroll-diag-dr') { tileX = localT * scrollPxPerSec * 0.72; tileY = localT * scrollPxPerSec * 0.72; }
+        return { scale, xPct, yPct, rotDeg, tileX, tileY };
+    }
+
+    const span = Math.min(18, 8 * spd);
+    switch (m) {
+        case 'zoom-in':
+            scale = 1 + frac * Math.min(0.45, 0.14 * spd);
+            break;
+        case 'zoom-out': {
+            const extra = Math.min(0.45, 0.14 * spd);
+            scale = (1 + extra) - frac * extra;
+            break;
+        }
+        case 'pan-left':
+            scale = 1.14;
+            xPct = (0.5 - frac) * span;
+            break;
+        case 'pan-right':
+            scale = 1.14;
+            xPct = (frac - 0.5) * span;
+            break;
+        case 'scroll-up':
+        case 'parallax-up':
+            scale = 1.24;
+            yPct = (0.5 - frac) * Math.min(20, 12 * spd);
+            break;
+        case 'scroll-down':
+            scale = 1.24;
+            yPct = (frac - 0.5) * Math.min(20, 12 * spd);
+            break;
+        case 'scroll-left':
+            scale = 1.24;
+            xPct = (0.5 - frac) * Math.min(20, 12 * spd);
+            break;
+        case 'scroll-right':
+            scale = 1.24;
+            xPct = (frac - 0.5) * Math.min(20, 12 * spd);
+            break;
+        case 'scroll-diag-ul':
+            scale = 1.28;
+            xPct = (0.5 - frac) * Math.min(18, 10 * spd);
+            yPct = (0.5 - frac) * Math.min(18, 10 * spd);
+            break;
+        case 'scroll-diag-dr':
+            scale = 1.28;
+            xPct = (frac - 0.5) * Math.min(18, 10 * spd);
+            yPct = (frac - 0.5) * Math.min(18, 10 * spd);
+            break;
+        case 'float':
+            scale = 1.06;
+            yPct = Math.sin(localT * 1.15 * spd) * 2.4;
+            xPct = Math.cos(localT * 0.72 * spd) * 1.2;
+            break;
+        case 'sway':
+            scale = 1.08;
+            rotDeg = Math.sin(localT * 1.1 * spd) * 2.6;
+            break;
+        case 'breathe':
+            scale = 1.04 + Math.sin(localT * 1.3 * spd) * 0.04;
+            break;
+        default:
+            break;
+    }
+    return { scale, xPct, yPct, rotDeg, tileX, tileY };
+}
+
+function evaluateClipScrollPath(path, localT, dur, speed, canvasW, canvasH, clip) {
+    const mode = path || 'none';
+    if (mode === 'none') return { dx: 0, dy: 0, rotDeg: 0 };
+    const spd = Math.max(0.1, Number(speed) || 1);
+    const frac = dur > 0 ? Math.max(0, Math.min(1, localT / dur)) : 0;
+    const clipW = ((Number(clip.width) || 30) / 100) * canvasW;
+    const clipH = ((Number(clip.height) || 30) / 100) * canvasH;
+    const baseX = ((Number(clip.x) || 0) / 100) * canvasW;
+    const baseY = ((Number(clip.y) || 0) / 100) * canvasH;
+
+    switch (mode) {
+        case 'bottom-to-top': {
+            const startY = canvasH + 24;
+            const endY = -clipH - 24;
+            const curY = startY + (endY - startY) * Math.min(1, frac * spd);
+            return { dx: 0, dy: curY - baseY, rotDeg: 0 };
+        }
+        case 'top-to-bottom': {
+            const startY = -clipH - 24;
+            const endY = canvasH + 24;
+            const curY = startY + (endY - startY) * Math.min(1, frac * spd);
+            return { dx: 0, dy: curY - baseY, rotDeg: 0 };
+        }
+        case 'left-to-right': {
+            const startX = -clipW - 24;
+            const endX = canvasW + 24;
+            const curX = startX + (endX - startX) * Math.min(1, frac * spd);
+            return { dx: curX - baseX, dy: 0, rotDeg: 0 };
+        }
+        case 'right-to-left': {
+            const startX = canvasW + 24;
+            const endX = -clipW - 24;
+            const curX = startX + (endX - startX) * Math.min(1, frac * spd);
+            return { dx: curX - baseX, dy: 0, rotDeg: 0 };
+        }
+        case 'diag-up-left': {
+            const p = Math.min(1, frac * spd);
+            const curX = (canvasW + 24) + ((-clipW - 24) - (canvasW + 24)) * p;
+            const curY = (canvasH + 24) + ((-clipH - 24) - (canvasH + 24)) * p;
+            return { dx: curX - baseX, dy: curY - baseY, rotDeg: 0 };
+        }
+        case 'diag-down-right': {
+            const p = Math.min(1, frac * spd);
+            const curX = (-clipW - 24) + ((canvasW + 24) - (-clipW - 24)) * p;
+            const curY = (-clipH - 24) + ((canvasH + 24) - (-clipH - 24)) * p;
+            return { dx: curX - baseX, dy: curY - baseY, rotDeg: 0 };
+        }
+        case 'float-bob':
+            return {
+                dx: Math.cos(localT * 0.9 * spd) * 14,
+                dy: Math.sin(localT * 1.6 * spd) * 18,
+                rotDeg: Math.sin(localT * 0.8 * spd) * 2.2
+            };
+        case 'sway-pendulum':
+            return {
+                dx: Math.sin(localT * 1.4 * spd) * 12,
+                dy: Math.abs(Math.cos(localT * 1.4 * spd)) * 5,
+                rotDeg: Math.sin(localT * 1.4 * spd) * 8
+            };
+        case 'orbit-drift':
+            return {
+                dx: Math.cos(localT * 1.1 * spd) * 34,
+                dy: Math.sin(localT * 1.1 * spd) * 22,
+                rotDeg: 0
+            };
+        default:
+            return { dx: 0, dy: 0, rotDeg: 0 };
+    }
+}
+
+function evaluateEdgeAttachmentTransform(att, tSec) {
+    if (!att || !att.enabled) return '';
+    const t = Number(tSec) || 0;
+    const spd = Math.max(0.1, Number(att.animSpeed) || 1);
+    const ox = Number(att.offsetX) || 0;
+    const oy = Number(att.offsetY) || 0;
+    const flip = att.flipX ? -1 : 1;
+    let dx = 0;
+    let dy = 0;
+    let rot = 0;
+    let sx = flip;
+    let sy = 1;
+
+    switch (att.anim || 'hang-swing') {
+        case 'hang-swing':
+            rot = Math.sin(t * 2.2 * spd) * 14;
+            dy = Math.abs(Math.sin(t * 2.2 * spd)) * 3;
+            break;
+        case 'peek-bob':
+            dx = Math.sin(t * 1.8 * spd) * 10;
+            rot = Math.sin(t * 1.8 * spd) * 6;
+            break;
+        case 'bounce': {
+            const s = Math.abs(Math.sin(t * 3.2 * spd));
+            dy = -s * 18;
+            sy = 1 + (s - 0.5) * 0.08;
+            sx = flip * (1 - (s - 0.5) * 0.05);
+            break;
+        }
+        case 'float':
+            dy = Math.sin(t * 1.8 * spd) * 12;
+            dx = Math.cos(t * 1.1 * spd) * 5;
+            rot = Math.sin(t * 1.1 * spd) * 4;
+            break;
+        case 'wiggle':
+            rot = Math.sin(t * 6.0 * spd) * 9;
+            break;
+        case 'walk-across': {
+            const cycle = (t * 0.45 * spd) % 2;
+            const pingPong = cycle <= 1 ? cycle : (2 - cycle);
+            dx = (pingPong - 0.5) * 260;
+            dy = -Math.abs(Math.sin(t * 7.5 * spd)) * 7;
+            rot = Math.sin(t * 7.5 * spd) * 5;
+            sx = (cycle <= 1 ? 1 : -1) * flip;
+            break;
+        }
+        default:
+            break;
+    }
+    return `translate3d(${(ox + dx).toFixed(2)}px, ${(oy + dy).toFixed(2)}px, 0) rotate(${rot.toFixed(2)}deg) scale(${sx.toFixed(3)}, ${sy.toFixed(3)})`;
+}
+
 /**
  * Evaluates the complete visual state of the Credit Suite at timestamp `tSec`.
  */
@@ -1226,6 +1528,7 @@ function evaluateFrame(tSec, solved, project) {
         }
     }
 
+    const canvasW = project.canvas?.width || 1920;
     const canvasH = project.canvas?.height || 1080;
     const reflow = evaluateReflowState(t, solved, project);
     const activeRuns = [];
@@ -1293,15 +1596,10 @@ function evaluateFrame(tSec, solved, project) {
                 fx = evaluateTransition(c.exitAnim || 'fade', easeOutCubic((dur - localT) / outSec), true);
             }
 
-            // Ken Burns continuous slow camera drift
-            let kbScale = 1;
-            let kbX = 0;
-            let kbY = 0;
-            const frac = dur > 0 ? localT / dur : 0;
-            if (c.kenBurns === 'zoom-in') kbScale = 1 + frac * 0.14;
-            else if (c.kenBurns === 'zoom-out') kbScale = 1.14 - frac * 0.14;
-            else if (c.kenBurns === 'pan-left') { kbScale = 1.12; kbX = (0.5 - frac) * 6; }
-            else if (c.kenBurns === 'pan-right') { kbScale = 1.12; kbX = (frac - 0.5) * 6; }
+            // Inner media motion (Ken Burns, directional scrolls, ambient float/sway/breathe, seamless tile)
+            const innerMotion = evaluateMediaMotion(c.kenBurns, localT, dur, c.motionSpeed || 1, Boolean(c.motionTile));
+            // Whole-clip scrolling path (bottom-to-top, top-to-bottom, left-to-right, right-to-left, orbit, float)
+            const pathDelta = evaluateClipScrollPath(c.clipScrollPath, localT, dur, c.clipScrollSpeed || 1, canvasW, canvasH, c);
 
             const mediaTime = (Number(c.videoStartSec) || 0) + localT * (Number(c.videoRate) || 1);
 
@@ -1313,17 +1611,30 @@ function evaluateFrame(tSec, solved, project) {
                 duration: dur,
                 mediaTime,
                 opacity: (c.opacity ?? 1) * fx.opacity,
-                translateX: fx.translateX,
-                translateY: fx.translateY,
+                translateX: fx.translateX + pathDelta.dx,
+                translateY: fx.translateY + pathDelta.dy,
+                pathRotDeg: pathDelta.rotDeg,
                 scale: fx.scale,
                 blur: fx.blur,
                 clipPath: fx.clipPath,
-                kbScale,
-                kbX,
-                kbY
+                kbScale: innerMotion.scale,
+                kbX: innerMotion.xPct,
+                kbY: innerMotion.yPct,
+                kbRotDeg: innerMotion.rotDeg,
+                tileX: innerMotion.tileX,
+                tileY: innerMotion.tileY
             });
         }
     }
+
+    // Background media motion (for Background Image/Video scrolling & ambient FX)
+    const bgMotion = evaluateMediaMotion(
+        project.background?.mediaMotion || 'none',
+        t,
+        durationSec,
+        project.background?.mediaMotionSpeed || 1,
+        Boolean(project.background?.mediaTile)
+    );
 
     return {
         timeSec: t,
@@ -1331,6 +1642,7 @@ function evaluateFrame(tSec, solved, project) {
         progress: durationSec > 0 ? t / durationSec : 0,
         ended,
         reflow,
+        bgMotion,
         activeRuns,
         activeCards,
         activeClips
@@ -1621,6 +1933,9 @@ module.exports = {
     CLIP_ELEMENT_TYPES,
     TRANSITION_TYPES,
     KEN_BURNS_TYPES,
+    CLIP_SCROLL_PATHS,
+    EDGE_ANCHORS,
+    EDGE_ANIMS,
     DIVIDER_STYLES,
     clamp,
     sanitizeId,
@@ -1629,6 +1944,7 @@ module.exports = {
     easeInOutCubic,
     easeOutCubic,
     normalizeBlockStyle,
+    normalizeEdgeAttachment,
     normalizeBlock,
     normalizeClip,
     normalizeTrack,
@@ -1639,6 +1955,9 @@ module.exports = {
     solveTimeline,
     evaluateReflowState,
     evaluateTransition,
+    evaluateMediaMotion,
+    evaluateClipScrollPath,
+    evaluateEdgeAttachmentTransform,
     evaluateFrame,
     formatSrtTimestamp,
     getBlockPlainText,

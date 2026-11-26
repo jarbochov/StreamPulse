@@ -84,12 +84,20 @@ function createProceduralPatternHost(hostEl, opts = {}) {
     hostEl.appendChild(canvas);
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
+    const densMult = Math.max(0.25, Math.min(4, Number(opts.patternDensity) || 1));
+    const resolvedDensity = validPreset === 'starfield'
+        ? Math.round(600 * densMult)
+        : validPreset === 'sparkles'
+            ? Math.round(100 * densMult)
+            : validPreset === 'sunburst'
+                ? Math.round(28 * densMult)
+                : densMult;
     const drawOpts = {
         scale: Number(opts.patternScale) || 100,
         lineWidth: Number(opts.patternLineWidth) || 2,
         fillMode: opts.patternFillMode || 'tinted',
         fillOpacity: opts.patternFillOpacity ?? 35,
-        density: Number(opts.patternDensity) || 1,
+        density: resolvedDensity,
         spacing: Number(opts.patternSpacing) || 100,
         scatter: Number(opts.patternScatter) || 0,
         sizeVariance: Number(opts.patternSizeVariance) || 0,
@@ -118,6 +126,8 @@ function createProceduralPatternHost(hostEl, opts = {}) {
         const quantT = Math.round((Number(tSec) || 0) * 60) / 60;
         if (quantT === lastDrawnT) return;
         lastDrawnT = quantT;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.globalAlpha = 1;
         ctx.clearRect(0, 0, cw, ch);
         try {
             sp.drawProceduralPattern(ctx, validPreset, cw, ch, {
@@ -255,7 +265,11 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
     let chromaOverride = options.chromaOverride || '';
     let bgPatterns = [];
     let bgVideos = [];
+    let bgMediaEl = null;
+    let bgTileEl = null;
+    let lastBgMotionSig = '';
     let inlineVideos = [];
+    let edgeMascots = [];
     let destroyed = false;
     let lastCutoutSig = '';
     let lastColW = '';
@@ -334,6 +348,9 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
         bgPatterns = [];
         releaseVideosIn(bgLayer);
         bgVideos = [];
+        bgMediaEl = null;
+        bgTileEl = null;
+        lastBgMotionSig = '';
         bgLayer.innerHTML = '';
         bgLayer.style.background = '';
 
@@ -379,6 +396,17 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
         }
         if ((effectiveType === 'image' || effectiveType === 'video') && bg.mediaUrl) {
             bgLayer.style.background = resolveColorOrVar(bg.color1, variables, '#07080CFF');
+            // Seamless scrolling tile mode for background images
+            if (effectiveType === 'image' && bg.mediaTile) {
+                const tile = document.createElement('div');
+                tile.className = 'cs-bg-tile';
+                tile.style.backgroundImage = `url("${bg.mediaUrl.replace(/"/g, '%22')}")`;
+                tile.style.opacity = String(bg.mediaOpacity ?? 0.45);
+                if (bg.mediaBlur > 0) tile.style.filter = `blur(${bg.mediaBlur}px)`;
+                bgLayer.appendChild(tile);
+                bgTileEl = tile;
+                return;
+            }
             if (bg.mediaFit === 'contain-blur') {
                 const blurEl = document.createElement(effectiveType === 'video' ? 'video' : 'img');
                 blurEl.className = 'cs-clip-blur-bg';
@@ -386,10 +414,10 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
                 blurEl.style.opacity = String((bg.mediaOpacity ?? 0.45) * 0.8);
                 if (effectiveType === 'video') {
                     blurEl.muted = true;
-                    blurEl.loop = true;
+                    blurEl.loop = bg.mediaLoop !== false;
                     blurEl.playsInline = true;
                     blurEl.preload = 'metadata';
-                    bgVideos.push(blurEl);
+                    bgVideos.push({ el: blurEl, cfg: bg, isBlur: true });
                 } else {
                     blurEl.crossOrigin = 'anonymous';
                 }
@@ -397,19 +425,22 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
             }
             const media = document.createElement(effectiveType === 'video' ? 'video' : 'img');
             media.className = 'cs-bg-media';
+            if (bg.mediaMotion && bg.mediaMotion !== 'none') media.style.willChange = 'transform';
             media.src = bg.mediaUrl;
             media.style.opacity = String(bg.mediaOpacity ?? 0.45);
             media.style.objectFit = (bg.mediaFit === 'contain' || bg.mediaFit === 'contain-blur') ? 'contain' : 'cover';
             if (bg.mediaBlur > 0) media.style.filter = `blur(${bg.mediaBlur}px)`;
             if (effectiveType === 'video') {
-                media.muted = true;
-                media.loop = true;
+                media.muted = bg.mediaMuted !== false;
+                media.volume = Math.max(0, Math.min(1, (bg.mediaVolume ?? 80) / 100));
+                media.loop = bg.mediaLoop !== false;
                 media.playsInline = true;
                 media.preload = 'metadata';
-                bgVideos.push(media);
+                bgVideos.push({ el: media, cfg: bg, isBlur: false });
             } else {
                 media.crossOrigin = 'anonymous';
             }
+            bgMediaEl = media;
             bgLayer.appendChild(media);
         }
     }
@@ -457,9 +488,16 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
 
         const inner = document.createElement('div');
         inner.className = 'cs-block-inner';
+        if (st.maxWidth) {
+            inner.style.maxWidth = `${st.maxWidth}px`;
+        }
+        if (st.opacity !== undefined && Number(st.opacity) < 1) {
+            inner.style.opacity = String(st.opacity);
+        }
         const hasBg = Boolean(st.bgColor && Number(st.bgOpacity) > 0);
         if (hasBg || st.borderWidth > 0) {
-            inner.style.padding = '28px 36px';
+            const bgPad = st.bgPadding !== undefined ? Number(st.bgPadding) : 28;
+            inner.style.padding = `${bgPad}px ${Math.round(bgPad * 1.25)}px`;
             if (hasBg) {
                 inner.style.background = applyAlphaToColor(resolveColorOrVar(st.bgColor, variables, 'transparent'), st.bgOpacity);
             }
@@ -471,8 +509,9 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
             borderColor: st.borderColor,
             borderColor2: st.borderColor2,
             borderRadius: st.bgRadius,
-            borderAnim: st.borderAnim
-        }, variables, { width: Math.min(project.canvas.width, th.maxColumnWidth || 1180), height: 220 });
+            borderAnim: st.borderAnim,
+            borderAnimSpeed: st.borderAnimSpeed
+        }, variables, { width: Math.min(project.canvas.width, Number(st.maxWidth) || th.maxColumnWidth || 1180), height: 220 });
 
         if (st.contentFont) inner.style.fontFamily = `'${st.contentFont}', Georgia, serif`;
         if (st.contentSize) inner.style.fontSize = `${st.contentSize}px`;
@@ -509,8 +548,53 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
                 const sub = document.createElement('div');
                 sub.className = 'cs-block-subtitle';
                 sub.textContent = subText;
+                if (st.subtitleColor) sub.style.color = resolveColorOrVar(st.subtitleColor, variables, '');
                 target.appendChild(sub);
             }
+        };
+
+        const buildInlineMediaNode = (widthCss, heightPx) => {
+            const frame = document.createElement('div');
+            frame.className = 'cs-inline-media-frame';
+            frame.style.width = widthCss;
+            if (heightPx > 0) frame.style.height = `${heightPx}px`;
+            frame.style.borderRadius = `${block.mediaRadius ?? 12}px`;
+
+            const fit = block.mediaFit || 'cover';
+            const isVid = block.mediaKind === 'video';
+            if (fit === 'contain-blur') {
+                const bgM = document.createElement(isVid ? 'video' : 'img');
+                bgM.className = 'cs-clip-blur-bg';
+                bgM.src = block.mediaUrl;
+                if (isVid) {
+                    bgM.muted = true;
+                    bgM.loop = block.mediaLoop !== false;
+                    bgM.playsInline = true;
+                    bgM.preload = 'metadata';
+                    bgM.playbackRate = (block.mediaRate || 1) * speedRate;
+                    inlineVideos.push({ el: bgM, blockId: block.id, cfg: block, isBlur: true });
+                } else {
+                    bgM.crossOrigin = 'anonymous';
+                }
+                frame.appendChild(bgM);
+            }
+
+            const m = document.createElement(isVid ? 'video' : 'img');
+            m.src = block.mediaUrl;
+            m.style.objectFit = fit === 'contain-blur' ? 'contain' : fit;
+            if (isVid) {
+                m.muted = block.mediaMuted !== false;
+                m.volume = Math.max(0, Math.min(1, (block.mediaVolume ?? 80) / 100));
+                m.loop = block.mediaLoop !== false;
+                m.playsInline = true;
+                m.preload = 'metadata';
+                m.playbackRate = (block.mediaRate || 1) * speedRate;
+                inlineVideos.push({ el: m, blockId: block.id, cfg: block, isBlur: false });
+            } else {
+                m.crossOrigin = 'anonymous';
+            }
+            frame.appendChild(m);
+            return frame;
         };
 
         if (block.type === 'divider') {
@@ -609,21 +693,7 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
                 ic.innerHTML = `<i class="${escHtml(block.mediaIcon || 'fa-solid fa-film')}"></i>`;
                 wrap.appendChild(ic);
             } else if (block.mediaUrl) {
-                const m = document.createElement(block.mediaKind === 'video' ? 'video' : 'img');
-                m.src = block.mediaUrl;
-                m.style.width = `${block.mediaWidth || 520}px`;
-                if (block.mediaHeight > 0) m.style.height = `${block.mediaHeight}px`;
-                m.style.borderRadius = `${block.mediaRadius ?? 12}px`;
-                if (block.mediaKind === 'video') {
-                    m.muted = true;
-                    m.loop = true;
-                    m.playsInline = true;
-                    m.preload = 'metadata';
-                    inlineVideos.push(m);
-                } else {
-                    m.crossOrigin = 'anonymous';
-                }
-                wrap.appendChild(m);
+                wrap.appendChild(buildInlineMediaNode(`${block.mediaWidth || 520}px`, Number(block.mediaHeight) || 0));
             } else if (interactive) {
                 const ph = document.createElement('div');
                 ph.style.cssText = `width:${block.mediaWidth || 480}px;max-width:100%;height:${block.mediaHeight || 260}px;border-radius:${block.mediaRadius ?? 12}px;border:2px dashed rgba(148,163,184,0.45);background:rgba(15,23,42,0.55);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#94a3b8;font-size:18px;`;
@@ -684,21 +754,7 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
                 ic.innerHTML = `<i class="${escHtml(block.mediaIcon || 'fa-solid fa-clapperboard')}"></i>`;
                 mediaSide.appendChild(ic);
             } else {
-                const m = document.createElement(block.mediaKind === 'video' ? 'video' : 'img');
-                m.src = block.mediaUrl;
-                m.style.width = '100%';
-                if (block.mediaHeight > 0) m.style.height = `${block.mediaHeight}px`;
-                m.style.borderRadius = `${block.mediaRadius ?? 12}px`;
-                if (block.mediaKind === 'video') {
-                    m.muted = true;
-                    m.loop = true;
-                    m.playsInline = true;
-                    m.preload = 'metadata';
-                    inlineVideos.push(m);
-                } else {
-                    m.crossOrigin = 'anonymous';
-                }
-                mediaSide.appendChild(m);
+                mediaSide.appendChild(buildInlineMediaNode('100%', Number(block.mediaHeight) || 0));
             }
             const textSide = document.createElement('div');
             textSide.className = 'cs-split-text';
@@ -712,6 +768,41 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
             }
             row.append(mediaSide, textSide);
             inner.appendChild(row);
+        }
+
+        // Optional Section Edge Character / Mascot attached to this block
+        const att = block.edgeAttachment;
+        if (att && att.enabled) {
+            const mascot = document.createElement('div');
+            mascot.className = `cs-edge-mascot anchor-${att.anchor || 'hanging-top-right'} z-${att.zLayer === 'back' ? 'back' : 'front'}`;
+            const sz = Number(att.size) || 88;
+            mascot.style.width = `${sz}px`;
+            mascot.style.height = `${sz}px`;
+            mascot.style.setProperty('--cs-mascot-size', `${sz}px`);
+            if (att.mediaKind === 'video' && att.mediaUrl) {
+                const mv = document.createElement('video');
+                mv.src = att.mediaUrl;
+                mv.muted = true;
+                mv.loop = true;
+                mv.playsInline = true;
+                mv.preload = 'metadata';
+                mascot.appendChild(mv);
+                inlineVideos.push({ el: mv, blockId: block.id, cfg: { mediaAutoplay: true, mediaLoop: true, mediaMuted: true, mediaStartSec: 0, mediaRate: 1 }, isBlur: true });
+            } else if (att.mediaKind === 'image' && att.mediaUrl) {
+                const mi = document.createElement('img');
+                mi.src = att.mediaUrl;
+                mi.crossOrigin = 'anonymous';
+                mascot.appendChild(mi);
+            } else {
+                const ic = document.createElement('i');
+                ic.className = att.iconClass || 'fa-solid fa-ghost';
+                ic.style.fontSize = `${Math.round(sz * 0.78)}px`;
+                ic.style.color = resolveColorOrVar(att.iconColor, variables, '#E5C07BFF');
+                mascot.appendChild(ic);
+            }
+            mascot.style.transform = engine.evaluateEdgeAttachmentTransform(att, currentTime);
+            inner.appendChild(mascot);
+            edgeMascots.push({ el: mascot, att, lastTransform: mascot.style.transform });
         }
 
         el.appendChild(inner);
@@ -749,8 +840,17 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
         const baseBlurPx = Number(clip.filterBlur) || 0;
 
         let innerMedia = null;
+        let innerTile = null;
         const clipVideos = [];
         let clipPattern = null;
+
+        const applyClipTextOverrides = node => {
+            if (clip.italic) node.style.fontStyle = 'italic';
+            if (clip.underline) node.style.textDecoration = 'underline';
+            if (clip.uppercase) node.style.textTransform = 'uppercase';
+            if (clip.letterSpacing !== '' && clip.letterSpacing !== undefined) node.style.letterSpacing = `${clip.letterSpacing}em`;
+            if (clip.textShadow) node.style.textShadow = '0 4px 20px rgba(0,0,0,0.75)';
+        };
 
         if (type === 'cutout') {
             // Cutout clips punch a hole in behind/background layers; invisible fill itself
@@ -760,41 +860,50 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
             const wrap = document.createElement('div');
             wrap.className = 'cs-clip-media-wrap';
             if (clip.mediaUrl) {
-                if (clip.mediaFit === 'contain-blur') {
-                    const bgM = document.createElement(type === 'video' ? 'video' : 'img');
-                    bgM.className = 'cs-clip-blur-bg';
-                    bgM.src = clip.mediaUrl;
-                    if (type === 'video') {
-                        bgM.muted = true;
-                        bgM.loop = clip.videoLoop !== false;
-                        bgM.playsInline = true;
-                        bgM.preload = 'metadata';
-                        bgM.playbackRate = (clip.videoRate || 1) * speedRate;
-                        clipVideos.push(bgM);
-                    } else {
-                        bgM.crossOrigin = 'anonymous';
-                    }
-                    wrap.appendChild(bgM);
-                }
-                const media = document.createElement(type === 'video' ? 'video' : 'img');
-                media.className = clip.mediaFit === 'contain-blur' ? 'cs-clip-fg-contain cs-clip-media-el' : 'cs-clip-media-el';
-                if (clip.kenBurns && clip.kenBurns !== 'none') media.style.willChange = 'transform';
-                media.src = clip.mediaUrl;
-                if (clip.mediaFit !== 'contain-blur') {
-                    media.style.objectFit = clip.mediaFit || 'cover';
-                }
-                if (type === 'video') {
-                    media.muted = clip.videoMuted !== false;
-                    media.loop = clip.videoLoop !== false;
-                    media.playsInline = true;
-                    media.preload = 'metadata';
-                    media.playbackRate = (clip.videoRate || 1) * speedRate;
-                    clipVideos.push(media);
+                if (type === 'image' && clip.motionTile) {
+                    const tile = document.createElement('div');
+                    tile.className = 'cs-clip-tile';
+                    tile.style.backgroundImage = `url("${clip.mediaUrl.replace(/"/g, '%22')}")`;
+                    innerTile = tile;
+                    wrap.appendChild(tile);
                 } else {
-                    media.crossOrigin = 'anonymous';
+                    if (clip.mediaFit === 'contain-blur') {
+                        const bgM = document.createElement(type === 'video' ? 'video' : 'img');
+                        bgM.className = 'cs-clip-blur-bg';
+                        bgM.src = clip.mediaUrl;
+                        if (type === 'video') {
+                            bgM.muted = true;
+                            bgM.loop = clip.videoLoop !== false;
+                            bgM.playsInline = true;
+                            bgM.preload = 'metadata';
+                            bgM.playbackRate = (clip.videoRate || 1) * speedRate;
+                            clipVideos.push(bgM);
+                        } else {
+                            bgM.crossOrigin = 'anonymous';
+                        }
+                        wrap.appendChild(bgM);
+                    }
+                    const media = document.createElement(type === 'video' ? 'video' : 'img');
+                    media.className = clip.mediaFit === 'contain-blur' ? 'cs-clip-fg-contain cs-clip-media-el' : 'cs-clip-media-el';
+                    if (clip.kenBurns && clip.kenBurns !== 'none') media.style.willChange = 'transform';
+                    media.src = clip.mediaUrl;
+                    if (clip.mediaFit !== 'contain-blur') {
+                        media.style.objectFit = clip.mediaFit || 'cover';
+                    }
+                    if (type === 'video') {
+                        media.muted = clip.videoMuted !== false;
+                        media.volume = Math.max(0, Math.min(1, (clip.videoVolume ?? 80) / 100));
+                        media.loop = clip.videoLoop !== false;
+                        media.playsInline = true;
+                        media.preload = 'metadata';
+                        media.playbackRate = (clip.videoRate || 1) * speedRate;
+                        clipVideos.push(media);
+                    } else {
+                        media.crossOrigin = 'anonymous';
+                    }
+                    innerMedia = media;
+                    wrap.appendChild(media);
                 }
-                innerMedia = media;
-                wrap.appendChild(media);
             } else {
                 wrap.style.background = 'rgba(15, 23, 42, 0.72)';
                 wrap.innerHTML = `<div style="text-align:center;color:#94a3b8;padding:24px;"><i class="fa-solid ${type === 'video' ? 'fa-video' : 'fa-image'}" style="font-size:48px;margin-bottom:10px;display:block;opacity:0.6;"></i><div style="font-size:18px;">Select ${type} from Asset Library</div></div>`;
@@ -838,6 +947,7 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
             ic.className = clip.iconClass || 'fa-solid fa-star';
             ic.style.fontSize = `${Math.max(24, clip.fontSize || 96)}px`;
             ic.style.color = resolveColorOrVar(clip.iconColor, variables, '#E5C07BFF');
+            if (clip.textShadow) ic.style.textShadow = '0 6px 24px rgba(0,0,0,0.7)';
             el.appendChild(ic);
         } else if (type === 'text') {
             const body = document.createElement('div');
@@ -847,6 +957,10 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
             body.style.fontWeight = clip.fontWeight || '700';
             body.style.textAlign = clip.textAlign || 'center';
             body.style.color = resolveColorOrVar(clip.textColor, variables, '#FFFFFFFF');
+            if (clip.fillColor && clip.fillColor !== '#111827CC' && clip.fillGradient) {
+                body.style.background = `linear-gradient(${clip.fillAngle ?? 135}deg, ${resolveColorOrVar(clip.fillColor, variables)}, ${resolveColorOrVar(clip.fillColor2, variables)})`;
+            }
+            applyClipTextOverrides(body);
             body.textContent = resolvePlaceholders(clip.text || 'Text Overlay', variables);
             el.appendChild(body);
         } else if (type === 'badge') {
@@ -856,15 +970,22 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
                 ? `linear-gradient(${clip.fillAngle ?? 135}deg, ${resolveColorOrVar(clip.fillColor, variables)}, ${resolveColorOrVar(clip.fillColor2, variables)})`
                 : resolveColorOrVar(clip.fillColor, variables, '#111827CC');
             badge.style.color = resolveColorOrVar(clip.textColor, variables, '#FFFFFFFF');
+            if (clip.fontFamily) badge.style.fontFamily = `'${clip.fontFamily}', sans-serif`;
             badge.style.fontSize = `${clip.fontSize || 24}px`;
+            badge.style.fontWeight = clip.fontWeight || '700';
+            applyClipTextOverrides(badge);
             badge.innerHTML = `${clip.badgeIcon ? `<i class="${escHtml(clip.badgeIcon)}" style="color:${escHtml(resolveColorOrVar(clip.iconColor, variables, '#E5C07BFF'))}"></i>` : ''}<span>${escHtml(resolvePlaceholders(clip.badgeLabel || 'FEATURED', variables))}</span>`;
             el.appendChild(badge);
         } else if (type === 'counter') {
             const box = document.createElement('div');
             box.className = 'cs-clip-counter';
-            box.style.background = resolveColorOrVar(clip.fillColor, variables, '#111827CC');
+            box.style.background = clip.fillGradient
+                ? `linear-gradient(${clip.fillAngle ?? 135}deg, ${resolveColorOrVar(clip.fillColor, variables)}, ${resolveColorOrVar(clip.fillColor2, variables)})`
+                : resolveColorOrVar(clip.fillColor, variables, '#111827CC');
             box.style.color = resolveColorOrVar(clip.textColor, variables, '#FFFFFFFF');
+            if (clip.fontFamily) box.style.fontFamily = `'${clip.fontFamily}', sans-serif`;
             box.style.fontSize = `${clip.fontSize || 32}px`;
+            applyClipTextOverrides(box);
             box.innerHTML = `<div class="cs-clip-counter-val">${escHtml(resolvePlaceholders(clip.counterValue || '0', variables))}</div><div class="cs-clip-counter-lbl">${escHtml(resolvePlaceholders(clip.counterLabel || 'TOTAL', variables))}</div>`;
             el.appendChild(box);
         } else if (type === 'meter') {
@@ -874,9 +995,13 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
             const pct = Math.max(0, Math.min(100, (valNum / maxNum) * 100));
             const box = document.createElement('div');
             box.className = 'cs-clip-meter';
-            box.style.background = resolveColorOrVar(clip.fillColor, variables, '#111827CC');
+            box.style.background = clip.fillGradient
+                ? `linear-gradient(${clip.fillAngle ?? 135}deg, ${resolveColorOrVar(clip.fillColor, variables)}, ${resolveColorOrVar(clip.fillColor2, variables)})`
+                : resolveColorOrVar(clip.fillColor, variables, '#111827CC');
             box.style.color = resolveColorOrVar(clip.textColor, variables, '#FFFFFFFF');
+            if (clip.fontFamily) box.style.fontFamily = `'${clip.fontFamily}', sans-serif`;
             box.style.fontSize = `${clip.fontSize || 28}px`;
+            applyClipTextOverrides(box);
             box.innerHTML = `<div class="cs-clip-meter-head"><span>${escHtml(resolvePlaceholders(clip.counterLabel || 'Progress', variables))}</span><span>${Math.round(pct)}%</span></div><div class="cs-clip-meter-track"><div class="cs-clip-meter-fill" style="width:${pct}%"></div></div>`;
             el.appendChild(box);
         } else {
@@ -887,6 +1012,7 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
                 ? `linear-gradient(${clip.fillAngle ?? 135}deg, ${resolveColorOrVar(clip.fillColor, variables)}, ${resolveColorOrVar(clip.fillColor2, variables)})`
                 : resolveColorOrVar(clip.fillColor, variables, '#111827CC');
             card.style.color = resolveColorOrVar(clip.textColor, variables, '#FFFFFFFF');
+            card.style.textAlign = clip.textAlign || 'center';
             if (clip.iconClass) {
                 const ic = document.createElement('i');
                 ic.className = clip.iconClass;
@@ -901,6 +1027,7 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
                 h.style.fontSize = `${clip.fontSize || 34}px`;
                 h.style.fontWeight = clip.fontWeight || '700';
                 h.style.letterSpacing = '0.1em';
+                applyClipTextOverrides(h);
                 h.textContent = heading;
                 card.appendChild(h);
             }
@@ -926,6 +1053,7 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
             el,
             clip,
             innerMedia,
+            innerTile,
             videos: clipVideos,
             pattern: clipPattern,
             baseFilterNoBlur,
@@ -1153,6 +1281,7 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
         releaseVideosIn(sideLayer);
         releaseVideosIn(aboveLayer);
         inlineVideos = [];
+        edgeMascots = [];
         buildBackground();
 
         creditsCol.innerHTML = '';
@@ -1224,28 +1353,49 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
     }
 
     function syncAmbientVideos(tSec) {
-        const shouldPlay = playing && !deterministic;
-        const syncList = list => {
-            for (const v of list) {
-                const targetRate = speedRate;
-                if (Math.abs((v.playbackRate || 1) - targetRate) > 0.01) {
-                    try { v.playbackRate = targetRate; } catch {}
+        const shouldPlayGlobal = playing && !deterministic;
+        const syncEntry = (entry, activeWindow = true, localT = tSec) => {
+            const v = entry.el;
+            const cfg = entry.cfg || {};
+            const rate = Math.max(0.25, Number(cfg.mediaRate) || 1);
+            const targetRate = rate * speedRate;
+            if (Math.abs((v.playbackRate || 1) - targetRate) > 0.01) {
+                try { v.playbackRate = targetRate; } catch {}
+            }
+            const startOffset = Number(cfg.mediaStartSec) || 0;
+            const loop = cfg.mediaLoop !== false;
+            const autoplay = cfg.mediaAutoplay !== false;
+            const mediaTime = startOffset + Math.max(0, localT) * rate;
+            const targetT = v.duration && Number.isFinite(v.duration) && v.duration > 0
+                ? (loop ? (mediaTime % v.duration) : Math.min(v.duration, mediaTime))
+                : mediaTime;
+
+            if (!shouldPlayGlobal || !activeWindow || !autoplay) {
+                if (!v.paused) v.pause();
+                if (activeWindow && Math.abs((v.currentTime || 0) - targetT) > 0.05 && v.readyState >= 1) {
+                    try { v.currentTime = targetT; } catch {}
                 }
-                const targetT = v.duration && Number.isFinite(v.duration) && v.duration > 0
-                    ? (tSec % v.duration)
-                    : tSec;
-                if (!shouldPlay) {
-                    if (!v.paused) v.pause();
-                    if (Math.abs((v.currentTime || 0) - targetT) > 0.05 && v.readyState >= 1) {
-                        try { v.currentTime = targetT; } catch {}
-                    }
-                } else {
-                    if (v.paused) v.play().catch(() => {});
+            } else {
+                if (v.paused) v.play().catch(() => {});
+                if (Math.abs((v.currentTime || 0) - targetT) > 0.65 && v.readyState >= 1) {
+                    try { v.currentTime = targetT; } catch {}
                 }
             }
         };
-        if (bgVideos.length) syncList(bgVideos);
-        if (inlineVideos.length) syncList(inlineVideos);
+        for (const entry of bgVideos) {
+            syncEntry(entry, true, tSec);
+        }
+        const timings = solved?.blockTimings || {};
+        for (const entry of inlineVideos) {
+            const bt = timings[entry.blockId];
+            if (!bt) {
+                syncEntry(entry, true, tSec);
+            } else {
+                const isVis = tSec >= bt.startSec - 0.15 && tSec <= bt.endSec + 0.15;
+                const localT = Math.max(0, tSec - bt.startSec);
+                syncEntry(entry, isVis, localT);
+            }
+        }
     }
 
     function renderAtTime(tSec) {
@@ -1329,8 +1479,8 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
                 el.classList.add('active');
             }
             const op = ac.opacity.toFixed(4);
-            const rot = ac.clip.rotation || 0;
-            const tr = `translate3d(${ac.translateX.toFixed(2)}px, ${ac.translateY.toFixed(2)}px, 0) rotate(${rot}deg) scale(${ac.scale.toFixed(4)})`;
+            const rot = (ac.clip.rotation || 0) + (ac.pathRotDeg || 0);
+            const tr = `translate3d(${ac.translateX.toFixed(2)}px, ${ac.translateY.toFixed(2)}px, 0) rotate(${rot.toFixed(2)}deg) scale(${ac.scale.toFixed(4)})`;
             const totalBlur = entry.baseBlurPx + (ac.blur > 0.05 ? ac.blur : 0);
             const blurPart = totalBlur > 0.05 ? `blur(${totalBlur.toFixed(2)}px)` : '';
             const fl = entry.baseFilterNoBlur
@@ -1342,10 +1492,16 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
             if (fl !== entry.lastFilter) { entry.lastFilter = fl; el.style.filter = fl; }
             if (cp !== entry.lastClipPath) { entry.lastClipPath = cp; el.style.clipPath = cp; }
 
-            // Ken Burns inner transform (always resets cleanly when back to identity)
-            if (entry.innerMedia) {
-                const kb = (ac.kbScale !== 1 || ac.kbX !== 0 || ac.kbY !== 0)
-                    ? `translate3d(${ac.kbX.toFixed(2)}%, ${ac.kbY.toFixed(2)}%, 0) scale(${ac.kbScale.toFixed(4)})`
+            // Inner media motion (Ken Burns, directional scrolls, ambient float/sway/breathe, or seamless tile)
+            if (entry.innerTile) {
+                const pos = `${(ac.tileX || 0).toFixed(1)}px ${(ac.tileY || 0).toFixed(1)}px`;
+                if (pos !== entry.lastKbTransform) {
+                    entry.lastKbTransform = pos;
+                    entry.innerTile.style.backgroundPosition = pos;
+                }
+            } else if (entry.innerMedia) {
+                const kb = (ac.kbScale !== 1 || ac.kbX !== 0 || ac.kbY !== 0 || (ac.kbRotDeg || 0) !== 0)
+                    ? `translate3d(${ac.kbX.toFixed(2)}%, ${ac.kbY.toFixed(2)}%, 0) rotate(${(ac.kbRotDeg || 0).toFixed(2)}deg) scale(${ac.kbScale.toFixed(4)})`
                     : '';
                 if (kb !== entry.lastKbTransform) {
                     entry.lastKbTransform = kb;
@@ -1371,6 +1527,7 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
             // Video synchronization using cached video refs
             if (entry.videos.length) {
                 const targetRate = (ac.clip.videoRate || 1) * speedRate;
+                const autoplay = ac.clip.videoAutoplay !== false;
                 for (const v of entry.videos) {
                     if (Math.abs((v.playbackRate || 1) - targetRate) > 0.01) {
                         try { v.playbackRate = targetRate; } catch {}
@@ -1378,7 +1535,7 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
                     const targetT = v.duration && Number.isFinite(v.duration) && v.duration > 0
                         ? (ac.clip.videoLoop !== false ? (ac.mediaTime % v.duration) : Math.min(v.duration, ac.mediaTime))
                         : ac.mediaTime;
-                    if (deterministic || !playing) {
+                    if (deterministic || !playing || !autoplay) {
                         if (!v.paused) v.pause();
                         if (Math.abs((v.currentTime || 0) - targetT) > 0.04 && v.readyState >= 1) {
                             try { v.currentTime = targetT; } catch {}
@@ -1407,9 +1564,36 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
         // 5. Cutout punchout mask
         applyCutoutMasks(frame.activeClips);
 
-        // 6. Background procedural pattern & ambient/inline videos
+        // 6. Section Edge Characters / Mascots (deterministic per-frame transforms)
+        if (edgeMascots.length) {
+            for (const m of edgeMascots) {
+                const nextT = engine.evaluateEdgeAttachmentTransform(m.att, currentTime);
+                if (nextT !== m.lastTransform) {
+                    m.lastTransform = nextT;
+                    m.el.style.transform = nextT;
+                }
+            }
+        }
+
+        // 7. Background procedural pattern, background media scrolling/motion & ambient/inline videos
         if (bgPatterns.length) {
             for (const inst of bgPatterns) inst.renderAt(currentTime);
+        }
+        if (bgTileEl && frame.bgMotion) {
+            const pos = `${(frame.bgMotion.tileX || 0).toFixed(1)}px ${(frame.bgMotion.tileY || 0).toFixed(1)}px`;
+            if (pos !== lastBgMotionSig) {
+                lastBgMotionSig = pos;
+                bgTileEl.style.backgroundPosition = pos;
+            }
+        } else if (bgMediaEl && frame.bgMotion) {
+            const bm = frame.bgMotion;
+            const tr = (bm.scale !== 1 || bm.xPct !== 0 || bm.yPct !== 0 || bm.rotDeg !== 0)
+                ? `translate3d(${bm.xPct.toFixed(2)}%, ${bm.yPct.toFixed(2)}%, 0) rotate(${bm.rotDeg.toFixed(2)}deg) scale(${bm.scale.toFixed(4)})`
+                : '';
+            if (tr !== lastBgMotionSig) {
+                lastBgMotionSig = tr;
+                bgMediaEl.style.transform = tr;
+            }
         }
         syncAmbientVideos(currentTime);
 
@@ -1438,8 +1622,8 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
                 }));
             }
         };
-        for (const v of bgVideos) awaitVideo(v);
-        for (const v of inlineVideos) awaitVideo(v);
+        for (const entry of bgVideos) awaitVideo(entry.el);
+        for (const entry of inlineVideos) awaitVideo(entry.el);
         for (const entry of clipDomMap.values()) {
             if (!entry.active) continue;
             for (const v of entry.videos) awaitVideo(v);
@@ -1493,8 +1677,8 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
             cancelAnimationFrame(rafId);
             rafId = 0;
         }
-        for (const v of bgVideos) { if (!v.paused) v.pause(); }
-        for (const v of inlineVideos) { if (!v.paused) v.pause(); }
+        for (const entry of bgVideos) { if (!entry.el.paused) entry.el.pause(); }
+        for (const entry of inlineVideos) { if (!entry.el.paused) entry.el.pause(); }
         for (const entry of clipDomMap.values()) {
             for (const v of entry.videos) { if (!v.paused) v.pause(); }
         }
@@ -1510,8 +1694,8 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
                     cancelAnimationFrame(rafId);
                     rafId = 0;
                 }
-                for (const v of bgVideos) { if (!v.paused) v.pause(); }
-                for (const v of inlineVideos) { if (!v.paused) v.pause(); }
+                for (const entry of bgVideos) { if (!entry.el.paused) entry.el.pause(); }
+                for (const entry of inlineVideos) { if (!entry.el.paused) entry.el.pause(); }
                 for (const entry of clipDomMap.values()) {
                     for (const v of entry.videos) { if (!v.paused) v.pause(); }
                 }
@@ -1534,8 +1718,14 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
 
     function setSpeedRate(rate) {
         speedRate = Math.max(0.25, Math.min(4, Number(rate) || 1));
-        for (const v of bgVideos) { try { v.playbackRate = speedRate; } catch {} }
-        for (const v of inlineVideos) { try { v.playbackRate = speedRate; } catch {} }
+        for (const entry of bgVideos) {
+            const r = (entry.cfg?.mediaRate || 1) * speedRate;
+            try { entry.el.playbackRate = r; } catch {}
+        }
+        for (const entry of inlineVideos) {
+            const r = (entry.cfg?.mediaRate || 1) * speedRate;
+            try { entry.el.playbackRate = r; } catch {}
+        }
         for (const entry of clipDomMap.values()) {
             const r = (entry.clip?.videoRate || 1) * speedRate;
             for (const v of entry.videos) { try { v.playbackRate = r; } catch {} }
@@ -1635,6 +1825,9 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
         releaseVideosIn(viewport);
         bgVideos = [];
         inlineVideos = [];
+        edgeMascots = [];
+        bgMediaEl = null;
+        bgTileEl = null;
         mountEl.innerHTML = '';
     }
 

@@ -547,4 +547,203 @@ describe('Credit Suite — Independent Cinematic Credits Module', () => {
         // Verify strict no-emoji policy in Studio UI HTML
         assert.ok(!/[\u{1F300}-\u{1FAFF}]/u.test(studioHtml), 'credit-suite.html must not contain raw unicode emojis');
     });
+
+    it('normalizes and deterministically evaluates inline video controls, style overrides, backdrop scrolling FX, and section-edge mascots', () => {
+        const proj = engine.normalizeProject({
+            id: 'fx-overrides-test',
+            background: {
+                type: 'image',
+                mediaUrl: '/custom-overlay-assets/bg.png',
+                mediaMotion: 'scroll-up',
+                mediaMotionSpeed: 1.5,
+                mediaTile: true,
+                mediaAutoplay: true,
+                mediaLoop: false,
+                mediaMuted: false,
+                mediaVolume: 65,
+                mediaStartSec: 3,
+                mediaRate: 1.25
+            },
+            blocks: [
+                {
+                    id: 'b-media',
+                    type: 'media',
+                    presentation: 'crawl',
+                    title: 'Highlight Clip',
+                    mediaKind: 'video',
+                    mediaUrl: '/custom-overlay-assets/clip.mp4',
+                    mediaFit: 'contain-blur',
+                    mediaAutoplay: false,
+                    mediaLoop: false,
+                    mediaMuted: false,
+                    mediaVolume: 70,
+                    mediaStartSec: 4.5,
+                    mediaRate: 1.5,
+                    style: {
+                        headingFont: 'Oswald',
+                        contentFont: 'Inter',
+                        headingSize: 54,
+                        contentSize: 22,
+                        headingWeight: '800',
+                        contentWeight: '500',
+                        headingColor: '#FF2A6DFF',
+                        contentColor: '#E2E8F0FF',
+                        subtitleColor: '#94A3B8FF',
+                        maxWidth: 760,
+                        opacity: 0.9,
+                        bgColor: '#0F172AFF',
+                        bgOpacity: 0.75,
+                        bgRadius: 20,
+                        bgPadding: 36,
+                        borderStyle: 'neon-tube',
+                        borderWidth: 3,
+                        borderColor: '#FF2A6DFF',
+                        borderColor2: '#38BDF8FF',
+                        borderAnim: 'beam',
+                        borderAnimSpeed: 2.5,
+                        italic: true,
+                        underline: true,
+                        uppercase: false,
+                        letterSpacing: 0.08,
+                        textShadow: true
+                    },
+                    edgeAttachment: {
+                        enabled: true,
+                        mediaKind: 'icon',
+                        iconClass: 'fa-solid fa-cat',
+                        iconColor: '#F59E0BFF',
+                        anchor: 'hanging-top-right',
+                        anim: 'hang-swing',
+                        animSpeed: 1.5,
+                        size: 96,
+                        offsetX: 12,
+                        offsetY: -8,
+                        flipX: true,
+                        zLayer: 'front'
+                    }
+                }
+            ],
+            tracks: [
+                {
+                    id: 'trk-behind',
+                    name: 'Backdrop FX',
+                    layer: 'behind',
+                    visible: true,
+                    clips: [
+                        {
+                            id: 'c-scroll',
+                            elementType: 'image',
+                            timingMode: 'timecode',
+                            startSec: 0,
+                            durationSec: 10,
+                            x: 10,
+                            y: 10,
+                            width: 30,
+                            height: 30,
+                            clipScrollPath: 'bottom-to-top',
+                            clipScrollSpeed: 1,
+                            kenBurns: 'scroll-left',
+                            motionSpeed: 2,
+                            motionTile: true
+                        }
+                    ]
+                }
+            ]
+        });
+
+        const blk = proj.blocks[0];
+        assert.equal(blk.mediaFit, 'contain-blur');
+        assert.equal(blk.mediaAutoplay, false);
+        assert.equal(blk.mediaLoop, false);
+        assert.equal(blk.mediaMuted, false);
+        assert.equal(blk.mediaVolume, 70);
+        assert.equal(blk.mediaStartSec, 4.5);
+        assert.equal(blk.mediaRate, 1.5);
+        assert.equal(blk.style.maxWidth, 760);
+        assert.equal(blk.style.bgPadding, 36);
+        assert.equal(blk.style.uppercase, false);
+        assert.equal(blk.edgeAttachment.enabled, true);
+        assert.equal(blk.edgeAttachment.anchor, 'hanging-top-right');
+
+        const solved = engine.solveTimeline(proj);
+        const f0 = engine.evaluateFrame(0, solved, proj);
+        const f5 = engine.evaluateFrame(5, solved, proj);
+        assert.ok(f5.bgMotion.tileY < f0.bgMotion.tileY, 'scroll-up tiled background advances negative Y');
+        assert.ok(f5.activeClips[0].translateY < f0.activeClips[0].translateY, 'bottom-to-top clip path scrolls upward');
+        assert.ok(f5.activeClips[0].tileX < f0.activeClips[0].tileX, 'scroll-left tiled clip advances negative X');
+
+        const t0 = engine.evaluateEdgeAttachmentTransform(blk.edgeAttachment, 0);
+        const t1 = engine.evaluateEdgeAttachmentTransform(blk.edgeAttachment, 0.5);
+        assert.notEqual(t0, t1, 'hanging mascot animates deterministically across timestamps');
+    });
+
+    it('renders Starfield animated pattern background with visible stars and frame-to-frame motion in Puppeteer', async () => {
+        service.upsertProject({
+            id: 'starfield-qa',
+            name: 'Starfield QA',
+            canvas: { preset: '720p', width: 640, height: 360, fps: 30 },
+            background: {
+                type: 'pattern',
+                color1: '#050712FF',
+                patternPreset: 'starfield',
+                patternPalette: 'galaxy',
+                patternMotion: 'drift',
+                patternSpeed: 1.5,
+                patternDensity: 1,
+                patternOpacity: 0.95
+            },
+            blocks: [
+                {
+                    id: 'sf-b1',
+                    type: 'featured',
+                    presentation: 'card',
+                    title: 'STARFIELD QA',
+                    duration: 4,
+                    style: { maxWidth: 420, bgColor: '#0F172AFF', bgOpacity: 0.7, bgRadius: 16, borderStyle: 'solid', borderWidth: 2 },
+                    edgeAttachment: { enabled: true, mediaKind: 'icon', iconClass: 'fa-solid fa-star', anchor: 'hanging-top-right', anim: 'hang-swing', size: 64 }
+                }
+            ]
+        });
+
+        const puppeteer = require('puppeteer');
+        const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+        try {
+            const page = await browser.newPage();
+            await page.setViewport({ width: 640, height: 360, deviceScaleFactor: 1 });
+            await page.goto(`http://127.0.0.1:${port}/overlays/credit-suite.html?project=starfield-qa&export=1`, { waitUntil: 'networkidle0' });
+            await page.waitForFunction(() => Boolean(window.__creditSuiteReady), { timeout: 10000 });
+
+            const metrics = await page.evaluate(async () => {
+                const sampleCanvas = () => {
+                    const c = document.querySelector('.cs-bg-pattern canvas');
+                    if (!c) return { ok: false, nonZero: 0, hash: 0 };
+                    const ctx = c.getContext('2d');
+                    const data = ctx.getImageData(0, 0, c.width, c.height).data;
+                    let nonZero = 0;
+                    let hash = 0;
+                    for (let i = 3; i < data.length; i += 4) {
+                        if (data[i] > 15) {
+                            nonZero++;
+                            hash = (hash + ((i * 31 + data[i]) & 0xffff)) & 0xfffffff;
+                        }
+                    }
+                    return { ok: true, nonZero, hash, w: c.width, h: c.height };
+                };
+                await window.__creditSuiteSeek(0.2);
+                const s0 = sampleCanvas();
+                await window.__creditSuiteSeek(2.2);
+                const s1 = sampleCanvas();
+                const mascot = document.querySelector('.cs-edge-mascot');
+                return { s0, s1, hasMascot: Boolean(mascot), mascotTransform: mascot?.style.transform || '' };
+            });
+
+            assert.equal(metrics.s0.ok, true, 'starfield canvas should exist');
+            assert.ok(metrics.s0.nonZero > 250, `starfield should draw hundreds of bright star pixels (got ${metrics.s0.nonZero})`);
+            assert.notEqual(metrics.s0.hash, metrics.s1.hash, 'starfield pixels must animate between t=0.2s and t=2.2s');
+            assert.equal(metrics.hasMascot, true, 'section edge mascot should render inside block');
+            assert.match(metrics.mascotTransform, /translate3d/);
+        } finally {
+            await browser.close();
+        }
+    });
 });
