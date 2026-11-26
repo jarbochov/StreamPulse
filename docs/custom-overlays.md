@@ -162,7 +162,7 @@ The **Style** tab in Custom Overlay Studio places each layer's element-specific 
 
 - **Element Style Presets**: Start from built-in looks (*Glass Card*, *Neon Tube*, *Esports Chamfer*, *Mecha Tech HUD*, *Royal Filigree*, *Broadcast Pill*, *Gold Plaque*, *Hazard Caution*, *Cyber Brackets*, *Metallic Wave*) or save your own custom presets right from the **Style** inspector.
 - **Shadow Quick-Chips, 3-Stop Gradients & Per-Corner Radii**: Clean 2-stop gradients with an optional middle stop, instant Shadow preset chips (*None*, *Subtle*, *Elevated*, *Glow*), and independent per-corner radiuses on cards and frames.
-- **Composable Standout Borders & Text Animations**: Combine 31 border styles with gradients and 10 border animations, plus pure-motion text animations (Whole Block, Per Word, or Per Character including Typewriter and Cipher Decode).
+- **Composable Standout Borders & Text Animations**: Combine 31 border styles with gradients and 17 border animations, plus pure-motion text animations (Whole Block, Per Word, or Per Character including Typewriter and Cipher Decode).
 
 ## Embedded Host & Developer Tools
 

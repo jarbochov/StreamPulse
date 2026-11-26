@@ -560,21 +560,28 @@ var StreamPulseBorderCatalog = (() => {
           options: [
             { id: "rotating", label: "Rotating beam (spotlight)", code: 1 },
             { id: "dual-beam", label: "Twin chasing beams", code: 2 },
+            { id: "corner-sparks", label: "Four-corner chase", code: 16 },
             { id: "laser-scan", label: "Laser scanner sweep", code: 3 },
-            { id: "plasma", label: "Electric plasma arc", code: 4 }
+            { id: "shimmer-glint", label: "Shimmer / metallic glint", code: 12 },
+            { id: "plasma", label: "Electric plasma arc", code: 4 },
+            { id: "glitch-split", label: "Glitch / RGB split", code: 17 }
           ]
         },
         {
-          label: "Glow & Pulse",
+          label: "Glow, Pulse & Sparkle",
           options: [
             { id: "radial", label: "Radial rotating (sweeping glow)", code: 5 },
             { id: "pulsing", label: "Pulsing glow (breathing)", code: 6 },
-            { id: "strobe-flash", label: "Energy surge (double flash)", code: 7 }
+            { id: "heartbeat", label: "Heartbeat (double pulse)", code: 15 },
+            { id: "neon-flicker", label: "Neon flicker (tube hum)", code: 14 },
+            { id: "strobe-flash", label: "Energy surge (double flash)", code: 7 },
+            { id: "sparkle-twinkle", label: "Sparkle / twinkle glints", code: 13 }
           ]
         },
         {
           label: "Color & Perimeter",
           options: [
+            { id: "palette-flow", label: "Palette flow (scroll palette)", code: 11 },
             { id: "gradient", label: "Gradient sweep (flowing)", code: 8 },
             { id: "rainbow", label: "Rainbow cycle (RGB chroma)", code: 9 },
             { id: "marching", label: "Marching ants (perimeter chase)", code: 10 }
@@ -665,9 +672,16 @@ var StreamPulseBorderCatalog = (() => {
         }
         let iconOverhang = 0;
         if (profile.icons?.enabled) {
-          const iconSize = clampFinite(profile.icons?.size, 28, 8, 120);
+          const baseIconSize = clampFinite(profile.icons?.size, 28, 8, 120);
+          const cornerScale = profile.icons?.layout && profile.icons.layout !== "perimeter" ? clampFinite(profile.icons?.cornerScale, 1, 0.5, 2) : 1;
+          const iconSize = Math.max(baseIconSize, baseIconSize * cornerScale);
           const iconOff = clampFinite(profile.icons?.offset, 0, -40, 80);
-          iconOverhang = Math.max(0, Math.ceil(iconSize * 0.55 + Math.max(0, iconOff) - inT * 0.5 + 2));
+          const bobExtra = profile.icons?.motion === "bob" ? iconSize * 0.24 : 0;
+          if (!innerOn && placement === "outside") {
+            iconOverhang = Math.max(0, Math.ceil(iconSize * 1.24 + Math.max(0, iconOff) + bobExtra + 2));
+          } else {
+            iconOverhang = Math.max(0, Math.ceil(iconSize * 0.72 + Math.max(0, iconOff) + bobExtra - inT * 0.5 + 2));
+          }
         }
         const minSafeBleed = inT > 0 || outT > 0 || glowBleed > 0 || shadowBleed > 0 || iconOverhang > 0 ? 2 : 0;
         const totalBleed = Math.ceil(outerBorderReach + Math.max(finialOverhang, iconOverhang, glowBleed, shadowBleed) + extraPad + minSafeBleed);

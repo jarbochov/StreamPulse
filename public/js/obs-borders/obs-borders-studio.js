@@ -206,9 +206,62 @@
             if (opt.value !== 'inset') opt.disabled = isInside;
         });
 
+        // Auto-migrate & disable "Match Primary Border" when Primary Border is OFF
+        const copyPrimaryPalTo = (targetLayer, maxStops) => {
+            if (!targetLayer || !p.inner) return;
+            targetLayer.palette = p.inner.palette || 'neon';
+            if (Array.isArray(p.inner.paletteColors) && p.inner.paletteColors.length >= 2) {
+                targetLayer.paletteColors = p.inner.paletteColors.slice(0, maxStops);
+            }
+            targetLayer.gradientMode = p.inner.gradientMode || 'smooth';
+            targetLayer.gradientSpread = p.inner.gradientSpread ?? 1;
+        };
+        const outerInheritOpt = document.querySelector('#ob-outer-pal-mode option[value="inherit"]');
+        if (outerInheritOpt) outerInheritOpt.disabled = !innerOn;
+        if (!innerOn && p.outer?.paletteMode === 'inherit') {
+            p.outer.paletteMode = 'palette';
+            copyPrimaryPalTo(p.outer, 4);
+            const sel = document.getElementById('ob-outer-pal-mode');
+            if (sel) sel.value = 'palette';
+            const pSel = document.getElementById('ob-outer-pal-preset');
+            if (pSel) pSel.value = p.outer.palette;
+            renderPaletteStops('outer', 4);
+        }
+        const glowInheritOpt = document.querySelector('#ob-glow-pal-mode option[value="inherit"]');
+        if (glowInheritOpt) glowInheritOpt.disabled = !innerOn;
+        if (!innerOn && p.glow?.paletteMode === 'inherit') {
+            p.glow.paletteMode = 'palette';
+            copyPrimaryPalTo(p.glow, 4);
+            const sel = document.getElementById('ob-glow-pal-mode');
+            if (sel) sel.value = 'palette';
+            const pSel = document.getElementById('ob-glow-pal-preset');
+            if (pSel) pSel.value = p.glow.palette;
+            renderPaletteStops('glow', 4);
+        }
+        const iconsInheritOpt = document.querySelector('#ob-icons-color-mode option[value="palette"]');
+        if (iconsInheritOpt) iconsInheritOpt.disabled = !innerOn;
+        if (!innerOn && p.icons?.colorMode === 'palette') {
+            p.icons.colorMode = 'custom-palette';
+            copyPrimaryPalTo(p.icons, 8);
+            const sel = document.getElementById('ob-icons-color-mode');
+            if (sel) sel.value = 'custom-palette';
+            const pSel = document.getElementById('ob-icons-pal-preset');
+            if (pSel) pSel.value = p.icons.palette;
+            renderPaletteStops('icons', 8);
+        }
+
+        const punchoutOpt = document.querySelector('#ob-icons-blend option[value="punchout"]');
+        if (punchoutOpt) punchoutOpt.disabled = !innerOn && !outerOn;
+        if (!innerOn && !outerOn && p.icons?.blendMode === 'punchout') {
+            p.icons.blendMode = 'normal';
+            const bSel = document.getElementById('ob-icons-blend');
+            if (bSel) bSel.value = 'normal';
+        }
+
         const inPalOn = p.inner?.paletteMode === 'palette';
         const outPalMode = p.outer?.paletteMode || 'two-color';
         const glPalMode = p.glow?.paletteMode || 'solid';
+        const icColorMode = p.icons?.colorMode || 'per-icon';
 
         const inTwoCol = document.getElementById('ob-inner-twocolor-wrap');
         if (inTwoCol) inTwoCol.hidden = inPalOn;
@@ -243,10 +296,74 @@
         const glOptsWrap = document.getElementById('ob-glow-pal-opts-wrap');
         if (glOptsWrap) glOptsWrap.hidden = glPalMode !== 'palette';
 
+        const icPalOn = icColorMode === 'custom-palette';
+        const icPresetWrap = document.getElementById('ob-icons-pal-preset-wrap');
+        if (icPresetWrap) icPresetWrap.hidden = !icPalOn;
+        const icStopsWrap = document.getElementById('ob-icons-pal-stops-wrap');
+        if (icStopsWrap) icStopsWrap.hidden = !(icPalOn && p.icons?.palette === 'custom');
+        const icSpreadField = document.getElementById('ob-icons-spread-field');
+        const icGradMode = p.icons?.gradientMode || 'smooth';
+        if (icSpreadField) icSpreadField.hidden = icGradMode === 'per-icon-order' || icGradMode === 'per-icon-random';
+        document.querySelectorAll('#ob-icons-list input[data-icon-color]').forEach(el => {
+            el.hidden = icColorMode !== 'per-icon';
+        });
+
+        const icLayout = p.icons?.layout || 'perimeter';
+        const icSpacingField = document.getElementById('ob-icons-spacing-field');
+        if (icSpacingField) icSpacingField.hidden = icLayout === 'corners';
+        const icSpeedField = document.getElementById('ob-icons-speed-field');
+        if (icSpeedField) icSpeedField.hidden = icLayout === 'corners';
+        const icCornerWrap = document.getElementById('ob-icons-corner-wrap');
+        if (icCornerWrap) icCornerWrap.hidden = icLayout === 'perimeter';
+        const icCornerMotionWrap = document.getElementById('ob-icons-corner-motion-wrap');
+        if (icCornerMotionWrap) icCornerMotionWrap.hidden = icLayout === 'perimeter';
+        const icCornerTuckWrap = document.getElementById('ob-icons-corner-tuck-wrap');
+        if (icCornerTuckWrap) icCornerTuckWrap.hidden = icLayout !== 'corners-edges';
+        const icFollowEdgeWrap = document.getElementById('ob-icons-follow-edge')?.closest('label');
+        if (icFollowEdgeWrap) icFollowEdgeWrap.hidden = icLayout === 'corners';
+        const icMotionSect = document.getElementById('ob-sect-icon-motion');
+        if (icMotionSect) icMotionSect.hidden = !Boolean(p.icons?.enabled);
+        const icMotion = p.icons?.motion || 'none';
+        const icMotionParams = document.getElementById('ob-icons-motion-params');
+        if (icMotionParams) icMotionParams.hidden = icMotion === 'none';
+        const icMotionAmtField = document.getElementById('ob-icons-motion-amt-field');
+        if (icMotionAmtField) icMotionAmtField.hidden = icMotion === 'spin';
+
         const animSpeed = document.getElementById('ob-anim-speed-wrap');
         const animParams = document.getElementById('ob-anim-params-wrap');
         if (animSpeed) animSpeed.hidden = !animOn;
         if (animParams) animParams.hidden = !animOn;
+        const animCode = ANIM_CODE_MAP[normalizeAnimAlias(p.animation?.type || 'none')] || 0;
+        const animC2Field = document.getElementById('ob-anim-c2-field');
+        if (animC2Field) animC2Field.hidden = [6, 9, 11, 14, 15, 17, 18, 19].includes(animCode);
+        const animSizeField = document.getElementById('ob-anim-size-field');
+        if (animSizeField) animSizeField.hidden = animCode === 11;
+        const animDirField = document.getElementById('ob-anim-dir-field');
+        if (animDirField) animDirField.hidden = [6, 7, 13, 14, 15, 17, 18].includes(animCode);
+        const animSizeLabel = document.querySelector('label[for="ob-anim-size"]');
+        if (animSizeLabel) {
+            const sizeLabels = {
+                1: 'Beam Arc (%)',
+                2: 'Beam Arc (%)',
+                3: 'Laser Width (%)',
+                4: 'Wave Intensity (%)',
+                5: 'Beam Arc (%)',
+                6: 'Pulse Depth (%)',
+                7: 'Flash Intensity (%)',
+                8: 'Wave Intensity (%)',
+                9: 'Rainbow Blend (%)',
+                10: 'Dash Scale (%)',
+                12: 'Glint Width (%)',
+                13: 'Sparkle Density (%)',
+                14: 'Flicker Depth (%)',
+                15: 'Pulse Depth (%)',
+                16: 'Beam Arc (%)',
+                17: 'Glitch Intensity (%)',
+                18: 'Wobble Angle (%)',
+                19: 'Bounce Amount (%)'
+            };
+            animSizeLabel.textContent = sizeLabels[animCode] || 'Beam Arc (%)';
+        }
     }
 
     function isWorkingProfileDirty() {
@@ -455,8 +572,22 @@
         p.icons.speed = Number(document.getElementById('ob-icons-speed')?.value) || 0;
         p.icons.opacity = Number(document.getElementById('ob-icons-opacity')?.value ?? 1);
         p.icons.colorMode = document.getElementById('ob-icons-color-mode')?.value || 'per-icon';
+        p.icons.palette = document.getElementById('ob-icons-pal-preset')?.value || p.icons.palette || 'neon';
+        p.icons.gradientMode = document.getElementById('ob-icons-grad-mode')?.value || 'smooth';
+        p.icons.gradientSpread = Number(document.getElementById('ob-icons-spread')?.value) || 1;
         p.icons.blendMode = document.getElementById('ob-icons-blend')?.value || 'normal';
+        p.icons.layout = document.getElementById('ob-icons-layout')?.value || 'perimeter';
+        p.icons.cornerScale = Number(document.getElementById('ob-icons-corner-scale')?.value) || 1;
+        p.icons.cornerOrient = document.getElementById('ob-icons-corner-orient')?.value || 'upright';
+        p.icons.cornerRotation = Number(document.getElementById('ob-icons-corner-rot')?.value) || 0;
+        p.icons.cornerMotion = document.getElementById('ob-icons-corner-motion')?.value || 'synced';
+        p.icons.cornerTuck = document.getElementById('ob-icons-corner-tuck')?.checked !== false;
+        p.icons.desaturate = Boolean(document.getElementById('ob-icons-desaturate')?.checked);
+        p.icons.motion = document.getElementById('ob-icons-motion')?.value || 'none';
+        p.icons.motionSpeed = Number(document.getElementById('ob-icons-motion-speed')?.value) || 2.5;
+        p.icons.motionAmount = Number(document.getElementById('ob-icons-motion-amount')?.value) || 40;
         p.icons.followEdge = Boolean(document.getElementById('ob-icons-follow-edge')?.checked);
+        p.icons.applyBorderAnim = document.getElementById('ob-icons-apply-anim')?.checked !== false;
         p.glow.neon = Boolean(document.getElementById('ob-glow-neon')?.checked);
         p.glow.inner = Boolean(document.getElementById('ob-glow-inner')?.checked);
 
@@ -639,8 +770,28 @@
         setSel('ob-icons-opacity', ic.opacity ?? 1);
         if (document.getElementById('ob-icons-opacity-val')) document.getElementById('ob-icons-opacity-val').textContent = String(Math.round((ic.opacity ?? 1) * 100));
         setSel('ob-icons-color-mode', ic.colorMode || 'per-icon');
+        setSel('ob-icons-pal-preset', ic.palette || 'neon');
+        setSel('ob-icons-grad-mode', ic.gradientMode || 'smooth');
+        setSel('ob-icons-spread', ic.gradientSpread ?? 1);
+        if (document.getElementById('ob-icons-spread-val')) document.getElementById('ob-icons-spread-val').textContent = Number(ic.gradientSpread ?? 1).toFixed(2).replace(/\.00$/, '.0');
         setSel('ob-icons-blend', ic.blendMode || 'normal');
+        setSel('ob-icons-layout', ic.layout || 'perimeter');
+        setSel('ob-icons-corner-scale', ic.cornerScale ?? 1);
+        if (document.getElementById('ob-icons-corner-scale-val')) document.getElementById('ob-icons-corner-scale-val').textContent = Number(ic.cornerScale ?? 1).toFixed(2).replace(/\.00$/, '.0');
+        setSel('ob-icons-corner-orient', ic.cornerOrient || 'upright');
+        setSel('ob-icons-corner-rot', ic.cornerRotation ?? 0);
+        if (document.getElementById('ob-icons-corner-rot-val')) document.getElementById('ob-icons-corner-rot-val').textContent = String(ic.cornerRotation ?? 0);
+        setSel('ob-icons-corner-motion', ic.cornerMotion || 'synced');
+        if (document.getElementById('ob-icons-corner-tuck')) document.getElementById('ob-icons-corner-tuck').checked = ic.cornerTuck !== false;
+        if (document.getElementById('ob-icons-desaturate')) document.getElementById('ob-icons-desaturate').checked = Boolean(ic.desaturate);
+        setSel('ob-icons-motion', ic.motion || 'none');
+        setSel('ob-icons-motion-speed', ic.motionSpeed ?? 2.5);
+        if (document.getElementById('ob-icons-motion-speed-val')) document.getElementById('ob-icons-motion-speed-val').textContent = String(ic.motionSpeed ?? 2.5);
+        setSel('ob-icons-motion-amount', ic.motionAmount ?? 40);
+        if (document.getElementById('ob-icons-motion-amount-val')) document.getElementById('ob-icons-motion-amount-val').textContent = String(ic.motionAmount ?? 40);
         if (document.getElementById('ob-icons-follow-edge')) document.getElementById('ob-icons-follow-edge').checked = ic.followEdge !== false;
+        if (document.getElementById('ob-icons-apply-anim')) document.getElementById('ob-icons-apply-anim').checked = ic.applyBorderAnim !== false;
+        renderPaletteStops('icons', 8);
         renderIconSequenceList();
         if (ic.enabled) rebuildBorderIconAtlas(false);
         setControlValue('ob-glow-neon', Boolean(p.glow?.neon), false);
@@ -1405,7 +1556,25 @@
         uniform float icons_follow_edge;
         uniform float icons_speed;
         uniform float icons_color_mode;
+        uniform float icons_pal_count;
+        uniform float icons_grad_stepped;
+        uniform float icons_grad_spread;
         uniform float icons_blend;
+        uniform float icons_layout;
+        uniform float icons_corner_scale;
+        uniform float icons_corner_orient;
+        uniform float icons_corner_rot_rad;
+        uniform float icons_corner_motion;
+        uniform float icons_corner_tuck;
+        uniform float icons_desaturate;
+        uniform vec4 icons_corner_slots;
+        uniform vec4 icons_edge_slots0;
+        uniform vec4 icons_edge_slots1;
+        uniform float icons_edge_count;
+        uniform float icons_motion;
+        uniform float icons_motion_speed;
+        uniform float icons_motion_amount;
+        uniform float icons_apply_anim;
         uniform float icons_opacity;
         uniform vec4 icon_col0;
         uniform vec4 icon_col1;
@@ -1531,48 +1700,103 @@
             float base_a = base_col.a;
             vec3 anim_rgb = base_col.rgb;
             float anim_a = base_a;
+            float accent_a = clamp(a_color2.a, 0.0, 1.0);
+            float size_norm = clamp(a_size / 100.0, 0.05, 1.0);
 
             if (a_type < 1.5 || (a_type > 4.5 && a_type < 5.5)) {
                 float arc = clamp(a_size / 100.0, 0.08, 1.0);
                 float d = abs(fract(norm_ang - phase / 6.2831853 + 0.5) - 0.5);
                 float beam = smoothstep(arc * 0.5, 0.0, d);
-                anim_rgb = mix(base_col.rgb, a_color2.rgb, beam);
+                anim_rgb = mix(base_col.rgb, a_color2.rgb, beam * accent_a);
             } else if (a_type < 2.5) {
                 float arc = clamp(a_size / 100.0, 0.08, 0.8);
                 float offset = phase / 6.2831853;
                 float d1 = abs(fract(norm_ang - offset + 0.5) - 0.5);
                 float d2 = abs(fract(norm_ang - offset) - 0.5);
                 float beam = max(smoothstep(arc * 0.4, 0.0, d1), smoothstep(arc * 0.4, 0.0, d2));
-                anim_rgb = mix(base_col.rgb, a_color2.rgb, beam);
+                anim_rgb = mix(base_col.rgb, a_color2.rgb, beam * accent_a);
             } else if (a_type < 3.5) {
                 vec2 norm_p = p / max(half_base, vec2(1.0, 1.0));
                 float sweep_pos = fract(cyc_raw * dir_sign) * 3.2 - 1.6;
                 float laser_d = (norm_p.x + norm_p.y * 0.7) - sweep_pos;
-                float laser = exp(-laser_d * laser_d * 18.0);
-                anim_rgb = mix(base_col.rgb, a_color2.rgb, clamp(laser * 0.92, 0.0, 1.0));
+                float sharpness = mix(42.0, 4.0, size_norm);
+                float laser = exp(-laser_d * laser_d * sharpness);
+                anim_rgb = mix(base_col.rgb, a_color2.rgb, clamp(laser * 0.92, 0.0, 1.0) * accent_a);
             } else if (a_type < 4.5) {
                 float wave = 0.5 + 0.5 * sin(norm_ang * 18.8495 + phase * 2.0) * cos(norm_ang * 12.566 - phase * 1.4);
-                anim_rgb = mix(base_col.rgb, a_color2.rgb, wave * 0.78);
+                anim_rgb = mix(base_col.rgb, a_color2.rgb, wave * size_norm * accent_a);
             } else if (a_type < 6.5) {
-                float pulse = 0.55 + 0.45 * sin(phase);
-                anim_rgb = base_col.rgb * (0.78 + 0.35 * pulse);
+                float wave01 = 0.5 + 0.5 * sin(phase);
+                float pulse = mix(1.0 - size_norm, 1.0, wave01);
+                anim_rgb = base_col.rgb * mix(1.0 - size_norm * 0.25, 1.0 + size_norm * 0.15, wave01);
                 anim_a = base_a * pulse;
             } else if (a_type < 7.5) {
                 float f = fract(cyc_raw);
                 float surge = (f < 0.10 || (f > 0.18 && f < 0.28)) ? 1.0 : 0.0;
-                anim_rgb = mix(base_col.rgb, a_color2.rgb, surge * 0.9);
+                anim_rgb = mix(base_col.rgb, a_color2.rgb, surge * size_norm * accent_a);
             } else if (a_type < 8.5) {
                 float cyc = 0.5 + 0.5 * sin(norm_ang * 6.2831853 + phase);
-                anim_rgb = mix(base_col.rgb, a_color2.rgb, cyc * 0.8);
+                anim_rgb = mix(base_col.rgb, a_color2.rgb, cyc * size_norm * accent_a);
             } else if (a_type < 9.5) {
                 vec4 rb = hslRainbow(norm_ang + phase / 6.2831853);
                 float lum = dot(base_col.rgb, vec3(0.299, 0.587, 0.114));
-                anim_rgb = rb.rgb * mix(0.55, 1.15, clamp(lum, 0.0, 1.0));
-            } else {
-                float coord = clockwisePerimDist(p, half_base) / 28.0;
+                vec3 rb_lit = rb.rgb * mix(0.55, 1.15, clamp(lum, 0.0, 1.0));
+                anim_rgb = mix(base_col.rgb, rb_lit, size_norm);
+            } else if (a_type < 10.5) {
+                float dash_pitch = mix(14.0, 56.0, size_norm);
+                float coord = clockwisePerimDist(p, half_base) / dash_pitch;
                 float dash = step(0.5, fract(coord - cyc_raw * 6.0 * dir_sign));
-                anim_rgb = mix(base_col.rgb * 0.3, a_color2.rgb, dash);
+                anim_rgb = mix(base_col.rgb * 0.3, a_color2.rgb, dash * accent_a);
                 anim_a = base_a * (0.25 + 0.75 * dash);
+            } else if (a_type < 11.5) {
+                return base_col;
+            } else if (a_type < 12.5) {
+                vec2 norm_p = p / max(half_base, vec2(1.0, 1.0));
+                float cyc = fract(cyc_raw);
+                float sweep = ((dir_sign < 0.0) ? (1.0 - cyc / 0.42) : (cyc / 0.42)) * 3.4 - 1.7;
+                float d = (norm_p.x + norm_p.y * 0.65) - sweep;
+                float sharp = mix(60.0, 8.0, size_norm);
+                float glint = (cyc < 0.44) ? exp(-d * d * sharp) : 0.0;
+                anim_rgb = mix(base_col.rgb, a_color2.rgb, clamp(glint * 0.95, 0.0, 1.0) * accent_a);
+            } else if (a_type < 13.5) {
+                float cell_w = mix(42.0, 12.0, size_norm);
+                float perim = clockwisePerimDist(p, half_base);
+                float id = floor(perim / cell_w);
+                float local = abs(fract(perim / cell_w) - 0.5) * 2.0;
+                float rnd = fract(sin(id * 127.1 + 311.7) * 43758.5453);
+                float tw = pow(max(0.0, sin((cyc_raw + rnd) * 6.2831853)), 6.0);
+                float spk = smoothstep(0.65, 0.0, local) * tw;
+                anim_rgb = mix(base_col.rgb, a_color2.rgb, clamp(spk * 1.15, 0.0, 1.0) * accent_a);
+            } else if (a_type < 14.5) {
+                float t = cyc_raw * 6.2831853;
+                float hum = 0.5 + 0.5 * sin(t * 7.0) * sin(t * 17.3 + 1.2);
+                float f = fract(cyc_raw);
+                float dip = ((f > 0.14 && f < 0.17) || (f > 0.19 && f < 0.21) || (f > 0.72 && f < 0.745)) ? 1.0 : 0.0;
+                float flick = 1.0 - size_norm * (dip * 0.85 + hum * 0.15);
+                anim_rgb = base_col.rgb * clamp(flick, 0.15, 1.15);
+                anim_a = base_a * clamp(flick, 0.1, 1.0);
+            } else if (a_type < 15.5) {
+                float f = fract(cyc_raw);
+                float b1 = exp(-pow((f - 0.14) / 0.055, 2.0));
+                float b2 = 0.75 * exp(-pow((f - 0.30) / 0.065, 2.0));
+                float hb = clamp(max(b1, b2), 0.0, 1.0);
+                anim_rgb = base_col.rgb * mix(1.0 - size_norm * 0.2, 1.0 + size_norm * 0.25, hb);
+                anim_a = base_a * mix(1.0 - size_norm, 1.0, hb);
+            } else if (a_type < 16.5) {
+                float arc = clamp(a_size / 100.0, 0.08, 0.9);
+                float d = abs(fract(norm_ang * 4.0 - phase / 6.2831853 + 0.5) - 0.5);
+                float beam = smoothstep(arc * 0.45, 0.0, d);
+                anim_rgb = mix(base_col.rgb, a_color2.rgb, beam * accent_a);
+            } else if (a_type < 17.5) {
+                float f = fract(cyc_raw);
+                float burst = ((f > 0.08 && f < 0.14) || (f > 0.55 && f < 0.59)) ? 1.0 : 0.0;
+                float band = floor(p.y / 14.0);
+                float j = fract(sin(band * 91.7 + floor(a_time * 24.0) * 17.3) * 43758.5453);
+                float split = burst * step(0.45, j) * size_norm;
+                vec3 rgb_shift = vec3(clamp(base_col.r + 0.45, 0.0, 1.0), base_col.g * 0.55, clamp(base_col.b + 0.55, 0.0, 1.0));
+                anim_rgb = mix(base_col.rgb, rgb_shift, split);
+            } else {
+                return base_col;
             }
             return vec4(anim_rgb, clamp(anim_a, 0.0, 1.0));
         }
@@ -1610,19 +1834,26 @@
             return icon_col7;
         }
         float computeGradT(vec2 p, vec2 half_base, float angle_rad, float use_perim) {
+            float flow_off = 0.0;
+            if (anim_type > 10.5 && anim_type < 11.5) {
+                float dur = max(anim_speed, 0.25);
+                float dir_sign = (anim_dir < 0.0) ? -1.0 : 1.0;
+                flow_off = (anim_dir > 1.5) ? (0.5 * sin(anim_time / dur * 6.2831853)) : (anim_time / dur * dir_sign);
+            }
             if (use_perim > 0.5) {
                 float total_p = max(1.0, 4.0 * (half_base.x + half_base.y));
-                return fract(clockwisePerimDist(p, half_base) / total_p);
+                return fract(clockwisePerimDist(p, half_base) / total_p - flow_off);
             }
             vec2 dir = vec2(sin(angle_rad), -cos(angle_rad));
             vec2 norm_p = p / max(half_base, vec2(1.0));
             float max_proj = max(0.001, abs(dir.x) + abs(dir.y));
-            return dot(norm_p, dir) / max_proj * 0.5 + 0.5;
+            float t = dot(norm_p, dir) / max_proj * 0.5 + 0.5;
+            return (anim_type > 10.5 && anim_type < 11.5) ? fract(t - flow_off) : t;
         }
         vec4 sampleInnerPalette(float t, float count_f, float stepped, float spread, float use_perim) {
             int cnt = int(clamp(floor(count_f + 0.5), 2.0, 8.0));
             float sp = max(0.05, spread);
-            bool wrap = (use_perim > 0.5) || (sp > 1.001);
+            bool wrap = (use_perim > 0.5) || (sp > 1.001) || (anim_type > 10.5 && anim_type < 11.5);
             float u = wrap ? fract(t * sp) : clamp((t - 0.5) * sp + 0.5, 0.0, 0.99999);
             if (stepped > 0.5) {
                 int idx = int(clamp(floor(u * float(cnt)), 0.0, float(cnt - 1)));
@@ -1641,7 +1872,7 @@
         vec4 sampleOuterPalette(float t, float count_f, float stepped, float spread, float use_perim) {
             int cnt = int(clamp(floor(count_f + 0.5), 2.0, 4.0));
             float sp = max(0.05, spread);
-            bool wrap = (use_perim > 0.5) || (sp > 1.001);
+            bool wrap = (use_perim > 0.5) || (sp > 1.001) || (anim_type > 10.5 && anim_type < 11.5);
             float u = wrap ? fract(t * sp) : clamp((t - 0.5) * sp + 0.5, 0.0, 0.99999);
             if (stepped > 0.5) {
                 int idx = int(clamp(floor(u * float(cnt)), 0.0, float(cnt - 1)));
@@ -1660,7 +1891,7 @@
         vec4 sampleGlowPalette(float t, float count_f, float stepped, float spread, float use_perim) {
             int cnt = int(clamp(floor(count_f + 0.5), 2.0, 4.0));
             float sp = max(0.05, spread);
-            bool wrap = (use_perim > 0.5) || (sp > 1.001);
+            bool wrap = (use_perim > 0.5) || (sp > 1.001) || (anim_type > 10.5 && anim_type < 11.5);
             float u = wrap ? fract(t * sp) : clamp((t - 0.5) * sp + 0.5, 0.0, 0.99999);
             if (stepped > 0.5) {
                 int idx = int(clamp(floor(u * float(cnt)), 0.0, float(cnt - 1)));
@@ -1676,20 +1907,62 @@
             int i0 = int(clamp(floor(sc), 0.0, float(cnt - 2)));
             return mix(pickGlowPal(i0), pickGlowPal(i0 + 1), clamp(sc - float(i0), 0.0, 1.0));
         }
-        vec4 evalIconBorder(vec2 p, vec2 half_base, float d_shape, float center_d) {
-            if (icons_enabled < 0.5 || icons_has_tex < 0.5 || icons_size < 4.0) return vec4(0.0);
-            float ly = (d_shape - (center_d + icons_offset)) / max(icons_size, 1.0);
-            if (abs(ly) > 0.55) return vec4(0.0);
-            float total_p = max(1.0, 4.0 * (half_base.x + half_base.y));
-            float pitch = max(8.0, icons_size + max(0.0, icons_spacing));
-            float cell_cnt = max(4.0, floor(total_p / pitch + 0.5));
-            float adj_pitch = total_p / cell_cnt;
-            float p_dist = clockwisePerimDist(p, half_base);
-            float s = p_dist + anim_time * icons_speed * 80.0;
-            float cell_f = s / adj_pitch;
-            float cell_idx = floor(cell_f);
-            float lx = (fract(cell_f) - 0.5) * adj_pitch / max(icons_size, 1.0);
-            if (abs(lx) > 0.55) return vec4(0.0);
+        vec4 sampleIconPalette(float t, float count_f, float mode_f, float spread, float cell_idx) {
+            int cnt = int(clamp(floor(count_f + 0.5), 2.0, 8.0));
+            if (mode_f > 2.5) {
+                float h = fract(sin(cell_idx * 127.1 + 311.7) * 43758.5453);
+                int idx = int(clamp(floor(h * float(cnt)), 0.0, float(cnt - 1)));
+                return pickIconCol(idx);
+            }
+            if (mode_f > 1.5) {
+                int idx = int(floor(cell_idx - floor(cell_idx / float(cnt)) * float(cnt) + 0.5));
+                return pickIconCol(int(clamp(float(idx), 0.0, float(cnt - 1))));
+            }
+            float sp = max(0.05, spread);
+            float u = fract(t * sp);
+            if (mode_f > 0.5) {
+                int idx = int(clamp(floor(u * float(cnt)), 0.0, float(cnt - 1)));
+                return pickIconCol(idx);
+            }
+            float sc = u * float(cnt);
+            int i0 = int(clamp(floor(sc), 0.0, float(cnt - 1)));
+            int i1 = (i0 + 1 >= cnt) ? 0 : (i0 + 1);
+            return mix(pickIconCol(i0), pickIconCol(i1), fract(sc));
+        }
+        int pickEdgeAtlasSlot(int eidx) {
+            if (eidx == 0) return int(icons_edge_slots0.x + 0.5);
+            if (eidx == 1) return int(icons_edge_slots0.y + 0.5);
+            if (eidx == 2) return int(icons_edge_slots0.z + 0.5);
+            if (eidx == 3) return int(icons_edge_slots0.w + 0.5);
+            if (eidx == 4) return int(icons_edge_slots1.x + 0.5);
+            if (eidx == 5) return int(icons_edge_slots1.y + 0.5);
+            if (eidx == 6) return int(icons_edge_slots1.z + 0.5);
+            return int(icons_edge_slots1.w + 0.5);
+        }
+        int pickCornerAtlasSlot(int cidx) {
+            float raw = icons_corner_slots.x;
+            if (cidx == 1) raw = icons_corner_slots.y;
+            else if (cidx == 2) raw = icons_corner_slots.z;
+            else if (cidx == 3) raw = icons_corner_slots.w;
+            if (raw < -0.5) return -1;
+            return int(raw + 0.5);
+        }
+        vec4 sampleSingleIconCell(
+            vec2 p, vec2 half_base, float d_shape, float center_d,
+            float p_dist, float total_p, float adj_pitch, float cell_idx, float lx_px, float edge_only_slots
+        ) {
+            float lx = lx_px / max(icons_size, 1.0);
+            if (abs(lx) > 0.75) return vec4(0.0);
+
+            float m_dur = max(icons_motion_speed, 0.25);
+            float m_amt = clamp(icons_motion_amount / 100.0, 0.05, 1.0);
+            float m_phase = anim_time / m_dur * 6.2831853;
+            float bob_off = (icons_motion > 3.5 && icons_motion < 4.5)
+                ? (sin(m_phase - cell_idx * 0.85) * icons_size * 0.22 * m_amt)
+                : 0.0;
+
+            float ly = -(d_shape - (center_d + icons_offset + bob_off)) / max(icons_size, 1.0);
+            if (abs(ly) > 0.75) return vec4(0.0);
             float rot = icons_rot_rad;
             if (icons_follow_edge < 0.5) {
                 float hx = max(half_base.x, 1.0);
@@ -1700,24 +1973,193 @@
                     rot += (p.x >= 0.0) ? -1.5707963 : 1.5707963;
                 }
             }
+            if (icons_motion > 0.5 && icons_motion < 1.5) {
+                rot += sin(m_phase + cell_idx * 0.9) * m_amt * 0.65;
+            } else if (icons_motion > 2.5 && icons_motion < 3.5) {
+                rot += m_phase;
+            }
+            float slx = lx;
+            float sly = ly;
+            if (icons_motion > 1.5 && icons_motion < 2.5) {
+                float b_wave = 0.5 + 0.5 * sin(m_phase - cell_idx * 0.75);
+                float b_scale = mix(1.0 - m_amt * 0.45, 1.0, b_wave);
+                slx = lx / max(0.25, b_scale);
+                sly = ly / max(0.25, b_scale);
+            }
             float cr = cos(rot);
             float sr = sin(rot);
-            vec2 ruv = vec2(lx * cr - ly * sr, lx * sr + ly * cr) + vec2(0.5);
+            vec2 ruv = vec2(slx * cr + sly * sr, -slx * sr + sly * cr) + vec2(0.5);
             if (ruv.x < 0.0 || ruv.x > 1.0 || ruv.y < 0.0 || ruv.y > 1.0) return vec4(0.0);
             int cnt = int(clamp(floor(icons_count + 0.5), 1.0, 8.0));
-            int slot = int(floor(mod(cell_idx, float(cnt)) + 0.5));
+            int slot = 0;
+            if (edge_only_slots > 0.5) {
+                int ecnt = int(clamp(floor(icons_edge_count + 0.5), 0.0, 8.0));
+                if (ecnt <= 0) return vec4(0.0);
+                int eidx = int(floor(mod(cell_idx, float(ecnt)) + 0.5));
+                slot = int(clamp(float(pickEdgeAtlasSlot(int(clamp(float(eidx), 0.0, float(ecnt - 1))))), 0.0, float(cnt - 1)));
+            } else {
+                slot = int(floor(mod(cell_idx, float(cnt)) + 0.5));
+                slot = int(clamp(float(slot), 0.0, float(cnt - 1)));
+            }
+            vec2 atlas_uv = vec2((float(slot) + ruv.x) / float(cnt), ruv.y);
+            vec4 samp = texture2D(icon_atlas, atlas_uv);
+            float tw_mult = (icons_motion > 4.5 && icons_motion < 5.5)
+                ? mix(1.0 - m_amt, 1.0, 0.5 + 0.5 * sin(m_phase + fract(sin(cell_idx * 127.1 + 311.7) * 43758.5453) * 6.2831853))
+                : 1.0;
+            float mask_a = samp.a * clamp(icons_opacity, 0.0, 1.0) * tw_mult;
+            if (mask_a <= 0.002) return vec4(0.0);
+            vec4 tint = pickIconCol(slot);
+            if (icons_color_mode > 1.5) {
+                float flow_off = (anim_type > 10.5 && anim_type < 11.5) ? (anim_time / max(anim_speed, 0.25) * ((anim_dir < 0.0) ? -1.0 : 1.0)) : 0.0;
+                float pt = fract(p_dist / total_p - flow_off);
+                tint = sampleIconPalette(pt, icons_pal_count, icons_grad_stepped, icons_grad_spread, cell_idx);
+            } else if (icons_color_mode > 0.5) {
+                float flow_off = (anim_type > 10.5 && anim_type < 11.5) ? (anim_time / max(anim_speed, 0.25) * ((anim_dir < 0.0) ? -1.0 : 1.0)) : 0.0;
+                float pt = fract(p_dist / total_p - flow_off);
+                tint = sampleInnerPalette(pt, inner_pal_count, inner_grad_stepped, inner_grad_spread, 1.0);
+            }
+            vec3 src_rgb = samp.rgb;
+            if (icons_desaturate > 0.5) {
+                float lum = dot(src_rgb, vec3(0.299, 0.587, 0.114));
+                src_rgb = vec3(mix(lum, 1.0, 0.28));
+            }
+            float a = clamp(mask_a * tint.a, 0.0, 1.0);
+            return vec4(src_rgb * tint.rgb * a, a);
+        }
+        vec2 cornerAnchorPoint(vec2 p, vec2 half_base, vec4 corner_radii, float c_off) {
+            float sx = (p.x >= 0.0) ? 1.0 : -1.0;
+            float sy = (p.y >= 0.0) ? 1.0 : -1.0;
+            float r_raw = corner_radii.x;
+            if (sx > 0.0 && sy < 0.0) r_raw = corner_radii.y;
+            else if (sx > 0.0 && sy > 0.0) r_raw = corner_radii.z;
+            else if (sx < 0.0 && sy > 0.0) r_raw = corner_radii.w;
+            float cr_lim = clamp(r_raw, 0.0, min(half_base.x, half_base.y));
+            vec2 arc_c = vec2(sx * (half_base.x - cr_lim), sy * (half_base.y - cr_lim));
+            float eff_r = cr_lim + c_off;
+            return (eff_r > 0.0)
+                ? (arc_c + vec2(sx, sy) * (0.70710678 * eff_r))
+                : vec2(sx * (half_base.x + c_off), sy * (half_base.y + c_off));
+        }
+        vec4 evalCornerIcon(vec2 p, vec2 half_base, vec4 corner_radii, float center_d, float pinned_first_only) {
+            float sx = (p.x >= 0.0) ? 1.0 : -1.0;
+            float sy = (p.y >= 0.0) ? 1.0 : -1.0;
+            int corner_idx = 0;
+            float diag_ang = -0.78539816;
+            if (sx > 0.0 && sy < 0.0) { corner_idx = 1; diag_ang = 0.78539816; }
+            else if (sx > 0.0 && sy > 0.0) { corner_idx = 2; diag_ang = 2.35619449; }
+            else if (sx < 0.0 && sy > 0.0) { corner_idx = 3; diag_ang = -2.35619449; }
+
+            float c_size = max(4.0, icons_size * clamp(icons_corner_scale, 0.5, 2.0));
+            float m_dur = max(icons_motion_speed, 0.25);
+            float m_amt = clamp(icons_motion_amount / 100.0, 0.05, 1.0);
+            float m_phase = anim_time / m_dur * 6.2831853;
+            float c_idx_f = float(corner_idx);
+            bool c_anim_on = icons_corner_motion < 1.5;
+            float c_stagger = (icons_corner_motion > 0.5 && icons_corner_motion < 1.5) ? (c_idx_f * 1.5707963) : 0.0;
+            float bob_off = (c_anim_on && icons_motion > 3.5 && icons_motion < 4.5)
+                ? (sin(m_phase - c_stagger) * c_size * 0.22 * m_amt)
+                : 0.0;
+
+            vec2 anchor = cornerAnchorPoint(p, half_base, corner_radii, center_d + icons_offset + bob_off);
+            vec2 delta = (p - anchor) / c_size;
+            if (abs(delta.x) > 0.75 || abs(delta.y) > 0.75) return vec4(0.0);
+
+            float orient_ang = 0.0;
+            if (icons_corner_orient > 0.5 && icons_corner_orient < 1.5) orient_ang = diag_ang;
+            else if (icons_corner_orient >= 1.5) orient_ang = diag_ang + 3.14159265;
+            float rot = icons_corner_rot_rad + orient_ang;
+            if (c_anim_on && icons_motion > 0.5 && icons_motion < 1.5) {
+                rot += sin(m_phase + c_stagger) * m_amt * 0.65;
+            } else if (c_anim_on && icons_motion > 2.5 && icons_motion < 3.5) {
+                rot += m_phase;
+            }
+            float slx = delta.x;
+            float sly = delta.y;
+            if (c_anim_on && icons_motion > 1.5 && icons_motion < 2.5) {
+                float b_wave = 0.5 + 0.5 * sin(m_phase - c_stagger);
+                float b_scale = mix(1.0 - m_amt * 0.45, 1.0, b_wave);
+                slx = delta.x / max(0.25, b_scale);
+                sly = delta.y / max(0.25, b_scale);
+            }
+            float cr = cos(rot);
+            float sr = sin(rot);
+            vec2 ruv = vec2(slx * cr + sly * sr, -slx * sr + sly * cr) + vec2(0.5);
+            if (ruv.x < 0.0 || ruv.x > 1.0 || ruv.y < 0.0 || ruv.y > 1.0) return vec4(0.0);
+
+            int cnt = int(clamp(floor(icons_count + 0.5), 1.0, 8.0));
+            int slot = (pinned_first_only > 0.5) ? pickCornerAtlasSlot(corner_idx) : int(floor(mod(c_idx_f, float(cnt)) + 0.5));
+            if (slot < 0) return vec4(0.0);
             slot = int(clamp(float(slot), 0.0, float(cnt - 1)));
             vec2 atlas_uv = vec2((float(slot) + ruv.x) / float(cnt), ruv.y);
             vec4 samp = texture2D(icon_atlas, atlas_uv);
-            float mask_a = samp.a * clamp(icons_opacity, 0.0, 1.0);
+            float tw_mult = (c_anim_on && icons_motion > 4.5 && icons_motion < 5.5)
+                ? mix(1.0 - m_amt, 1.0, 0.5 + 0.5 * sin(m_phase + c_stagger))
+                : 1.0;
+            float mask_a = samp.a * clamp(icons_opacity, 0.0, 1.0) * tw_mult;
             if (mask_a <= 0.002) return vec4(0.0);
+
             vec4 tint = pickIconCol(slot);
-            if (icons_color_mode > 0.5) {
-                float pt = fract(p_dist / total_p);
+            if (icons_color_mode > 1.5) {
+                float flow_off = (anim_type > 10.5 && anim_type < 11.5) ? (anim_time / max(anim_speed, 0.25) * ((anim_dir < 0.0) ? -1.0 : 1.0)) : 0.0;
+                float pt = fract(c_idx_f * 0.25 - flow_off);
+                tint = sampleIconPalette(pt, icons_pal_count, icons_grad_stepped, icons_grad_spread, c_idx_f);
+            } else if (icons_color_mode > 0.5) {
+                float flow_off = (anim_type > 10.5 && anim_type < 11.5) ? (anim_time / max(anim_speed, 0.25) * ((anim_dir < 0.0) ? -1.0 : 1.0)) : 0.0;
+                float pt = fract(c_idx_f * 0.25 - flow_off);
                 tint = sampleInnerPalette(pt, inner_pal_count, inner_grad_stepped, inner_grad_spread, 1.0);
             }
+            vec3 src_rgb = samp.rgb;
+            if (icons_desaturate > 0.5) {
+                float lum = dot(src_rgb, vec3(0.299, 0.587, 0.114));
+                src_rgb = vec3(mix(lum, 1.0, 0.28));
+            }
             float a = clamp(mask_a * tint.a, 0.0, 1.0);
-            return vec4(samp.rgb * tint.rgb * a, a);
+            return vec4(src_rgb * tint.rgb * a, a);
+        }
+        vec4 evalIconBorder(vec2 p, vec2 half_base, vec4 corner_radii, float d_shape, float center_d) {
+            if (icons_enabled < 0.5 || icons_has_tex < 0.5 || icons_size < 4.0) return vec4(0.0);
+            if (icons_layout > 0.5 && icons_layout < 1.5) {
+                return evalCornerIcon(p, half_base, corner_radii, center_d, 0.0);
+            }
+            vec4 corner_col = vec4(0.0);
+            float edge_only_slots = 0.0;
+            float edge_fade = 1.0;
+            if (icons_layout >= 1.5) {
+                corner_col = evalCornerIcon(p, half_base, corner_radii, center_d, 1.0);
+                edge_only_slots = 1.0;
+                if (icons_corner_tuck > 0.5) {
+                    vec2 c_anchor = cornerAnchorPoint(p, half_base, corner_radii, center_d + icons_offset);
+                    float c_size = max(4.0, icons_size * clamp(icons_corner_scale, 0.5, 2.0));
+                    float d_corner = length(p - c_anchor);
+                    edge_fade = smoothstep(c_size * 0.42, c_size * 0.88, d_corner);
+                }
+            }
+            float approx_ly = (d_shape - (center_d + icons_offset)) / max(icons_size, 1.0);
+            if (abs(approx_ly) > 1.05 || edge_fade <= 0.002) return corner_col;
+            float total_p = max(1.0, 4.0 * (half_base.x + half_base.y));
+            float pitch = max(max(8.0, icons_size * 0.25), icons_size + icons_spacing);
+            float cell_cnt = max(4.0, floor(total_p / pitch + 0.5));
+            float adj_pitch = total_p / cell_cnt;
+            float p_dist = clockwisePerimDist(p, half_base);
+            float s = p_dist + anim_time * icons_speed * 80.0;
+            float cell_f = s / adj_pitch;
+            float cell_idx = floor(cell_f);
+            float frac_f = fract(cell_f);
+            float lx0_px = (frac_f - 0.5) * adj_pitch;
+            vec4 c_cur = sampleSingleIconCell(p, half_base, d_shape, center_d, p_dist, total_p, adj_pitch, cell_idx, lx0_px, edge_only_slots);
+            float lx_prev = lx0_px + adj_pitch;
+            float lx_next = lx0_px - adj_pitch;
+            vec4 edge_col = vec4(0.0);
+            if (abs(lx_prev) <= icons_size * 0.75) {
+                edge_col = sampleSingleIconCell(p, half_base, d_shape, center_d, p_dist, total_p, adj_pitch, cell_idx - 1.0, lx_prev, edge_only_slots);
+            }
+            edge_col = c_cur + edge_col * (1.0 - c_cur.a);
+            if (abs(lx_next) <= icons_size * 0.75) {
+                vec4 c_next = sampleSingleIconCell(p, half_base, d_shape, center_d, p_dist, total_p, adj_pitch, cell_idx + 1.0, lx_next, edge_only_slots);
+                edge_col = c_next + edge_col * (1.0 - c_next.a);
+            }
+            edge_col *= edge_fade;
+            return corner_col + edge_col * (1.0 - corner_col.a);
         }
 
         vec4 compositeIconOver(vec4 dst, vec4 src, float mode) {
@@ -2262,7 +2704,15 @@
                     float gt = computeGradT(p, half_base, glow_angle_rad, glow_grad_perim);
                     g_col = sampleGlowPalette(gt, glow_pal_count, glow_grad_stepped, glow_grad_spread, glow_grad_perim);
                 }
-                float pulse = (anim_type > 5.5 && anim_type < 6.5) ? (0.65 + 0.35 * sin(anim_time / max(anim_speed, 0.25) * 6.2831853)) : 1.0;
+                float pulse_depth = clamp(anim_size / 100.0, 0.05, 1.0);
+                float pulse = 1.0;
+                if (anim_type > 5.5 && anim_type < 6.5) {
+                    pulse = mix(1.0 - pulse_depth, 1.0, 0.5 + 0.5 * sin(anim_time / max(anim_speed, 0.25) * 6.2831853));
+                } else if (anim_type > 14.5 && anim_type < 15.5) {
+                    float hf = fract(anim_time / max(anim_speed, 0.25));
+                    float hb = clamp(max(exp(-pow((hf - 0.14) / 0.055, 2.0)), 0.75 * exp(-pow((hf - 0.30) / 0.065, 2.0))), 0.0, 1.0);
+                    pulse = mix(1.0 - pulse_depth, 1.0, hb);
+                }
                 if (glow_inner > 0.5 && d_shape < in_start) {
                     float gd_in = max(0.0, in_start - d_shape);
                     float ga = exp(-gd_in / max(glow_blur * 0.45, 1.0)) * 0.65 * pulse;
@@ -2289,12 +2739,25 @@
             if (glow_inner > 0.5) result = glow_pm + result * (1.0 - glow_pm.a * 0.35);
             else result = result + glow_pm * (1.0 - result.a);
             result = result + shadow_pm * (1.0 - clamp(result.a, 0.0, 1.0));
+            vec4 icon_pm = vec4(0.0);
             if (icons_enabled > 0.5 && icons_has_tex > 0.5) {
-                float icon_center_d = (inner_enabled > 0.5 && total_inner > 0.0) ? (in_start + total_inner * 0.5) : shift;
-                vec4 icon_pm = evalIconBorder(p, half_base, d_shape, icon_center_d);
-                border_pm = compositeIconOver(border_pm, icon_pm, icons_blend);
+                float icon_only_d = (placement_code < 0.5) ? (icons_size * 0.5) : ((placement_code < 1.5) ? 0.0 : (-icons_size * 0.5));
+                float icon_center_d = (inner_enabled > 0.5 && total_inner > 0.0) ? (in_start + total_inner * 0.5) : icon_only_d;
+                icon_pm = evalIconBorder(p, half_base, radii, d_shape, icon_center_d);
+                if (icons_apply_anim > 0.5 && anim_type > 0.5 && icon_pm.a > 0.001 && icons_blend < 5.5) {
+                    vec4 icon_col = vec4(icon_pm.rgb / icon_pm.a, icon_pm.a);
+                    icon_col = applyBorderAnimOverlay(icon_col, p, half_base, anim_type, anim_time, anim_speed, anim_size, anim_dir, anim_color2);
+                    float ia = clamp(icon_col.a, 0.0, 1.0);
+                    icon_pm = vec4(icon_col.rgb * ia, ia);
+                }
+                if (icons_blend > 5.5) {
+                    border_pm = compositeIconOver(border_pm, icon_pm, icons_blend);
+                }
             }
             result = border_pm + result * (1.0 - border_pm.a);
+            if (icon_pm.a > 0.001 && icons_blend <= 5.5) {
+                result = compositeIconOver(result, icon_pm, icons_blend);
+            }
 
             if (show_guides > 0.5) {
                 float d_rect = max(abs(p.x) - half_base.x, abs(p.y) - half_base.y);
@@ -2431,7 +2894,7 @@
             'glow_pal_mode', 'glow_pal_count', 'glow_grad_stepped', 'glow_grad_spread', 'glow_grad_perim', 'glow_angle_rad',
             'glow_pal0', 'glow_pal1', 'glow_pal2', 'glow_pal3',
             'icon_atlas', 'icons_enabled', 'icons_has_tex', 'icons_count', 'icons_size', 'icons_spacing',
-            'icons_offset', 'icons_rot_rad', 'icons_follow_edge', 'icons_speed', 'icons_color_mode', 'icons_blend', 'icons_opacity',
+            'icons_offset', 'icons_rot_rad', 'icons_follow_edge', 'icons_speed', 'icons_color_mode', 'icons_pal_count', 'icons_grad_stepped', 'icons_grad_spread', 'icons_blend', 'icons_layout', 'icons_corner_scale', 'icons_corner_orient', 'icons_corner_rot_rad', 'icons_corner_motion', 'icons_corner_tuck', 'icons_desaturate', 'icons_corner_slots', 'icons_edge_slots0', 'icons_edge_slots1', 'icons_edge_count', 'icons_motion', 'icons_motion_speed', 'icons_motion_amount', 'icons_apply_anim', 'icons_opacity',
             'icon_col0', 'icon_col1', 'icon_col2', 'icon_col3', 'icon_col4', 'icon_col5', 'icon_col6', 'icon_col7',
             'show_guides'
         ];
@@ -2528,6 +2991,7 @@
                 inner: { enabled: Boolean(p.inner?.enabled), style: inStyle, thickness: rawInT, gap: rawInGap },
                 outer: { enabled: Boolean(p.outer?.enabled), style: outStyle, thickness: rawOutT, gap: rawOutGap },
                 glow: { enabled: Boolean(p.glow?.enabled), inner: Boolean(p.glow?.inner), blur: rawGlowBlur },
+                icons: { enabled: Boolean(p.icons?.enabled), size: Number(p.icons?.size ?? 28) || 28, offset: Number(p.icons?.offset ?? 0) || 0, layout: p.icons?.layout || 'perimeter', cornerScale: Number(p.icons?.cornerScale ?? 1) || 1, motion: p.icons?.motion || 'none' },
                 shadow: { enabled: Boolean(p.shadow?.enabled), mode: shMode, offsetX: rawShOffX, offsetY: rawShOffY, blur: rawShBlur, spread: rawShSpread }
             });
         } else if (placementCode !== 2) {
@@ -2663,7 +3127,9 @@
                 : (Array.isArray(layerObj?.paletteColors) && layerObj.paletteColors.length >= 2 ? layerObj.paletteColors : [fallbackC, fallbackC]);
             return srcArr.slice(0, maxN).map(c => hexToRgbaFloats(resolveColor(c, '#FFFFFFFF'), [1, 1, 1, 1]));
         };
-        const inPal = getPalRgba(p.inner, '#FFFFFFFF', 8);
+        const inPal = p.inner?.paletteMode === 'palette'
+            ? getPalRgba(p.inner, '#FFFFFFFF', 8)
+            : [inC1, p.inner?.gradient ? inC2 : inC1];
         gl.uniform1f(u.inner_pal_mode, p.inner?.paletteMode === 'palette' ? 1 : 0);
         gl.uniform1f(u.inner_pal_count, Math.max(2, inPal.length));
         gl.uniform1f(u.inner_grad_stepped, p.inner?.gradientMode === 'stepped' ? 1 : 0);
@@ -2718,14 +3184,73 @@
         gl.uniform1f(u.icons_follow_edge, ic.followEdge !== false ? 1 : 0);
         gl.uniform1f(u.icons_speed, Number(ic.speed ?? 0) || 0);
         const iconBlendMap = { normal: 0, add: 1, screen: 2, multiply: 3, overlay: 4, 'soft-light': 5, punchout: 6 };
-        gl.uniform1f(u.icons_color_mode, ic.colorMode === 'palette' ? 1 : 0);
+        const icGradModeMap = { smooth: 0, stepped: 1, 'per-icon-order': 2, 'per-icon-random': 3 };
+        const icColorModeCode = ic.colorMode === 'custom-palette' ? 2 : (ic.colorMode === 'palette' ? 1 : 0);
+        const icPal = getPalRgba(ic, '#38BDF8FF', 8);
+        gl.uniform1f(u.icons_color_mode, icColorModeCode);
+        gl.uniform1f(u.icons_pal_count, Math.max(2, icPal.length));
+        gl.uniform1f(u.icons_grad_stepped, icGradModeMap[ic.gradientMode] ?? 0);
+        gl.uniform1f(u.icons_grad_spread, Math.max(0.25, Math.min(8, Number(ic.gradientSpread ?? 1) || 1)));
+        const iconMotionMap = { none: 0, wobble: 1, bounce: 2, spin: 3, bob: 4, twinkle: 5 };
+        const iconLayoutMap = { perimeter: 0, corners: 1, 'corners-edges': 2 };
+        const iconCornerOrientMap = { upright: 0, outward: 1, inward: 2 };
+        const iconCornerMotionMap = { synced: 0, staggered: 1, stationary: 2 };
         gl.uniform1f(u.icons_blend, iconBlendMap[ic.blendMode] ?? 0);
+        gl.uniform1f(u.icons_layout, iconLayoutMap[ic.layout] ?? 0);
+        gl.uniform1f(u.icons_corner_scale, Math.max(0.5, Math.min(2, Number(ic.cornerScale ?? 1) || 1)));
+        gl.uniform1f(u.icons_corner_orient, iconCornerOrientMap[ic.cornerOrient] ?? 0);
+        gl.uniform1f(u.icons_corner_rot_rad, (Number(ic.cornerRotation ?? 0) || 0) * Math.PI / 180);
+        gl.uniform1f(u.icons_corner_motion, iconCornerMotionMap[ic.cornerMotion] ?? 0);
+        const resolveRoleSlots = (itemsList, layoutMode) => {
+            const cnt = Math.max(1, Math.min(8, itemsList.length || 1));
+            if (layoutMode === 'corners') {
+                return { c: [0 % cnt, 1 % cnt, 2 % cnt, 3 % cnt], e0: [0, 0, 0, 0], e1: [0, 0, 0, 0], ec: 0 };
+            }
+            if (layoutMode !== 'corners-edges') {
+                return { c: [-1, -1, -1, -1], e0: [0, 1, 2, 3], e1: [4, 5, 6, 7], ec: cnt };
+            }
+            const cIds = [];
+            const eIds = [];
+            for (let i = 0; i < cnt; i++) {
+                const r = itemsList[i]?.role || 'auto';
+                const eff = r === 'auto' ? (i === 0 ? 'corner' : 'edge') : r;
+                if (eff === 'corner') cIds.push(i);
+                else eIds.push(i);
+            }
+            const c = cIds.length > 0
+                ? [cIds[0 % cIds.length], cIds[1 % cIds.length], cIds[2 % cIds.length], cIds[3 % cIds.length]]
+                : [-1, -1, -1, -1];
+            const el = eIds.length > 0 ? eIds : (cnt === 1 ? [0] : []);
+            const f0 = el[0] ?? 0;
+            return {
+                c,
+                e0: [el[0] ?? f0, el[1] ?? f0, el[2] ?? f0, el[3] ?? f0],
+                e1: [el[4] ?? f0, el[5] ?? f0, el[6] ?? f0, el[7] ?? f0],
+                ec: el.length
+            };
+        };
+        const roleSlots = resolveRoleSlots(Array.isArray(ic.items) ? ic.items : [], ic.layout || 'perimeter');
+        gl.uniform1f(u.icons_corner_tuck, ic.cornerTuck !== false ? 1 : 0);
+        gl.uniform1f(u.icons_desaturate, 0);
+        gl.uniform4f(u.icons_corner_slots, roleSlots.c[0], roleSlots.c[1], roleSlots.c[2], roleSlots.c[3]);
+        gl.uniform4f(u.icons_edge_slots0, roleSlots.e0[0], roleSlots.e0[1], roleSlots.e0[2], roleSlots.e0[3]);
+        gl.uniform4f(u.icons_edge_slots1, roleSlots.e1[0], roleSlots.e1[1], roleSlots.e1[2], roleSlots.e1[3]);
+        gl.uniform1f(u.icons_edge_count, roleSlots.ec);
+        gl.uniform1f(u.icons_motion, iconMotionMap[ic.motion] ?? 0);
+        gl.uniform1f(u.icons_motion_speed, Math.max(0.25, Number(ic.motionSpeed ?? 2.5) || 2.5));
+        gl.uniform1f(u.icons_motion_amount, Math.max(5, Math.min(100, Number(ic.motionAmount ?? 40) || 40)));
+        gl.uniform1f(u.icons_apply_anim, ic.applyBorderAnim !== false ? 1 : 0);
         gl.uniform1f(u.icons_opacity, Math.max(0, Math.min(1, Number(ic.opacity ?? 1))));
         const icItems = Array.isArray(ic.items) ? ic.items : [];
         for (let i = 0; i < 8; i++) {
-            const itemCol = icItems[i]?.color || icItems[icItems.length - 1]?.color || '#FACC15FF';
-            const c = hexToRgbaFloats(resolveColor(itemCol, '#FACC15FF'), [1, 0.8, 0.1, 1]);
-            gl.uniform4f(u[`icon_col${i}`], c[0], c[1], c[2], c[3]);
+            if (icColorModeCode === 2) {
+                const c = icPal[i] || icPal[icPal.length - 1] || [0.22, 0.74, 0.97, 1];
+                gl.uniform4f(u[`icon_col${i}`], c[0], c[1], c[2], c[3]);
+            } else {
+                const itemCol = icItems[i]?.color || icItems[icItems.length - 1]?.color || '#FACC15FF';
+                const c = hexToRgbaFloats(resolveColor(itemCol, '#FACC15FF'), [1, 0.8, 0.1, 1]);
+                gl.uniform4f(u[`icon_col${i}`], c[0], c[1], c[2], c[3]);
+            }
         }
 
         gl.uniform1f(u.show_guides, showGuides ? 1 : 0);
@@ -2747,6 +3272,10 @@
         const needsLoop = !previewPaused && workingProfile && (
             normalizeAnimAlias(workingProfile.animation?.type) !== 'none'
             || workingProfile.background?.mode === 'tv-static'
+            || (workingProfile.icons?.enabled && (
+                (workingProfile.icons?.layout !== 'corners' && Math.abs(Number(workingProfile.icons?.speed || 0)) > 0.001)
+                || (workingProfile.icons?.motion && workingProfile.icons.motion !== 'none')
+            ))
         );
         if (needsLoop) {
             lastAnimDrawMs = 0;
@@ -3284,6 +3813,27 @@
             });
         });
 
+        const STAGE_BG_KEY = 'streampulse_obs_borders_stage_bg';
+        let stageBg = 'transparent';
+        try {
+            const savedStage = localStorage.getItem(STAGE_BG_KEY);
+            if (savedStage === 'light' || savedStage === 'dark' || savedStage === 'transparent') stageBg = savedStage;
+        } catch {}
+        const stageEl = document.getElementById('ob-preview-stage');
+        const applyStageBg = (mode) => {
+            stageBg = mode;
+            if (stageEl) stageEl.dataset.stageBg = mode;
+            document.querySelectorAll('#ob-stage-bg-chips .ob-chip').forEach(c => c.classList.toggle('active', c.dataset.stageBg === mode));
+        };
+        applyStageBg(stageBg);
+        document.querySelectorAll('#ob-stage-bg-chips .ob-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                const mode = chip.dataset.stageBg || 'transparent';
+                try { localStorage.setItem(STAGE_BG_KEY, mode); } catch {}
+                applyStageBg(mode);
+            });
+        });
+
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) stopPreviewAnim();
             else schedulePreviewDraw();
@@ -3315,10 +3865,12 @@
         const names = Object.keys(pals);
         const optionsHtml = names.map(k => `<option value="${k}">${k.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>`).join('')
             + '<option value="custom">Custom Stops</option>';
-        ['ob-inner-pal-preset', 'ob-outer-pal-preset', 'ob-glow-pal-preset'].forEach(id => {
+        ['ob-inner-pal-preset', 'ob-outer-pal-preset', 'ob-glow-pal-preset', 'ob-icons-pal-preset'].forEach(id => {
             const el = document.getElementById(id);
             if (!el || el.dataset.populated === '1') return;
+            const prevVal = el.value;
             el.innerHTML = optionsHtml;
+            if (prevVal && [...el.options].some(o => o.value === prevVal)) el.value = prevVal;
             el.dataset.populated = '1';
         });
     }
@@ -3367,26 +3919,77 @@
         const listEl = document.getElementById('ob-icons-list');
         if (!listEl || !workingProfile) return;
         const items = workingProfile.icons?.items || [];
+        const layout = workingProfile.icons?.layout || 'perimeter';
+        const effectiveRole = (it, idx) => {
+            const r = it?.role || 'auto';
+            return r === 'auto' ? (idx === 0 ? 'corner' : 'edge') : r;
+        };
+        const cornerList = layout === 'corners-edges'
+            ? items.map((it, i) => (effectiveRole(it, i) === 'corner' ? i : -1)).filter(i => i >= 0)
+            : [];
+        const getRoleBadge = (it, idx) => {
+            if (layout === 'corners-edges') {
+                const eff = effectiveRole(it, idx);
+                if (eff === 'corner') {
+                    const pos = cornerList.indexOf(idx);
+                    let lbl = 'CORNER';
+                    if (cornerList.length === 1) lbl = 'CORNERS';
+                    else if (cornerList.length === 2) lbl = pos === 0 ? 'TL·BR' : 'TR·BL';
+                    else if (pos < 4) lbl = ['TL', 'TR', 'BR', 'BL'][pos];
+                    return `<button type="button" class="ob-icon-role-tag is-clickable" data-toggle-icon-role="${idx}" title="Click to switch between Corner and Edge">${lbl}</button>`;
+                }
+                return `<button type="button" class="ob-icon-role-tag is-clickable is-edge" data-toggle-icon-role="${idx}" title="Click to switch between Edge and Corner">EDGE</button>`;
+            }
+            if (layout === 'corners') {
+                let lbl = '';
+                if (items.length === 1) lbl = 'ALL 4';
+                else if (items.length === 2) lbl = idx === 0 ? 'TL·BR' : 'TR·BL';
+                else if (idx < 4) lbl = ['TL', 'TR', 'BR', 'BL'][idx];
+                else lbl = 'UNUSED';
+                return `<span class="ob-icon-role-tag">${lbl}</span>`;
+            }
+            return '';
+        };
         if (window.IconPicker?.ensureFont) window.IconPicker.ensureFont();
         listEl.innerHTML = items.map((it, idx) => {
             const isAsset = it.kind === 'asset' && it.assetUrl;
             const h6 = String(it.color || (isAsset ? '#ffffff' : '#facc15')).slice(0, 7);
+            const roleHtml = getRoleBadge(it, idx);
+            const dragAttr = items.length > 1 ? `draggable="true" data-icon-idx="${idx}"` : `data-icon-idx="${idx}"`;
+            const gripHtml = items.length > 1 ? `<span class="ob-icon-drag-handle" title="Drag to reorder" aria-hidden="true"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><circle cx="9" cy="6" r="1.7"/><circle cx="15" cy="6" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/><circle cx="9" cy="18" r="1.7"/><circle cx="15" cy="18" r="1.7"/></svg></span>` : '';
             if (isAsset) {
                 const label = escapeHtml(it.assetName || decodeURIComponent(it.assetUrl.split('/').pop() || 'Asset'));
                 const safeUrl = escapeHtml(it.assetUrl);
-                return `<div class="ob-icon-seq-row">
-                    <span class="ob-icon-seq-preview"><img class="ob-icon-seq-thumb" src="${safeUrl}" alt=""></span>
-                    <button type="button" class="btn btn-secondary btn-sm" data-change-asset="${idx}" title="Swap image asset" style="flex:1;text-align:left;padding:3px 7px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</button>
-                    <input type="color" value="${h6}" data-icon-color="${idx}" title="Tint Color (White = original colors)">
-                    ${items.length > 1 ? `<button type="button" class="btn btn-secondary btn-sm" data-del-icon="${idx}" style="padding:2px 6px;font-size:11px;">&times;</button>` : ''}
+                const monoOn = Boolean(it.desaturate);
+                const contrast = Number.isFinite(Number(it.contrast)) ? Math.max(50, Math.min(250, Math.round(Number(it.contrast)))) : 120;
+                const thumbFilter = monoOn ? `filter:grayscale(1) contrast(${contrast}%) brightness(112%);` : '';
+                return `<div class="ob-icon-seq-item">
+                    <div class="ob-icon-seq-row" ${dragAttr}>
+                        ${gripHtml}
+                        <span class="ob-icon-seq-preview"><img class="ob-icon-seq-thumb" src="${safeUrl}" alt="" style="${thumbFilter}"></span>
+                        ${roleHtml}
+                        <button type="button" class="btn btn-secondary btn-sm" data-change-asset="${idx}" title="Swap image asset" style="flex:1;text-align:left;padding:3px 7px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</button>
+                        <button type="button" class="ob-icon-mono-btn${monoOn ? ' is-active' : ''}" data-toggle-asset-mono="${idx}" title="Desaturate this asset for clean tint & palette recoloring">Mono</button>
+                        <input type="color" value="${h6}" data-icon-color="${idx}" title="Tint Color (White = original colors)">
+                        ${items.length > 1 ? `<button type="button" class="btn btn-secondary btn-sm" data-del-icon="${idx}" style="padding:2px 6px;font-size:11px;">&times;</button>` : ''}
+                    </div>
+                    ${monoOn ? `<div class="ob-icon-asset-contrast">
+                        <span>Contrast</span>
+                        <input type="range" min="50" max="250" step="5" value="${contrast}" data-asset-contrast="${idx}">
+                        <span data-asset-contrast-val="${idx}">${contrast}%</span>
+                    </div>` : ''}
                 </div>`;
             }
             const label = escapeHtml(String(it.iconClass || 'fa-solid fa-star').replace(/^fa-\w+\s+fa-/, ''));
-            return `<div class="ob-icon-seq-row">
-                <span class="ob-icon-seq-preview" style="color:${h6};"><i class="${escapeHtml(it.iconClass || 'fa-solid fa-star')}"></i></span>
-                <button type="button" class="btn btn-secondary btn-sm" data-change-icon="${idx}" title="Swap icon" style="flex:1;text-align:left;padding:3px 7px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</button>
-                <input type="color" value="${h6}" data-icon-color="${idx}" title="Icon Color">
-                ${items.length > 1 ? `<button type="button" class="btn btn-secondary btn-sm" data-del-icon="${idx}" style="padding:2px 6px;font-size:11px;">&times;</button>` : ''}
+            return `<div class="ob-icon-seq-item">
+                <div class="ob-icon-seq-row" ${dragAttr}>
+                    ${gripHtml}
+                    <span class="ob-icon-seq-preview" style="color:${h6};"><i class="${escapeHtml(it.iconClass || 'fa-solid fa-star')}"></i></span>
+                    ${roleHtml}
+                    <button type="button" class="btn btn-secondary btn-sm" data-change-icon="${idx}" title="Swap icon" style="flex:1;text-align:left;padding:3px 7px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</button>
+                    <input type="color" value="${h6}" data-icon-color="${idx}" title="Icon Color">
+                    ${items.length > 1 ? `<button type="button" class="btn btn-secondary btn-sm" data-del-icon="${idx}" style="padding:2px 6px;font-size:11px;">&times;</button>` : ''}
+                </div>
             </div>`;
         }).join('');
         const atMax = items.length >= 8;
@@ -3444,12 +4047,17 @@
         });
     }
 
+    let iconAtlasBuildGen = 0;
+
     async function rebuildBorderIconAtlas(markDirty = true) {
         if (!workingProfile?.icons?.enabled) return;
         const items = workingProfile.icons.items || [];
         if (!items.length) return;
-        const sig = items.map(i => (i.kind === 'asset' && i.assetUrl) ? `asset:${i.assetUrl}` : `icon:${i.iconClass}`).join('|');
+        const sig = items.map(i => (i.kind === 'asset' && i.assetUrl)
+            ? `asset:${i.assetUrl}:m${i.desaturate ? 1 : 0}:c${i.contrast ?? 120}`
+            : `icon:${i.iconClass}`).join('|');
         if (!markDirty && sig === lastIconAtlasSig && glIconHasTex) return;
+        const myGen = ++iconAtlasBuildGen;
 
         if (items.some(i => i.kind !== 'asset')) {
             if (window.IconPicker?.ensureFont) window.IconPicker.ensureFont();
@@ -3470,11 +4078,29 @@
             if (it.kind === 'asset' && it.assetUrl) {
                 const img = await loadAtlasImage(it.assetUrl);
                 if (img && img.naturalWidth > 0 && img.naturalHeight > 0) {
-                    const maxDim = cell * 0.84;
+                    const maxDim = cell * 0.92;
                     const scale = Math.min(maxDim / img.naturalWidth, maxDim / img.naturalHeight);
                     const dw = img.naturalWidth * scale;
                     const dh = img.naturalHeight * scale;
                     ctx.drawImage(img, cx - dw * 0.5, cy - dh * 0.5, dw, dh);
+                    if (it.desaturate) {
+                        try {
+                            const cFactor = (Number.isFinite(Number(it.contrast)) ? Math.max(50, Math.min(250, Math.round(Number(it.contrast)))) : 120) / 100;
+                            const imgData = ctx.getImageData(i * cell, 0, cell, cell);
+                            const px = imgData.data;
+                            for (let k = 0; k < px.length; k += 4) {
+                                if (px[k + 3] === 0) continue;
+                                let lum = (0.299 * px[k] + 0.587 * px[k + 1] + 0.114 * px[k + 2]) / 255;
+                                lum = (lum - 0.5) * cFactor + 0.5;
+                                lum = Math.max(0, Math.min(1, lum * 1.12));
+                                const v = Math.round(lum * 255);
+                                px[k] = v;
+                                px[k + 1] = v;
+                                px[k + 2] = v;
+                            }
+                            ctx.putImageData(imgData, i * cell, 0);
+                        } catch { /* fallback if tainted */ }
+                    }
                 }
                 continue;
             }
@@ -3500,11 +4126,17 @@
             }
             probe.remove();
             if (glyph) {
-                const fontSize = Math.round(cell * 0.72);
+                let fontSize = Math.round(cell * 0.86);
                 await document.fonts?.load?.(`${fontWeight} ${fontSize}px ${fontFamily}`).catch(() => {});
                 ctx.save();
-                ctx.fillStyle = '#FFFFFF';
                 ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+                const m = ctx.measureText(glyph);
+                const maxW = cell * 0.88;
+                if (m.width > maxW && m.width > 0) {
+                    fontSize = Math.max(24, Math.floor(fontSize * (maxW / m.width)));
+                    ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+                }
+                ctx.fillStyle = '#FFFFFF';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(glyph, cx, cy);
@@ -3512,6 +4144,7 @@
             }
         }
 
+        if (myGen !== iconAtlasBuildGen) return;
         lastIconAtlasDataUrl = c.toDataURL('image/png');
         lastIconAtlasSig = sig;
         if (markDirty) iconAtlasDirty = true;
@@ -3542,8 +4175,8 @@
             schedulePreviewDraw();
         };
 
-        ['inner', 'outer', 'glow'].forEach(layerKey => {
-            const maxStops = layerKey === 'inner' ? 8 : 4;
+        ['inner', 'outer', 'glow', 'icons'].forEach(layerKey => {
+            const maxStops = (layerKey === 'inner' || layerKey === 'icons') ? 8 : 4;
             document.getElementById(`ob-${layerKey}-customize-btn`)?.addEventListener('click', () => {
                 if (!workingProfile?.[layerKey]) return;
                 const curStops = getLayerPaletteStops(layerKey, maxStops).map(c => c.length === 7 ? c + 'FF' : c);
@@ -3653,6 +4286,10 @@
             ['ob-icons-offset', 'ob-icons-offset-val', v => String(v)],
             ['ob-icons-rot', 'ob-icons-rot-val', v => String(v)],
             ['ob-icons-speed', 'ob-icons-speed-val', v => String(v)],
+            ['ob-icons-corner-scale', 'ob-icons-corner-scale-val', v => Number(v).toFixed(2).replace(/\.00$/, '.0')],
+            ['ob-icons-corner-rot', 'ob-icons-corner-rot-val', v => String(v)],
+            ['ob-icons-motion-speed', 'ob-icons-motion-speed-val', v => String(v)],
+            ['ob-icons-motion-amount', 'ob-icons-motion-amount-val', v => String(v)],
             ['ob-icons-opacity', 'ob-icons-opacity-val', v => String(Math.round(Number(v) * 100))]
         ].forEach(([id, valId, fmt]) => {
             document.getElementById(id)?.addEventListener('input', e => {
@@ -3661,22 +4298,37 @@
                 triggerChange();
             });
         });
-        document.getElementById('ob-icons-color-mode')?.addEventListener('change', triggerChange);
+        document.getElementById('ob-icons-color-mode')?.addEventListener('change', () => {
+            triggerChange();
+            renderPaletteStops('icons', 8);
+        });
         document.getElementById('ob-icons-blend')?.addEventListener('change', triggerChange);
+        document.getElementById('ob-icons-layout')?.addEventListener('change', () => {
+            triggerChange();
+            renderIconSequenceList();
+            updateBorderDesignerVisibility();
+        });
+        document.getElementById('ob-icons-corner-orient')?.addEventListener('change', triggerChange);
+        document.getElementById('ob-icons-corner-motion')?.addEventListener('change', triggerChange);
+        document.getElementById('ob-icons-corner-tuck')?.addEventListener('change', triggerChange);
+        document.getElementById('ob-icons-desaturate')?.addEventListener('change', triggerChange);
+        document.getElementById('ob-icons-motion')?.addEventListener('change', triggerChange);
         document.getElementById('ob-icons-follow-edge')?.addEventListener('change', triggerChange);
+        document.getElementById('ob-icons-apply-anim')?.addEventListener('change', triggerChange);
 
         document.getElementById('ob-icons-add')?.addEventListener('click', () => {
             if (!workingProfile) return;
             workingProfile.icons = workingProfile.icons || { enabled: true, items: [] };
             if (workingProfile.icons.items.length >= 8) return;
             const pick = cls => {
+                if (!cls) return;
                 workingProfile.icons.items.push({ kind: 'icon', assetUrl: '', assetName: '', iconClass: cls, color: '#38BDF8FF' });
                 renderIconSequenceList();
                 triggerChange();
                 rebuildBorderIconAtlas(true);
             };
             if (window.IconPicker?.open) {
-                window.IconPicker.open({ onSelect: pick });
+                window.IconPicker.open({ value: '', onPick: pick });
             } else {
                 pick('fa-solid fa-star');
             }
@@ -3715,8 +4367,84 @@
             }
         });
 
-        document.getElementById('ob-icons-list')?.addEventListener('click', e => {
+        const iconsListEl = document.getElementById('ob-icons-list');
+        let dragIconFromIdx = -1;
+        iconsListEl?.addEventListener('dragstart', e => {
+            const row = e.target.closest('.ob-icon-seq-row[draggable="true"]');
+            if (!row) return;
+            dragIconFromIdx = Number(row.dataset.iconIdx);
+            row.classList.add('is-dragging');
+            if (e.dataTransfer) {
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', String(dragIconFromIdx));
+            }
+        });
+        iconsListEl?.addEventListener('dragover', e => {
+            if (dragIconFromIdx < 0) return;
+            const row = e.target.closest('.ob-icon-seq-row');
+            if (!row) return;
+            e.preventDefault();
+            if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+            iconsListEl.querySelectorAll('.ob-icon-seq-row.is-drag-over').forEach(el => {
+                if (el !== row) el.classList.remove('is-drag-over');
+            });
+            row.classList.add('is-drag-over');
+        });
+        iconsListEl?.addEventListener('dragleave', e => {
+            const row = e.target.closest('.ob-icon-seq-row');
+            if (row && !row.contains(e.relatedTarget)) row.classList.remove('is-drag-over');
+        });
+        iconsListEl?.addEventListener('drop', e => {
+            if (dragIconFromIdx < 0 || !workingProfile?.icons?.items) return;
+            const row = e.target.closest('.ob-icon-seq-row');
+            if (!row) return;
+            e.preventDefault();
+            const toIdx = Number(row.dataset.iconIdx);
+            const items = workingProfile.icons.items;
+            if (Number.isInteger(toIdx) && toIdx !== dragIconFromIdx && dragIconFromIdx >= 0 && dragIconFromIdx < items.length && toIdx >= 0 && toIdx < items.length) {
+                const [moved] = items.splice(dragIconFromIdx, 1);
+                items.splice(toIdx, 0, moved);
+                renderIconSequenceList();
+                updateBorderDesignerVisibility();
+                triggerChange();
+                rebuildBorderIconAtlas(true);
+            }
+            dragIconFromIdx = -1;
+        });
+        iconsListEl?.addEventListener('dragend', () => {
+            dragIconFromIdx = -1;
+            iconsListEl.querySelectorAll('.ob-icon-seq-row').forEach(el => el.classList.remove('is-dragging', 'is-drag-over'));
+        });
+
+        iconsListEl?.addEventListener('click', e => {
             if (!workingProfile?.icons?.items) return;
+            const roleBtn = e.target.closest('[data-toggle-icon-role]');
+            if (roleBtn) {
+                const idx = Number(roleBtn.dataset.toggleIconRole);
+                const it = workingProfile.icons.items[idx];
+                if (it) {
+                    const cur = (it.role === 'auto' || !it.role) ? (idx === 0 ? 'corner' : 'edge') : it.role;
+                    it.role = cur === 'corner' ? 'edge' : 'corner';
+                    renderIconSequenceList();
+                    updateBorderDesignerVisibility();
+                    triggerChange();
+                }
+                return;
+            }
+            const monoBtn = e.target.closest('[data-toggle-asset-mono]');
+            if (monoBtn) {
+                const idx = Number(monoBtn.dataset.toggleAssetMono);
+                const it = workingProfile.icons.items[idx];
+                if (it) {
+                    it.desaturate = !it.desaturate;
+                    if (it.contrast === undefined) it.contrast = 120;
+                    renderIconSequenceList();
+                    updateBorderDesignerVisibility();
+                    triggerChange();
+                    rebuildBorderIconAtlas(true);
+                }
+                return;
+            }
             const changeAssetBtn = e.target.closest('[data-change-asset]');
             if (changeAssetBtn) {
                 const idx = Number(changeAssetBtn.dataset.changeAsset);
@@ -3739,8 +4467,9 @@
                 const idx = Number(changeBtn.dataset.changeIcon);
                 if (window.IconPicker?.open) {
                     window.IconPicker.open({
-                        current: workingProfile.icons.items[idx]?.iconClass,
-                        onSelect: cls => {
+                        value: workingProfile.icons.items[idx]?.iconClass || '',
+                        onPick: cls => {
+                            if (!cls) return;
                             workingProfile.icons.items[idx] = {
                                 kind: 'icon',
                                 assetUrl: '',
@@ -3768,6 +4497,21 @@
         });
 
         document.getElementById('ob-icons-list')?.addEventListener('input', e => {
+            const contrastInp = e.target.closest('[data-asset-contrast]');
+            if (contrastInp && workingProfile?.icons?.items) {
+                const idx = Number(contrastInp.dataset.assetContrast);
+                const val = Math.max(50, Math.min(250, Math.round(Number(contrastInp.value) || 120)));
+                if (workingProfile.icons.items[idx]) {
+                    workingProfile.icons.items[idx].contrast = val;
+                    const vEl = document.querySelector(`[data-asset-contrast-val="${idx}"]`);
+                    if (vEl) vEl.textContent = `${val}%`;
+                    const thumb = contrastInp.closest('.ob-icon-seq-item')?.querySelector('.ob-icon-seq-thumb');
+                    if (thumb) thumb.style.filter = `grayscale(1) contrast(${val}%) brightness(112%)`;
+                    triggerChange();
+                    rebuildBorderIconAtlas(true);
+                }
+                return;
+            }
             const colInp = e.target.closest('[data-icon-color]');
             if (!colInp || !workingProfile?.icons?.items) return;
             const idx = Number(colInp.dataset.iconColor);
@@ -3790,7 +4534,7 @@
                 studioState.palettes[key] = cp.colors;
             }
         }
-        ['ob-inner-pal-preset', 'ob-outer-pal-preset', 'ob-glow-pal-preset'].forEach(id => {
+        ['ob-inner-pal-preset', 'ob-outer-pal-preset', 'ob-glow-pal-preset', 'ob-icons-pal-preset'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.dataset.populated = '';
         });

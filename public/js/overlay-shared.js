@@ -1183,21 +1183,28 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           options: [
             { id: "rotating", label: "Rotating beam (spotlight)", code: 1 },
             { id: "dual-beam", label: "Twin chasing beams", code: 2 },
+            { id: "corner-sparks", label: "Four-corner chase", code: 16 },
             { id: "laser-scan", label: "Laser scanner sweep", code: 3 },
-            { id: "plasma", label: "Electric plasma arc", code: 4 }
+            { id: "shimmer-glint", label: "Shimmer / metallic glint", code: 12 },
+            { id: "plasma", label: "Electric plasma arc", code: 4 },
+            { id: "glitch-split", label: "Glitch / RGB split", code: 17 }
           ]
         },
         {
-          label: "Glow & Pulse",
+          label: "Glow, Pulse & Sparkle",
           options: [
             { id: "radial", label: "Radial rotating (sweeping glow)", code: 5 },
             { id: "pulsing", label: "Pulsing glow (breathing)", code: 6 },
-            { id: "strobe-flash", label: "Energy surge (double flash)", code: 7 }
+            { id: "heartbeat", label: "Heartbeat (double pulse)", code: 15 },
+            { id: "neon-flicker", label: "Neon flicker (tube hum)", code: 14 },
+            { id: "strobe-flash", label: "Energy surge (double flash)", code: 7 },
+            { id: "sparkle-twinkle", label: "Sparkle / twinkle glints", code: 13 }
           ]
         },
         {
           label: "Color & Perimeter",
           options: [
+            { id: "palette-flow", label: "Palette flow (scroll palette)", code: 11 },
             { id: "gradient", label: "Gradient sweep (flowing)", code: 8 },
             { id: "rainbow", label: "Rainbow cycle (RGB chroma)", code: 9 },
             { id: "marching", label: "Marching ants (perimeter chase)", code: 10 }
@@ -1288,9 +1295,16 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         }
         let iconOverhang = 0;
         if (profile.icons?.enabled) {
-          const iconSize = clampFinite(profile.icons?.size, 28, 8, 120);
+          const baseIconSize = clampFinite(profile.icons?.size, 28, 8, 120);
+          const cornerScale = profile.icons?.layout && profile.icons.layout !== "perimeter" ? clampFinite(profile.icons?.cornerScale, 1, 0.5, 2) : 1;
+          const iconSize = Math.max(baseIconSize, baseIconSize * cornerScale);
           const iconOff = clampFinite(profile.icons?.offset, 0, -40, 80);
-          iconOverhang = Math.max(0, Math.ceil(iconSize * 0.55 + Math.max(0, iconOff) - inT * 0.5 + 2));
+          const bobExtra = profile.icons?.motion === "bob" ? iconSize * 0.24 : 0;
+          if (!innerOn && placement === "outside") {
+            iconOverhang = Math.max(0, Math.ceil(iconSize * 1.24 + Math.max(0, iconOff) + bobExtra + 2));
+          } else {
+            iconOverhang = Math.max(0, Math.ceil(iconSize * 0.72 + Math.max(0, iconOff) + bobExtra - inT * 0.5 + 2));
+          }
         }
         const minSafeBleed = inT > 0 || outT > 0 || glowBleed > 0 || shadowBleed > 0 || iconOverhang > 0 ? 2 : 0;
         const totalBleed = Math.ceil(outerBorderReach + Math.max(finialOverhang, iconOverhang, glowBleed, shadowBleed) + extraPad + minSafeBleed);
@@ -1402,7 +1416,7 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     if (document.getElementById("sp-border-keyframes")) return;
     const tag = document.createElement("style");
     tag.id = "sp-border-keyframes";
-    tag.textContent = '@property --sp-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; } @keyframes sp-border-spin { from { --sp-angle: 0deg; } to { --sp-angle: 360deg; } } @keyframes sp-border-pulse { 0%, 100% { opacity: 0.35; filter: brightness(0.85); } 50% { opacity: 1; filter: brightness(1.38) drop-shadow(0 0 10px currentColor); } } @keyframes sp-border-surge { 0%, 52%, 100% { opacity: 0.72; filter: brightness(0.95); } 60% { opacity: 1; filter: brightness(1.9) drop-shadow(0 0 14px currentColor); } 67% { opacity: 0.52; filter: brightness(0.82); } 74% { opacity: 1; filter: brightness(1.75) drop-shadow(0 0 10px currentColor); } 88% { opacity: 0.82; filter: brightness(1.06); } } @keyframes sp-border-gradient-shift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } } @keyframes sp-border-rainbow { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } } @keyframes sp-border-marching { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -32; } } @keyframes sp-border-marching-bg { from { background-position: 0 0; } to { background-position: 40px 0; } } @keyframes sp-border-laser { from { --sp-angle: 0deg; } to { --sp-angle: 360deg; } } @keyframes sp-border-plasma { 0% { --sp-angle: 0deg; filter: saturate(1.15) brightness(1); } 50% { --sp-angle: 180deg; filter: saturate(1.5) brightness(1.26); } 100% { --sp-angle: 360deg; filter: saturate(1.15) brightness(1); } } @keyframes sp-border-radial-circuit { 0%,100% { transform:translate(0,0); } 25% { transform:translate(var(--sp-border-travel),0); } 50% { transform:translate(var(--sp-border-travel),var(--sp-border-travel)); } 75% { transform:translate(0,var(--sp-border-travel)); } } @keyframes sp-border-radial-circuit-rev { 0%,100% { transform:translate(0,0); } 25% { transform:translate(0,var(--sp-border-travel)); } 50% { transform:translate(var(--sp-border-travel),var(--sp-border-travel)); } 75% { transform:translate(var(--sp-border-travel),0); } } @keyframes sp-border-radial-paint { 0%,100% { background-position:0% 0%; } 25% { background-position:100% 0%; } 50% { background-position:100% 100%; } 75% { background-position:0% 100%; } } @keyframes sp-border-radial-paint-rev { 0%,100% { background-position:0% 0%; } 25% { background-position:0% 100%; } 50% { background-position:100% 100%; } 75% { background-position:100% 0%; } } .sp-fx-paused [data-border-fx], .sp-fx-paused [data-border-ring], .sp-fx-paused [data-border-fx-ring] { animation-play-state: paused !important; }';
+    tag.textContent = '@property --sp-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; } @keyframes sp-border-spin { from { --sp-angle: 0deg; } to { --sp-angle: 360deg; } } @keyframes sp-border-pulse { 0%, 100% { opacity: var(--sp-pulse-min, 0.35); filter: brightness(0.85); } 50% { opacity: 1; filter: brightness(1.38) drop-shadow(0 0 10px currentColor); } } @keyframes sp-border-heartbeat { 0%, 55%, 100% { opacity: var(--sp-pulse-min, 0.55); filter: brightness(0.92); } 14% { opacity: 1; filter: brightness(1.32) drop-shadow(0 0 10px currentColor); } 22% { opacity: var(--sp-pulse-min, 0.65); filter: brightness(0.96); } 30% { opacity: 0.96; filter: brightness(1.24) drop-shadow(0 0 8px currentColor); } } @keyframes sp-border-neon-flicker { 0%, 13%, 18%, 22%, 71%, 76%, 100% { opacity: 1; filter: brightness(1.05); } 15% { opacity: var(--sp-pulse-min, 0.35); filter: brightness(0.65); } 20% { opacity: var(--sp-pulse-min, 0.45); filter: brightness(0.75); } 73% { opacity: var(--sp-pulse-min, 0.3); filter: brightness(0.6); } } @keyframes sp-border-shimmer { 0% { background-position: -150% 50%; } 45%, 100% { background-position: 150% 50%; } } @keyframes sp-border-glitch { 0%, 7%, 15%, 54%, 60%, 100% { filter: none; } 10% { filter: hue-rotate(42deg) saturate(1.8) brightness(1.2); } 13% { filter: hue-rotate(-36deg) saturate(1.7); } 57% { filter: hue-rotate(55deg) saturate(1.9) brightness(1.15); } } @keyframes sp-border-surge { 0%, 52%, 100% { opacity: 0.72; filter: brightness(0.95); } 60% { opacity: 1; filter: brightness(1.9) drop-shadow(0 0 14px currentColor); } 67% { opacity: 0.52; filter: brightness(0.82); } 74% { opacity: 1; filter: brightness(1.75) drop-shadow(0 0 10px currentColor); } 88% { opacity: 0.82; filter: brightness(1.06); } } @keyframes sp-border-gradient-shift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } } @keyframes sp-border-rainbow { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } } @keyframes sp-border-marching { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -32; } } @keyframes sp-border-marching-bg { from { background-position: 0 0; } to { background-position: 40px 0; } } @keyframes sp-border-laser { from { --sp-angle: 0deg; } to { --sp-angle: 360deg; } } @keyframes sp-border-plasma { 0% { --sp-angle: 0deg; filter: saturate(1.15) brightness(1); } 50% { --sp-angle: 180deg; filter: saturate(1.5) brightness(1.26); } 100% { --sp-angle: 360deg; filter: saturate(1.15) brightness(1); } } @keyframes sp-border-radial-circuit { 0%,100% { transform:translate(0,0); } 25% { transform:translate(var(--sp-border-travel),0); } 50% { transform:translate(var(--sp-border-travel),var(--sp-border-travel)); } 75% { transform:translate(0,var(--sp-border-travel)); } } @keyframes sp-border-radial-circuit-rev { 0%,100% { transform:translate(0,0); } 25% { transform:translate(0,var(--sp-border-travel)); } 50% { transform:translate(var(--sp-border-travel),var(--sp-border-travel)); } 75% { transform:translate(var(--sp-border-travel),0); } } @keyframes sp-border-radial-paint { 0%,100% { background-position:0% 0%; } 25% { background-position:100% 0%; } 50% { background-position:100% 100%; } 75% { background-position:0% 100%; } } @keyframes sp-border-radial-paint-rev { 0%,100% { background-position:0% 0%; } 25% { background-position:0% 100%; } 50% { background-position:100% 100%; } 75% { background-position:100% 0%; } } .sp-fx-paused [data-border-fx], .sp-fx-paused [data-border-ring], .sp-fx-paused [data-border-fx-ring] { animation-play-state: paused !important; }';
     document.head.appendChild(tag);
   }
   function computeBoxShadow(style = {}, width = 0, outset = 0, { skipBorderGlow = false } = {}) {
@@ -2310,11 +2324,44 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           const animDir = direction === "alternate" ? "alternate" : "normal";
           paintBg = `radial-gradient(circle, ${stops})`;
           animRule = `${animName} ${speed}s ease-in-out infinite ${animDir}`;
-        } else if (animType === "pulsing" || animType === "strobe-flash") {
+        } else if (animType === "corner-sparks") {
+          const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 4));
+          const size = Math.max(10, Math.min(100, Number(anim.size) || 35));
+          const qArc = Math.max(10, Math.round(90 * (size / 100)));
+          const head = anim.color2 || "#ffffff";
+          const trail = basePaint2 || basePaint1;
+          const seg = (end) => `transparent ${end - qArc}deg, ${trail} ${end - Math.round(qArc * 0.35)}deg, ${head} ${end}deg, transparent ${end + 1}deg`;
+          paintBg = `conic-gradient(from var(--sp-angle), transparent 0deg, ${seg(90)}, ${seg(180)}, ${seg(270)}, transparent ${360 - qArc}deg, ${trail} ${360 - Math.round(qArc * 0.35)}deg, ${head} 360deg)`;
+          animRule = `sp-border-spin ${speed}s linear infinite`;
+          dimNeonFrame = true;
+        } else if (animType === "shimmer-glint") {
+          const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 3.5));
+          const size = Math.max(5, Math.min(100, Number(anim.size) || 35));
+          const halfW = Math.max(4, Math.round(size * 0.22));
+          const head = anim.color2 || "#ffffff";
+          paintBg = `linear-gradient(125deg, ${basePaint1} 0%, ${basePaint1} ${50 - halfW}%, ${head} 50%, ${basePaint1} ${50 + halfW}%, ${basePaint1} 100%)`;
+          bgSize = "300% 300%";
+          animRule = `sp-border-shimmer ${speed}s linear infinite`;
+        } else if (animType === "sparkle-twinkle") {
+          const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 3));
+          const head = anim.color2 || "#ffffff";
+          paintBg = `repeating-conic-gradient(from var(--sp-angle), ${basePaint1} 0deg, ${head} 6deg, ${basePaint1} 14deg, ${basePaint2 || basePaint1} 28deg, ${basePaint1} 36deg)`;
+          animRule = `sp-border-spin ${speed}s linear infinite`;
+        } else if (animType === "palette-flow") {
+          const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 4));
+          const c1 = basePaint1;
+          const mid = basePaintMid || anim.color2 || "";
+          const c2 = basePaint2 || anim.color2 || "#8957e5";
+          const stops = [c1, mid, c2, c1].filter(Boolean).join(", ");
+          paintBg = `conic-gradient(from var(--sp-angle), ${stops})`;
+          animRule = `sp-border-spin ${speed}s linear infinite`;
+        } else if (animType === "pulsing" || animType === "strobe-flash" || animType === "heartbeat" || animType === "neon-flicker" || animType === "glitch-split") {
           const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 2));
+          const depth = Math.max(0.05, Math.min(1, (Number(anim.size) || 35) / 100));
           paintBg = staticPaintCss;
-          colorRule = basePaint1;
-          animRule = `${animType === "strobe-flash" ? "sp-border-surge" : "sp-border-pulse"} ${speed}s ease-in-out infinite`;
+          colorRule = `${basePaint1};--sp-pulse-min:${(1 - depth).toFixed(2)}`;
+          const kf = animType === "strobe-flash" ? "sp-border-surge" : animType === "heartbeat" ? "sp-border-heartbeat" : animType === "neon-flicker" ? "sp-border-neon-flicker" : animType === "glitch-split" ? "sp-border-glitch" : "sp-border-pulse";
+          animRule = `${kf} ${speed}s ease-in-out infinite`;
           filterRule = "";
         } else if (animType === "gradient") {
           const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 4));

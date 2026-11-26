@@ -410,6 +410,59 @@ function normalizePaletteColors(rawColors, paletteName, fallback = ['#38BDF8FF',
 const ICON_BLEND_MODES = ['normal', 'add', 'screen', 'multiply', 'overlay', 'soft-light', 'punchout'];
 const ICON_BLEND_MAP = Object.fromEntries(ICON_BLEND_MODES.map((m, i) => [m, i]));
 
+const ICON_GRAD_MODES = ['smooth', 'stepped', 'per-icon-order', 'per-icon-random'];
+const ICON_GRAD_MODE_MAP = { smooth: 0, stepped: 1, 'per-icon-order': 2, 'per-icon-random': 3 };
+const ICON_MOTION_MODES = ['none', 'wobble', 'bounce', 'spin', 'bob', 'twinkle'];
+const ICON_MOTION_MAP = { none: 0, wobble: 1, bounce: 2, spin: 3, bob: 4, twinkle: 5 };
+const ICON_LAYOUT_MODES = ['perimeter', 'corners', 'corners-edges'];
+const ICON_LAYOUT_MAP = { perimeter: 0, corners: 1, 'corners-edges': 2 };
+const ICON_CORNER_ORIENTS = ['upright', 'outward', 'inward'];
+const ICON_CORNER_ORIENT_MAP = { upright: 0, outward: 1, inward: 2 };
+const ICON_CORNER_MOTIONS = ['synced', 'staggered', 'stationary'];
+const ICON_CORNER_MOTION_MAP = { synced: 0, staggered: 1, stationary: 2 };
+const ICON_ROLES = ['auto', 'corner', 'edge'];
+
+function resolveIconRoleSlots(items = [], layout = 'perimeter') {
+    const cnt = Math.max(1, Math.min(8, items.length || 1));
+    if (layout === 'corners') {
+        const cSlots = [0 % cnt, 1 % cnt, 2 % cnt, 3 % cnt];
+        return { cornerSlots: cSlots, edgeSlots0: [0, 0, 0, 0], edgeSlots1: [0, 0, 0, 0], edgeCount: 0 };
+    }
+    if (layout !== 'corners-edges') {
+        const all = Array.from({ length: cnt }, (_, i) => i);
+        return {
+            cornerSlots: [-1, -1, -1, -1],
+            edgeSlots0: [all[0] ?? 0, all[1] ?? all[0] ?? 0, all[2] ?? all[0] ?? 0, all[3] ?? all[0] ?? 0],
+            edgeSlots1: [all[4] ?? all[0] ?? 0, all[5] ?? all[0] ?? 0, all[6] ?? all[0] ?? 0, all[7] ?? all[0] ?? 0],
+            edgeCount: cnt
+        };
+    }
+    const cornerIndices = [];
+    const edgeIndices = [];
+    for (let i = 0; i < cnt; i++) {
+        const r = items[i]?.role || 'auto';
+        const eff = r === 'auto' ? (i === 0 ? 'corner' : 'edge') : r;
+        if (eff === 'corner') cornerIndices.push(i);
+        else edgeIndices.push(i);
+    }
+    const cSlots = cornerIndices.length > 0
+        ? [
+            cornerIndices[0 % cornerIndices.length],
+            cornerIndices[1 % cornerIndices.length],
+            cornerIndices[2 % cornerIndices.length],
+            cornerIndices[3 % cornerIndices.length]
+        ]
+        : [-1, -1, -1, -1];
+    const eList = edgeIndices.length > 0 ? edgeIndices : (cnt === 1 ? [0] : []);
+    const e0 = eList[0] ?? 0;
+    return {
+        cornerSlots: cSlots,
+        edgeSlots0: [eList[0] ?? e0, eList[1] ?? e0, eList[2] ?? e0, eList[3] ?? e0],
+        edgeSlots1: [eList[4] ?? e0, eList[5] ?? e0, eList[6] ?? e0, eList[7] ?? e0],
+        edgeCount: eList.length
+    };
+}
+
 function sanitizeLocalAssetUrl(raw) {
     const s = String(raw || '').trim();
     if (!s || s.includes('..') || s.includes('\\')) return '';
@@ -425,14 +478,19 @@ function normalizeIcons(raw = {}) {
     const items = rawItems.slice(0, 8).map(it => {
         const assetUrl = sanitizeLocalAssetUrl(it?.assetUrl);
         const kind = (it?.kind === 'asset' || (!it?.kind && assetUrl)) && assetUrl ? 'asset' : 'icon';
+        const role = ICON_ROLES.includes(it?.role) ? it.role : 'auto';
         if (kind === 'asset') {
             const fallbackName = decodeURIComponent(assetUrl.split('/').pop() || 'Asset');
+            const contrastNum = Number(it?.contrast);
             return {
                 kind: 'asset',
                 assetUrl,
                 assetName: String(it?.assetName || fallbackName).trim().slice(0, 96) || fallbackName,
                 iconClass: '',
-                color: sanitizeColorOrVar(it?.color, '#FFFFFFFF')
+                color: sanitizeColorOrVar(it?.color, '#FFFFFFFF'),
+                role,
+                desaturate: Boolean(it?.desaturate),
+                contrast: Number.isFinite(contrastNum) ? Math.max(50, Math.min(250, Math.round(contrastNum))) : 120
             };
         }
         return {
@@ -440,13 +498,14 @@ function normalizeIcons(raw = {}) {
             assetUrl: '',
             assetName: '',
             iconClass: String(it?.iconClass || 'fa-solid fa-star').trim().replace(/[^a-z0-9\s-]/gi, '').slice(0, 64) || 'fa-solid fa-star',
-            color: sanitizeColorOrVar(it?.color, '#FACC15FF')
+            color: sanitizeColorOrVar(it?.color, '#FACC15FF'),
+            role
         };
     });
     if (!items.length) {
         items.push(
-            { kind: 'icon', assetUrl: '', assetName: '', iconClass: 'fa-solid fa-star', color: '#FACC15FF' },
-            { kind: 'icon', assetUrl: '', assetName: '', iconClass: 'fa-solid fa-bolt', color: '#38BDF8FF' }
+            { kind: 'icon', assetUrl: '', assetName: '', iconClass: 'fa-solid fa-star', color: '#FACC15FF', role: 'auto' },
+            { kind: 'icon', assetUrl: '', assetName: '', iconClass: 'fa-solid fa-bolt', color: '#38BDF8FF', role: 'auto' }
         );
     }
     const atlasFile = String(srcIcons.atlasFile || '').replace(/[^a-z0-9_.-]/gi, '').slice(0, 120);
@@ -454,13 +513,28 @@ function normalizeIcons(raw = {}) {
         enabled: Boolean(srcIcons.enabled),
         items,
         size: sanitizeNumberOrVar(srcIcons.size, 28, 8, 120),
-        spacing: sanitizeNumberOrVar(srcIcons.spacing, 16, 0, 120),
+        spacing: sanitizeNumberOrVar(srcIcons.spacing, 16, -40, 120),
         offset: sanitizeNumberOrVar(srcIcons.offset, 0, -40, 80),
         rotation: sanitizeNumberOrVar(srcIcons.rotation, 0, -180, 180),
         followEdge: srcIcons.followEdge !== undefined ? Boolean(srcIcons.followEdge) : true,
         speed: sanitizeNumberOrVar(srcIcons.speed, 0, -4, 4),
-        colorMode: srcIcons.colorMode === 'palette' ? 'palette' : 'per-icon',
+        colorMode: ['per-icon', 'palette', 'custom-palette'].includes(srcIcons.colorMode) ? srcIcons.colorMode : 'per-icon',
+        palette: (srcIcons.palette === 'custom' || BORDER_PALETTES[srcIcons.palette]) ? srcIcons.palette : 'neon',
+        paletteColors: normalizePaletteColors(srcIcons.paletteColors, srcIcons.palette === 'custom' ? 'custom' : srcIcons.palette, BORDER_PALETTES.neon, 8),
+        gradientMode: ICON_GRAD_MODES.includes(srcIcons.gradientMode) ? srcIcons.gradientMode : 'smooth',
+        gradientSpread: sanitizeNumberOrVar(srcIcons.gradientSpread, 1.0, 0.25, 8.0),
         blendMode: ICON_BLEND_MODES.includes(srcIcons.blendMode) ? srcIcons.blendMode : 'normal',
+        layout: ICON_LAYOUT_MODES.includes(srcIcons.layout) ? srcIcons.layout : 'perimeter',
+        cornerScale: sanitizeNumberOrVar(srcIcons.cornerScale, 1.0, 0.5, 2.0),
+        cornerOrient: ICON_CORNER_ORIENTS.includes(srcIcons.cornerOrient) ? srcIcons.cornerOrient : 'upright',
+        cornerRotation: sanitizeNumberOrVar(srcIcons.cornerRotation, 0, -180, 180),
+        cornerMotion: ICON_CORNER_MOTIONS.includes(srcIcons.cornerMotion) ? srcIcons.cornerMotion : 'synced',
+        cornerTuck: srcIcons.cornerTuck !== undefined ? Boolean(srcIcons.cornerTuck) : true,
+        desaturate: Boolean(srcIcons.desaturate),
+        motion: ICON_MOTION_MODES.includes(srcIcons.motion) ? srcIcons.motion : 'none',
+        motionSpeed: sanitizeNumberOrVar(srcIcons.motionSpeed, 2.5, 0.25, 12),
+        motionAmount: sanitizeNumberOrVar(srcIcons.motionAmount, 40, 5, 100),
+        applyBorderAnim: srcIcons.applyBorderAnim !== undefined ? Boolean(srcIcons.applyBorderAnim) : true,
         opacity: sanitizeNumberOrVar(srcIcons.opacity, 1, 0, 1),
         atlasFile
     };
@@ -614,7 +688,9 @@ function resolveProfileForManifest(profile, varValues = {}, { atlasesDir = '' } 
         angle: num(profile.inner?.angle, 180, -360, 360),
         paletteMode: profile.inner?.paletteMode === 'palette' ? 'palette' : 'two-color',
         palModeCode: profile.inner?.paletteMode === 'palette' ? 1 : 0,
-        paletteRgba: (normalizePaletteColors(profile.inner?.paletteColors, profile.inner?.palette, BORDER_PALETTES.neon, 8)).map(c => hexToRgbaFloats(col(c, '#FFFFFFFF'), [1, 1, 1, 1])),
+        paletteRgba: profile.inner?.paletteMode === 'palette'
+            ? (normalizePaletteColors(profile.inner?.paletteColors, profile.inner?.palette, BORDER_PALETTES.neon, 8)).map(c => hexToRgbaFloats(col(c, '#FFFFFFFF'), [1, 1, 1, 1]))
+            : [hexToRgbaFloats(innerColor1, [1, 1, 1, 1]), hexToRgbaFloats(profile.inner?.gradient ? innerColor2 : innerColor1, [1, 1, 1, 1])],
         gradStepped: profile.inner?.gradientMode === 'stepped' ? 1 : 0,
         gradSpread: num(profile.inner?.gradientSpread, 1.0, 0.25, 8.0),
         gradPerim: profile.inner?.gradientMapping === 'perimeter' ? 1 : 0
@@ -654,20 +730,45 @@ function resolveProfileForManifest(profile, varValues = {}, { atlasesDir = '' } 
         angle: num(profile.glow?.angle, 180, -360, 360)
     };
     const ic = normalizeIcons(profile.icons || {});
+    const icPaletteRgba = normalizePaletteColors(ic.paletteColors, ic.palette, BORDER_PALETTES.neon, 8).map(c => hexToRgbaFloats(col(c, '#FFFFFFFF'), [1, 1, 1, 1]));
+    const icColorModeCode = ic.colorMode === 'custom-palette' ? 2 : (ic.colorMode === 'palette' ? 1 : 0);
+    const icRoleSlots = resolveIconRoleSlots(ic.items, ic.layout);
     const iconsResolved = {
         enabled: ic.enabled ? 1 : 0,
         count: ic.items.length,
+        cornerSlots: icRoleSlots.cornerSlots,
+        edgeSlots0: icRoleSlots.edgeSlots0,
+        edgeSlots1: icRoleSlots.edgeSlots1,
+        edgeCount: icRoleSlots.edgeCount,
         size: num(ic.size, 28, 8, 120),
-        spacing: num(ic.spacing, 16, 0, 120),
+        spacing: num(ic.spacing, 16, -40, 120),
         offset: num(ic.offset, 0, -40, 80),
         rotation: num(ic.rotation, 0, -180, 180),
         followEdge: ic.followEdge ? 1 : 0,
         speed: num(ic.speed, 0, -4, 4),
-        colorModeCode: ic.colorMode === 'palette' ? 1 : 0,
+        colorModeCode: icColorModeCode,
+        palCount: Math.max(2, icPaletteRgba.length),
+        gradStepped: ICON_GRAD_MODE_MAP[ic.gradientMode] ?? 0,
+        gradSpread: num(ic.gradientSpread, 1.0, 0.25, 8.0),
         blendMode: ic.blendMode || 'normal',
         blendCode: ICON_BLEND_MAP[ic.blendMode] ?? 0,
+        layout: ic.layout || 'perimeter',
+        layoutCode: ICON_LAYOUT_MAP[ic.layout] ?? 0,
+        cornerScale: num(ic.cornerScale, 1.0, 0.5, 2.0),
+        cornerOrient: ic.cornerOrient || 'upright',
+        cornerOrientCode: ICON_CORNER_ORIENT_MAP[ic.cornerOrient] ?? 0,
+        cornerRotation: num(ic.cornerRotation, 0, -180, 180),
+        cornerMotion: ic.cornerMotion || 'synced',
+        cornerMotionCode: ICON_CORNER_MOTION_MAP[ic.cornerMotion] ?? 0,
+        cornerTuck: ic.cornerTuck !== false ? 1 : 0,
+        desaturate: ic.desaturate ? 1 : 0,
+        motion: ic.motion || 'none',
+        motionCode: ICON_MOTION_MAP[ic.motion] ?? 0,
+        motionSpeed: num(ic.motionSpeed, 2.5, 0.25, 12),
+        motionAmount: num(ic.motionAmount, 40, 5, 100),
+        applyBorderAnim: ic.applyBorderAnim !== false ? 1 : 0,
         opacity: num(ic.opacity, 1, 0, 1),
-        colorsRgba: ic.items.map(it => hexToRgbaFloats(col(it.color, '#FACC15FF'), [1, 0.8, 0.1, 1])),
+        colorsRgba: icColorModeCode === 2 ? icPaletteRgba : ic.items.map(it => hexToRgbaFloats(col(it.color, '#FACC15FF'), [1, 0.8, 0.1, 1])),
         atlasFile: ic.atlasFile,
         atlasPath: (ic.atlasFile && atlasesDir) ? path.join(atlasesDir, ic.atlasFile) : ''
     };
@@ -703,6 +804,7 @@ function resolveProfileForManifest(profile, varValues = {}, { atlasesDir = '' } 
         inner: innerResolved,
         outer: outerResolved,
         glow: glowResolved,
+        icons: iconsResolved,
         shadow: shadowResolved
     });
 
@@ -891,7 +993,25 @@ uniform float icons_rot_rad;
 uniform float icons_follow_edge;
 uniform float icons_speed;
 uniform float icons_color_mode;
+uniform float icons_pal_count;
+uniform float icons_grad_stepped;
+uniform float icons_grad_spread;
 uniform float icons_blend;
+uniform float icons_layout;
+uniform float icons_corner_scale;
+uniform float icons_corner_orient;
+uniform float icons_corner_rot_rad;
+uniform float icons_corner_motion;
+uniform float icons_corner_tuck;
+uniform float icons_desaturate;
+uniform float4 icons_corner_slots;
+uniform float4 icons_edge_slots0;
+uniform float4 icons_edge_slots1;
+uniform float icons_edge_count;
+uniform float icons_motion;
+uniform float icons_motion_speed;
+uniform float icons_motion_amount;
+uniform float icons_apply_anim;
 uniform float icons_opacity;
 uniform float4 icon_col0;
 uniform float4 icon_col1;
@@ -1049,13 +1169,15 @@ float4 applyBorderAnimOverlay(
     float base_a = base_col.a;
     float3 anim_rgb = base_col.rgb;
     float anim_a = base_a;
+    float accent_a = clamp(a_color2.a, 0.0, 1.0);
+    float size_norm = clamp(a_size / 100.0, 0.05, 1.0);
 
     if (a_type < 1.5 || (a_type > 4.5 && a_type < 5.5)) {
         // 1: rotating beam, 5: radial rotating
         float arc = clamp(a_size / 100.0, 0.08, 1.0);
         float d = abs(frac(norm_ang - phase / 6.2831853 + 0.5) - 0.5);
         float beam = smoothstep(arc * 0.5, 0.0, d);
-        anim_rgb = lerp(base_col.rgb, a_color2.rgb, beam);
+        anim_rgb = lerp(base_col.rgb, a_color2.rgb, beam * accent_a);
     } else if (a_type < 2.5) {
         // 2: dual-beam
         float arc = clamp(a_size / 100.0, 0.08, 0.8);
@@ -1063,43 +1185,104 @@ float4 applyBorderAnimOverlay(
         float d1 = abs(frac(norm_ang - offset + 0.5) - 0.5);
         float d2 = abs(frac(norm_ang - offset) - 0.5);
         float beam = max(smoothstep(arc * 0.4, 0.0, d1), smoothstep(arc * 0.4, 0.0, d2));
-        anim_rgb = lerp(base_col.rgb, a_color2.rgb, beam);
+        anim_rgb = lerp(base_col.rgb, a_color2.rgb, beam * accent_a);
     } else if (a_type < 3.5) {
-        // 3: laser-scan
+        // 3: laser-scan (a_size controls beam width)
         float2 norm_p = p / max(half_base, float2(1.0, 1.0));
         float sweep_pos = frac(cyc_raw * dir_sign) * 3.2 - 1.6;
         float laser_d = (norm_p.x + norm_p.y * 0.7) - sweep_pos;
-        float laser = exp(-laser_d * laser_d * 18.0);
-        anim_rgb = lerp(base_col.rgb, a_color2.rgb, clamp(laser * 0.92, 0.0, 1.0));
+        float sharpness = lerp(42.0, 4.0, size_norm);
+        float laser = exp(-laser_d * laser_d * sharpness);
+        anim_rgb = lerp(base_col.rgb, a_color2.rgb, clamp(laser * 0.92, 0.0, 1.0) * accent_a);
     } else if (a_type < 4.5) {
-        // 4: plasma
+        // 4: plasma (a_size controls wave intensity)
         float wave = 0.5 + 0.5 * sin(norm_ang * 18.8495 + phase * 2.0) * cos(norm_ang * 12.566 - phase * 1.4);
-        anim_rgb = lerp(base_col.rgb, a_color2.rgb, wave * 0.78);
+        anim_rgb = lerp(base_col.rgb, a_color2.rgb, wave * size_norm * accent_a);
     } else if (a_type < 6.5) {
-        // 6: pulsing
-        float pulse = 0.55 + 0.45 * sin(phase);
-        anim_rgb = base_col.rgb * (0.78 + 0.35 * pulse);
+        // 6: pulsing (a_size = Pulse Depth %: 25% breathes 75%..100%, 100% breathes 0%..100%)
+        float wave01 = 0.5 + 0.5 * sin(phase);
+        float pulse = lerp(1.0 - size_norm, 1.0, wave01);
+        anim_rgb = base_col.rgb * lerp(1.0 - size_norm * 0.25, 1.0 + size_norm * 0.15, wave01);
         anim_a = base_a * pulse;
     } else if (a_type < 7.5) {
-        // 7: strobe-flash
+        // 7: strobe-flash (a_size controls flash intensity)
         float f = frac(cyc_raw);
         float surge = (f < 0.10 || (f > 0.18 && f < 0.28)) ? 1.0 : 0.0;
-        anim_rgb = lerp(base_col.rgb, a_color2.rgb, surge * 0.9);
+        anim_rgb = lerp(base_col.rgb, a_color2.rgb, surge * size_norm * accent_a);
     } else if (a_type < 8.5) {
-        // 8: gradient sweep
+        // 8: gradient sweep (a_size controls wave intensity)
         float cyc = 0.5 + 0.5 * sin(norm_ang * 6.2831853 + phase);
-        anim_rgb = lerp(base_col.rgb, a_color2.rgb, cyc * 0.8);
+        anim_rgb = lerp(base_col.rgb, a_color2.rgb, cyc * size_norm * accent_a);
     } else if (a_type < 9.5) {
-        // 9: rainbow cycle
+        // 9: rainbow cycle (a_size controls rainbow blend %)
         float4 rb = hslRainbow(norm_ang + phase / 6.2831853);
         float lum = dot(base_col.rgb, float3(0.299, 0.587, 0.114));
-        anim_rgb = rb.rgb * lerp(0.55, 1.15, clamp(lum, 0.0, 1.0));
-    } else {
-        // 10: marching ants
-        float coord = clockwisePerimDist(p, half_base) / 28.0;
+        float3 rb_lit = rb.rgb * lerp(0.55, 1.15, clamp(lum, 0.0, 1.0));
+        anim_rgb = lerp(base_col.rgb, rb_lit, size_norm);
+    } else if (a_type < 10.5) {
+        // 10: marching ants (a_size controls dash scale)
+        float dash_pitch = lerp(14.0, 56.0, size_norm);
+        float coord = clockwisePerimDist(p, half_base) / dash_pitch;
         float dash = step(0.5, frac(coord - cyc_raw * 6.0 * dir_sign));
-        anim_rgb = lerp(base_col.rgb * 0.3, a_color2.rgb, dash);
+        anim_rgb = lerp(base_col.rgb * 0.3, a_color2.rgb, dash * accent_a);
         anim_a = base_a * (0.25 + 0.75 * dash);
+    } else if (a_type < 11.5) {
+        // 11: palette-flow (handled by computeGradT scrolling)
+        return base_col;
+    } else if (a_type < 12.5) {
+        // 12: shimmer-glint (diagonal foil sheen with calm pause)
+        float2 norm_p = p / max(half_base, float2(1.0, 1.0));
+        float cyc = frac(cyc_raw);
+        float sweep = ((dir_sign < 0.0) ? (1.0 - cyc / 0.42) : (cyc / 0.42)) * 3.4 - 1.7;
+        float d = (norm_p.x + norm_p.y * 0.65) - sweep;
+        float sharp = lerp(60.0, 8.0, size_norm);
+        float glint = (cyc < 0.44) ? exp(-d * d * sharp) : 0.0;
+        anim_rgb = lerp(base_col.rgb, a_color2.rgb, clamp(glint * 0.95, 0.0, 1.0) * accent_a);
+    } else if (a_type < 13.5) {
+        // 13: sparkle-twinkle (perimeter star glints)
+        float cell_w = lerp(42.0, 12.0, size_norm);
+        float perim = clockwisePerimDist(p, half_base);
+        float id = floor(perim / cell_w);
+        float local = abs(frac(perim / cell_w) - 0.5) * 2.0;
+        float rnd = frac(sin(id * 127.1 + 311.7) * 43758.5453);
+        float tw = pow(max(0.0, sin((cyc_raw + rnd) * 6.2831853)), 6.0);
+        float spk = smoothstep(0.65, 0.0, local) * tw;
+        anim_rgb = lerp(base_col.rgb, a_color2.rgb, clamp(spk * 1.15, 0.0, 1.0) * accent_a);
+    } else if (a_type < 14.5) {
+        // 14: neon-flicker (tube hum + voltage dips)
+        float t = cyc_raw * 6.2831853;
+        float hum = 0.5 + 0.5 * sin(t * 7.0) * sin(t * 17.3 + 1.2);
+        float f = frac(cyc_raw);
+        float dip = ((f > 0.14 && f < 0.17) || (f > 0.19 && f < 0.21) || (f > 0.72 && f < 0.745)) ? 1.0 : 0.0;
+        float flick = 1.0 - size_norm * (dip * 0.85 + hum * 0.15);
+        anim_rgb = base_col.rgb * clamp(flick, 0.15, 1.15);
+        anim_a = base_a * clamp(flick, 0.1, 1.0);
+    } else if (a_type < 15.5) {
+        // 15: heartbeat (lub-dub double pulse)
+        float f = frac(cyc_raw);
+        float b1 = exp(-pow((f - 0.14) / 0.055, 2.0));
+        float b2 = 0.75 * exp(-pow((f - 0.30) / 0.065, 2.0));
+        float hb = clamp(max(b1, b2), 0.0, 1.0);
+        anim_rgb = base_col.rgb * lerp(1.0 - size_norm * 0.2, 1.0 + size_norm * 0.25, hb);
+        anim_a = base_a * lerp(1.0 - size_norm, 1.0, hb);
+    } else if (a_type < 16.5) {
+        // 16: corner-sparks (four-corner symmetrical chase)
+        float arc = clamp(a_size / 100.0, 0.08, 0.9);
+        float d = abs(frac(norm_ang * 4.0 - phase / 6.2831853 + 0.5) - 0.5);
+        float beam = smoothstep(arc * 0.45, 0.0, d);
+        anim_rgb = lerp(base_col.rgb, a_color2.rgb, beam * accent_a);
+    } else if (a_type < 17.5) {
+        // 17: glitch-split (chromatic RGB jitter bursts)
+        float f = frac(cyc_raw);
+        float burst = ((f > 0.08 && f < 0.14) || (f > 0.55 && f < 0.59)) ? 1.0 : 0.0;
+        float band = floor(p.y / 14.0);
+        float j = frac(sin(band * 91.7 + floor(a_time * 24.0) * 17.3) * 43758.5453);
+        float split = burst * step(0.45, j) * size_norm;
+        float3 rgb_shift = float3(clamp(base_col.r + 0.45, 0.0, 1.0), base_col.g * 0.55, clamp(base_col.b + 0.55, 0.0, 1.0));
+        anim_rgb = lerp(base_col.rgb, rgb_shift, split);
+    } else {
+        // 18: icon-wobble, 19: icon-wave-bounce (handled in evalIconBorder)
+        return base_col;
     }
 
     return float4(anim_rgb, clamp(anim_a, 0.0, 1.0));
@@ -1142,20 +1325,27 @@ float4 pickIconCol(int idx) {
 }
 
 float computeGradT(float2 p, float2 half_base, float angle_rad, float use_perim) {
+    float flow_off = 0.0;
+    if (anim_type > 10.5 && anim_type < 11.5) {
+        float dur = max(anim_speed, 0.25);
+        float dir_sign = (anim_dir < 0.0) ? -1.0 : 1.0;
+        flow_off = (anim_dir > 1.5) ? (0.5 * sin(anim_time / dur * 6.2831853)) : (anim_time / dur * dir_sign);
+    }
     if (use_perim > 0.5) {
         float total_p = max(1.0, 4.0 * (half_base.x + half_base.y));
-        return frac(clockwisePerimDist(p, half_base) / total_p);
+        return frac(clockwisePerimDist(p, half_base) / total_p - flow_off);
     }
     float2 dir = float2(sin(angle_rad), -cos(angle_rad));
     float2 norm_p = p / max(half_base, float2(1.0, 1.0));
     float max_proj = max(0.001, abs(dir.x) + abs(dir.y));
-    return dot(norm_p, dir) / max_proj * 0.5 + 0.5;
+    float t = dot(norm_p, dir) / max_proj * 0.5 + 0.5;
+    return (anim_type > 10.5 && anim_type < 11.5) ? frac(t - flow_off) : t;
 }
 
 float4 sampleInnerPalette(float t, float count_f, float stepped, float spread, float use_perim) {
     int cnt = clamp(int(count_f + 0.5), 2, 8);
     float sp = max(0.05, spread);
-    bool wrap = (use_perim > 0.5) || (sp > 1.001);
+    bool wrap = (use_perim > 0.5) || (sp > 1.001) || (anim_type > 10.5 && anim_type < 11.5);
     float u = wrap ? frac(t * sp) : clamp((t - 0.5) * sp + 0.5, 0.0, 0.99999);
     if (stepped > 0.5) {
         int idx = clamp(int(floor(u * float(cnt))), 0, cnt - 1);
@@ -1175,7 +1365,7 @@ float4 sampleInnerPalette(float t, float count_f, float stepped, float spread, f
 float4 sampleOuterPalette(float t, float count_f, float stepped, float spread, float use_perim) {
     int cnt = clamp(int(count_f + 0.5), 2, 4);
     float sp = max(0.05, spread);
-    bool wrap = (use_perim > 0.5) || (sp > 1.001);
+    bool wrap = (use_perim > 0.5) || (sp > 1.001) || (anim_type > 10.5 && anim_type < 11.5);
     float u = wrap ? frac(t * sp) : clamp((t - 0.5) * sp + 0.5, 0.0, 0.99999);
     if (stepped > 0.5) {
         int idx = clamp(int(floor(u * float(cnt))), 0, cnt - 1);
@@ -1195,7 +1385,7 @@ float4 sampleOuterPalette(float t, float count_f, float stepped, float spread, f
 float4 sampleGlowPalette(float t, float count_f, float stepped, float spread, float use_perim) {
     int cnt = clamp(int(count_f + 0.5), 2, 4);
     float sp = max(0.05, spread);
-    bool wrap = (use_perim > 0.5) || (sp > 1.001);
+    bool wrap = (use_perim > 0.5) || (sp > 1.001) || (anim_type > 10.5 && anim_type < 11.5);
     float u = wrap ? frac(t * sp) : clamp((t - 0.5) * sp + 0.5, 0.0, 0.99999);
     if (stepped > 0.5) {
         int idx = clamp(int(floor(u * float(cnt))), 0, cnt - 1);
@@ -1212,23 +1402,68 @@ float4 sampleGlowPalette(float t, float count_f, float stepped, float spread, fl
     return lerp(pickGlowPal(i0), pickGlowPal(i0 + 1), clamp(sc - float(i0), 0.0, 1.0));
 }
 
-float4 evalIconBorder(float2 p, float2 half_base, float d_shape, float center_d) {
-    if (icons_enabled < 0.5 || icons_has_tex < 0.5 || icons_size < 4.0) return float4(0.0, 0.0, 0.0, 0.0);
-    float ly = (d_shape - (center_d + icons_offset)) / max(icons_size, 1.0);
-    if (abs(ly) > 0.55) return float4(0.0, 0.0, 0.0, 0.0);
+float4 sampleIconPalette(float t, float count_f, float mode_f, float spread, float cell_idx) {
+    int cnt = clamp(int(count_f + 0.5), 2, 8);
+    if (mode_f > 2.5) {
+        // 3: Each icon random color from palette (deterministic per cell)
+        float h = frac(sin(cell_idx * 127.1 + 311.7) * 43758.5453);
+        int idx = clamp(int(floor(h * float(cnt))), 0, cnt - 1);
+        return pickIconCol(idx);
+    }
+    if (mode_f > 1.5) {
+        // 2: Each icon in palette order
+        int idx = int(floor(cell_idx - floor(cell_idx / float(cnt)) * float(cnt) + 0.5));
+        return pickIconCol(clamp(idx, 0, cnt - 1));
+    }
+    float sp = max(0.05, spread);
+    float u = frac(t * sp);
+    if (mode_f > 0.5) {
+        int idx = clamp(int(floor(u * float(cnt))), 0, cnt - 1);
+        return pickIconCol(idx);
+    }
+    float sc = u * float(cnt);
+    int i0 = clamp(int(floor(sc)), 0, cnt - 1);
+    int i1 = (i0 + 1) % cnt;
+    return lerp(pickIconCol(i0), pickIconCol(i1), frac(sc));
+}
 
-    float total_p = max(1.0, 4.0 * (half_base.x + half_base.y));
-    float pitch = max(8.0, icons_size + max(0.0, icons_spacing));
-    float cell_cnt = max(4.0, floor(total_p / pitch + 0.5));
-    float adj_pitch = total_p / cell_cnt;
-    float p_dist = clockwisePerimDist(p, half_base);
-    float s = p_dist + anim_time * icons_speed * 80.0;
-    float cell_f = s / adj_pitch;
-    float cell_idx = floor(cell_f);
-    float lx = (frac(cell_f) - 0.5) * adj_pitch / max(icons_size, 1.0);
-    if (abs(lx) > 0.55) return float4(0.0, 0.0, 0.0, 0.0);
+int pickEdgeAtlasSlot(int eidx) {
+    if (eidx == 0) return int(icons_edge_slots0.x + 0.5);
+    if (eidx == 1) return int(icons_edge_slots0.y + 0.5);
+    if (eidx == 2) return int(icons_edge_slots0.z + 0.5);
+    if (eidx == 3) return int(icons_edge_slots0.w + 0.5);
+    if (eidx == 4) return int(icons_edge_slots1.x + 0.5);
+    if (eidx == 5) return int(icons_edge_slots1.y + 0.5);
+    if (eidx == 6) return int(icons_edge_slots1.z + 0.5);
+    return int(icons_edge_slots1.w + 0.5);
+}
 
-    // Optional tangent edge orientation + user rotation
+int pickCornerAtlasSlot(int cidx) {
+    float raw = icons_corner_slots.x;
+    if (cidx == 1) raw = icons_corner_slots.y;
+    else if (cidx == 2) raw = icons_corner_slots.z;
+    else if (cidx == 3) raw = icons_corner_slots.w;
+    if (raw < -0.5) return -1;
+    return int(raw + 0.5);
+}
+
+float4 sampleSingleIconCell(
+    float2 p, float2 half_base, float d_shape, float center_d,
+    float p_dist, float total_p, float adj_pitch, float cell_idx, float lx_px, float edge_only_slots
+) {
+    float lx = lx_px / max(icons_size, 1.0);
+    if (abs(lx) > 0.75) return float4(0.0, 0.0, 0.0, 0.0);
+
+    float m_dur = max(icons_motion_speed, 0.25);
+    float m_amt = clamp(icons_motion_amount / 100.0, 0.05, 1.0);
+    float m_phase = anim_time / m_dur * 6.2831853;
+    float bob_off = (icons_motion > 3.5 && icons_motion < 4.5)
+        ? (sin(m_phase - cell_idx * 0.85) * icons_size * 0.22 * m_amt)
+        : 0.0;
+
+    float ly = -(d_shape - (center_d + icons_offset + bob_off)) / max(icons_size, 1.0);
+    if (abs(ly) > 0.75) return float4(0.0, 0.0, 0.0, 0.0);
+
     float rot = icons_rot_rad;
     if (icons_follow_edge < 0.5) {
         float hx = max(half_base.x, 1.0);
@@ -1239,26 +1474,206 @@ float4 evalIconBorder(float2 p, float2 half_base, float d_shape, float center_d)
             rot += (p.x >= 0.0) ? -1.5707963 : 1.5707963;
         }
     }
+    if (icons_motion > 0.5 && icons_motion < 1.5) {
+        rot += sin(m_phase + cell_idx * 0.9) * m_amt * 0.65;
+    } else if (icons_motion > 2.5 && icons_motion < 3.5) {
+        rot += m_phase;
+    }
+    float slx = lx;
+    float sly = ly;
+    if (icons_motion > 1.5 && icons_motion < 2.5) {
+        float b_wave = 0.5 + 0.5 * sin(m_phase - cell_idx * 0.75);
+        float b_scale = lerp(1.0 - m_amt * 0.45, 1.0, b_wave);
+        slx = lx / max(0.25, b_scale);
+        sly = ly / max(0.25, b_scale);
+    }
     float cr = cos(rot);
     float sr = sin(rot);
-    float2 ruv = float2(lx * cr - ly * sr, lx * sr + ly * cr) + float2(0.5, 0.5);
+    float2 ruv = float2(slx * cr + sly * sr, -slx * sr + sly * cr) + float2(0.5, 0.5);
     if (ruv.x < 0.0 || ruv.x > 1.0 || ruv.y < 0.0 || ruv.y > 1.0) return float4(0.0, 0.0, 0.0, 0.0);
 
     int cnt = clamp(int(icons_count + 0.5), 1, 8);
-    int slot = int(floor(cell_idx - floor(cell_idx / float(cnt)) * float(cnt) + 0.5));
-    slot = clamp(slot, 0, cnt - 1);
+    int slot = 0;
+    if (edge_only_slots > 0.5) {
+        int ecnt = clamp(int(icons_edge_count + 0.5), 0, 8);
+        if (ecnt <= 0) return float4(0.0, 0.0, 0.0, 0.0);
+        int eidx = int(floor(cell_idx - floor(cell_idx / float(ecnt)) * float(ecnt) + 0.5));
+        slot = clamp(pickEdgeAtlasSlot(clamp(eidx, 0, ecnt - 1)), 0, cnt - 1);
+    } else {
+        slot = int(floor(cell_idx - floor(cell_idx / float(cnt)) * float(cnt) + 0.5));
+        slot = clamp(slot, 0, cnt - 1);
+    }
     float2 atlas_uv = float2((float(slot) + ruv.x) / float(cnt), ruv.y);
     float4 samp = icon_atlas.Sample(textureSampler, atlas_uv);
-    float mask_a = samp.a * clamp(icons_opacity, 0.0, 1.0);
+    float tw_mult = (icons_motion > 4.5 && icons_motion < 5.5)
+        ? lerp(1.0 - m_amt, 1.0, 0.5 + 0.5 * sin(m_phase + frac(sin(cell_idx * 127.1 + 311.7) * 43758.5453) * 6.2831853))
+        : 1.0;
+    float mask_a = samp.a * clamp(icons_opacity, 0.0, 1.0) * tw_mult;
     if (mask_a <= 0.002) return float4(0.0, 0.0, 0.0, 0.0);
 
     float4 tint = pickIconCol(slot);
-    if (icons_color_mode > 0.5) {
-        float pt = frac(p_dist / total_p);
+    if (icons_color_mode > 1.5) {
+        float flow_off = (anim_type > 10.5 && anim_type < 11.5) ? (anim_time / max(anim_speed, 0.25) * ((anim_dir < 0.0) ? -1.0 : 1.0)) : 0.0;
+        float pt = frac(p_dist / total_p - flow_off);
+        tint = sampleIconPalette(pt, icons_pal_count, icons_grad_stepped, icons_grad_spread, cell_idx);
+    } else if (icons_color_mode > 0.5) {
+        float flow_off = (anim_type > 10.5 && anim_type < 11.5) ? (anim_time / max(anim_speed, 0.25) * ((anim_dir < 0.0) ? -1.0 : 1.0)) : 0.0;
+        float pt = frac(p_dist / total_p - flow_off);
         tint = sampleInnerPalette(pt, inner_pal_count, inner_grad_stepped, inner_grad_spread, 1.0);
     }
+    float3 src_rgb = samp.rgb;
+    if (icons_desaturate > 0.5) {
+        float lum = dot(src_rgb, float3(0.299, 0.587, 0.114));
+        float mono = lerp(lum, 1.0, 0.28);
+        src_rgb = float3(mono, mono, mono);
+    }
     float a = clamp(mask_a * tint.a, 0.0, 1.0);
-    return float4(samp.rgb * tint.rgb * a, a);
+    return float4(src_rgb * tint.rgb * a, a);
+}
+
+float2 cornerAnchorPoint(float2 p, float2 half_base, float4 corner_radii, float c_off) {
+    float sx = (p.x >= 0.0) ? 1.0 : -1.0;
+    float sy = (p.y >= 0.0) ? 1.0 : -1.0;
+    float r_raw = corner_radii.x;
+    if (sx > 0.0 && sy < 0.0) r_raw = corner_radii.y;
+    else if (sx > 0.0 && sy > 0.0) r_raw = corner_radii.z;
+    else if (sx < 0.0 && sy > 0.0) r_raw = corner_radii.w;
+    float cr_lim = clamp(r_raw, 0.0, min(half_base.x, half_base.y));
+    float2 arc_c = float2(sx * (half_base.x - cr_lim), sy * (half_base.y - cr_lim));
+    float eff_r = cr_lim + c_off;
+    return (eff_r > 0.0)
+        ? (arc_c + float2(sx, sy) * (0.70710678 * eff_r))
+        : float2(sx * (half_base.x + c_off), sy * (half_base.y + c_off));
+}
+
+float4 evalCornerIcon(float2 p, float2 half_base, float4 corner_radii, float center_d, float pinned_first_only) {
+    float sx = (p.x >= 0.0) ? 1.0 : -1.0;
+    float sy = (p.y >= 0.0) ? 1.0 : -1.0;
+    int corner_idx = 0;
+    float diag_ang = -0.78539816;
+    if (sx > 0.0 && sy < 0.0) { corner_idx = 1; diag_ang = 0.78539816; }
+    else if (sx > 0.0 && sy > 0.0) { corner_idx = 2; diag_ang = 2.35619449; }
+    else if (sx < 0.0 && sy > 0.0) { corner_idx = 3; diag_ang = -2.35619449; }
+
+    float c_size = max(4.0, icons_size * clamp(icons_corner_scale, 0.5, 2.0));
+    float m_dur = max(icons_motion_speed, 0.25);
+    float m_amt = clamp(icons_motion_amount / 100.0, 0.05, 1.0);
+    float m_phase = anim_time / m_dur * 6.2831853;
+    float c_idx_f = float(corner_idx);
+    // Corner motion mode: 0 = synced in unison, 1 = staggered 90deg per corner, 2 = stationary (no motion)
+    bool c_anim_on = icons_corner_motion < 1.5;
+    float c_stagger = (icons_corner_motion > 0.5 && icons_corner_motion < 1.5) ? (c_idx_f * 1.5707963) : 0.0;
+    float bob_off = (c_anim_on && icons_motion > 3.5 && icons_motion < 4.5)
+        ? (sin(m_phase - c_stagger) * c_size * 0.22 * m_amt)
+        : 0.0;
+
+    float2 anchor = cornerAnchorPoint(p, half_base, corner_radii, center_d + icons_offset + bob_off);
+    float2 delta = (p - anchor) / c_size;
+    if (abs(delta.x) > 0.75 || abs(delta.y) > 0.75) return float4(0.0, 0.0, 0.0, 0.0);
+
+    // Corner orientation: 0 = upright (same angle on all 4), 1 = outward 45deg, 2 = inward 45deg
+    float orient_ang = 0.0;
+    if (icons_corner_orient > 0.5 && icons_corner_orient < 1.5) orient_ang = diag_ang;
+    else if (icons_corner_orient >= 1.5) orient_ang = diag_ang + 3.14159265;
+    float rot = icons_corner_rot_rad + orient_ang;
+    if (c_anim_on && icons_motion > 0.5 && icons_motion < 1.5) {
+        rot += sin(m_phase + c_stagger) * m_amt * 0.65;
+    } else if (c_anim_on && icons_motion > 2.5 && icons_motion < 3.5) {
+        rot += m_phase;
+    }
+    float slx = delta.x;
+    float sly = delta.y;
+    if (c_anim_on && icons_motion > 1.5 && icons_motion < 2.5) {
+        float b_wave = 0.5 + 0.5 * sin(m_phase - c_stagger);
+        float b_scale = lerp(1.0 - m_amt * 0.45, 1.0, b_wave);
+        slx = delta.x / max(0.25, b_scale);
+        sly = delta.y / max(0.25, b_scale);
+    }
+    float cr = cos(rot);
+    float sr = sin(rot);
+    float2 ruv = float2(slx * cr + sly * sr, -slx * sr + sly * cr) + float2(0.5, 0.5);
+    if (ruv.x < 0.0 || ruv.x > 1.0 || ruv.y < 0.0 || ruv.y > 1.0) return float4(0.0, 0.0, 0.0, 0.0);
+
+    int cnt = clamp(int(icons_count + 0.5), 1, 8);
+    int slot = (pinned_first_only > 0.5) ? pickCornerAtlasSlot(corner_idx) : (corner_idx % cnt);
+    if (slot < 0) return float4(0.0, 0.0, 0.0, 0.0);
+    slot = clamp(slot, 0, cnt - 1);
+    float2 atlas_uv = float2((float(slot) + ruv.x) / float(cnt), ruv.y);
+    float4 samp = icon_atlas.Sample(textureSampler, atlas_uv);
+    float tw_mult = (c_anim_on && icons_motion > 4.5 && icons_motion < 5.5)
+        ? lerp(1.0 - m_amt, 1.0, 0.5 + 0.5 * sin(m_phase + c_stagger))
+        : 1.0;
+    float mask_a = samp.a * clamp(icons_opacity, 0.0, 1.0) * tw_mult;
+    if (mask_a <= 0.002) return float4(0.0, 0.0, 0.0, 0.0);
+
+    float4 tint = pickIconCol(slot);
+    if (icons_color_mode > 1.5) {
+        float flow_off = (anim_type > 10.5 && anim_type < 11.5) ? (anim_time / max(anim_speed, 0.25) * ((anim_dir < 0.0) ? -1.0 : 1.0)) : 0.0;
+        float pt = frac(c_idx_f * 0.25 - flow_off);
+        tint = sampleIconPalette(pt, icons_pal_count, icons_grad_stepped, icons_grad_spread, c_idx_f);
+    } else if (icons_color_mode > 0.5) {
+        float flow_off = (anim_type > 10.5 && anim_type < 11.5) ? (anim_time / max(anim_speed, 0.25) * ((anim_dir < 0.0) ? -1.0 : 1.0)) : 0.0;
+        float pt = frac(c_idx_f * 0.25 - flow_off);
+        tint = sampleInnerPalette(pt, inner_pal_count, inner_grad_stepped, inner_grad_spread, 1.0);
+    }
+    float3 src_rgb = samp.rgb;
+    if (icons_desaturate > 0.5) {
+        float lum = dot(src_rgb, float3(0.299, 0.587, 0.114));
+        float mono = lerp(lum, 1.0, 0.28);
+        src_rgb = float3(mono, mono, mono);
+    }
+    float a = clamp(mask_a * tint.a, 0.0, 1.0);
+    return float4(src_rgb * tint.rgb * a, a);
+}
+
+float4 evalIconBorder(float2 p, float2 half_base, float4 corner_radii, float d_shape, float center_d) {
+    if (icons_enabled < 0.5 || icons_has_tex < 0.5 || icons_size < 4.0) return float4(0.0, 0.0, 0.0, 0.0);
+    if (icons_layout > 0.5 && icons_layout < 1.5) {
+        return evalCornerIcon(p, half_base, corner_radii, center_d, 0.0);
+    }
+
+    float4 corner_col = float4(0.0, 0.0, 0.0, 0.0);
+    float edge_only_slots = 0.0;
+    float edge_fade = 1.0;
+    if (icons_layout >= 1.5) {
+        corner_col = evalCornerIcon(p, half_base, corner_radii, center_d, 1.0);
+        edge_only_slots = 1.0;
+        if (icons_corner_tuck > 0.5) {
+            float2 c_anchor = cornerAnchorPoint(p, half_base, corner_radii, center_d + icons_offset);
+            float c_size = max(4.0, icons_size * clamp(icons_corner_scale, 0.5, 2.0));
+            float d_corner = length(p - c_anchor);
+            edge_fade = smoothstep(c_size * 0.42, c_size * 0.88, d_corner);
+        }
+    }
+
+    float approx_ly = (d_shape - (center_d + icons_offset)) / max(icons_size, 1.0);
+    if (abs(approx_ly) > 1.05 || edge_fade <= 0.002) return corner_col;
+
+    float total_p = max(1.0, 4.0 * (half_base.x + half_base.y));
+    float pitch = max(max(8.0, icons_size * 0.25), icons_size + icons_spacing);
+    float cell_cnt = max(4.0, floor(total_p / pitch + 0.5));
+    float adj_pitch = total_p / cell_cnt;
+    float p_dist = clockwisePerimDist(p, half_base);
+    float s = p_dist + anim_time * icons_speed * 80.0;
+    float cell_f = s / adj_pitch;
+    float cell_idx = floor(cell_f);
+    float frac_f = frac(cell_f);
+    float lx0_px = (frac_f - 0.5) * adj_pitch;
+
+    float4 c_cur = sampleSingleIconCell(p, half_base, d_shape, center_d, p_dist, total_p, adj_pitch, cell_idx, lx0_px, edge_only_slots);
+    float lx_prev = lx0_px + adj_pitch;
+    float lx_next = lx0_px - adj_pitch;
+    float4 edge_col = float4(0.0, 0.0, 0.0, 0.0);
+    if (abs(lx_prev) <= icons_size * 0.75) {
+        edge_col = sampleSingleIconCell(p, half_base, d_shape, center_d, p_dist, total_p, adj_pitch, cell_idx - 1.0, lx_prev, edge_only_slots);
+    }
+    edge_col = c_cur + edge_col * (1.0 - c_cur.a);
+    if (abs(lx_next) <= icons_size * 0.75) {
+        float4 c_next = sampleSingleIconCell(p, half_base, d_shape, center_d, p_dist, total_p, adj_pitch, cell_idx + 1.0, lx_next, edge_only_slots);
+        edge_col = c_next + edge_col * (1.0 - c_next.a);
+    }
+    edge_col *= edge_fade;
+    return corner_col + edge_col * (1.0 - corner_col.a);
 }
 
 float4 compositeIconOver(float4 dst, float4 src, float mode) {
@@ -1895,7 +2310,15 @@ float4 PSDefault(VertDataOut v_in) : TARGET {
             float gt = computeGradT(p, half_base, glow_angle_rad, glow_grad_perim);
             g_col = sampleGlowPalette(gt, glow_pal_count, glow_grad_stepped, glow_grad_spread, glow_grad_perim);
         }
-        float pulse = (anim_type > 5.5 && anim_type < 6.5) ? (0.65 + 0.35 * sin(anim_time / max(anim_speed, 0.25) * 6.2831853)) : 1.0;
+        float pulse_depth = clamp(anim_size / 100.0, 0.05, 1.0);
+        float pulse = 1.0;
+        if (anim_type > 5.5 && anim_type < 6.5) {
+            pulse = lerp(1.0 - pulse_depth, 1.0, 0.5 + 0.5 * sin(anim_time / max(anim_speed, 0.25) * 6.2831853));
+        } else if (anim_type > 14.5 && anim_type < 15.5) {
+            float hf = frac(anim_time / max(anim_speed, 0.25));
+            float hb = clamp(max(exp(-pow((hf - 0.14) / 0.055, 2.0)), 0.75 * exp(-pow((hf - 0.30) / 0.065, 2.0))), 0.0, 1.0);
+            pulse = lerp(1.0 - pulse_depth, 1.0, hb);
+        }
         if (glow_inner > 0.5 && d_shape < in_start) {
             float gd_in = max(0.0, in_start - d_shape);
             float ga = exp(-gd_in / max(glow_blur * 0.45, 1.0)) * 0.65 * pulse;
@@ -1926,12 +2349,25 @@ float4 PSDefault(VertDataOut v_in) : TARGET {
         result = result + glow_pm * (1.0 - result.a);
     }
     result = result + shadow_pm * (1.0 - clamp(result.a, 0.0, 1.0));
+    float4 icon_pm = float4(0.0, 0.0, 0.0, 0.0);
     if (icons_enabled > 0.5 && icons_has_tex > 0.5) {
-        float icon_center_d = (inner_enabled > 0.5 && total_inner > 0.0) ? (in_start + total_inner * 0.5) : shift;
-        float4 icon_pm = evalIconBorder(p, half_base, d_shape, icon_center_d);
-        border_pm = compositeIconOver(border_pm, icon_pm, icons_blend);
+        float icon_only_d = (placement_code < 0.5) ? (icons_size * 0.5) : ((placement_code < 1.5) ? 0.0 : (-icons_size * 0.5));
+        float icon_center_d = (inner_enabled > 0.5 && total_inner > 0.0) ? (in_start + total_inner * 0.5) : icon_only_d;
+        icon_pm = evalIconBorder(p, half_base, radii, d_shape, icon_center_d);
+        if (icons_apply_anim > 0.5 && anim_type > 0.5 && icon_pm.a > 0.001 && icons_blend < 5.5) {
+            float4 icon_col = float4(icon_pm.rgb / icon_pm.a, icon_pm.a);
+            icon_col = applyBorderAnimOverlay(icon_col, p, half_base, anim_type, anim_time, anim_speed, anim_size, anim_dir, anim_color2);
+            float ia = clamp(icon_col.a, 0.0, 1.0);
+            icon_pm = float4(icon_col.rgb * ia, ia);
+        }
+        if (icons_blend > 5.5) {
+            border_pm = compositeIconOver(border_pm, icon_pm, icons_blend);
+        }
     }
     result = border_pm + result * (1.0 - border_pm.a);
+    if (icon_pm.a > 0.001 && icons_blend <= 5.5) {
+        result = compositeIconOver(result, icon_pm, icons_blend);
+    }
     // Un-premultiply back to straight alpha for OBS's SRCALPHA/INVSRCALPHA filter pipeline
     // so semi-transparent glows don't get double-multiplied (darkened) by OBS compositing.
     float out_a = clamp(result.a, 0.0, 1.0);
@@ -1999,12 +2435,26 @@ local function extract_object_raw(block, key)
     return string.match(block, pat)
 end
 
+local function parse_rgba_list(raw)
+    local out = {}
+    if not raw then return out end
+    local inner = string.match(raw, "^%s*%[(.*)%]%s*$") or ""
+    for sub in string.gmatch(inner, "%b[]") do
+        local arr = parse_number_array(sub)
+        if #arr >= 3 then
+            out[#out + 1] = { arr[1] or 1.0, arr[2] or 1.0, arr[3] or 1.0, arr[4] or 1.0 }
+        end
+    end
+    return out
+end
+
 local function parse_profile_block(block)
     local id = extract_string(block, "id", "")
     if id == "" then return nil end
     local inner_raw = extract_object_raw(block, "inner") or "{}"
     local outer_raw = extract_object_raw(block, "outer") or "{}"
     local glow_raw  = extract_object_raw(block, "glow") or "{}"
+    local icons_raw = extract_object_raw(block, "icons") or "{}"
     local shad_raw  = extract_object_raw(block, "shadow") or "{}"
     local anim_raw  = extract_object_raw(block, "animation") or "{}"
     local bg_raw    = extract_object_raw(block, "background") or "{}"
@@ -2027,7 +2477,12 @@ local function parse_profile_block(block)
             gap = extract_number(inner_raw, "gap", 0),
             color1Rgba = parse_number_array(extract_array_raw(inner_raw, "color1Rgba") or "[1,1,1,1]"),
             color2Rgba = parse_number_array(extract_array_raw(inner_raw, "color2Rgba") or "[0.6,0.6,0.6,1]"),
-            angle = extract_number(inner_raw, "angle", 180)
+            angle = extract_number(inner_raw, "angle", 180),
+            palModeCode = extract_number(inner_raw, "palModeCode", 0),
+            paletteRgba = parse_rgba_list(extract_array_raw(inner_raw, "paletteRgba")),
+            gradStepped = extract_number(inner_raw, "gradStepped", 0),
+            gradSpread = extract_number(inner_raw, "gradSpread", 1.0),
+            gradPerim = extract_number(inner_raw, "gradPerim", 0)
         },
         outer = {
             enabled = extract_bool(outer_raw, "enabled", false) and 1.0 or 0.0,
@@ -2037,14 +2492,58 @@ local function parse_profile_block(block)
             gap = extract_number(outer_raw, "gap", 0),
             color1Rgba = parse_number_array(extract_array_raw(outer_raw, "color1Rgba") or "[0.6,0.64,0.26,1]"),
             color2Rgba = parse_number_array(extract_array_raw(outer_raw, "color2Rgba") or "[0.01,0.43,0.33,1]"),
-            angle = extract_number(outer_raw, "angle", 180)
+            angle = extract_number(outer_raw, "angle", 180),
+            palModeCode = extract_number(outer_raw, "palModeCode", 0),
+            paletteRgba = parse_rgba_list(extract_array_raw(outer_raw, "paletteRgba")),
+            gradStepped = extract_number(outer_raw, "gradStepped", 0),
+            gradSpread = extract_number(outer_raw, "gradSpread", 1.0),
+            gradPerim = extract_number(outer_raw, "gradPerim", 0)
         },
         glow = {
             enabled = extract_bool(glow_raw, "enabled", false) and 1.0 or 0.0,
             colorRgba = parse_number_array(extract_array_raw(glow_raw, "colorRgba") or "[0.22,0.74,0.97,1]"),
             blur = extract_number(glow_raw, "blur", 16),
             neon = extract_bool(glow_raw, "neon", false) and 1.0 or 0.0,
-            inner = extract_bool(glow_raw, "inner", false) and 1.0 or 0.0
+            inner = extract_bool(glow_raw, "inner", false) and 1.0 or 0.0,
+            palModeCode = extract_number(glow_raw, "palModeCode", 0),
+            paletteRgba = parse_rgba_list(extract_array_raw(glow_raw, "paletteRgba")),
+            gradStepped = extract_number(glow_raw, "gradStepped", 0),
+            gradSpread = extract_number(glow_raw, "gradSpread", 1.0),
+            gradPerim = extract_number(glow_raw, "gradPerim", 1),
+            angle = extract_number(glow_raw, "angle", 180)
+        },
+        icons = {
+            enabled = extract_number(icons_raw, "enabled", 0),
+            count = extract_number(icons_raw, "count", 2),
+            size = extract_number(icons_raw, "size", 28),
+            spacing = extract_number(icons_raw, "spacing", 16),
+            offset = extract_number(icons_raw, "offset", 0),
+            rotation = extract_number(icons_raw, "rotation", 0),
+            followEdge = extract_number(icons_raw, "followEdge", 1),
+            speed = extract_number(icons_raw, "speed", 0),
+            colorModeCode = extract_number(icons_raw, "colorModeCode", 0),
+            palCount = extract_number(icons_raw, "palCount", 2),
+            gradStepped = extract_number(icons_raw, "gradStepped", 0),
+            gradSpread = extract_number(icons_raw, "gradSpread", 1.0),
+            blendCode = extract_number(icons_raw, "blendCode", 0),
+            layoutCode = extract_number(icons_raw, "layoutCode", 0),
+            cornerScale = extract_number(icons_raw, "cornerScale", 1.0),
+            cornerOrientCode = extract_number(icons_raw, "cornerOrientCode", 0),
+            cornerRotation = extract_number(icons_raw, "cornerRotation", 0),
+            cornerMotionCode = extract_number(icons_raw, "cornerMotionCode", 0),
+            cornerTuck = extract_number(icons_raw, "cornerTuck", 1),
+            desaturate = extract_number(icons_raw, "desaturate", 0),
+            cornerSlots = parse_number_array(extract_array_raw(icons_raw, "cornerSlots") or "[0,0,0,0]"),
+            edgeSlots0 = parse_number_array(extract_array_raw(icons_raw, "edgeSlots0") or "[0,1,2,3]"),
+            edgeSlots1 = parse_number_array(extract_array_raw(icons_raw, "edgeSlots1") or "[4,5,6,7]"),
+            edgeCount = extract_number(icons_raw, "edgeCount", 1),
+            motionCode = extract_number(icons_raw, "motionCode", 0),
+            motionSpeed = extract_number(icons_raw, "motionSpeed", 2.5),
+            motionAmount = extract_number(icons_raw, "motionAmount", 40),
+            applyBorderAnim = extract_number(icons_raw, "applyBorderAnim", 1),
+            opacity = extract_number(icons_raw, "opacity", 1.0),
+            colorsRgba = parse_rgba_list(extract_array_raw(icons_raw, "colorsRgba")),
+            atlasPath = extract_string(icons_raw, "atlasPath", "")
         },
         shadow = {
             enabled = extract_bool(shad_raw, "enabled", false) and 1.0 or 0.0,
@@ -2288,6 +2787,10 @@ filter_def.create = function(settings, source)
     data.params = {}
 
     obs.obs_enter_graphics()
+    if obs.gs_texture_create then
+        local ok_dt, dt = pcall(obs.gs_texture_create, 1, 1, obs.GS_RGBA, 1, nil, obs.GS_DYNAMIC or 0)
+        if ok_dt and dt ~= nil then data.dummy_tex = dt end
+    end
     data.effect = obs.gs_effect_create(EFFECT_SOURCE, "streampulse_border_effect", nil)
     if data.effect ~= nil then
         local names = {
@@ -2309,7 +2812,7 @@ filter_def.create = function(settings, source)
             "glow_pal_mode", "glow_pal_count", "glow_grad_stepped", "glow_grad_spread", "glow_grad_perim", "glow_angle_rad",
             "glow_pal0", "glow_pal1", "glow_pal2", "glow_pal3",
             "icon_atlas", "icons_enabled", "icons_has_tex", "icons_count", "icons_size", "icons_spacing",
-            "icons_offset", "icons_rot_rad", "icons_follow_edge", "icons_speed", "icons_color_mode", "icons_blend", "icons_opacity",
+            "icons_offset", "icons_rot_rad", "icons_follow_edge", "icons_speed", "icons_color_mode", "icons_pal_count", "icons_grad_stepped", "icons_grad_spread", "icons_blend", "icons_layout", "icons_corner_scale", "icons_corner_orient", "icons_corner_rot_rad", "icons_corner_motion", "icons_corner_tuck", "icons_desaturate", "icons_corner_slots", "icons_edge_slots0", "icons_edge_slots1", "icons_edge_count", "icons_motion", "icons_motion_speed", "icons_motion_amount", "icons_apply_anim", "icons_opacity",
             "icon_col0", "icon_col1", "icon_col2", "icon_col3", "icon_col4", "icon_col5", "icon_col6", "icon_col7"
         }
         for _, n in ipairs(names) do
@@ -2325,12 +2828,50 @@ filter_def.create = function(settings, source)
     return data
 end
 
+local function free_icon_atlas(data)
+    if data.icon_tex ~= nil and obs.gs_texture_destroy then
+        pcall(obs.gs_texture_destroy, data.icon_tex)
+        data.icon_tex = nil
+    end
+    if data.icon_img ~= nil and obs.gs_image_file_free then
+        pcall(obs.gs_image_file_free, data.icon_img)
+        data.icon_img = nil
+    end
+    data.icon_atlas_path = ""
+end
+
+local function ensure_icon_atlas(data, want_path)
+    if want_path == (data.icon_atlas_path or "") then return end
+    free_icon_atlas(data)
+    data.icon_atlas_path = want_path
+    if want_path == "" then return end
+    if obs.gs_texture_create_from_file then
+        local ok_t, tex = pcall(obs.gs_texture_create_from_file, want_path)
+        if ok_t and tex ~= nil then
+            data.icon_tex = tex
+            return
+        end
+    end
+    if obs.gs_image_file and obs.gs_image_file_init and obs.gs_image_file_init_texture then
+        local ok_c, img = pcall(obs.gs_image_file)
+        if ok_c and img ~= nil then
+            local ok_i = pcall(obs.gs_image_file_init, img, want_path)
+            if ok_i and img.loaded then
+                pcall(obs.gs_image_file_init_texture, img)
+                data.icon_img = img
+            else
+                pcall(obs.gs_image_file_free, img)
+            end
+        end
+    end
+end
+
 filter_def.destroy = function(data)
     obs.obs_enter_graphics()
-    if data.icon_img ~= nil then
-        obs.gs_image_file_free(data.icon_img)
-        data.icon_img = nil
-        data.icon_atlas_path = ""
+    free_icon_atlas(data)
+    if data.dummy_tex ~= nil and obs.gs_texture_destroy then
+        pcall(obs.gs_texture_destroy, data.dummy_tex)
+        data.dummy_tex = nil
     end
     if data.effect ~= nil then
         obs.gs_effect_destroy(data.effect)
@@ -2433,6 +2974,17 @@ filter_def.video_render = function(data)
         return
     end
     local prof = data.active_prof
+    local ic = prof.icons or {}
+    local ic_on = (ic.enabled or 0.0) > 0.5
+    local want_path = (ic_on and ic.atlasPath) or ""
+    ensure_icon_atlas(data, want_path)
+    local active_icon_tex = data.icon_tex or (data.icon_img ~= nil and data.icon_img.texture or nil)
+    local has_tex = (ic_on and active_icon_tex ~= nil)
+    local bind_icon_tex = active_icon_tex or data.dummy_tex
+    if data.params.icon_atlas ~= nil and bind_icon_tex == nil then
+        obs.obs_source_skip_video_filter(data.context)
+        return
+    end
     if not obs.obs_source_process_filter_begin(data.context, obs.GS_RGBA, obs.OBS_NO_DIRECT_RENDERING) then
         return
     end
@@ -2540,32 +3092,11 @@ filter_def.video_render = function(data)
         set_vec4(v4, p["glow_pal" .. idx], glow_pal[idx + 1] or glow_pal[#glow_pal] or prof.glow.colorRgba)
     end
 
-    -- Font Awesome Perimeter Icon Border Atlas
-    local ic = prof.icons or {}
-    local ic_on = (ic.enabled or 0.0) > 0.5
-    local want_path = (ic_on and ic.atlasPath) or ""
-    if want_path ~= (data.icon_atlas_path or "") then
-        if data.icon_img ~= nil then
-            obs.gs_image_file_free(data.icon_img)
-            data.icon_img = nil
-        end
-        data.icon_atlas_path = want_path
-        if want_path ~= "" then
-            local img = obs.gs_image_file()
-            obs.gs_image_file_init(img, want_path)
-            if img.loaded then
-                obs.gs_image_file_init_texture(img)
-                data.icon_img = img
-            else
-                obs.gs_image_file_free(img)
-            end
-        end
-    end
-    local has_tex = (ic_on and data.icon_img ~= nil and data.icon_img.texture ~= nil)
+    -- Perimeter Icon & Asset Border Atlas (always bind a valid texture for Metal)
     obs.gs_effect_set_float(p.icons_enabled, ic_on and 1.0 or 0.0)
     obs.gs_effect_set_float(p.icons_has_tex, has_tex and 1.0 or 0.0)
-    if has_tex and p.icon_atlas ~= nil then
-        obs.gs_effect_set_texture(p.icon_atlas, data.icon_img.texture)
+    if p.icon_atlas ~= nil and bind_icon_tex ~= nil then
+        obs.gs_effect_set_texture(p.icon_atlas, bind_icon_tex)
     end
     obs.gs_effect_set_float(p.icons_count, math.max(1, ic.count or 1))
     obs.gs_effect_set_float(p.icons_size, (ic.size or 28.0) * sc)
@@ -2575,7 +3106,25 @@ filter_def.video_render = function(data)
     obs.gs_effect_set_float(p.icons_follow_edge, ic.followEdge ~= nil and ic.followEdge or 1.0)
     obs.gs_effect_set_float(p.icons_speed, ic.speed or 0.0)
     obs.gs_effect_set_float(p.icons_color_mode, ic.colorModeCode or 0.0)
+    obs.gs_effect_set_float(p.icons_pal_count, math.max(2, ic.palCount or 2))
+    obs.gs_effect_set_float(p.icons_grad_stepped, ic.gradStepped or 0.0)
+    obs.gs_effect_set_float(p.icons_grad_spread, ic.gradSpread or 1.0)
     obs.gs_effect_set_float(p.icons_blend, ic.blendCode or 0.0)
+    obs.gs_effect_set_float(p.icons_layout, ic.layoutCode or 0.0)
+    obs.gs_effect_set_float(p.icons_corner_scale, ic.cornerScale or 1.0)
+    obs.gs_effect_set_float(p.icons_corner_orient, ic.cornerOrientCode or 0.0)
+    obs.gs_effect_set_float(p.icons_corner_rot_rad, (ic.cornerRotation or 0.0) * 3.14159265 / 180.0)
+    obs.gs_effect_set_float(p.icons_corner_motion, ic.cornerMotionCode or 0.0)
+    obs.gs_effect_set_float(p.icons_corner_tuck, ic.cornerTuck ~= nil and ic.cornerTuck or 1.0)
+    obs.gs_effect_set_float(p.icons_desaturate, ic.desaturate or 0.0)
+    set_vec4(v4, p.icons_corner_slots, ic.cornerSlots or {0, 0, 0, 0})
+    set_vec4(v4, p.icons_edge_slots0, ic.edgeSlots0 or {0, 1, 2, 3})
+    set_vec4(v4, p.icons_edge_slots1, ic.edgeSlots1 or {4, 5, 6, 7})
+    obs.gs_effect_set_float(p.icons_edge_count, ic.edgeCount ~= nil and ic.edgeCount or 1.0)
+    obs.gs_effect_set_float(p.icons_motion, ic.motionCode or 0.0)
+    obs.gs_effect_set_float(p.icons_motion_speed, ic.motionSpeed or 2.5)
+    obs.gs_effect_set_float(p.icons_motion_amount, ic.motionAmount or 40.0)
+    obs.gs_effect_set_float(p.icons_apply_anim, ic.applyBorderAnim ~= nil and ic.applyBorderAnim or 1.0)
     obs.gs_effect_set_float(p.icons_opacity, ic.opacity ~= nil and ic.opacity or 1.0)
     local ic_cols = ic.colorsRgba or {}
     for idx = 0, 7 do
@@ -2801,7 +3350,7 @@ function createObsBordersService({
     function syncResolvedManifest({ force = false } = {}) {
         try {
             const varValues = isVariableSettingsEnabled() ? (getVariablesValues() || {}) : {};
-            const resolvedProfiles = state.profiles.map(p => resolveProfileForManifest(p, varValues));
+            const resolvedProfiles = state.profiles.map(p => resolveProfileForManifest(p, varValues, { atlasesDir }));
             const assignmentRules = buildAssignmentRulesMap();
             const sceneScales = state.sceneScales && typeof state.sceneScales === 'object' ? state.sceneScales : {};
             const body = {
@@ -2841,7 +3390,7 @@ function createObsBordersService({
 
     function getPublicState() {
         const varValues = isVariableSettingsEnabled() ? (getVariablesValues() || {}) : {};
-        const resolvedProfiles = state.profiles.map(p => resolveProfileForManifest(p, varValues));
+        const resolvedProfiles = state.profiles.map(p => resolveProfileForManifest(p, varValues, { atlasesDir }));
         return {
             revision: state.revision,
             activeProfileId: state.activeProfileId,

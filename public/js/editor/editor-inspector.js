@@ -376,7 +376,9 @@ export const BORDER_STYLE_OPTIONS = shared.BORDER_STYLE_GROUPS
 
 export const BORDER_ANIMATION_OPTIONS = [
     ['none', 'None (static)'],
-    ...(shared.BORDER_ANIMATION_GROUPS ? toInspectorSelectGroups(shared.BORDER_ANIMATION_GROUPS) : [])
+    ...(shared.BORDER_ANIMATION_GROUPS
+        ? toInspectorSelectGroups(shared.BORDER_ANIMATION_GROUPS.filter(g => !g.obsOnly).map(g => ({ ...g, options: (g.options || []).filter(o => !o.obsOnly) })).filter(g => g.options.length > 0))
+        : [])
 ];
 
 export function borderFxControls(container = {}, { glowKey = 'borderGlow', animKey = 'borderAnimation', prefix = 'style', fallbackColor = '#38bdf8' } = {}) {
@@ -400,13 +402,27 @@ export function borderFxControls(container = {}, { glowKey = 'borderGlow', animK
     const ap = `${prefix}.${animKey}`;
     html += F.select(`${ap}.type`, 'Border animation', anim.type || 'none', BORDER_ANIMATION_OPTIONS);
     if (anim.type && anim.type !== 'none') {
-        if (anim.type === 'rotating' || anim.type === 'dual-beam') {
+        if (anim.type === 'rotating' || anim.type === 'dual-beam' || anim.type === 'corner-sparks') {
             html += `
                 <div class="grid2">
                     ${F.number(`${ap}.speed`, 'Speed (seconds)', anim.speed ?? 4, { min: 0.5, max: 60, step: 0.5 })}
                     ${F.number(`${ap}.size`, 'Beam arc (%)', anim.size ?? 35, { min: 10, max: 100 })}
                 </div>
                 ${F.color(`${ap}.color2`, 'Beam head color', anim.color2 || '#ffffff')}`;
+        } else if (anim.type === 'shimmer-glint' || anim.type === 'sparkle-twinkle') {
+            html += `
+                <div class="grid2">
+                    ${F.number(`${ap}.speed`, 'Speed (seconds)', anim.speed ?? 3.5, { min: 0.5, max: 60, step: 0.5 })}
+                    ${F.number(`${ap}.size`, anim.type === 'shimmer-glint' ? 'Glint width (%)' : 'Sparkle density (%)', anim.size ?? 35, { min: 5, max: 100 })}
+                </div>
+                ${F.color(`${ap}.color2`, anim.type === 'shimmer-glint' ? 'Glint color' : 'Sparkle color', anim.color2 || '#ffffff')}`;
+        } else if (anim.type === 'pulsing' || anim.type === 'heartbeat' || anim.type === 'neon-flicker' || anim.type === 'glitch-split') {
+            const sizeLabel = anim.type === 'neon-flicker' ? 'Flicker depth (%)' : (anim.type === 'glitch-split' ? 'Glitch intensity (%)' : 'Pulse depth (%)');
+            html += `
+                <div class="grid2">
+                    ${F.number(`${ap}.speed`, 'Speed (seconds)', anim.speed ?? 2.5, { min: 0.5, max: 60, step: 0.5 })}
+                    ${F.number(`${ap}.size`, sizeLabel, anim.size ?? 35, { min: 5, max: 100 })}
+                </div>`;
         } else if (anim.type === 'laser-scan' || anim.type === 'plasma') {
             const hasBorderMid = hasMidStop(anim.color3);
             html += `

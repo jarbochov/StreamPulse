@@ -1067,9 +1067,15 @@
                 },
                 {
                     method: 'POST', path: '/api/obs-borders/profile',
-                    desc: 'Create or update a border profile (borders, glow, independent Drop Shadow, animations & standby fill)',
-                    body: '{ "profile": { "id": "floating-shadow-cam", "name": "Floating Cam", "placement": "outside", "radius": 24, "inner": { "enabled": false }, "outer": { "enabled": false }, "shadow": { "enabled": true, "mode": "layered", "color": "#000000BF", "offsetX": 8, "offsetY": 16, "blur": 28, "spread": 0, "multiply": true } }, "setActive": false }',
-                    details: 'Saves the profile, updates data/obs-borders/manifest.json immediately so OBS hot-reloads within 0.5s, and broadcasts obs-borders-update over WebSocket. shadow.mode supports "soft", "hard", "layered", and "inset" (per-pixel Multiply over video).'
+                    desc: 'Create or update a border profile (multi-stop palettes, Icon Borders, glow, Drop Shadow, 17 animations & standby fill)',
+                    body: '{ "profile": { "id": "floating-shadow-cam", "name": "Floating Cam", "placement": "outside", "radius": 24, "inner": { "enabled": false }, "outer": { "enabled": false }, "icons": { "enabled": false, "layout": "perimeter", "colorMode": "per-icon", "motion": "none", "items": [] }, "shadow": { "enabled": true, "mode": "layered", "color": "#000000BF", "offsetX": 8, "offsetY": 16, "blur": 28, "spread": 0, "multiply": true } }, "setActive": false }',
+                    details: 'Saves the profile, updates data/obs-borders/manifest.json immediately so OBS hot-reloads within 0.5s, and broadcasts obs-borders-update over WebSocket. Supports 31 border styles, 17 universal GPU animations, 2–8 stop palettes, Icon Borders (Font Awesome + Asset Library images, pinned corners/edges, per-asset Mono & Contrast, independent palettes, 7 blend modes, and Icon Motion), and 4-mode Drop Shadow ("soft", "hard", "layered", "inset").'
+                },
+                {
+                    method: 'POST', path: '/api/obs-borders/icon-atlas',
+                    desc: 'Upload a baked horizontal PNG icon sprite atlas for an OBS Border profile',
+                    body: '{ "profileId": "my-border", "dataUrl": "data:image/png;base64,..." }',
+                    details: 'Writes the baked icon strip PNG to data/obs-borders/atlases/ and returns { ok, atlasFile, atlasPath } so streampulse-borders.lua can sample icons natively on the GPU. Fetch baked atlases via GET /api/obs-borders/atlases/<filename>.png.'
                 },
                 {
                     method: 'POST', path: '/api/obs-borders/settings',

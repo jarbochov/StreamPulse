@@ -78,9 +78,9 @@ describe('OBS Border Studio (Beta / Advanced)', () => {
         if (tmpDir) fs.rmSync(tmpDir, { recursive: true, force: true });
     });
 
-    it('creates default profiles (with all 31 styles & 10 animations), manifest.json, and Lua script without hardcoded example scenes', () => {
+    it('creates default profiles (with all 31 styles & 17 animations), manifest.json, and Lua script without hardcoded example scenes', () => {
         assert.equal(BORDER_STYLES.length, 31);
-        assert.equal(ANIMATION_TYPES.length, 11); // none + 10 animations
+        assert.equal(ANIMATION_TYPES.length, 18); // none + 17 animations
 
         const state = service.getState();
         assert.ok(state.profiles.length >= 4);
@@ -582,6 +582,117 @@ describe('OBS Border Studio (Beta / Advanced)', () => {
             assert.ok(txCall.data.sceneItemTransform.positionX < 100, 'positionX shifts outward to compensate larger shadow pad');
         } finally {
             await new Promise(resolve => mockServer.close(resolve));
+        }
+    });
+
+    it('supports Icon Border pinned corners, independent palettes, icon motion, auto-pad overhang, and safe Lua texture binding', () => {
+        const catalog = require('../shared/border-catalog.cjs');
+        const { computeOuterBorderReach } = require('../shared/obs-border-transform.cjs');
+
+        // Icon-only Outside Auto-Padding accounts for icon size, offset, cornerScale, and bob motion
+        const iconOnlyPad = catalog.computeAutoBorderPad({
+            placement: 'outside',
+            autoPad: true,
+            inner: { enabled: false },
+            outer: { enabled: false },
+            glow: { enabled: false },
+            shadow: { enabled: false },
+            icons: {
+                enabled: true,
+                layout: 'corners-edges',
+                size: 40,
+                offset: 12,
+                cornerScale: 1.5,
+                motion: 'bob',
+                motionAmount: 100
+            }
+        });
+        assert.ok(iconOnlyPad >= 48, `expected icon-only autoPad >= 48, got ${iconOnlyPad}`);
+
+        const reach = computeOuterBorderReach({
+            placement: 'outside',
+            inner: { enabled: false },
+            outer: { enabled: false },
+            icons: { enabled: true, layout: 'corners', size: 40, offset: 10, cornerScale: 1.5 }
+        });
+        assert.ok(reach >= 40, `expected outer reach >= 40 for corner icons, got ${reach}`);
+
+        const saved = service.upsertProfile({
+            id: 'pinned-corners-test',
+            name: 'Pinned Corners Icon Test',
+            placement: 'outside',
+            autoPad: true,
+            inner: { enabled: false },
+            outer: { enabled: false },
+            animation: {
+                type: 'palette-flow',
+                speed: 2.5,
+                size: 40,
+                direction: 'cw'
+            },
+            icons: {
+                enabled: true,
+                layout: 'corners-edges',
+                size: 36,
+                spacing: -8,
+                offset: 6,
+                cornerScale: 1.4,
+                cornerOrient: 'outward',
+                cornerRotation: 15,
+                cornerMotion: 'staggered',
+                cornerTuck: true,
+                colorMode: 'custom-palette',
+                gradientMode: 'per-icon-order',
+                palette: 'custom',
+                paletteColors: ['#FF0088FF', '#00E5FFFF', '#FFD700FF'],
+                blendMode: 'normal',
+                motion: 'wobble',
+                motionSpeed: 2,
+                motionAmount: 80,
+                speed: 1.5,
+                applyBorderAnim: false,
+                items: [
+                    { kind: 'icon', iconClass: 'fa-solid fa-crown', color: '#FFD700FF', role: 'corner' },
+                    { kind: 'asset', assetUrl: '/uploads/star.png', assetName: 'star.png', color: '#FFFFFFFF', desaturate: true, contrast: 145, role: 'edge' }
+                ]
+            }
+        });
+
+        assert.equal(saved.icons.layout, 'corners-edges');
+        assert.equal(saved.icons.colorMode, 'custom-palette');
+        assert.equal(saved.icons.gradientMode, 'per-icon-order');
+        assert.equal(saved.icons.cornerTuck, true);
+        assert.equal(saved.icons.items[0].role, 'corner');
+        assert.equal(saved.icons.items[1].role, 'edge');
+        assert.equal(saved.icons.items[1].desaturate, true);
+        assert.equal(saved.icons.items[1].contrast, 145);
+
+        const resolved = resolveProfileForManifest(saved, {}, { atlasesDir: path.join(tmpDir, 'obs-borders', 'atlases') });
+        assert.equal(resolved.animation.typeCode, 11); // palette-flow
+        assert.equal(resolved.icons.layoutCode, 2); // corners-edges
+        assert.deepEqual(resolved.icons.cornerSlots, [0, 0, 0, 0]);
+        assert.equal(resolved.icons.edgeCount, 1);
+        assert.equal(resolved.icons.edgeSlots0[0], 1);
+        assert.equal(resolved.icons.cornerOrientCode, 1); // outward
+        assert.equal(resolved.icons.cornerMotionCode, 1); // staggered
+        assert.equal(resolved.icons.cornerTuck, 1);
+        assert.equal(resolved.icons.colorModeCode, 2); // custom-palette
+        assert.equal(resolved.icons.gradStepped, 2); // per-icon-order
+        assert.equal(resolved.icons.motionCode, 1); // wobble
+        assert.ok(resolved.pad >= 24, `expected manifest pad >= 24 for outside icons, got ${resolved.pad}`);
+
+        const luaText = fs.readFileSync(service.getState().luaScriptPath, 'utf8');
+        for (const token of [
+            'dummy_tex',
+            'ensure_icon_atlas',
+            'parse_rgba_list',
+            'icons_layout',
+            'icons_corner_slots',
+            'icons_edge_count',
+            'icons_corner_tuck',
+            'icons_grad_stepped'
+        ]) {
+            assert.ok(luaText.includes(token), `streampulse-borders.lua missing ${token}`);
         }
     });
 });

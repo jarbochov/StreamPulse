@@ -37,10 +37,29 @@ function computeOuterBorderReach(profile = null) {
     const outT = outerOn ? clamp(profile.outer?.thickness, 0, 200, 2) : 0;
     const outGap = outerOn ? clamp(profile.outer?.gap, 0, 100, 0) : 0;
 
-    if (placement === 'outside') {
-        return Math.max(0, (inGap + inT + outGap + outT) - seamOverlap);
+    const strokeReach = placement === 'outside'
+        ? Math.max(0, (inGap + inT + outGap + outT) - seamOverlap)
+        : Math.max(0, 0.5 * (inT + outT) + inGap + outGap);
+
+    let iconReach = 0;
+    if (Boolean(profile.icons?.enabled)) {
+        const baseIconSize = clamp(profile.icons?.size, 8, 120, 28);
+        const cornerScale = (profile.icons?.layout && profile.icons.layout !== 'perimeter')
+            ? clamp(profile.icons?.cornerScale, 0.5, 2.0, 1.0)
+            : 1.0;
+        const iconSize = Math.max(baseIconSize, baseIconSize * cornerScale);
+        const iconOff = clamp(profile.icons?.offset, -40, 80, 0);
+        let iconCenterD = 0;
+        if (innerOn && inT > 0) {
+            const inStart = placement === 'outside' ? (inGap - seamOverlap) : (inGap - 0.5 * (inT + outT));
+            iconCenterD = inStart + 0.5 * inT;
+        } else {
+            iconCenterD = placement === 'outside' ? (baseIconSize * 0.5) : 0;
+        }
+        iconReach = Math.max(0, iconCenterD + iconOff + iconSize * 0.5);
     }
-    return Math.max(0, 0.5 * (inT + outT) + inGap + outGap);
+
+    return Math.max(strokeReach, iconReach);
 }
 
 /**

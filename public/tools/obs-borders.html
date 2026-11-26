@@ -6,7 +6,7 @@
     <title>StreamPulse — OBS Border Studio (Beta)</title>
     <link rel="stylesheet" href="/admin.css">
     <script src="/appearance.js"></script>
-    <script src="/icon-picker.js"></script>
+    <script src="/js/icon-picker.js"></script>
     <script src="/js/border-catalog.js"></script>
     <script src="/js/wizard-variable-binder.js"></script>
     <link rel="stylesheet" href="/css/studio-common.css">
@@ -557,14 +557,47 @@
                                 </div>
                                 <div class="ob-icon-seq-list" id="ob-icons-list"></div>
 
+                                <div class="ob-sub-divider"></div>
+                                <div class="ob-micro-head"><span>Placement &amp; Sizing</span></div>
+                                <div class="field">
+                                    <label for="ob-icons-layout">Icon Placement</label>
+                                    <select id="ob-icons-layout">
+                                        <option value="perimeter">Perimeter Loop (All Edges)</option>
+                                        <option value="corners">Corners Only (4 Anchored)</option>
+                                        <option value="corners-edges">Pinned Corners + Scrolling Edges</option>
+                                    </select>
+                                </div>
+
+                                <div id="ob-icons-corner-wrap" class="ob-inset-card" hidden>
+                                    <div class="ob-micro-head" style="margin:0;"><span>Pinned Corner Settings</span></div>
+                                    <div class="grid2">
+                                        <div class="field">
+                                            <label for="ob-icons-corner-scale">Corner Scale (<span id="ob-icons-corner-scale-val">1.0</span>x)</label>
+                                            <input type="range" id="ob-icons-corner-scale" min="0.5" max="2" step="0.05" value="1">
+                                        </div>
+                                        <div class="field">
+                                            <label for="ob-icons-corner-rot">Corner Rotation (<span id="ob-icons-corner-rot-val">0</span>°)</label>
+                                            <input type="range" id="ob-icons-corner-rot" min="-180" max="180" step="5" value="0">
+                                        </div>
+                                    </div>
+                                    <div class="field">
+                                        <label for="ob-icons-corner-orient">Corner Angle Mode</label>
+                                        <select id="ob-icons-corner-orient">
+                                            <option value="upright">Same Angle (Upright — All 4 Match)</option>
+                                            <option value="outward">Symmetrical Outward (45°)</option>
+                                            <option value="inward">Symmetrical Inward (45°)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
                                 <div class="grid2">
                                     <div class="field">
                                         <label for="ob-icons-size">Icon Size (<span id="ob-icons-size-val">28</span>px)</label>
                                         <input type="range" id="ob-icons-size" min="8" max="120" step="1" value="28">
                                     </div>
-                                    <div class="field">
+                                    <div class="field" id="ob-icons-spacing-field">
                                         <label for="ob-icons-spacing">Spacing (<span id="ob-icons-spacing-val">16</span>px)</label>
-                                        <input type="range" id="ob-icons-spacing" min="0" max="120" step="1" value="16">
+                                        <input type="range" id="ob-icons-spacing" min="-40" max="120" step="1" value="16">
                                     </div>
                                 </div>
 
@@ -574,28 +607,25 @@
                                         <input type="range" id="ob-icons-offset" min="-40" max="80" step="1" value="0">
                                     </div>
                                     <div class="field">
-                                        <label for="ob-icons-rot">Rotation (<span id="ob-icons-rot-val">0</span>°)</label>
+                                        <label for="ob-icons-rot">Edge Rotation (<span id="ob-icons-rot-val">0</span>°)</label>
                                         <input type="range" id="ob-icons-rot" min="-180" max="180" step="5" value="0">
                                     </div>
                                 </div>
 
-                                <div class="grid2">
-                                    <div class="field">
-                                        <label for="ob-icons-speed">Scroll Speed (<span id="ob-icons-speed-val">0</span>)</label>
-                                        <input type="range" id="ob-icons-speed" min="-4" max="4" step="0.25" value="0">
-                                    </div>
-                                    <div class="field">
-                                        <label for="ob-icons-opacity">Opacity (<span id="ob-icons-opacity-val">100</span>%)</label>
-                                        <input type="range" id="ob-icons-opacity" min="0" max="1" step="0.05" value="1">
-                                    </div>
-                                </div>
+                                <label class="ob-check">
+                                    <input type="checkbox" id="ob-icons-follow-edge" checked>
+                                    <span>Rotate edge icons to follow border edges</span>
+                                </label>
 
+                                <div class="ob-sub-divider"></div>
+                                <div class="ob-micro-head"><span>Color &amp; Blending</span></div>
                                 <div class="grid2">
                                     <div class="field">
                                         <label for="ob-icons-color-mode">Icon Coloring</label>
                                         <select id="ob-icons-color-mode">
-                                            <option value="per-icon">Per-Icon Colors</option>
-                                            <option value="palette">Use Primary Border Palette</option>
+                                            <option value="per-icon">Per-Icon / Original Colors</option>
+                                            <option value="custom-palette">Multi-Color Palette</option>
+                                            <option value="palette">Match Primary Border</option>
                                         </select>
                                     </div>
                                     <div class="field">
@@ -612,10 +642,50 @@
                                     </div>
                                 </div>
 
-                                <label class="ob-check">
-                                    <input type="checkbox" id="ob-icons-follow-edge" checked>
-                                    <span>Follow Border Edge</span>
-                                </label>
+                                <div id="ob-icons-pal-preset-wrap" hidden>
+                                    <div class="field">
+                                        <label for="ob-icons-pal-preset">Color Palette</label>
+                                        <select id="ob-icons-pal-preset"></select>
+                                    </div>
+                                    <div class="ob-pal-bar-row">
+                                        <div class="ob-pal-bar" id="ob-icons-pal-bar"></div>
+                                        <button type="button" class="btn btn-secondary btn-sm ob-pal-cust-btn" id="ob-icons-customize-btn">
+                                            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+                                            <span>Customize</span>
+                                        </button>
+                                    </div>
+                                    <div id="ob-icons-pal-stops-wrap" class="ob-custom-pal-card" hidden>
+                                        <div class="ob-custom-pal-head">
+                                            <span>Custom Stops (2–8)</span>
+                                            <div class="ob-custom-pal-btns">
+                                                <button type="button" class="btn btn-secondary btn-sm" id="ob-icons-reverse-stops" title="Reverse colors">Reverse</button>
+                                                <button type="button" class="btn btn-secondary btn-sm" id="ob-icons-shuffle-stops" title="Shuffle colors">Shuffle</button>
+                                                <button type="button" class="btn btn-primary btn-sm" id="ob-icons-add-stop">+ Add Color</button>
+                                            </div>
+                                        </div>
+                                        <div class="ob-stop-list" id="ob-icons-stop-list"></div>
+                                    </div>
+                                    <div class="grid2" style="margin-top:8px;">
+                                        <div class="field">
+                                            <label for="ob-icons-grad-mode">Palette Style</label>
+                                            <select id="ob-icons-grad-mode">
+                                                <option value="smooth">Smooth Blend</option>
+                                                <option value="stepped">Hard Steps (Banded)</option>
+                                                <option value="per-icon-order">Each Icon in Order</option>
+                                                <option value="per-icon-random">Each Icon Random</option>
+                                            </select>
+                                        </div>
+                                        <div class="field" id="ob-icons-spread-field">
+                                            <label for="ob-icons-spread">Spread / Repeat (<span id="ob-icons-spread-val">1.0</span>x)</label>
+                                            <input type="range" id="ob-icons-spread" min="0.25" max="8" step="0.25" value="1">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="field">
+                                    <label for="ob-icons-opacity">Opacity (<span id="ob-icons-opacity-val">100</span>%)</label>
+                                    <input type="range" id="ob-icons-opacity" min="0" max="1" step="0.05" value="1">
+                                </div>
                             </div>
                         </section>
                     </div>
@@ -776,7 +846,7 @@
 
                         <section class="sect" id="ob-sect-anim">
                             <div class="sect-head">
-                                <span class="sect-title">Border Animation (Synced with Overlay Editor)</span>
+                                <span class="sect-title">Border Animation</span>
                             </div>
                             <div class="sect-body">
                                 <div class="grid-select-num">
@@ -794,14 +864,14 @@
 
                                 <div id="ob-anim-params-wrap" style="display:flex;flex-direction:column;gap:0.75rem;">
                                     <div class="grid2">
-                                        <div class="field">
+                                        <div class="field" id="ob-anim-c2-field">
                                             <label for="ob-anim-c2">Beam / Accent Color</label>
                                             <div class="ob-color-row">
                                                 <input type="color" id="ob-anim-c2-pick" value="#ffffff">
                                                 <input type="text" id="ob-anim-c2" placeholder="#FFFFFFFF" data-var-kind="color" data-var-label="Beam Color">
                                             </div>
                                         </div>
-                                        <div class="field">
+                                        <div class="field" id="ob-anim-size-field">
                                             <label for="ob-anim-size">Beam Arc (%)</label>
                                             <div class="ob-input-row">
                                                 <input type="number" id="ob-anim-size" min="5" max="100" step="5" data-var-kind="number" data-var-label="Beam Arc">
@@ -809,7 +879,7 @@
                                         </div>
                                     </div>
 
-                                    <div class="field">
+                                    <div class="field" id="ob-anim-dir-field">
                                         <span>Direction</span>
                                         <span class="seg" id="ob-anim-dir-seg" role="group" aria-label="Animation Direction">
                                             <button type="button" data-dir="cw" aria-pressed="true">Clockwise</button>
@@ -818,6 +888,59 @@
                                         </span>
                                     </div>
                                 </div>
+                            </div>
+                        </section>
+
+                        <section class="sect" id="ob-sect-icon-motion" hidden>
+                            <div class="sect-head">
+                                <span class="sect-title">Icon Motion</span>
+                            </div>
+                            <div class="sect-body">
+                                <div class="grid2">
+                                    <div class="field">
+                                        <label for="ob-icons-motion">Motion Style</label>
+                                        <select id="ob-icons-motion">
+                                            <option value="none">None (Static)</option>
+                                            <option value="wobble">Wobble / Rock</option>
+                                            <option value="bounce">Scale Bounce Wave</option>
+                                            <option value="spin">Continuous Spin</option>
+                                            <option value="bob">Radial Bob / Float</option>
+                                            <option value="twinkle">Sequential Twinkle</option>
+                                        </select>
+                                    </div>
+                                    <div class="field" id="ob-icons-speed-field">
+                                        <label for="ob-icons-speed">Scroll Speed (<span id="ob-icons-speed-val">0</span>)</label>
+                                        <input type="range" id="ob-icons-speed" min="-4" max="4" step="0.25" value="0">
+                                    </div>
+                                </div>
+                                <div id="ob-icons-motion-params" class="grid2" hidden>
+                                    <div class="field">
+                                        <label for="ob-icons-motion-speed">Motion Speed (<span id="ob-icons-motion-speed-val">2.5</span>s)</label>
+                                        <input type="range" id="ob-icons-motion-speed" min="0.25" max="12" step="0.25" value="2.5">
+                                    </div>
+                                    <div class="field" id="ob-icons-motion-amt-field">
+                                        <label for="ob-icons-motion-amount">Motion Amount (<span id="ob-icons-motion-amount-val">40</span>%)</label>
+                                        <input type="range" id="ob-icons-motion-amount" min="5" max="100" step="5" value="40">
+                                    </div>
+                                </div>
+                                <div id="ob-icons-corner-motion-wrap" hidden style="display:flex;flex-direction:column;gap:0.55rem;">
+                                    <div class="field">
+                                        <label for="ob-icons-corner-motion">Pinned Corner Behavior</label>
+                                        <select id="ob-icons-corner-motion">
+                                            <option value="synced">Synced in Unison (Same Phase &amp; Angle)</option>
+                                            <option value="staggered">Staggered Wave (90° Per Corner)</option>
+                                            <option value="stationary">Stationary (Corners Stay Still)</option>
+                                        </select>
+                                    </div>
+                                    <label class="ob-check" id="ob-icons-corner-tuck-wrap">
+                                        <input type="checkbox" id="ob-icons-corner-tuck" checked>
+                                        <span>Tuck scrolling edge icons smoothly behind pinned corners</span>
+                                    </label>
+                                </div>
+                                <label class="ob-check">
+                                    <input type="checkbox" id="ob-icons-apply-anim" checked>
+                                    <span>Apply Border Animation to Icons</span>
+                                </label>
                             </div>
                         </section>
                     </div>
@@ -920,7 +1043,7 @@
                             </div>
                         </div>
                         <div class="sect-body">
-                            <div class="ob-preview-stage">
+                            <div class="ob-preview-stage" id="ob-preview-stage" data-stage-bg="transparent">
                                 <canvas id="ob-preview-canvas" width="960" height="540"></canvas>
                             </div>
                             <div class="ob-preview-meta">
@@ -940,7 +1063,7 @@
                                     </label>
                                     <label class="ob-check" style="font-size:0.76rem;color:var(--text-muted);">
                                         <input type="checkbox" id="ob-preview-guides" checked>
-                                        <span>Show source edge guide</span>
+                                        <span>Source edge guide</span>
                                     </label>
                                 </div>
                             </div>
@@ -954,6 +1077,14 @@
                                         <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
                                         <span>Restart</span>
                                     </button>
+                                </div>
+                                <div class="ob-preview-quick-mid">
+                                    <span class="ob-quick-label">Backdrop</span>
+                                    <div class="ob-chip-group" id="ob-stage-bg-chips">
+                                        <button type="button" class="ob-chip active" data-stage-bg="transparent">Checker</button>
+                                        <button type="button" class="ob-chip" data-stage-bg="light">Light</button>
+                                        <button type="button" class="ob-chip" data-stage-bg="dark">Dark</button>
+                                    </div>
                                 </div>
                                 <div class="ob-preview-quick-right">
                                     <span class="ob-dirty-pill is-synced" id="ob-preview-sync-pill">Synced with OBS</span>
@@ -1028,7 +1159,7 @@ GET /api/obs-borders/status</div>
         </div>
         <div class="ob-asset-dialog-bar">
             <input type="search" id="ob-asset-search" placeholder="Search assets…" autocomplete="off">
-            <a href="/library/assets.html" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">Manage Library</a>
+            <a href="/assets.html" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">Manage Library</a>
         </div>
         <div id="ob-asset-grid" class="ob-asset-grid"></div>
     </dialog>
