@@ -374,6 +374,12 @@
             custom: true
         },
         {
+            id: 'credit-suite',
+            group: 'Overlays & Features',
+            title: 'Credit Suite',
+            custom: true
+        },
+        {
             id: 'timers',
             group: 'Overlays & Features',
             title: 'Named Timers',
@@ -1689,6 +1695,28 @@
                     </div>
                     <div class="detail-label">Studio URL</div>
                     <div class="url-box"><code>${BASE}/promo-creator.html</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/promo-creator.html')">Copy</button></div>
+                </div>
+            </div>`;
+
+            case 'credit-suite': return `
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Credit Suite (Cinematic Credits Studio)</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        <a href="/tools/credit-suite.html" style="color:var(--accent);">Credit Suite</a> (Tools &gt; Credit Suite) is an independent modern film-credits studio combining a drag-and-drop block outliner, live interactive stage, and scrubbable multi-track timeline:
+                        <br><br>
+                        • <strong>Mixed Choreography &amp; Dynamic Auto-Reflow:</strong> Mix timed Fade/Title Cards with Continuous Scroll Crawls. When a side video, image, slideshow, or custom visual enters on the left or right, the scrolling credits smoothly glide to the opposite side and return to center when the side clip finishes.<br>
+                        • <strong>10 Cinema Blocks &amp; Data-Driven Rosters:</strong> Featured Cards, Hollywood Role|Name Splits, 1–4 Column Auto-Fit Rosters (bindable to Variable Sets, List Variables, CSV/TXT paste, or live Stream Session Contributors with conflict-safe refresh), Sponsor Logo Strips, Inline Split Rows, Media, and Ornamental Dividers.<br>
+                        • <strong>Floating Custom Elements &amp; Block Sync:</strong> Layer Images, Local Videos, Slideshows, Text, Icons, Shapes, Patterns, Badges, Counters, Meters, and Cutouts with 31 border styles, 17 border animations, Ken Burns motion, and optional Block-Sync Anchoring.<br>
+                        • <strong>Frame-Accurate Video &amp; Still Exports:</strong> Export MP4 (H.264), transparent WebM (VP9 Alpha), transparent ProRes 4444 (.mov), PNG Frame Sequences, Full Tall PNG, Section PNGs ZIP, and timeline-synced SRT subtitles — or run live as a parameterized OBS Browser Source with Companion &amp; Operator Mode transport controls.
+                    </div>
+                    <div class="detail-label">Studio URL</div>
+                    <div class="url-box"><code>${BASE}/tools/credit-suite.html</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/tools/credit-suite.html')">Copy</button></div>
+                    <div class="detail-label" style="margin-top:0.6rem;">Live OBS Overlay URL</div>
+                    <div class="url-box"><code>${BASE}/overlays/credit-suite.html?project=cinematic-feature</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/overlays/credit-suite.html?project=cinematic-feature')">Copy</button></div>
                 </div>
             </div>`;
 

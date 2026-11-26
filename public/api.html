@@ -1097,6 +1097,43 @@
             ]
         },
         {
+            section: 'Credit Suite (Cinematic Credits Studio)',
+            items: [
+                {
+                    method: 'GET', path: '/api/credit-suite',
+                    desc: 'Get all saved Credit Suite projects, active project ID, transport snapshot, and FFmpeg export capabilities',
+                    details: 'Returns { activeProjectId, projects, revision, transport, themes, canvasPresets, blockTypes, capabilities }.'
+                },
+                {
+                    method: 'GET', path: '/api/credit-suite/status',
+                    desc: 'Companion-friendly Credit Suite status summary',
+                    details: 'Returns { activeProjectId, activeProjectName, projectsCount, playing, timeSec, durationSec, speedRate, markers, revision }.'
+                },
+                {
+                    method: 'POST / PUT / DELETE', path: '/api/credit-suite/projects/:id',
+                    desc: 'Create, update, duplicate (/duplicate), or delete Credit Suite projects',
+                    body: '{ "project": { "id": "show-credits", "name": "Show Credits", "canvas": { "width": 1920, "height": 1080, "fps": 60 }, "blocks": [], "tracks": [] }, "setActive": true }',
+                    details: 'Persists to data/credit-suite/projects.json and broadcasts credit-suite-update over WebSocket so live OBS overlays hot-reload immediately.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/credit-suite/play | pause | toggle | restart | stop | seek | jump | speed',
+                    desc: 'Live playback transport & marker jump triggers (Companion & Operator Mode)',
+                    details: 'Examples: GET /api/credit-suite/restart?project=cinematic-feature, GET /api/credit-suite/seek?t=15.5, GET /api/credit-suite/jump?marker=Cast, GET /api/credit-suite/speed?rate=1.25.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/credit-suite/data-sources | /data-sources/pull',
+                    desc: 'List Variable Sets, List Variables, and Stream Session Contributor groups, or perform conflict-safe roster refreshes',
+                    details: 'Preserves per-name checkboxes and manual editedName overrides when refreshing linked credit blocks.'
+                },
+                {
+                    method: 'POST / GET / DELETE', path: '/api/credit-suite/export',
+                    desc: 'Start, poll, cancel, or download frame-accurate video & still exports',
+                    body: '{ "projectId": "cinematic-feature", "format": "webm-alpha", "fps": 60, "width": 1920, "height": 1080, "transparent": true }',
+                    details: 'Formats: "mp4" (H.264), "webm-alpha" (VP9 + true alpha), "prores-alpha" (ProRes 4444 .mov + true alpha), "png-sequence" (.zip), "full-png", and "section-pngs" (.zip). Poll GET /api/credit-suite/export/:jobId, download via /download, or fetch subtitles via GET /api/credit-suite/projects/:id/srt.'
+                }
+            ]
+        },
+        {
             section: 'OBS Pattern Studio (Beta / Advanced)',
             items: [
                 {

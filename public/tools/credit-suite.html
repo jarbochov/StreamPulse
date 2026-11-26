@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamPulse — Credit Suite</title>
+    <link rel="stylesheet" href="/admin.css">
+    <script src="/appearance.js"></script>
+    <link rel="stylesheet" href="/css/studio-common.css">
+    <link rel="stylesheet" href="/css/credit-suite-stage.css">
+    <link rel="stylesheet" href="/css/credit-suite.css">
+</head>
+<body class="cs-studio-body">
+    <div class="header cs-main-header">
+        <h1>StreamPulse <span>Credit Suite</span></h1>
+        <div id="main-nav" class="nav"></div>
+        <script src="/js/nav.js"></script>
+    </div>
+
+    <div class="cs-app">
+        <!-- Calm, Uncluttered Studio Sub-Bar -->
+        <div class="cs-topbar">
+            <div class="cs-topbar-group">
+                <select id="cs-project-select" class="cs-project-select" aria-label="Active Credit Project"></select>
+                <button type="button" class="cs-btn cs-btn-sm" id="cs-btn-new" title="New Project">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    New
+                </button>
+                <div class="cs-overflow-wrap">
+                    <button type="button" class="cs-btn cs-btn-sm cs-btn-icon" id="cs-btn-proj-more" title="More Project Actions" aria-haspopup="true" aria-expanded="false">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+                    </button>
+                    <div class="cs-overflow-menu" id="cs-proj-overflow-menu">
+                        <button type="button" id="cs-btn-dup">Duplicate Project</button>
+                        <button type="button" id="cs-btn-json-export">Export Layout JSON</button>
+                        <button type="button" id="cs-btn-json-import">Import Layout JSON</button>
+                        <div class="cs-overflow-sep"></div>
+                        <button type="button" class="danger" id="cs-btn-del">Delete Project</button>
+                    </div>
+                </div>
+                <input type="file" id="cs-json-import" accept=".json" style="display:none;">
+            </div>
+
+            <div class="cs-topbar-group">
+                <span class="cs-pill saved" id="cs-dirty-pill">Saved</span>
+                <button type="button" class="cs-btn cs-btn-icon" id="cs-btn-undo" title="Undo (Cmd/Ctrl+Z)" disabled>
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+                </button>
+                <button type="button" class="cs-btn cs-btn-icon" id="cs-btn-redo" title="Redo (Cmd/Ctrl+Shift+Z)" disabled>
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 14 20 9 15 4"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/></svg>
+                </button>
+                <button type="button" class="cs-btn cs-btn-primary" id="cs-btn-save" title="Save Project (Cmd/Ctrl+S)">
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                    Save
+                </button>
+                <button type="button" class="cs-btn" id="cs-btn-open-export" title="Export Video / PNG / OBS Overlay">
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Export &amp; OBS
+                </button>
+            </div>
+        </div>
+
+        <!-- 3-Column Main Studio Workspace -->
+        <div class="cs-workspace">
+            <!-- Left Panel: Sequence Blocks & Floating Tracks Outliner -->
+            <aside class="cs-outliner">
+                <div class="cs-panel-head">
+                    <div class="cs-seg-nav" style="width:100%;" role="tablist" aria-label="Outliner Views">
+                        <button type="button" class="cs-seg-btn active" style="flex:1;justify-content:center;" id="cs-outliner-tab-blocks" role="tab">Credit Blocks</button>
+                        <button type="button" class="cs-seg-btn" style="flex:1;justify-content:center;" id="cs-outliner-tab-tracks" role="tab">Side &amp; FX Tracks</button>
+                    </div>
+                </div>
+                <div class="cs-add-bar" id="cs-outliner-add-bar"></div>
+                <div class="cs-outliner-list" id="cs-outliner-list"></div>
+            </aside>
+
+            <!-- Center Column: Live Interactive Stage + Unified Transport Bar -->
+            <main class="cs-stage-col">
+                <div class="cs-stage-canvas-area" id="cs-stage-canvas-area">
+                    <div class="cs-stage-frame backdrop-checker" id="cs-stage-frame">
+                        <div class="cs-stage-scaler" id="cs-stage-scaler"></div>
+                        <div class="cs-stage-overlay" id="cs-stage-overlay"></div>
+                    </div>
+                </div>
+
+                <div class="cs-transport-bar">
+                    <div class="cs-topbar-group">
+                        <button type="button" class="cs-btn cs-btn-sm" id="cs-btn-restart" title="Restart from 00:00">
+                            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                        </button>
+                        <button type="button" class="cs-btn cs-btn-sm" id="cs-btn-step-back" title="Back 1s">-1s</button>
+                        <button type="button" class="cs-btn cs-btn-primary cs-btn-sm" id="cs-btn-play" title="Play / Pause (Space)">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+                            Play
+                        </button>
+                        <button type="button" class="cs-btn cs-btn-sm" id="cs-btn-step-fwd" title="Forward 1s">+1s</button>
+                        <select id="cs-playback-speed" style="background:var(--bg-inset);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 6px;font-size:11px;">
+                            <option value="0.5">0.5x</option>
+                            <option value="1" selected>1.0x</option>
+                            <option value="1.5">1.5x</option>
+                            <option value="2">2.0x</option>
+                        </select>
+                    </div>
+                    <div class="cs-topbar-group">
+                        <span class="cs-timecode" id="cs-timecode">00:00.0 / 00:00.0</span>
+                        <span class="cs-pill" id="cs-reflow-pill">Center</span>
+                    </div>
+                    <div class="cs-topbar-group">
+                        <button type="button" class="cs-btn cs-btn-sm" id="cs-btn-guides" title="Toggle Safe Area & Center Guides">Guides</button>
+                        <div class="cs-seg-nav" role="group" aria-label="Preview Backdrop">
+                            <button type="button" class="cs-seg-btn active" data-cs-backdrop="checker">Checker</button>
+                            <button type="button" class="cs-seg-btn" data-cs-backdrop="dark">Dark</button>
+                            <button type="button" class="cs-seg-btn" data-cs-backdrop="light">Light</button>
+                        </div>
+                    </div>
+                </div>
+            </main>
+
+            <!-- Right Panel: Contextual Inspector -->
+            <aside class="cs-inspector">
+                <div class="cs-panel-head">
+                    <div class="cs-seg-nav" style="width:100%;" role="tablist" aria-label="Inspector Tabs">
+                        <button type="button" class="cs-seg-btn active" style="flex:1;justify-content:center;" data-cs-insp-tab="selected">Inspector</button>
+                        <button type="button" class="cs-seg-btn" style="flex:1;justify-content:center;" data-cs-insp-tab="theme">Style &amp; Timing</button>
+                        <button type="button" class="cs-seg-btn" style="flex:1;justify-content:center;" data-cs-insp-tab="export">Export</button>
+                    </div>
+                </div>
+                <div class="cs-inspector-body" id="cs-inspector-body"></div>
+            </aside>
+        </div>
+
+        <!-- Bottom Dock: Scrubbable Multi-Track NLE Timeline -->
+        <section class="cs-timeline-dock" aria-label="Multi-Track Timeline">
+            <div class="cs-timeline-head">
+                <div class="cs-topbar-group">
+                    <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);">Timeline</span>
+                    <button type="button" class="cs-btn cs-btn-sm" id="cs-tl-add-track">+ Add Track</button>
+                    <span class="cs-pill" id="cs-duration-pill">0:00</span>
+                    <span class="cs-pill" id="cs-speed-pill">95 px/s</span>
+                </div>
+                <div class="cs-topbar-group">
+                    <label style="font-size:11px;color:var(--text-muted);display:inline-flex;align-items:center;gap:6px;">
+                        Zoom
+                        <input type="range" id="cs-timeline-zoom" min="6" max="80" step="2" value="18" style="width:110px;">
+                    </label>
+                </div>
+            </div>
+            <div class="cs-timeline-scroll" id="cs-timeline-scroll">
+                <div class="cs-timeline-grid" id="cs-timeline-grid"></div>
+            </div>
+        </section>
+    </div>
+
+    <script src="/vendor/Sortable.min.js"></script>
+    <script src="/js/icon-picker.js"></script>
+    <script src="/js/border-catalog.js"></script>
+    <script src="/js/pattern-catalog.js"></script>
+    <script src="/js/patterns-shared.js"></script>
+    <script src="/js/overlay-shared.js"></script>
+    <script src="/js/credit-suite-engine.js"></script>
+    <script type="module" src="/js/credit-suite/credit-suite-main.js"></script>
+</body>
+</html>

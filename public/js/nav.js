@@ -210,6 +210,7 @@
             { label: 'Chat Bot', href: '/chatbot.html', module: 'chatbot' },
             { label: 'Clips', href: '/clips.html', module: 'clips' },
             { label: 'Promo Creator', href: '/promo-creator.html' },
+            { label: 'Credit Suite', href: '/tools/credit-suite.html' },
             { heading: 'Audience & Interactive' },
             { label: 'Trivia Studio', href: '/tools/trivia.html', module: 'trivia' },
             { label: 'Tier List Maker', href: '/tools/tier-list.html' },
@@ -333,6 +334,7 @@
         list.push({ label: 'Versus', href: '/versus.html', group: 'Stream Tools', module: 'versus', keywords: 'versus studio matchup scoreboard fight card fightcard' });
         list.push({ label: 'Tournament Manager', href: '/tournament-admin.html', group: 'Stream Tools', module: 'versus', keywords: 'tournament bracket scorekeeper elimination round robin' });
         list.push({ label: 'Promo Creator', href: '/promo-creator.html', group: 'Stream Tools' });
+        list.push({ label: 'Credit Suite', href: '/tools/credit-suite.html', group: 'Stream Tools', keywords: 'credit suite cinema film credits crawl timeline scroll mp4 webm prores alpha overlay' });
         list.push({ label: 'Placeholders & Variables', href: '/placeholders.html', group: 'Stream Tools' });
         list.push({ label: 'Hashtag Tools', href: '/manage-hashtags.html', group: 'Stream Tools', module: 'hashtags' });
         list.push({ label: 'Chat Commands Cheat Sheet', href: '/commands.html', group: 'Stream Tools', module: 'chatbot' });

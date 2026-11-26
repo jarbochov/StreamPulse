@@ -87,6 +87,9 @@ const { createObsBordersRoutes } = require('./server/routes/obs-borders');
 const { createObsPatternsService } = require('./server/services/obs-patterns');
 const { renderPatternStamps } = require('./server/services/obs-pattern-baker');
 const { createObsPatternsRoutes } = require('./server/routes/obs-patterns');
+const { createCreditSuiteService } = require('./server/services/credit-suite');
+const { createCreditSuiteExporter } = require('./server/services/credit-suite-exporter');
+const { createCreditSuiteRoutes } = require('./server/routes/credit-suite');
 const { createRateLimiter } = require('./server/services/rate-limit');
 const { createGameInfoService, infoKey, GAME_INFO_VERSION } = require('./server/services/game-info');
 const { createShareBundleService } = require('./server/services/share-bundle');
@@ -1351,6 +1354,22 @@ const handleObsLayoutRoutes = require('./server/routes/obs-layout')({
     isObsLayoutEnabled: () => config.obs_layout_enabled === true,
     isLoopbackRequest
 });
+const creditSuiteService = createCreditSuiteService({
+    dataDir: DATA_DIR,
+    onChange: payload => broadcastToOverlays('credit-suite-update', payload),
+    onTransport: snap => broadcastToOverlays('credit-suite-transport', snap),
+    getVariablesState: () => (typeof variablesStore?.getState === 'function' ? variablesStore.getState() : { variables: [], sets: [] }),
+    getSessionData: () => chatData || null
+});
+const creditSuiteExporter = createCreditSuiteExporter({
+    exportsDir: creditSuiteService.exportsDir,
+    getBaseUrl: () => `http://127.0.0.1:${PORT}`,
+    onProgress: job => broadcastToOverlays('credit-suite-export-progress', job)
+});
+const handleCreditSuiteRoutes = createCreditSuiteRoutes({
+    creditSuiteService,
+    creditSuiteExporter
+});
 
 
 // ============================================================================
@@ -1720,6 +1739,7 @@ function handleRestoreReload({ previousConfig }) {
     try { obsBordersService.reload(); } catch (err) { console.warn('[Restore] OBS borders reload failed:', err.message); }
     try { obsLayoutService.reload(); } catch (err) { console.warn('[Restore] OBS layout reload failed:', err.message); }
     try { obsPatternsService.reload(); } catch (err) { console.warn('[Restore] OBS patterns reload failed:', err.message); }
+    try { creditSuiteService.reload(); } catch (err) { console.warn('[Restore] Credit Suite reload failed:', err.message); }
     variableDisplays.reload();
     multiplayerBingo.reload();
     migrateSavedBadges();
@@ -1943,6 +1963,7 @@ const server = createHttpServer(async (req, res) => {
     if (await handleObsBordersRoutes(req, res, url, pathname)) return;
     if (await handleObsPatternsRoutes(req, res, url, pathname)) return;
     if (await handleObsLayoutRoutes(req, res, url, pathname)) return;
+    if (await handleCreditSuiteRoutes(req, res, url, pathname)) return;
 
     // Static file serving via cascading static router
     if (staticRouter.handleRequest(req, res)) {

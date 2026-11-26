@@ -668,3 +668,82 @@ registerCardType({
     },
     unmount(el) { el._opCleanup?.(); }
 });
+
+// ============================================================
+// 9. Credit Suite Live Transport Card
+// ============================================================
+registerCardType({
+    type: 'credit-suite',
+    moduleId: 'overlays',
+    label: 'Credit Suite Transport',
+    description: 'Cue Play, Pause, Restart, Stop, and Marker jumps on any Credit Suite sequence.',
+    iconSvg: OP_ICONS.overlays,
+    isEnabled: () => true,
+    async getPickerItems() {
+        try {
+            const res = await fetch('/api/credit-suite').then(r => r.json());
+            return (res.projects || []).map(p => ({
+                title: p.name,
+                subtitle: `${(p.blocks || []).length} blocks`,
+                defaultTitle: `Credits: ${p.name}`,
+                config: { projectId: p.id }
+            }));
+        } catch {
+            return [{ title: 'Active Credit Suite Project', subtitle: 'Uses active project', defaultTitle: 'Credit Suite', config: { projectId: '' } }];
+        }
+    },
+    mount(el, card) {
+        const projectId = card.config?.projectId || '';
+        const draw = async () => {
+            try {
+                const status = await fetch('/api/credit-suite/status').then(r => r.json());
+                const markers = Array.isArray(status.markers) ? status.markers : [];
+                const isPlaying = Boolean(status.playing);
+                el.innerHTML = `
+                    <div class="op-panel-row" style="margin-bottom:.45rem;">
+                        <span class="op-pill ${isPlaying ? 'is-live' : ''}">${isPlaying ? 'Rolling' : 'Paused'}</span>
+                        <span style="font-size:11px;color:var(--text-muted);">${Math.round(status.timeSec || 0)}s / ${Math.round(status.durationSec || 0)}s</span>
+                    </div>
+                    <div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:${markers.length ? '.45rem' : '0'};">
+                        <button type="button" class="op-btn sm primary" data-cs-act="${isPlaying ? 'pause' : 'play'}">${isPlaying ? 'Pause' : 'Play'}</button>
+                        <button type="button" class="op-btn sm" data-cs-act="restart">Restart</button>
+                        <button type="button" class="op-btn sm" data-cs-act="stop">Stop</button>
+                        <a class="op-btn sm" href="/tools/credit-suite.html" style="text-decoration:none;">Studio</a>
+                    </div>
+                    ${markers.length ? `<div style="display:flex;gap:.3rem;flex-wrap:wrap;">${markers.map(m => `<button type="button" class="op-btn sm" data-cs-jump="${String(m.name || '').replace(/"/g, '&quot;')}">${String(m.name || '').replace(/</g, '&lt;')}</button>`).join('')}</div>` : ''}
+                `;
+            } catch {
+                el.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">Credit Suite unavailable.</div>';
+            }
+        };
+        const onClick = async e => {
+            const actBtn = e.target.closest('[data-cs-act]');
+            if (actBtn) {
+                await fetch(`/api/credit-suite/${encodeURIComponent(actBtn.dataset.csAct)}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ projectId })
+                });
+                draw();
+                return;
+            }
+            const jumpBtn = e.target.closest('[data-cs-jump]');
+            if (jumpBtn) {
+                await fetch('/api/credit-suite/jump', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ projectId, marker: jumpBtn.dataset.csJump })
+                });
+                draw();
+            }
+        };
+        el.addEventListener('click', onClick);
+        el._opRefresh = draw;
+        el._opCleanup = () => el.removeEventListener('click', onClick);
+        draw();
+    },
+    onSocket(el, card, type) {
+        if (type === 'credit-suite-update' || type === 'credit-suite-transport') el._opRefresh?.();
+    },
+    unmount(el) { el._opCleanup?.(); }
+});

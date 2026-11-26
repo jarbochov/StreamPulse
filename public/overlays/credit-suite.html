@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Credit Suite Overlay — StreamPulse</title>
+    <link rel="stylesheet" href="/css/credit-suite-stage.css">
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            overflow: hidden;
+        }
+        body.cs-export-static {
+            overflow: visible;
+            height: auto;
+        }
+        #cs-overlay-root {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        body.cs-export-static #cs-overlay-root {
+            position: relative;
+            inset: auto;
+            display: block;
+            overflow: visible;
+        }
+        #cs-stage-scaler {
+            transform-origin: center center;
+        }
+        body.cs-export-static #cs-stage-scaler {
+            transform: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="cs-overlay-root">
+        <div id="cs-stage-scaler"></div>
+    </div>
+
+    <script src="/js/border-catalog.js"></script>
+    <script src="/js/pattern-catalog.js"></script>
+    <script src="/js/patterns-shared.js"></script>
+    <script src="/js/overlay-shared.js"></script>
+    <script src="/js/credit-suite-engine.js"></script>
+    <script type="module">
+        import { createCreditSuiteRenderer } from '/js/credit-suite/credit-suite-renderer.js';
+
+        const params = new URLSearchParams(window.location.search);
+        const requestedProjectId = params.get('project') || '';
+        const isExport = params.get('export') === '1';
+        const isStatic = params.get('static') === '1';
+        const bgOverride = params.get('bg') || '';
+        const chromaOverride = params.get('chroma') || '';
+        const overrideW = Number(params.get('w')) || 0;
+        const overrideH = Number(params.get('h')) || 0;
+        const overrideSpeed = Number(params.get('speed')) || 0;
+        const overrideAutoplay = params.has('autoplay') ? params.get('autoplay') !== '0' : null;
+        const overrideLoop = params.has('loop') ? params.get('loop') === '1' : null;
+        const overrideEnd = params.get('end') || '';
+
+        if (isStatic) document.body.classList.add('cs-export-static');
+
+        const scaler = document.getElementById('cs-stage-scaler');
+        let renderer = null;
+        let currentProject = null;
+        let variablesMap = {};
+        let ws = null;
+        let wsRetry = null;
+
+        function flattenVariables(data) {
+            const out = {};
+            const list = Array.isArray(data?.variables) ? data.variables : Object.values(data?.variables || {});
+            for (const v of list) {
+                if (!v || !v.key) continue;
+                const val = v.value ?? '';
+                out[v.key] = val;
+                out[`var.${v.key}`] = val;
+            }
+            const sets = Array.isArray(data?.sets) ? data.sets : Object.values(data?.sets || {});
+            for (const s of sets) {
+                if (!s || !s.id) continue;
+                const activeSlot = s.slots?.[0]?.entryId;
+                const entry = (s.entries || []).find(e => e.id === activeSlot) || s.entries?.[0];
+                if (entry?.values) {
+                    for (const [k, val] of Object.entries(entry.values)) {
+                        out[`set.${s.id}.${k}`] = val;
+                    }
+                }
+            }
+            return out;
+        }
+
+        function applyResponsiveScale() {
+            if (!currentProject || isExport || isStatic) {
+                scaler.style.transform = '';
+                return;
+            }
+            const cw = currentProject.canvas.width || 1920;
+            const ch = currentProject.canvas.height || 1080;
+            const sx = window.innerWidth / cw;
+            const sy = window.innerHeight / ch;
+            const s = Math.min(sx, sy);
+            scaler.style.width = `${cw}px`;
+            scaler.style.height = `${ch}px`;
+            scaler.style.transform = `scale(${s})`;
+        }
+
+        function applyProjectOverrides(raw) {
+            const p = JSON.parse(JSON.stringify(raw));
+            if (overrideW > 0) p.canvas.width = overrideW;
+            if (overrideH > 0) p.canvas.height = overrideH;
+            if (overrideAutoplay !== null) p.timing.autoplay = overrideAutoplay;
+            if (overrideLoop !== null) p.timing.loop = overrideLoop;
+            if (['clear', 'hold', 'loop'].includes(overrideEnd)) p.timing.endBehavior = overrideEnd;
+            return p;
+        }
+
+        async function loadVariables() {
+            try {
+                const res = await fetch('/api/variables');
+                if (res.ok) {
+                    const data = await res.json();
+                    variablesMap = flattenVariables(data);
+                    renderer?.setVariables(variablesMap);
+                }
+            } catch {}
+        }
+
+        async function loadProject() {
+            const url = requestedProjectId
+                ? `/api/credit-suite/projects/${encodeURIComponent(requestedProjectId)}`
+                : '/api/credit-suite';
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('Failed to load Credit Suite project');
+            const data = await res.json();
+            const raw = requestedProjectId
+                ? data.project
+                : ((data.projects || []).find(p => p.id === data.activeProjectId) || data.projects?.[0]);
+            if (!raw) throw new Error('No Credit Suite project available');
+
+            currentProject = applyProjectOverrides(raw);
+            if (!renderer) {
+                renderer = createCreditSuiteRenderer(scaler, {
+                    interactive: false,
+                    deterministic: isExport,
+                    variables: variablesMap,
+                    bgOverride,
+                    chromaOverride
+                });
+            }
+            if (overrideSpeed > 0) renderer.setSpeedRate(overrideSpeed);
+            renderer.setProject(currentProject, { bgOverride, chromaOverride });
+            applyResponsiveScale();
+
+            if (!isExport && !isStatic) {
+                if (currentProject.timing?.autoplay !== false) {
+                    renderer.seek(0);
+                    renderer.play();
+                } else {
+                    renderer.seek(0);
+                }
+            } else {
+                renderer.seek(0);
+            }
+        }
+
+        function applyTransportMessage(msg) {
+            if (!renderer || !currentProject || isExport || isStatic) return;
+            if (requestedProjectId && msg.projectId && msg.projectId !== requestedProjectId) return;
+            if (msg.speedRate) renderer.setSpeedRate(msg.speedRate);
+            renderer.seek(msg.timeSec || 0);
+            if (msg.playing) renderer.play();
+            else renderer.pause();
+        }
+
+        function connectWs() {
+            if (isExport || isStatic) return;
+            const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${proto}//${window.location.host}`);
+            ws.onmessage = ev => {
+                try {
+                    const msg = JSON.parse(ev.data);
+                    if (msg.type === 'credit-suite-update') {
+                        const targetId = requestedProjectId || msg.data?.activeProjectId;
+                        const updated = (msg.data?.projects || []).find(p => p.id === targetId);
+                        if (updated && renderer) {
+                            const wasPlaying = renderer.isPlaying();
+                            const prevTime = renderer.getTime();
+                            currentProject = applyProjectOverrides(updated);
+                            renderer.setProject(currentProject, { bgOverride, chromaOverride });
+                            applyResponsiveScale();
+                            renderer.seek(prevTime);
+                            if (wasPlaying) renderer.play();
+                        }
+                    } else if (msg.type === 'credit-suite-transport') {
+                        applyTransportMessage(msg.data || {});
+                    } else if (msg.type === 'variables-update') {
+                        loadVariables();
+                    }
+                } catch {}
+            };
+            ws.onclose = () => {
+                clearTimeout(wsRetry);
+                wsRetry = setTimeout(connectWs, 3000);
+            };
+        }
+
+        // OBS Browser Source visibility hook
+        if (window.obsstudio && !isExport && !isStatic) {
+            window.obsstudio.onVisibilityChange = visible => {
+                if (!renderer || !currentProject) return;
+                if (visible) {
+                    if (currentProject.timing?.resetOnVisible !== false) {
+                        renderer.seek(0);
+                        if (currentProject.timing?.autoplay !== false) renderer.play();
+                    }
+                } else {
+                    renderer.pause();
+                }
+            };
+        }
+
+        // Deterministic export API exposed for Puppeteer + FFmpeg frame stepping
+        window.__creditSuiteSeek = tSec => {
+            if (!renderer) return null;
+            return renderer.seek(tSec);
+        };
+        window.__creditSuiteGetMeta = () => {
+            const s = renderer?.getSolved();
+            return {
+                durationSec: s?.totalDurationSec || 10,
+                width: currentProject?.canvas?.width || 1920,
+                height: currentProject?.canvas?.height || 1080,
+                fps: currentProject?.canvas?.fps || 60
+            };
+        };
+        window.__creditSuitePrepareStaticSheet = () => renderer?.prepareStaticSheet?.();
+        window.__creditSuiteListStaticBlocks = () => renderer?.listStaticBlocks?.() || [];
+        window.__creditSuitePrepareStaticBlock = id => renderer?.prepareStaticBlock?.(id);
+        window.__creditSuiteRefit = () => renderer?.refit?.();
+
+        window.addEventListener('resize', applyResponsiveScale);
+        window.addEventListener('beforeunload', () => {
+            clearTimeout(wsRetry);
+            try { ws?.close(); } catch {}
+            renderer?.destroy();
+        });
+
+        // Bootstrap
+        Promise.all([loadVariables(), loadProject()])
+            .then(async () => {
+                if (document.fonts && document.fonts.ready) {
+                    try { await document.fonts.ready; } catch {}
+                }
+                renderer?.refit();
+                if (isExport) renderer?.seek(0);
+                window.__creditSuiteReady = true;
+                connectWs();
+            })
+            .catch(err => {
+                console.error('[Credit Suite Overlay]', err);
+                window.__creditSuiteReady = true;
+            });
+    </script>
+</body>
+</html>

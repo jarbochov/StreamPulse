@@ -1,0 +1,595 @@
+/* ============================================================================
+   StreamPulse Credit Suite — Shared Stage & Overlay Rendering Styles
+   Used by both /overlays/credit-suite.html and /tools/credit-suite.html
+   ============================================================================ */
+
+.cs-viewport {
+    position: relative;
+    overflow: hidden;
+    user-select: none;
+    box-sizing: border-box;
+    isolation: isolate;
+}
+
+.cs-viewport *,
+.cs-viewport *::before,
+.cs-viewport *::after {
+    box-sizing: border-box;
+}
+
+/* Layer stack: Background -> Behind Tracks -> Credits Flow -> Side Tracks -> Above Tracks */
+.cs-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.cs-layer-bg { z-index: 1; overflow: hidden; }
+.cs-layer-behind { z-index: 2; overflow: hidden; }
+.cs-layer-credits { z-index: 10; overflow: hidden; }
+.cs-layer-side { z-index: 20; overflow: hidden; }
+.cs-layer-above { z-index: 30; overflow: hidden; }
+
+.cs-bg-media {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cs-bg-pattern {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+/* Credits Column Container (smoothly repositions horizontally via Auto-Reflow) */
+.cs-credits-column-wrap {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    overflow: hidden;
+}
+
+.cs-credits-column {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    transform: translate3d(-50%, 0, 0);
+    will-change: transform, width;
+    max-width: 100%;
+}
+
+/* Continuous Crawl Run Container */
+.cs-crawl-run {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    will-change: transform;
+    display: none;
+}
+
+.cs-crawl-run.active {
+    display: block;
+}
+
+/* Standalone Featured / Timed Card Layer */
+.cs-card-layer {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 64px;
+    will-change: transform, opacity;
+    display: none;
+}
+
+.cs-card-layer.active {
+    display: flex;
+}
+
+/* Credit Block Base */
+.cs-block {
+    width: 100%;
+    position: relative;
+    text-align: center;
+    color: var(--cs-text, #f3f4f6);
+    font-family: var(--cs-content-font, 'Cormorant Garamond', Georgia, serif);
+    font-size: var(--cs-content-size, 28px);
+    font-weight: var(--cs-content-weight, 400);
+    font-style: var(--cs-content-style, normal);
+    line-height: var(--cs-line-height, 1.75);
+}
+
+.cs-block-inner {
+    position: relative;
+    width: 100%;
+    margin: 0 auto;
+}
+
+/* Per-Section Auto-Column Placement (zero sideways sliding mid-scroll) */
+.cs-block.cs-zone-center {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.cs-block.cs-zone-right {
+    margin-left: auto;
+    margin-right: 0;
+}
+
+.cs-block.cs-zone-left {
+    margin-left: 0;
+    margin-right: auto;
+}
+
+.cs-card-layer.cs-zone-right {
+    justify-content: flex-end;
+}
+
+.cs-card-layer.cs-zone-left {
+    justify-content: flex-start;
+}
+
+.cs-block-title {
+    font-family: var(--cs-heading-font, 'Cinzel', Georgia, serif);
+    font-size: var(--cs-heading-size, 40px);
+    font-weight: var(--cs-heading-weight, 700);
+    font-style: var(--cs-heading-style, normal);
+    text-transform: var(--cs-heading-transform, uppercase);
+    letter-spacing: var(--cs-heading-tracking, 0.14em);
+    color: var(--cs-accent, #e5c07b);
+    line-height: 1.25;
+    margin: 0 0 0.25em;
+}
+
+.cs-block-subtitle {
+    font-size: 0.8em;
+    color: var(--cs-subtitle, #9ca3af);
+    font-style: italic;
+    margin: -0.1em 0 0.7em;
+    line-height: 1.35;
+}
+
+.cs-block-icon {
+    font-size: 1.35em;
+    color: var(--cs-accent, #e5c07b);
+    margin-bottom: 0.35em;
+    display: block;
+}
+
+/* Featured Hero Card */
+.cs-block-featured .cs-block-title {
+    font-size: calc(var(--cs-heading-size, 40px) * 1.45);
+    margin-bottom: 0.28em;
+}
+
+.cs-block-featured .cs-block-subtitle {
+    font-size: 0.95em;
+    margin-bottom: 0.9em;
+}
+
+.cs-block-featured .cs-featured-body {
+    white-space: pre-wrap;
+    font-size: 1.15em;
+    letter-spacing: 0.06em;
+}
+
+/* Hollywood Role | Name Split Table */
+.cs-role-table {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.22em 2.2em;
+    width: 100%;
+    max-width: 1040px;
+    margin: 0.35em auto 0;
+    align-items: baseline;
+}
+
+.cs-role-cell {
+    text-align: right;
+    color: var(--cs-subtitle, #9ca3af);
+    font-size: 0.86em;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    font-weight: 600;
+}
+
+.cs-name-cell {
+    text-align: left;
+    color: var(--cs-text, #f3f4f6);
+    font-weight: 500;
+}
+
+/* Multi-Column Auto-Fit Roster */
+.cs-roster-grid {
+    display: grid;
+    gap: 0.16em 2.4em;
+    width: 100%;
+    margin: 0.3em auto 0;
+    text-align: center;
+}
+
+.cs-roster-cols-1 { grid-template-columns: 1fr; }
+.cs-roster-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cs-roster-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cs-roster-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+.cs-name-fit {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    text-align: inherit;
+}
+
+.cs-name-fit-sizer {
+    display: inline-block;
+    white-space: nowrap;
+    max-width: none;
+}
+
+.cs-name-fit-text {
+    display: inline-block;
+    white-space: nowrap;
+    max-width: none;
+}
+
+/* Stacked Section & Paragraph */
+.cs-section-content {
+    white-space: pre-wrap;
+    margin-top: 0.25em;
+}
+
+.cs-paragraph-body {
+    white-space: pre-wrap;
+    max-width: 920px;
+    margin: 0.25em auto 0;
+    font-size: 0.88em;
+    opacity: 0.9;
+}
+
+/* Inline Media Block */
+.cs-inline-media {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0.4em auto;
+}
+
+.cs-inline-media img,
+.cs-inline-media video {
+    max-width: 100%;
+    display: block;
+    object-fit: cover;
+}
+
+.cs-inline-media-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--cs-accent, #e5c07b);
+}
+
+.cs-inline-caption {
+    font-size: 0.78em;
+    color: var(--cs-subtitle, #9ca3af);
+    margin-top: 0.45em;
+    font-style: italic;
+}
+
+/* Logo / Sponsor Strip */
+.cs-logo-strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    margin: 0.6em auto 0;
+}
+
+.cs-logo-item {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.cs-logo-item img {
+    display: block;
+    width: auto;
+    object-fit: contain;
+}
+
+.cs-logo-item-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--cs-accent, #e5c07b);
+}
+
+.cs-logo-item-label {
+    font-size: 0.68em;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--cs-subtitle, #9ca3af);
+}
+
+/* Inline Split Row */
+.cs-split-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 42px;
+    max-width: 1040px;
+    margin: 0.35em auto;
+    text-align: left;
+}
+
+.cs-split-row.media-right {
+    flex-direction: row-reverse;
+}
+
+.cs-split-media {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cs-split-media img,
+.cs-split-media video {
+    display: block;
+    max-width: 100%;
+    object-fit: cover;
+}
+
+.cs-split-text {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.cs-split-text .cs-block-title {
+    text-align: left;
+}
+
+.cs-split-text .cs-block-subtitle {
+    text-align: left;
+}
+
+/* Ornamental Dividers */
+.cs-divider {
+    margin: 0 auto;
+    position: relative;
+}
+
+.cs-divider-line {
+    height: 1px;
+    background: var(--cs-divider, rgba(255, 255, 255, 0.25));
+}
+
+.cs-divider-double {
+    height: 6px;
+    border-top: 2px solid var(--cs-divider, rgba(255, 255, 255, 0.35));
+    border-bottom: 1px solid var(--cs-divider, rgba(255, 255, 255, 0.35));
+}
+
+.cs-divider-dashed {
+    border-top: 2px dashed var(--cs-divider, rgba(255, 255, 255, 0.35));
+}
+
+.cs-divider-dotted {
+    border-top: 3px dotted var(--cs-divider, rgba(255, 255, 255, 0.4));
+}
+
+.cs-divider-fade {
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--cs-accent, #e5c07b), transparent);
+}
+
+.cs-divider-stars,
+.cs-divider-ornament,
+.cs-divider-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    color: var(--cs-accent, #e5c07b);
+    font-size: 0.72em;
+    letter-spacing: 0.35em;
+}
+
+.cs-divider-ornament::before,
+.cs-divider-ornament::after,
+.cs-divider-icon::before,
+.cs-divider-icon::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--cs-divider, rgba(229, 192, 123, 0.55)), transparent);
+}
+
+/* Floating / Side / Background Track Clips */
+.cs-track-clip {
+    position: absolute;
+    overflow: hidden;
+    display: none;
+    will-change: transform, opacity;
+    pointer-events: none;
+}
+
+.cs-track-clip.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cs-track-clip.interactive {
+    pointer-events: auto;
+    cursor: move;
+}
+
+.cs-clip-media-wrap {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cs-clip-media-el {
+    width: 100%;
+    height: 100%;
+    display: block;
+    will-change: transform;
+}
+
+.cs-clip-blur-bg {
+    position: absolute;
+    inset: -12%;
+    width: 124%;
+    height: 124%;
+    object-fit: cover;
+    filter: blur(22px) brightness(0.65);
+    z-index: 0;
+}
+
+.cs-clip-fg-contain {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.cs-clip-shape-card {
+    width: 100%;
+    height: 100%;
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 14px;
+}
+
+.cs-clip-text-body {
+    width: 100%;
+    padding: 18px 24px;
+    white-space: pre-wrap;
+    line-height: 1.35;
+}
+
+.cs-clip-caption {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 14px 18px;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.78), transparent);
+    color: #fff;
+    font-size: 18px;
+    text-align: center;
+    z-index: 3;
+}
+
+/* Badge, Counter, Meter Clip Visuals */
+.cs-clip-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 14px 28px;
+    width: 100%;
+    height: 100%;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.cs-clip-counter {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 16px;
+}
+
+.cs-clip-counter-val {
+    font-size: 2.2em;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.05;
+}
+
+.cs-clip-counter-lbl {
+    font-size: 0.55em;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    opacity: 0.78;
+}
+
+.cs-clip-meter {
+    width: 100%;
+    height: 100%;
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 12px;
+}
+
+.cs-clip-meter-head {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.65em;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.cs-clip-meter-track {
+    width: 100%;
+    height: 18px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16);
+    overflow: hidden;
+}
+
+.cs-clip-meter-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--cs-accent, #e5c07b), #38bdf8);
+}
+
+/* Static PNG export layout mode */
+.cs-viewport.cs-static-mode {
+    overflow: visible;
+    height: auto !important;
+}
+
+.cs-viewport.cs-static-mode .cs-layer-credits {
+    position: relative;
+    overflow: visible;
+}
+
+.cs-viewport.cs-static-mode .cs-credits-column-wrap,
+.cs-viewport.cs-static-mode .cs-credits-column {
+    position: relative;
+    left: auto;
+    transform: none;
+    margin: 0 auto;
+    overflow: visible;
+}
