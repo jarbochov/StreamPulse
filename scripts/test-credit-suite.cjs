@@ -315,6 +315,33 @@ describe('Credit Suite — Independent Cinematic Credits Module', () => {
 
         const delRes = await requestRaw(port, 'DELETE', `/api/credit-suite/projects/${encodeURIComponent(copyId)}`);
         assert.equal(delRes.status, 200);
+
+        // Editable & deletable custom Cinema Themes CRUD + restore defaults
+        const createThemeRes = await requestRaw(port, 'POST', '/api/credit-suite/themes', {
+            createNew: true,
+            theme: { name: 'My Noir Theme', headingFont: 'Oswald', accentColor: '#FF2A6DFF' }
+        });
+        assert.equal(createThemeRes.status, 200);
+        const customThemeId = createThemeRes.body.theme.id;
+        assert.equal(createThemeRes.body.theme.name, 'My Noir Theme');
+
+        const updThemeRes = await requestRaw(port, 'PUT', `/api/credit-suite/themes/${encodeURIComponent(customThemeId)}`, {
+            theme: { name: 'Noir v2', headingFont: 'Bebas Neue', accentColor: '#00F5D4FF' }
+        });
+        assert.equal(updThemeRes.status, 200);
+        assert.equal(updThemeRes.body.theme.name, 'Noir v2');
+
+        const delStarterRes = await requestRaw(port, 'DELETE', '/api/credit-suite/themes/clean-light');
+        assert.equal(delStarterRes.status, 200);
+        assert.equal(delStarterRes.body.themes.some(t => t.id === 'clean-light'), false);
+
+        const resetThemesRes = await requestRaw(port, 'POST', '/api/credit-suite/themes/reset');
+        assert.equal(resetThemesRes.status, 200);
+        assert.equal(resetThemesRes.body.themes.some(t => t.id === 'clean-light'), true, 'restores deleted starter theme');
+        assert.equal(resetThemesRes.body.themes.some(t => t.id === customThemeId), true, 'preserves custom themes on starter restore');
+
+        const delCustomRes = await requestRaw(port, 'DELETE', `/api/credit-suite/themes/${encodeURIComponent(customThemeId)}`);
+        assert.equal(delCustomRes.status, 200);
     });
 
     it('renders a real Full Tall PNG and a real transparent WebM VP9 Alpha video via Puppeteer + FFmpeg', async () => {

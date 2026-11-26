@@ -18,6 +18,7 @@ function createCreditSuiteService(options = {}) {
     let state = {
         activeProjectId: 'cinematic-feature',
         projects: [],
+        themes: [],
         revision: 1
     };
 
@@ -41,6 +42,7 @@ function createCreditSuiteService(options = {}) {
         fs.writeFileSync(tmp, JSON.stringify({
             activeProjectId: state.activeProjectId,
             projects: state.projects,
+            themes: state.themes,
             revision: state.revision
         }, null, 2), 'utf8');
         fs.renameSync(tmp, statePath);
@@ -55,12 +57,17 @@ function createCreditSuiteService(options = {}) {
                 const projects = rawProjects.length
                     ? rawProjects.map((p, i) => engine.normalizeProject(p, i))
                     : engine.buildDefaultProjects();
+                const rawThemes = Array.isArray(parsed?.themes) ? parsed.themes : null;
+                const themes = rawThemes
+                    ? rawThemes.map((t, i) => engine.normalizeThemePreset(t, i))
+                    : engine.buildDefaultThemes();
                 const activeId = projects.some(p => p.id === parsed?.activeProjectId)
                     ? parsed.activeProjectId
                     : projects[0].id;
                 state = {
                     activeProjectId: activeId,
                     projects,
+                    themes,
                     revision: Number(parsed?.revision) || 1
                 };
                 transport.projectId = activeId;
@@ -71,6 +78,7 @@ function createCreditSuiteService(options = {}) {
         state = {
             activeProjectId: defaults[0].id,
             projects: defaults,
+            themes: engine.buildDefaultThemes(),
             revision: 1
         };
         transport.projectId = defaults[0].id;
@@ -132,7 +140,8 @@ function createCreditSuiteService(options = {}) {
             projects: state.projects,
             revision: state.revision,
             transport: getTransportSnapshot(),
-            themes: engine.STARTER_THEMES,
+            themes: state.themes,
+            starterThemes: engine.STARTER_THEMES,
             canvasPresets: engine.CANVAS_PRESETS,
             blockTypes: engine.BLOCK_TYPES,
             exportsDir
@@ -486,6 +495,53 @@ function createCreditSuiteService(options = {}) {
         return { names: nextNames, conflicts, count: nextNames.length };
     }
 
+    function uniqueThemeId(desired) {
+        const base = engine.sanitizeId(desired, 'custom-theme').slice(0, 56);
+        let candidate = base;
+        let n = 2;
+        while (state.themes.some(t => t.id === candidate)) {
+            const suffix = `-${n++}`;
+            candidate = `${base.slice(0, 64 - suffix.length)}${suffix}`;
+        }
+        return candidate;
+    }
+
+    function upsertTheme(rawTheme, { createNew = false } = {}) {
+        const existingIdx = createNew ? -1 : state.themes.findIndex(t => t.id === rawTheme?.id);
+        const id = existingIdx >= 0
+            ? state.themes[existingIdx].id
+            : uniqueThemeId(rawTheme?.id || rawTheme?.name || `theme-${state.themes.length + 1}`);
+        const normalized = engine.normalizeThemePreset({
+            ...rawTheme,
+            id,
+            builtin: existingIdx >= 0 ? Boolean(state.themes[existingIdx].builtin) : false
+        }, state.themes.length);
+        if (existingIdx >= 0) {
+            state.themes[existingIdx] = normalized;
+        } else {
+            state.themes.push(normalized);
+        }
+        bumpRevision('theme-saved');
+        return normalized;
+    }
+
+    function deleteTheme(id) {
+        const idx = state.themes.findIndex(t => t.id === id);
+        if (idx < 0) throw new Error(`Theme "${id}" not found`);
+        state.themes.splice(idx, 1);
+        bumpRevision('theme-deleted');
+        return state.themes;
+    }
+
+    function resetStarterThemes() {
+        const defaults = engine.buildDefaultThemes();
+        const defaultIds = new Set(defaults.map(d => d.id));
+        const customOnly = state.themes.filter(t => !defaultIds.has(t.id));
+        state.themes = [...defaults, ...customOnly];
+        bumpRevision('themes-reset');
+        return state.themes;
+    }
+
     function resetDefaults() {
         const defaults = engine.buildDefaultProjects();
         state.projects = defaults;
@@ -512,6 +568,9 @@ function createCreditSuiteService(options = {}) {
         duplicateProject,
         deleteProject,
         setActiveProject,
+        upsertTheme,
+        deleteTheme,
+        resetStarterThemes,
         controlTransport,
         getTransportSnapshot,
         listDataSources,

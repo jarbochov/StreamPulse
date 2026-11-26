@@ -919,13 +919,15 @@ export function mountCreditSuiteInspector({ state, stage }) {
                 ` : ''}
             </div>
 
-            <details class="cs-acc">
-                <summary>Transitions, Borders &amp; Filters</summary>
-                <div class="cs-acc-body">
+            <div class="cs-section">
+                <div class="cs-section-head">
+                    <span>Enter / Exit FX &amp; Motion</span>
+                    <button type="button" class="cs-btn cs-btn-sm" id="cs-preview-clip-fx" title="Play from clip entrance">Preview FX</button>
+                </div>
                 <div class="cs-grid-2">
-                    <div class="cs-field"><label>Enter</label><select data-c="enterAnim">${engine.TRANSITION_TYPES.map(tr => `<option value="${tr}" ${clip.enterAnim === tr ? 'selected' : ''}>${tr}</option>`).join('')}</select></div>
-                    <div class="cs-field"><label>Exit</label><select data-c="exitAnim">${engine.TRANSITION_TYPES.map(tr => `<option value="${tr}" ${clip.exitAnim === tr ? 'selected' : ''}>${tr}</option>`).join('')}</select></div>
+                    <div class="cs-field"><label>Enter FX</label><select data-c="enterAnim">${engine.TRANSITION_TYPES.map(tr => `<option value="${tr}" ${clip.enterAnim === tr ? 'selected' : ''}>${tr}</option>`).join('')}</select></div>
                     <div class="cs-field"><label>Enter (s)</label><input type="number" min="0" max="10" step="0.1" data-c-num="enterSec" value="${clip.enterSec ?? 0.75}"></div>
+                    <div class="cs-field"><label>Exit FX</label><select data-c="exitAnim">${engine.TRANSITION_TYPES.map(tr => `<option value="${tr}" ${clip.exitAnim === tr ? 'selected' : ''}>${tr}</option>`).join('')}</select></div>
                     <div class="cs-field"><label>Exit (s)</label><input type="number" min="0" max="10" step="0.1" data-c-num="exitSec" value="${clip.exitSec ?? 0.75}"></div>
                 </div>
                 <div class="cs-field">
@@ -934,6 +936,11 @@ export function mountCreditSuiteInspector({ state, stage }) {
                         ${engine.KEN_BURNS_TYPES.map(kb => `<option value="${kb}" ${clip.kenBurns === kb ? 'selected' : ''}>${kb}</option>`).join('')}
                     </select>
                 </div>
+            </div>
+
+            <details class="cs-acc">
+                <summary>Borders &amp; Color Filters</summary>
+                <div class="cs-acc-body">
                 <div class="cs-grid-3">
                     <div class="cs-field">
                         <label>Border Style</label>
@@ -1017,6 +1024,12 @@ export function mountCreditSuiteInspector({ state, stage }) {
             });
         });
 
+        bodyEl.querySelector('#cs-preview-clip-fx')?.addEventListener('click', () => {
+            const rc = (state.store.solved?.resolvedClips || []).find(item => item.clip.id === clip.id);
+            const startT = Math.max(0, (rc ? rc.startSec : (clip.startSec || 0)) - 0.15);
+            stage?.seek(startT);
+            stage?.play();
+        });
         bodyEl.querySelector('#cs-pick-clip-asset')?.addEventListener('click', () => {
             openAssetPickerModal(state, { kind: t === 'video' ? 'video' : 'image', onPick: url => updateClip(c => { c.mediaUrl = url; }) });
         });
@@ -1109,17 +1122,36 @@ export function mountCreditSuiteInspector({ state, stage }) {
             </div>
 
             <div class="cs-section">
-                <div class="cs-section-head">Starter Cinema Themes</div>
+                <div class="cs-section-head">
+                    <span>Cinema Themes</span>
+                    <div style="display:flex;gap:4px;">
+                        <button type="button" class="cs-btn cs-btn-sm cs-btn-primary" id="cs-save-theme-btn" title="Save current typography, colors & background as a theme">+ Save Current</button>
+                        <button type="button" class="cs-btn cs-btn-sm" id="cs-reset-themes-btn" title="Restore built-in starter themes">Defaults</button>
+                    </div>
+                </div>
                 <div class="cs-theme-grid">
-                    ${Object.values(engine.STARTER_THEMES).map(t => `
-                        <button type="button" class="cs-theme-card ${th.preset === t.id ? 'active' : ''}" data-apply-theme="${t.id}">
-                            <div class="cs-theme-swatches">
-                                <span style="background:${t.background.color1};"></span>
-                                <span style="background:${t.accentColor};"></span>
-                                <span style="background:${t.textColor};"></span>
+                    ${(state.store.themes || []).map(t => `
+                        <div class="cs-theme-card ${th.preset === t.id ? 'active' : ''}" data-apply-theme="${esc(t.id)}" role="button" tabindex="0">
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:4px;">
+                                <div class="cs-theme-swatches">
+                                    <span style="background:${esc(t.background?.color1 || '#07080c')};"></span>
+                                    <span style="background:${esc(t.accentColor || '#e5c07b')};"></span>
+                                    <span style="background:${esc(t.textColor || '#f3f4f6')};"></span>
+                                </div>
+                                <div class="cs-theme-card-acts">
+                                    <button type="button" class="cs-mini-icon-btn" data-theme-update="${esc(t.id)}" title="Overwrite theme with current style">
+                                        <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
+                                    </button>
+                                    <button type="button" class="cs-mini-icon-btn" data-theme-rename="${esc(t.id)}" title="Rename theme">
+                                        <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                                    </button>
+                                    <button type="button" class="cs-mini-icon-btn danger" data-theme-delete="${esc(t.id)}" title="Delete theme">
+                                        <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                                    </button>
+                                </div>
                             </div>
-                            <div style="font-size:11px;font-weight:700;">${esc(t.name)}</div>
-                        </button>
+                            <div style="font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(t.name)}</div>
+                        </div>
                     `).join('')}
                 </div>
             </div>
@@ -1227,9 +1259,88 @@ export function mountCreditSuiteInspector({ state, stage }) {
                 state.mutateProject(p => setNested(p, el.dataset.pColor, `${el.value.toUpperCase()}FF`));
             });
         });
+        const snapshotCurrentTheme = name => ({
+            name,
+            headingFont: th.headingFont,
+            contentFont: th.contentFont,
+            headingSize: th.headingSize,
+            contentSize: th.contentSize,
+            headingWeight: th.headingWeight,
+            contentWeight: th.contentWeight,
+            headingStyle: th.headingStyle,
+            contentStyle: th.contentStyle,
+            headingTransform: th.headingTransform,
+            headingLetterSpacing: th.headingLetterSpacing,
+            lineHeight: th.lineHeight,
+            sectionSpacing: th.sectionSpacing,
+            textColor: th.textColor,
+            accentColor: th.accentColor,
+            subtitleColor: th.subtitleColor,
+            dividerColor: th.dividerColor,
+            background: {
+                type: bg.type,
+                color1: bg.color1,
+                color2: bg.color2,
+                angle: bg.angle,
+                patternPreset: bg.patternPreset,
+                patternPalette: bg.patternPalette
+            }
+        });
+
+        bodyEl.querySelector('#cs-save-theme-btn')?.addEventListener('click', async () => {
+            const name = window.prompt('Save current look as theme name:', `${proj.name} Theme`);
+            if (!name || !name.trim()) return;
+            try {
+                const created = await state.saveTheme(snapshotCurrentTheme(name.trim()), { createNew: true });
+                state.mutateProject(p => { p.theme.preset = created.id; });
+            } catch (err) { window.alert(err.message); }
+        });
+
+        bodyEl.querySelector('#cs-reset-themes-btn')?.addEventListener('click', async () => {
+            try { await state.resetThemes(); } catch (err) { window.alert(err.message); }
+        });
+
+        bodyEl.querySelectorAll('[data-theme-update]').forEach(btn => {
+            btn.addEventListener('click', async ev => {
+                ev.stopPropagation();
+                const tid = btn.dataset.themeUpdate;
+                const existing = (state.store.themes || []).find(t => t.id === tid);
+                if (!existing) return;
+                if (!window.confirm(`Overwrite theme "${existing.name}" with your current typography, colors & background?`)) return;
+                try {
+                    await state.updateTheme(tid, snapshotCurrentTheme(existing.name));
+                    state.mutateProject(p => { p.theme.preset = tid; });
+                } catch (err) { window.alert(err.message); }
+            });
+        });
+
+        bodyEl.querySelectorAll('[data-theme-rename]').forEach(btn => {
+            btn.addEventListener('click', async ev => {
+                ev.stopPropagation();
+                const tid = btn.dataset.themeRename;
+                const existing = (state.store.themes || []).find(t => t.id === tid);
+                if (!existing) return;
+                const nextName = window.prompt('Rename theme:', existing.name);
+                if (!nextName || !nextName.trim()) return;
+                try { await state.updateTheme(tid, { ...existing, name: nextName.trim() }); } catch (err) { window.alert(err.message); }
+            });
+        });
+
+        bodyEl.querySelectorAll('[data-theme-delete]').forEach(btn => {
+            btn.addEventListener('click', async ev => {
+                ev.stopPropagation();
+                const tid = btn.dataset.themeDelete;
+                const existing = (state.store.themes || []).find(t => t.id === tid);
+                if (!existing) return;
+                if (!window.confirm(`Delete theme "${existing.name}"?`)) return;
+                try { await state.deleteTheme(tid); } catch (err) { window.alert(err.message); }
+            });
+        });
+
         bodyEl.querySelectorAll('[data-apply-theme]').forEach(btn => {
             btn.addEventListener('click', () => {
-                const preset = engine.STARTER_THEMES[btn.dataset.applyTheme];
+                const preset = (state.store.themes || []).find(t => t.id === btn.dataset.applyTheme)
+                    || engine.STARTER_THEMES[btn.dataset.applyTheme];
                 if (!preset) return;
                 state.mutateProject(p => {
                     Object.assign(p.theme, {
@@ -1251,11 +1362,13 @@ export function mountCreditSuiteInspector({ state, stage }) {
                         subtitleColor: preset.subtitleColor,
                         dividerColor: preset.dividerColor
                     });
-                    if (p.background.type === 'solid' || p.background.type === 'gradient') {
+                    if (preset.background && ['solid', 'gradient', 'transparent', 'pattern', 'chroma'].includes(preset.background.type)) {
                         p.background.type = preset.background.type;
                         p.background.color1 = preset.background.color1;
                         p.background.color2 = preset.background.color2;
                         p.background.angle = preset.background.angle;
+                        if (preset.background.patternPreset) p.background.patternPreset = preset.background.patternPreset;
+                        if (preset.background.patternPalette) p.background.patternPalette = preset.background.patternPalette;
                     }
                 });
             });

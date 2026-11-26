@@ -1116,6 +1116,11 @@
                     details: 'Persists to data/credit-suite/projects.json and broadcasts credit-suite-update over WebSocket so live OBS overlays hot-reload immediately.'
                 },
                 {
+                    method: 'POST / PUT / DELETE', path: '/api/credit-suite/themes/:id',
+                    desc: 'Create, rename/update, delete, or restore (/themes/reset) custom Cinema Themes',
+                    details: 'Persists editable typography, color, and background themes in data/credit-suite/projects.json alongside projects.'
+                },
+                {
                     method: 'GET / POST', path: '/api/credit-suite/play | pause | toggle | restart | stop | seek | jump | speed',
                     desc: 'Live playback transport & marker jump triggers (Companion & Operator Mode)',
                     details: 'Examples: GET /api/credit-suite/restart?project=cinematic-feature, GET /api/credit-suite/seek?t=15.5, GET /api/credit-suite/jump?marker=Cast, GET /api/credit-suite/speed?rate=1.25.'

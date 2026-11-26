@@ -222,6 +222,38 @@ function createCreditSuiteRoutes({ creditSuiteService, creditSuiteExporter } = {
                 }
             }
 
+            // Theme Library CRUD (editable & deletable cinema themes)
+            if (pathname === '/api/credit-suite/themes' && req.method === 'GET') {
+                sendJson(res, { ok: true, themes: creditSuiteService.getState().themes });
+                return true;
+            }
+            if (pathname === '/api/credit-suite/themes' && req.method === 'POST') {
+                const body = await parseOptionalJson(req);
+                const theme = creditSuiteService.upsertTheme(body.theme || body, { createNew: Boolean(body.createNew) });
+                sendJson(res, { ok: true, theme, themes: creditSuiteService.getState().themes });
+                return true;
+            }
+            if (pathname === '/api/credit-suite/themes/reset' && (req.method === 'POST' || req.method === 'GET')) {
+                const themes = creditSuiteService.resetStarterThemes();
+                sendJson(res, { ok: true, themes });
+                return true;
+            }
+            const themeMatch = pathname.match(/^\/api\/credit-suite\/themes\/([^/]+)$/);
+            if (themeMatch) {
+                const tid = decodeURIComponent(themeMatch[1]);
+                if (req.method === 'PUT' || req.method === 'POST') {
+                    const body = await parseOptionalJson(req);
+                    const theme = creditSuiteService.upsertTheme({ ...(body.theme || body), id: tid });
+                    sendJson(res, { ok: true, theme, themes: creditSuiteService.getState().themes });
+                    return true;
+                }
+                if (req.method === 'DELETE') {
+                    const themes = creditSuiteService.deleteTheme(tid);
+                    sendJson(res, { ok: true, themes });
+                    return true;
+                }
+            }
+
             // Reset defaults
             if (pathname === '/api/credit-suite/reset-defaults' && (req.method === 'POST' || req.method === 'GET')) {
                 const state = creditSuiteService.resetDefaults();

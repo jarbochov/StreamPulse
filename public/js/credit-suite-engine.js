@@ -450,6 +450,44 @@ var StreamPulseCreditSuiteEngine = (() => {
           clips: Array.isArray(t.clips) ? t.clips.slice(0, 100).map((c, ci) => normalizeClip(c, ci)) : []
         };
       }
+      function normalizeThemePreset(raw = {}, fallbackIndex = 0) {
+        const t = raw && typeof raw === "object" ? raw : {};
+        const fallback = STARTER_THEMES["hollywood-classic"];
+        const id = sanitizeId(t.id || t.name, `theme-${fallbackIndex + 1}`);
+        const bg = t.background && typeof t.background === "object" ? t.background : {};
+        return {
+          id,
+          name: String(t.name || "Custom Theme").trim().slice(0, 64) || "Custom Theme",
+          builtin: Boolean(t.builtin),
+          headingFont: String(t.headingFont || fallback.headingFont).trim().slice(0, 80),
+          contentFont: String(t.contentFont || fallback.contentFont).trim().slice(0, 80),
+          headingSize: clamp(t.headingSize, 12, 160, fallback.headingSize),
+          contentSize: clamp(t.contentSize, 10, 120, fallback.contentSize),
+          headingWeight: String(t.headingWeight || fallback.headingWeight).slice(0, 16),
+          contentWeight: String(t.contentWeight || fallback.contentWeight).slice(0, 16),
+          headingStyle: ["normal", "italic"].includes(t.headingStyle) ? t.headingStyle : fallback.headingStyle,
+          contentStyle: ["normal", "italic"].includes(t.contentStyle) ? t.contentStyle : fallback.contentStyle,
+          headingTransform: ["uppercase", "capitalize", "none"].includes(t.headingTransform) ? t.headingTransform : fallback.headingTransform,
+          headingLetterSpacing: clamp(t.headingLetterSpacing, 0, 0.6, fallback.headingLetterSpacing),
+          lineHeight: clamp(t.lineHeight, 1, 3.2, fallback.lineHeight),
+          sectionSpacing: clamp(t.sectionSpacing, 0, 300, fallback.sectionSpacing),
+          textColor: sanitizeColor(t.textColor, fallback.textColor),
+          accentColor: sanitizeColor(t.accentColor, fallback.accentColor),
+          subtitleColor: sanitizeColor(t.subtitleColor, fallback.subtitleColor),
+          dividerColor: sanitizeColor(t.dividerColor, fallback.dividerColor),
+          background: {
+            type: ["solid", "gradient", "transparent", "pattern", "chroma"].includes(bg.type) ? bg.type : fallback.background?.type || "solid",
+            color1: sanitizeColor(bg.color1, fallback.background?.color1 || "#07080CFF"),
+            color2: sanitizeColor(bg.color2, fallback.background?.color2 || "#11141FFF"),
+            angle: clamp(bg.angle, 0, 360, fallback.background?.angle ?? 180),
+            patternPreset: String(bg.patternPreset || "constellation").slice(0, 48),
+            patternPalette: String(bg.patternPalette || "midnight").slice(0, 48)
+          }
+        };
+      }
+      function buildDefaultThemes() {
+        return Object.values(STARTER_THEMES).map((t, i) => normalizeThemePreset({ ...t, builtin: true }, i));
+      }
       function normalizeProject(raw = {}, fallbackIndex = 0) {
         const p = raw && typeof raw === "object" ? raw : {};
         const themePresetId = STARTER_THEMES[p.theme?.preset] ? p.theme.preset : "hollywood-classic";
@@ -1359,6 +1397,8 @@ ${text}`);
         normalizeBlock,
         normalizeClip,
         normalizeTrack,
+        normalizeThemePreset,
+        buildDefaultThemes,
         normalizeProject,
         estimateBlockHeight,
         solveTimeline,

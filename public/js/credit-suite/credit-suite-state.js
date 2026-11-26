@@ -25,6 +25,7 @@ export function createCreditSuiteState() {
 
     const store = {
         projects: [],
+        themes: [],
         activeProjectId: '',
         project: null,
         solved: null,
@@ -184,6 +185,9 @@ export function createCreditSuiteState() {
         ]);
         const suiteData = await suiteRes.json();
         store.projects = suiteData.projects || [];
+        store.themes = Array.isArray(suiteData.themes)
+            ? suiteData.themes
+            : (window.StreamPulseCreditSuiteEngine?.buildDefaultThemes?.() || []);
         store.capabilities = suiteData.capabilities || null;
         const preferred = prefs.activeProjectId && store.projects.some(p => p.id === prefs.activeProjectId)
             ? prefs.activeProjectId
@@ -306,6 +310,50 @@ export function createCreditSuiteState() {
         return data.state;
     }
 
+    async function saveTheme(theme, { createNew = false } = {}) {
+        const res = await fetch('/api/credit-suite/themes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ theme, createNew })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to save theme');
+        store.themes = data.themes || store.themes;
+        emit('ui');
+        return data.theme;
+    }
+
+    async function updateTheme(id, theme) {
+        const res = await fetch(`/api/credit-suite/themes/${encodeURIComponent(id)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ theme })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to update theme');
+        store.themes = data.themes || store.themes;
+        emit('ui');
+        return data.theme;
+    }
+
+    async function deleteTheme(id) {
+        const res = await fetch(`/api/credit-suite/themes/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to delete theme');
+        store.themes = data.themes || store.themes;
+        emit('ui');
+        return store.themes;
+    }
+
+    async function resetThemes() {
+        const res = await fetch('/api/credit-suite/themes/reset', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to restore themes');
+        store.themes = data.themes || store.themes;
+        emit('ui');
+        return store.themes;
+    }
+
     async function pullDataSource(block) {
         const res = await fetch('/api/credit-suite/data-sources/pull', {
             method: 'POST',
@@ -415,6 +463,10 @@ export function createCreditSuiteState() {
         createNewProject,
         duplicateCurrentProject,
         deleteCurrentProject,
+        saveTheme,
+        updateTheme,
+        deleteTheme,
+        resetThemes,
         pullDataSource,
         sendRemoteTransport,
         startExport,

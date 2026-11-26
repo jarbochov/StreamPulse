@@ -808,6 +808,18 @@ details.cs-acc[open] > summary {
     box-shadow: 0 0 0 1px var(--accent, #58a6ff);
 }
 
+.cs-theme-card-acts {
+    display: flex;
+    gap: 1px;
+    opacity: 0;
+    transition: opacity 0.12s;
+}
+
+.cs-theme-card:hover .cs-theme-card-acts,
+.cs-theme-card.active .cs-theme-card-acts {
+    opacity: 1;
+}
+
 .cs-theme-swatches {
     display: flex;
     gap: 4px;
