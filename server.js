@@ -1358,7 +1358,10 @@ const creditSuiteService = createCreditSuiteService({
     dataDir: DATA_DIR,
     onChange: payload => broadcastToOverlays('credit-suite-update', payload),
     onTransport: snap => broadcastToOverlays('credit-suite-transport', snap),
-    getVariablesState: () => (typeof variablesStore?.getState === 'function' ? variablesStore.getState() : { variables: [], sets: [] }),
+    getVariablesState: () => ({
+        variables: typeof variablesStore?.list === 'function' ? variablesStore.list() : [],
+        sets: typeof variablesStore?.listSets === 'function' ? variablesStore.listSets() : []
+    }),
     getSessionData: () => chatData || null
 });
 const creditSuiteExporter = createCreditSuiteExporter({

@@ -24,7 +24,11 @@ export function mountCreditSuiteStage({ state, onTimeTick }) {
 
     let currentScale = 0.5;
     let lastReflowZone = '';
+    let lastPlayingUi = null;
     let dragState = null;
+    let dragRafId = 0;
+    let pendingDragRect = null;
+    let needsStageSync = false;
 
     const renderer = createCreditSuiteRenderer(scalerEl, {
         interactive: true,
@@ -33,6 +37,9 @@ export function mountCreditSuiteStage({ state, onTimeTick }) {
             state.setSolved(solved);
             fitStage();
             renderGizmo();
+        },
+        onStateChange: () => {
+            updatePlayButton();
         },
         onTimeUpdate: frame => {
             window.__csStudioTime = frame.timeSec;
@@ -53,8 +60,6 @@ export function mountCreditSuiteStage({ state, onTimeTick }) {
                 }
             }
             if (onTimeTick) onTimeTick(frame);
-            updatePlayButton();
-            renderGizmo();
         },
         onClipSelect: (trackId, clipId) => {
             state.setSelection('clip', clipId, trackId);
@@ -64,6 +69,8 @@ export function mountCreditSuiteStage({ state, onTimeTick }) {
     function updatePlayButton() {
         if (!playBtn) return;
         const playing = renderer.isPlaying();
+        if (playing === lastPlayingUi) return;
+        lastPlayingUi = playing;
         playBtn.innerHTML = playing
             ? '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Pause'
             : '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg> Play';
@@ -153,7 +160,27 @@ export function mountCreditSuiteStage({ state, onTimeTick }) {
         }
     }
 
-    window.addEventListener('pointermove', ev => {
+    function applyLiveDragGeometry() {
+        dragRafId = 0;
+        if (!dragState || !pendingDragRect) return;
+        const { x, y, width, height } = pendingDragRect;
+        const gizmo = overlayEl?.querySelector('#cs-active-gizmo');
+        if (gizmo) {
+            gizmo.style.left = `${x}%`;
+            gizmo.style.top = `${y}%`;
+            gizmo.style.width = `${width}%`;
+            gizmo.style.height = `${height}%`;
+        }
+        const clipEl = scalerEl?.querySelector(`.cs-track-clip[data-clip-id="${CSS.escape(dragState.clipId)}"]`);
+        if (clipEl) {
+            clipEl.style.left = `${x}%`;
+            clipEl.style.top = `${y}%`;
+            clipEl.style.width = `${width}%`;
+            clipEl.style.height = `${height}%`;
+        }
+    }
+
+    function handlePointerMove(ev) {
         if (!dragState) return;
         const dxPct = ((ev.clientX - dragState.startX) / dragState.frameW) * 100;
         const dyPct = ((ev.clientY - dragState.startY) / dragState.frameH) * 100;
@@ -185,24 +212,38 @@ export function mountCreditSuiteStage({ state, onTimeTick }) {
 
         const recordUndo = !dragState.recorded;
         dragState.recorded = true;
+        const rx = Number(nx.toFixed(2));
+        const ry = Number(ny.toFixed(2));
+        const rw = Number(nw.toFixed(2));
+        const rh = Number(nh.toFixed(2));
+        pendingDragRect = { x: rx, y: ry, width: rw, height: rh };
         state.mutateProject(p => {
             const tr = p.tracks.find(t => t.id === trackId);
             const c = tr?.clips.find(x => x.id === clipId);
             if (c) {
-                c.x = Number(nx.toFixed(2));
-                c.y = Number(ny.toFixed(2));
-                c.width = Number(nw.toFixed(2));
-                c.height = Number(nh.toFixed(2));
+                c.x = rx;
+                c.y = ry;
+                c.width = rw;
+                c.height = rh;
             }
         }, { reason: 'clip-transform', recordUndo });
-    });
+        if (!dragRafId) dragRafId = requestAnimationFrame(applyLiveDragGeometry);
+    }
 
-    window.addEventListener('pointerup', () => {
-        if (dragState) {
-            dragState = null;
-            state.emit('project');
+    function finishDrag() {
+        if (!dragState) return;
+        if (dragRafId) {
+            cancelAnimationFrame(dragRafId);
+            dragRafId = 0;
         }
-    });
+        dragState = null;
+        pendingDragRect = null;
+        state.emit('project');
+    }
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', finishDrag);
+    window.addEventListener('pointercancel', finishDrag);
 
     // Transport bindings
     playBtn?.addEventListener('click', () => {
@@ -240,10 +281,15 @@ export function mountCreditSuiteStage({ state, onTimeTick }) {
 
     function syncProjectToRenderer(resetTime = false) {
         if (!state.store.project) return;
+        if (state.store.studioView !== 'studio') {
+            needsStageSync = true;
+            return;
+        }
+        needsStageSync = false;
         const prevT = resetTime ? 0 : renderer.getTime();
         const wasPlaying = !resetTime && renderer.isPlaying();
-        renderer.setVariables(state.store.variablesMap);
-        renderer.setProject(state.store.project);
+        if (resetTime && renderer.isPlaying()) renderer.pause();
+        renderer.setProject(state.store.project, { variables: state.store.variablesMap });
         renderer.seek(prevT);
         if (wasPlaying) renderer.play();
         fitStage();
@@ -254,7 +300,7 @@ export function mountCreditSuiteStage({ state, onTimeTick }) {
     state.subscribe(reason => {
         if (reason === 'init' || reason === 'project-switched') {
             syncProjectToRenderer(true);
-        } else if (reason === 'project' || reason === 'clip-transform' || reason === 'variables') {
+        } else if (reason === 'project' || reason === 'project-structure' || reason === 'variables') {
             syncProjectToRenderer(false);
         } else if (reason === 'selection' || reason === 'ui') {
             applyBackdropAndGuides();
@@ -271,9 +317,17 @@ export function mountCreditSuiteStage({ state, onTimeTick }) {
             else renderer.play();
             updatePlayButton();
         },
+        flushIfStale: () => {
+            if (needsStageSync) syncProjectToRenderer(false);
+            else fitStage();
+        },
         getTime: () => renderer.getTime(),
         getScale: () => currentScale,
         destroy: () => {
+            if (dragRafId) cancelAnimationFrame(dragRafId);
+            window.removeEventListener('pointermove', handlePointerMove);
+            window.removeEventListener('pointerup', finishDrag);
+            window.removeEventListener('pointercancel', finishDrag);
             ro.disconnect();
             renderer.destroy();
         }

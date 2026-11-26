@@ -8,12 +8,47 @@ const SVG_GRIP = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentC
 const SVG_TRASH = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>';
 
 function esc(str) {
-    return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 function friendlyAssetName(url) {
     if (!url) return '';
-    return decodeURIComponent(String(url).split('/').pop() || url).replace(/^[a-z0-9]{6,}-/i, '');
+    const tail = String(url).split('/').pop() || url;
+    try {
+        return decodeURIComponent(tail).replace(/^[a-z0-9]{6,}-/i, '');
+    } catch {
+        return tail.replace(/^[a-z0-9]{6,}-/i, '');
+    }
+}
+
+function copyText(text, btnEl) {
+    const flash = () => {
+        if (!btnEl) return;
+        const prev = btnEl.dataset.origLabel || btnEl.textContent;
+        btnEl.dataset.origLabel = prev;
+        btnEl.textContent = 'Copied!';
+        clearTimeout(btnEl._copyTimer);
+        btnEl._copyTimer = setTimeout(() => { btnEl.textContent = prev; }, 1400);
+    };
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        navigator.clipboard.writeText(text).then(flash).catch(() => {
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none;';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                ta.remove();
+                flash();
+            } catch {}
+        });
+    }
 }
 
 export function mountCreditSuiteContent({ state }) {
@@ -41,10 +76,10 @@ export function mountCreditSuiteContent({ state }) {
         render();
     });
 
-    copyBtn?.addEventListener('click', () => {
+    copyBtn?.addEventListener('click', ev => {
         if (!state.store.project) return;
         const txt = window.StreamPulseCreditSuiteEngine.generatePlainText(state.store.project);
-        navigator.clipboard?.writeText(txt);
+        copyText(txt, ev.currentTarget);
     });
 
     function cleanupSortables() {
@@ -198,13 +233,22 @@ export function mountCreditSuiteContent({ state }) {
 
     function renderClipCard(tr, c) {
         const isMedia = c.elementType === 'image' || c.elementType === 'video';
+        const isSlideshow = c.elementType === 'slideshow';
+        const iconForClip = c.elementType === 'badge'
+            ? c.badgeIcon
+            : ((c.elementType === 'icon' || c.elementType === 'shape') ? c.iconClass : '');
+        const slides = isSlideshow ? (c.slideshowImages || []).filter(Boolean) : [];
         const thumb = isMedia
             ? (c.mediaUrl
                 ? (c.elementType === 'video'
                     ? `<video class="cs-cr-thumb" src="${esc(c.mediaUrl)}" muted preload="metadata"></video>`
                     : `<img class="cs-cr-thumb" src="${esc(c.mediaUrl)}" alt="">`)
                 : `<div class="cs-cr-thumb-empty">No ${esc(c.elementType)}</div>`)
-            : (c.iconClass ? `<div class="cs-cr-thumb-icon"><i class="${esc(c.iconClass)}"></i></div>` : '');
+            : isSlideshow
+                ? (slides[0]
+                    ? `<img class="cs-cr-thumb" src="${esc(slides[0])}" alt="">`
+                    : `<div class="cs-cr-thumb-empty">0 slides</div>`)
+                : (iconForClip ? `<div class="cs-cr-thumb-icon"><i class="${esc(iconForClip)}"></i></div>` : '');
 
         return `
             <article class="cs-cr-card ${c.enabled === false ? 'disabled' : ''}">
@@ -219,11 +263,14 @@ export function mountCreditSuiteContent({ state }) {
                         ${thumb}
                         <div class="cs-cr-asset-meta">
                             ${isMedia ? `<div class="cs-cr-asset-file">${esc(friendlyAssetName(c.mediaUrl)) || 'No asset chosen'}</div>` : ''}
+                            ${isSlideshow ? `<div class="cs-cr-asset-file">${slides.length} slide${slides.length === 1 ? '' : 's'}${slides.length ? ': ' + esc(slides.map(friendlyAssetName).slice(0, 3).join(', ')) : ''}</div>` : ''}
                             ${(c.elementType === 'text' || c.elementType === 'shape') ? `<input type="text" data-cc="${esc(tr.id)}:${esc(c.id)}" data-field="text" value="${esc(c.text || '')}" placeholder="Heading / Text...">` : ''}
                             ${c.elementType === 'shape' ? `<textarea class="cs-cr-textarea" style="min-height:48px;" data-cc="${esc(tr.id)}:${esc(c.id)}" data-field="subtext" placeholder="Subtext...">${esc(c.subtext || '')}</textarea>` : ''}
                             ${isMedia ? `<input type="text" data-cc="${esc(tr.id)}:${esc(c.id)}" data-field="caption" value="${esc(c.caption || '')}" placeholder="Caption (optional)...">` : ''}
                             ${c.elementType === 'badge' ? `<input type="text" data-cc="${esc(tr.id)}:${esc(c.id)}" data-field="badgeLabel" value="${esc(c.badgeLabel || '')}" placeholder="Badge label">` : ''}
                             ${(c.elementType === 'counter' || c.elementType === 'meter') ? `<div class="cs-grid-2"><input type="text" data-cc="${esc(tr.id)}:${esc(c.id)}" data-field="counterLabel" value="${esc(c.counterLabel || '')}" placeholder="Label"><input type="text" data-cc="${esc(tr.id)}:${esc(c.id)}" data-field="counterValue" value="${esc(c.counterValue || '')}" placeholder="Value"></div>` : ''}
+                            ${c.elementType === 'pattern' ? `<div class="cs-cr-asset-file">Pattern: ${esc(c.patternPreset || 'starfield')} (${esc(c.patternPalette || 'galaxy')})</div>` : ''}
+                            ${c.elementType === 'cutout' ? `<div class="cs-cr-asset-file">Cutout punch-through zone</div>` : ''}
                         </div>
                         ${isMedia ? `<button type="button" class="cs-btn cs-btn-sm" data-cr-pick-clip="${esc(tr.id)}:${esc(c.id)}">Choose Asset</button>` : ''}
                     </div>
@@ -266,21 +313,21 @@ export function mountCreditSuiteContent({ state }) {
         }
 
         // Bind direct block field edits
-        const editBlock = (bid, fn) => state.mutateProject(p => {
+        const editBlock = (bid, fn, opts = {}) => state.mutateProject(p => {
             const blk = p.blocks.find(x => x.id === bid);
             if (blk) fn(blk);
-        });
+        }, opts);
 
         viewEl.querySelectorAll('[data-cb]').forEach(el => {
-            el.addEventListener('input', () => editBlock(el.dataset.cb, b => { b[el.dataset.field] = el.value; }));
+            el.addEventListener('input', () => editBlock(el.dataset.cb, b => { b[el.dataset.field] = el.value; }, { undoGroup: `cb:${el.dataset.cb}:${el.dataset.field}` }));
         });
         viewEl.querySelectorAll('[data-cr-enabled]').forEach(el => {
-            el.addEventListener('change', () => editBlock(el.dataset.crEnabled, b => { b.enabled = el.checked; }));
+            el.addEventListener('change', () => editBlock(el.dataset.crEnabled, b => { b.enabled = el.checked; }, { reason: 'project-structure' }));
         });
         viewEl.querySelectorAll('[data-cr-del-block]').forEach(btn => {
             btn.addEventListener('click', () => {
                 const bid = btn.dataset.crDelBlock;
-                state.mutateProject(p => { p.blocks = p.blocks.filter(x => x.id !== bid); });
+                state.mutateProject(p => { p.blocks = p.blocks.filter(x => x.id !== bid); }, { reason: 'project-structure' });
             });
         });
 
@@ -288,25 +335,25 @@ export function mountCreditSuiteContent({ state }) {
         viewEl.querySelectorAll('[data-cr-rchk]').forEach(el => {
             el.addEventListener('change', () => {
                 const [bid, idx] = el.dataset.crRchk.split(':');
-                editBlock(bid, b => { b.rows[Number(idx)].checked = el.checked; });
+                editBlock(bid, b => { if (b.rows[Number(idx)]) b.rows[Number(idx)].checked = el.checked; });
             });
         });
         viewEl.querySelectorAll('[data-cr-rrole]').forEach(el => {
             el.addEventListener('input', () => {
                 const [bid, idx] = el.dataset.crRrole.split(':');
-                editBlock(bid, b => { b.rows[Number(idx)].role = el.value; });
+                editBlock(bid, b => { if (b.rows[Number(idx)]) b.rows[Number(idx)].role = el.value; }, { undoGroup: `cr-r:${bid}:${idx}` });
             });
         });
         viewEl.querySelectorAll('[data-cr-rname]').forEach(el => {
             el.addEventListener('input', () => {
                 const [bid, idx] = el.dataset.crRname.split(':');
-                editBlock(bid, b => { b.rows[Number(idx)].name = el.value; });
+                editBlock(bid, b => { if (b.rows[Number(idx)]) b.rows[Number(idx)].name = el.value; }, { undoGroup: `cr-n:${bid}:${idx}` });
             });
         });
         viewEl.querySelectorAll('[data-cr-rdel]').forEach(btn => {
             btn.addEventListener('click', () => {
                 const [bid, idx] = btn.dataset.crRdel.split(':');
-                editBlock(bid, b => { b.rows.splice(Number(idx), 1); });
+                editBlock(bid, b => { b.rows.splice(Number(idx), 1); }, { reason: 'project-structure' });
             });
         });
         viewEl.querySelectorAll('[data-cr-add-row]').forEach(btn => {
@@ -314,7 +361,7 @@ export function mountCreditSuiteContent({ state }) {
                 editBlock(btn.dataset.crAddRow, b => {
                     b.rows = b.rows || [];
                     b.rows.push({ id: `r-${Date.now()}`, role: '', name: '', checked: true });
-                });
+                }, { reason: 'project-structure' });
             });
         });
 
@@ -322,7 +369,7 @@ export function mountCreditSuiteContent({ state }) {
         viewEl.querySelectorAll('[data-cr-nchk]').forEach(el => {
             el.addEventListener('change', () => {
                 const [bid, idx] = el.dataset.crNchk.split(':');
-                editBlock(bid, b => { b.names[Number(idx)].checked = el.checked; });
+                editBlock(bid, b => { if (b.names[Number(idx)]) b.names[Number(idx)].checked = el.checked; });
             });
         });
         viewEl.querySelectorAll('[data-cr-nval]').forEach(el => {
@@ -330,15 +377,16 @@ export function mountCreditSuiteContent({ state }) {
                 const [bid, idx] = el.dataset.crNval.split(':');
                 editBlock(bid, b => {
                     const item = b.names[Number(idx)];
+                    if (!item) return;
                     if (item.sourceKey) item.editedName = el.value;
                     else item.name = el.value;
-                });
+                }, { undoGroup: `cr-nv:${bid}:${idx}` });
             });
         });
         viewEl.querySelectorAll('[data-cr-ndel]').forEach(btn => {
             btn.addEventListener('click', () => {
                 const [bid, idx] = btn.dataset.crNdel.split(':');
-                editBlock(bid, b => { b.names.splice(Number(idx), 1); });
+                editBlock(bid, b => { b.names.splice(Number(idx), 1); }, { reason: 'project-structure' });
             });
         });
         viewEl.querySelectorAll('[data-cr-add-name]').forEach(btn => {
@@ -346,7 +394,7 @@ export function mountCreditSuiteContent({ state }) {
                 editBlock(btn.dataset.crAddName, b => {
                     b.names = b.names || [];
                     b.names.push({ id: `n-${Date.now()}`, name: '', editedName: '', checked: true });
-                });
+                }, { reason: 'project-structure' });
             });
         });
 
@@ -357,22 +405,22 @@ export function mountCreditSuiteContent({ state }) {
                 const blk = (proj.blocks || []).find(x => x.id === bid);
                 if (!blk) return;
                 if (blk.mediaKind === 'icon') {
-                    window.IconPicker?.open({ value: blk.mediaIcon || '', onPick: cls => editBlock(bid, b => { b.mediaIcon = cls; }) });
+                    window.IconPicker?.open({ value: blk.mediaIcon || '', onPick: cls => editBlock(bid, b => { b.mediaIcon = cls; }, { reason: 'project-structure' }) });
                 } else {
-                    window.ImagePicker?.open({ value: blk.mediaUrl || '', kind: blk.mediaKind === 'video' ? 'video' : 'image', onPick: url => editBlock(bid, b => { b.mediaUrl = url; }) });
+                    window.ImagePicker?.open({ value: blk.mediaUrl || '', kind: blk.mediaKind === 'video' ? 'video' : 'image', onPick: url => editBlock(bid, b => { b.mediaUrl = url; }, { reason: 'project-structure' }) });
                 }
             });
         });
         viewEl.querySelectorAll('[data-cr-llbl]').forEach(el => {
             el.addEventListener('input', () => {
                 const [bid, idx] = el.dataset.crLlbl.split(':');
-                editBlock(bid, b => { b.logos[Number(idx)].label = el.value; });
+                editBlock(bid, b => { if (b.logos[Number(idx)]) b.logos[Number(idx)].label = el.value; }, { undoGroup: `cr-l:${bid}:${idx}` });
             });
         });
         viewEl.querySelectorAll('[data-cr-ldel]').forEach(btn => {
             btn.addEventListener('click', () => {
                 const [bid, idx] = btn.dataset.crLdel.split(':');
-                editBlock(bid, b => { b.logos.splice(Number(idx), 1); });
+                editBlock(bid, b => { b.logos.splice(Number(idx), 1); }, { reason: 'project-structure' });
             });
         });
         viewEl.querySelectorAll('[data-cr-add-logo]').forEach(btn => {
@@ -383,7 +431,7 @@ export function mountCreditSuiteContent({ state }) {
                     onPick: url => editBlock(bid, b => {
                         b.logos = b.logos || [];
                         b.logos.push({ id: `lg-${Date.now()}`, url, iconClass: '', label: friendlyAssetName(url) });
-                    })
+                    }, { reason: 'project-structure' })
                 });
             });
         });
@@ -395,7 +443,7 @@ export function mountCreditSuiteContent({ state }) {
                 state.mutateProject(p => {
                     const c = p.tracks.find(t => t.id === tid)?.clips.find(x => x.id === cid);
                     if (c) c[el.dataset.field] = el.value;
-                });
+                }, { undoGroup: `cc:${cid}:${el.dataset.field}` });
             });
         });
         viewEl.querySelectorAll('[data-cr-del-clip]').forEach(btn => {
@@ -404,7 +452,7 @@ export function mountCreditSuiteContent({ state }) {
                 state.mutateProject(p => {
                     const tr = p.tracks.find(t => t.id === tid);
                     if (tr) tr.clips = tr.clips.filter(x => x.id !== cid);
-                });
+                }, { reason: 'project-structure' });
             });
         });
         viewEl.querySelectorAll('[data-cr-pick-clip]').forEach(btn => {
@@ -418,7 +466,7 @@ export function mountCreditSuiteContent({ state }) {
                     onPick: url => state.mutateProject(p => {
                         const c = p.tracks.find(t => t.id === tid)?.clips.find(x => x.id === cid);
                         if (c) c.mediaUrl = url;
-                    })
+                    }, { reason: 'project-structure' })
                 });
             });
         });
@@ -434,7 +482,7 @@ export function mountCreditSuiteContent({ state }) {
                     state.mutateProject(p => {
                         const [moved] = p.blocks.splice(evt.oldIndex, 1);
                         if (moved) p.blocks.splice(evt.newIndex, 0, moved);
-                    });
+                    }, { reason: 'project-structure' });
                 }
             });
             viewEl.querySelectorAll('[data-cr-rows]').forEach(rowList => {
@@ -444,7 +492,7 @@ export function mountCreditSuiteContent({ state }) {
                     handle: '.cs-grip',
                     onEnd: evt => {
                         if (evt.oldIndex === evt.newIndex) return;
-                        editBlock(bid, b => { const [m] = b.rows.splice(evt.oldIndex, 1); b.rows.splice(evt.newIndex, 0, m); });
+                        editBlock(bid, b => { const [m] = b.rows.splice(evt.oldIndex, 1); b.rows.splice(evt.newIndex, 0, m); }, { reason: 'project-structure' });
                     }
                 }));
             });
@@ -455,20 +503,29 @@ export function mountCreditSuiteContent({ state }) {
                     handle: '.cs-grip',
                     onEnd: evt => {
                         if (evt.oldIndex === evt.newIndex) return;
-                        editBlock(bid, b => { const [m] = b.names.splice(evt.oldIndex, 1); b.names.splice(evt.newIndex, 0, m); });
+                        editBlock(bid, b => { const [m] = b.names.splice(evt.oldIndex, 1); b.names.splice(evt.newIndex, 0, m); }, { reason: 'project-structure' });
                     }
                 }));
             });
         }
     }
 
+    function isEditingTextIn(container) {
+        const active = document.activeElement;
+        if (!active || !container || !container.contains(active)) return false;
+        if (active.tagName === 'TEXTAREA') return true;
+        if (active.tagName === 'INPUT') {
+            return !['checkbox', 'radio', 'button', 'submit', 'reset'].includes(active.type);
+        }
+        return Boolean(active.isContentEditable);
+    }
+
     state.subscribe(reason => {
         if (state.store.studioView !== 'content') return;
-        if (['init', 'project-switched', 'ui', 'saved'].includes(reason)) {
+        if (['init', 'project-switched', 'project-structure'].includes(reason)) {
             render();
         } else if (reason === 'project') {
-            const active = document.activeElement;
-            if (!active || !viewEl?.contains(active) || active.type === 'checkbox') {
+            if (!isEditingTextIn(viewEl)) {
                 render();
             }
         }

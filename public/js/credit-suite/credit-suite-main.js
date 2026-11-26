@@ -6,14 +6,12 @@ import { mountCreditSuiteInspector } from './credit-suite-inspector.js';
 import { mountCreditSuiteContent } from './credit-suite-content.js';
 
 function esc(str) {
-    return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-function fmtDur(sec) {
-    const s = Math.max(0, Number(sec) || 0);
-    const m = Math.floor(s / 60);
-    const r = Math.round(s % 60);
-    return `${m}:${String(r).padStart(2, '0')}`;
+    return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 function initCreditSuiteStudio() {
@@ -50,23 +48,27 @@ function initCreditSuiteStudio() {
         });
     });
 
-    function syncMainView() {
-        const isContent = state.store.studioView === 'content';
+    let lastRenderedView = '';
+    function syncMainView(force = false) {
+        const view = state.store.studioView;
+        if (!force && view === lastRenderedView) return;
+        lastRenderedView = view;
+        const isContent = view === 'content';
         if (studioShell) studioShell.style.display = isContent ? 'none' : 'flex';
         if (contentView) contentView.style.display = isContent ? 'block' : 'none';
         mainViewBtns.forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.csMainView === state.store.studioView);
+            btn.classList.toggle('active', btn.dataset.csMainView === view);
         });
         if (isContent) {
             stageApi.pause();
             contentApi.render();
+        } else {
+            stageApi.flushIfStale?.();
         }
     }
 
     const projSelect = document.getElementById('cs-project-select');
     const dirtyPill = document.getElementById('cs-dirty-pill');
-    const durPill = document.getElementById('cs-duration-pill');
-    const speedPill = document.getElementById('cs-speed-pill');
     const saveBtn = document.getElementById('cs-btn-save');
     const undoBtn = document.getElementById('cs-btn-undo');
     const redoBtn = document.getElementById('cs-btn-redo');
@@ -80,6 +82,11 @@ function initCreditSuiteStudio() {
     const jsonImportInput = document.getElementById('cs-json-import');
     const jsonImportBtn = document.getElementById('cs-btn-json-import');
 
+    function closeOverflowMenu() {
+        overflowMenu?.classList.remove('open');
+        moreBtn?.setAttribute('aria-expanded', 'false');
+    }
+
     moreBtn?.addEventListener('click', ev => {
         ev.stopPropagation();
         const isOpen = overflowMenu?.classList.toggle('open');
@@ -87,17 +94,21 @@ function initCreditSuiteStudio() {
     });
     document.addEventListener('click', ev => {
         if (overflowMenu?.classList.contains('open') && !ev.target.closest('.cs-overflow-wrap')) {
-            overflowMenu.classList.remove('open');
-            moreBtn?.setAttribute('aria-expanded', 'false');
+            closeOverflowMenu();
         }
     });
 
+    let lastProjSelectSig = '';
     function syncTopBar() {
         const s = state.store;
         if (projSelect) {
-            projSelect.innerHTML = (s.projects || []).map(p =>
-                `<option value="${esc(p.id)}" ${p.id === s.project?.id ? 'selected' : ''}>${esc(p.name)}</option>`
-            ).join('');
+            const sig = `${s.project?.id || ''}|${(s.projects || []).map(p => `${p.id}:${p.name}`).join('|')}`;
+            if (sig !== lastProjSelectSig) {
+                lastProjSelectSig = sig;
+                projSelect.innerHTML = (s.projects || []).map(p =>
+                    `<option value="${esc(p.id)}" ${p.id === s.project?.id ? 'selected' : ''}>${esc(p.name)}</option>`
+                ).join('');
+            }
         }
         if (dirtyPill) {
             if (s.saving) {
@@ -111,12 +122,6 @@ function initCreditSuiteStudio() {
                 dirtyPill.className = 'cs-pill saved';
             }
         }
-        if (durPill && s.solved) {
-            durPill.textContent = `Duration ${fmtDur(s.solved.totalDurationSec)}`;
-        }
-        if (speedPill && s.solved) {
-            speedPill.textContent = `${Math.round(s.solved.effectiveSpeed || 0)} px/s`;
-        }
         if (undoBtn) undoBtn.disabled = !s.undoStack.length;
         if (redoBtn) redoBtn.disabled = !s.redoStack.length;
         if (delBtn) delBtn.disabled = (s.projects || []).length <= 1;
@@ -124,6 +129,7 @@ function initCreditSuiteStudio() {
 
     projSelect?.addEventListener('change', () => {
         if (state.store.dirty && !window.confirm('Discard unsaved changes and switch project?')) {
+            lastProjSelectSig = '';
             syncTopBar();
             return;
         }
@@ -135,9 +141,13 @@ function initCreditSuiteStudio() {
     });
     undoBtn?.addEventListener('click', () => state.undo());
     redoBtn?.addEventListener('click', () => state.redo());
-    exportBtn?.addEventListener('click', () => state.setInspectorTab('export'));
+    exportBtn?.addEventListener('click', () => {
+        if (state.store.studioView !== 'studio') state.setStudioView('studio');
+        state.setInspectorTab('export');
+    });
 
     newBtn?.addEventListener('click', () => {
+        if (state.store.dirty && !window.confirm('Discard unsaved changes and create a new project?')) return;
         const name = window.prompt('New Credit Suite project name:', 'New Credit Sequence');
         if (name && name.trim()) {
             state.createNewProject(name.trim()).catch(err => window.alert(err.message));
@@ -145,16 +155,19 @@ function initCreditSuiteStudio() {
     });
 
     dupBtn?.addEventListener('click', () => {
+        closeOverflowMenu();
         state.duplicateCurrentProject().catch(err => window.alert(err.message));
     });
 
     delBtn?.addEventListener('click', () => {
+        closeOverflowMenu();
         if (!state.store.project) return;
         if (!window.confirm(`Delete project "${state.store.project.name}"?`)) return;
         state.deleteCurrentProject().catch(err => window.alert(err.message));
     });
 
     jsonExportBtn?.addEventListener('click', () => {
+        closeOverflowMenu();
         if (!state.store.project) return;
         const blob = new Blob([JSON.stringify(state.store.project, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -165,14 +178,25 @@ function initCreditSuiteStudio() {
         URL.revokeObjectURL(url);
     });
 
-    jsonImportBtn?.addEventListener('click', () => jsonImportInput?.click());
+    jsonImportBtn?.addEventListener('click', () => {
+        closeOverflowMenu();
+        if (state.store.dirty && !window.confirm('Discard unsaved changes and import a JSON project?')) return;
+        jsonImportInput?.click();
+    });
     jsonImportInput?.addEventListener('change', () => {
         const file = jsonImportInput.files?.[0];
         if (!file) return;
         const reader = new FileReader();
+        reader.onerror = () => {
+            window.alert('Import failed: could not read file');
+            jsonImportInput.value = '';
+        };
         reader.onload = async () => {
             try {
                 const parsed = JSON.parse(reader.result);
+                if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+                    throw new Error('JSON file must contain a Credit Suite project object');
+                }
                 const engine = window.StreamPulseCreditSuiteEngine;
                 const norm = engine.normalizeProject({ ...parsed, id: `${parsed.id || 'imported'}-${Date.now().toString(36)}` });
                 const res = await fetch('/api/credit-suite/projects', {
@@ -192,6 +216,13 @@ function initCreditSuiteStudio() {
         reader.readAsText(file);
     });
 
+    function isAnyModalOpen() {
+        return Boolean(
+            document.querySelector('.mp-backdrop, .ip-backdrop, .cs-modal-backdrop:not([hidden])')
+            || document.getElementById('cs-bulk-modal')?.classList.contains('open')
+        );
+    }
+
     // Global Keyboard Shortcuts
     window.addEventListener('keydown', ev => {
         const tag = (ev.target?.tagName || '').toLowerCase();
@@ -201,13 +232,25 @@ function initCreditSuiteStudio() {
             state.saveProject().catch(err => window.alert(err.message));
             return;
         }
+        if (isAnyModalOpen()) {
+            if (ev.key === 'Escape') {
+                document.getElementById('cs-bulk-modal')?.classList.remove('open');
+            }
+            return;
+        }
         if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'z' && !isTyping) {
             ev.preventDefault();
             if (ev.shiftKey) state.redo();
             else state.undo();
             return;
         }
-        if (isTyping) return;
+        if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'y' && !isTyping) {
+            ev.preventDefault();
+            state.redo();
+            return;
+        }
+        if (isTyping || state.store.studioView !== 'studio') return;
+        const isInteractiveTarget = tag === 'button' || tag === 'a' || ev.target?.getAttribute?.('role') === 'button';
         if (ev.key === 'Delete' || ev.key === 'Backspace') {
             if (state.store.selectedClipIds && state.store.selectedClipIds.size > 1) {
                 ev.preventDefault();
@@ -216,7 +259,7 @@ function initCreditSuiteStudio() {
                     for (const tr of p.tracks) {
                         tr.clips = tr.clips.filter(c => !ids.has(c.id));
                     }
-                });
+                }, { reason: 'project-structure' });
                 state.setSelection(null, null);
                 return;
             }
@@ -225,7 +268,7 @@ function initCreditSuiteStudio() {
                 ev.preventDefault();
                 state.mutateProject(p => {
                     p.blocks = p.blocks.filter(b => b.id !== sel.id);
-                });
+                }, { reason: 'project-structure' });
                 state.setSelection(null, null);
                 return;
             }
@@ -235,12 +278,12 @@ function initCreditSuiteStudio() {
                     for (const tr of p.tracks) {
                         tr.clips = tr.clips.filter(c => c.id !== sel.id);
                     }
-                });
+                }, { reason: 'project-structure' });
                 state.setSelection(null, null);
                 return;
             }
         }
-        if (ev.code === 'Space') {
+        if (ev.code === 'Space' && !isInteractiveTarget) {
             ev.preventDefault();
             stageApi.togglePlay();
         } else if (ev.key === 'ArrowLeft') {
@@ -254,15 +297,30 @@ function initCreditSuiteStudio() {
         }
     });
 
-    state.subscribe(() => {
+    window.addEventListener('beforeunload', ev => {
+        if (state.store.dirty) {
+            ev.preventDefault();
+            ev.returnValue = '';
+        }
+    });
+
+    window.addEventListener('pagehide', () => {
+        state.disconnectWs();
+        stageApi.destroy();
+        timelineApi?.destroy?.();
+    });
+
+    state.subscribe(reason => {
         syncTopBar();
-        syncMainView();
+        if (reason === 'studio-view' || reason === 'init') {
+            syncMainView(reason === 'init');
+        }
     });
 
     state.loadInitial()
         .then(() => {
             syncTopBar();
-            syncMainView();
+            syncMainView(true);
             state.connectWs();
         })
         .catch(err => console.error('[Credit Suite Init]', err));

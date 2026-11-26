@@ -4,11 +4,20 @@ const fs = require('fs');
 const { readRequestBody, sendJson, sendText, sendError } = require('./helpers');
 
 function createCreditSuiteRoutes({ creditSuiteService, creditSuiteExporter, isCreditSuiteEnabled = () => true } = {}) {
+    function assertPlainObject(val, label = 'Request body') {
+        if (!val || typeof val !== 'object' || Array.isArray(val)) {
+            const err = new Error(`${label} must be a JSON object`);
+            err.statusCode = 400;
+            throw err;
+        }
+        return val;
+    }
+
     async function parseOptionalJson(req) {
         if (req.method === 'GET' || req.method === 'HEAD') return {};
         const raw = await readRequestBody(req, 10 * 1024 * 1024);
         if (!raw || !raw.trim()) return {};
-        return JSON.parse(raw);
+        return assertPlainObject(JSON.parse(raw), 'Request body');
     }
 
     return async function handleCreditSuiteRoutes(req, res, url, pathname) {
@@ -40,7 +49,7 @@ function createCreditSuiteRoutes({ creditSuiteService, creditSuiteExporter, isCr
 
             // GET /api/credit-suite/status (Companion polling)
             if (pathname === '/api/credit-suite/status' && req.method === 'GET') {
-                sendJson(res, creditSuiteService.getStatus());
+                sendJson(res, { enabled: true, ...creditSuiteService.getStatus() });
                 return true;
             }
 
@@ -92,10 +101,10 @@ function createCreditSuiteRoutes({ creditSuiteService, creditSuiteExporter, isCr
                 const body = await parseOptionalJson(req);
                 const action = url.searchParams.get('action') || body.action || 'toggle';
                 const transport = creditSuiteService.controlTransport(action, {
-                    projectId: url.searchParams.get('project') || body.projectId || '',
-                    t: url.searchParams.get('t') ?? body.t ?? body.timeSec,
-                    marker: url.searchParams.get('marker') ?? body.marker,
-                    rate: url.searchParams.get('rate') ?? body.rate,
+                    projectId: url.searchParams.get('project') || body.projectId || body.project || '',
+                    t: url.searchParams.get('t') ?? url.searchParams.get('seconds') ?? body.t ?? body.timeSec ?? body.seconds,
+                    marker: url.searchParams.get('marker') ?? url.searchParams.get('name') ?? body.marker ?? body.name,
+                    rate: url.searchParams.get('rate') ?? url.searchParams.get('speed') ?? body.rate ?? body.speed,
                     play: url.searchParams.get('play') ?? body.play
                 });
                 sendJson(res, { ok: true, action, transport });
@@ -153,7 +162,15 @@ function createCreditSuiteRoutes({ creditSuiteService, creditSuiteExporter, isCr
                     'Content-Length': stat.size,
                     'Content-Disposition': `attachment; filename="${info.fileName.replace(/"/g, '')}"`
                 });
-                fs.createReadStream(info.filePath).pipe(res);
+                const stream = fs.createReadStream(info.filePath);
+                stream.on('error', () => {
+                    if (!res.headersSent) sendError(res, 'Failed to read export file', 500);
+                    else res.destroy();
+                });
+                res.on('close', () => {
+                    if (!stream.destroyed) stream.destroy();
+                });
+                stream.pipe(res);
                 return true;
             }
 
@@ -171,6 +188,11 @@ function createCreditSuiteRoutes({ creditSuiteService, creditSuiteExporter, isCr
                     return true;
                 }
                 if (req.method === 'DELETE') {
+                    const existing = creditSuiteExporter?.getJob(jobId);
+                    if (!existing) {
+                        sendError(res, 'Export job not found', 404);
+                        return true;
+                    }
                     const cancelled = creditSuiteExporter?.cancelJob(jobId);
                     sendJson(res, { ok: Boolean(cancelled), job: creditSuiteExporter?.getJob(jobId) });
                     return true;
@@ -180,7 +202,7 @@ function createCreditSuiteRoutes({ creditSuiteService, creditSuiteExporter, isCr
             // POST /api/credit-suite/projects (create or upsert)
             if (pathname === '/api/credit-suite/projects' && req.method === 'POST') {
                 const body = await parseOptionalJson(req);
-                const raw = body.project || body;
+                const raw = assertPlainObject(body.project || body, 'Project');
                 const project = creditSuiteService.upsertProject(raw, {
                     setActive: body.setActive !== false,
                     createNew: Boolean(body.createNew)
@@ -223,7 +245,7 @@ function createCreditSuiteRoutes({ creditSuiteService, creditSuiteExporter, isCr
                 }
                 if (req.method === 'PUT' || req.method === 'POST') {
                     const body = await parseOptionalJson(req);
-                    const raw = body.project || body;
+                    const raw = assertPlainObject(body.project || body, 'Project');
                     const project = creditSuiteService.upsertProject({ ...raw, id }, {
                         setActive: Boolean(body.setActive)
                     });
@@ -244,7 +266,7 @@ function createCreditSuiteRoutes({ creditSuiteService, creditSuiteExporter, isCr
             }
             if (pathname === '/api/credit-suite/themes' && req.method === 'POST') {
                 const body = await parseOptionalJson(req);
-                const theme = creditSuiteService.upsertTheme(body.theme || body, { createNew: Boolean(body.createNew) });
+                const theme = creditSuiteService.upsertTheme(assertPlainObject(body.theme || body, 'Theme'), { createNew: Boolean(body.createNew) });
                 sendJson(res, { ok: true, theme, themes: creditSuiteService.getState().themes });
                 return true;
             }
@@ -258,7 +280,7 @@ function createCreditSuiteRoutes({ creditSuiteService, creditSuiteExporter, isCr
                 const tid = decodeURIComponent(themeMatch[1]);
                 if (req.method === 'PUT' || req.method === 'POST') {
                     const body = await parseOptionalJson(req);
-                    const theme = creditSuiteService.upsertTheme({ ...(body.theme || body), id: tid });
+                    const theme = creditSuiteService.upsertTheme({ ...assertPlainObject(body.theme || body, 'Theme'), id: tid });
                     sendJson(res, { ok: true, theme, themes: creditSuiteService.getState().themes });
                     return true;
                 }
@@ -278,7 +300,7 @@ function createCreditSuiteRoutes({ creditSuiteService, creditSuiteExporter, isCr
 
             return false;
         } catch (err) {
-            sendError(res, err, 400);
+            sendError(res, err, Number(err?.statusCode) || 400);
             return true;
         }
     };

@@ -294,7 +294,7 @@ function normalizeBlockStyle(raw = {}) {
         align: ['left', 'center', 'right'].includes(s.align) ? s.align : 'center',
         italic: Boolean(s.italic),
         underline: Boolean(s.underline),
-        uppercase: s.uppercase === undefined ? '' : Boolean(s.uppercase),
+        uppercase: (s.uppercase === undefined || s.uppercase === null || s.uppercase === '') ? '' : Boolean(s.uppercase),
         letterSpacing: s.letterSpacing === '' || s.letterSpacing === undefined || s.letterSpacing === null ? '' : clamp(s.letterSpacing, -0.05, 0.8, ''),
         textShadow: Boolean(s.textShadow),
         bgColor: s.bgColor ? sanitizeColor(s.bgColor, '') : '',
@@ -400,6 +400,48 @@ function normalizeBlock(raw = {}, idx = 0) {
     return base;
 }
 
+function normalizePatternFields(raw = {}, defaultSpeed = 0.6) {
+    const r = raw && typeof raw === 'object' ? raw : {};
+    const validMotions = ['none', 'drift', 'fall', 'sway', 'pulse', 'orbit', 'sweep', 'aurora', 'pan'];
+    const validFillModes = ['tinted', 'solid', 'outline'];
+    const validColorModes = ['mosaic', 'radial', 'rows', 'columns', 'diagonal', 'spiral', 'checker'];
+    const validColorAnims = ['none', 'cycle', 'breathe'];
+    const validInPlace = ['auto', 'pulse', 'gentle', 'sparkle', 'none'];
+    const validSpin = ['none', 'cw', 'ccw', 'sway'];
+    const validPanDir = ['continuous', 'oscillate'];
+    const validSnow = ['all', 'dendrite', 'plate', 'fern', 'rosette', 'cross', 'needle'];
+    return {
+        patternPreset: String(r.patternPreset && r.patternPreset !== 'constellation' ? r.patternPreset : 'starfield').slice(0, 48),
+        patternSnowflakeStyle: validSnow.includes(r.patternSnowflakeStyle) ? r.patternSnowflakeStyle : 'all',
+        patternScale: clamp(r.patternScale, 15, 400, 100),
+        patternLineWidth: clamp(r.patternLineWidth, 0.5, 24, 2),
+        patternFillMode: validFillModes.includes(r.patternFillMode) ? r.patternFillMode : 'tinted',
+        patternFillOpacity: clamp(r.patternFillOpacity, 0, 100, 35),
+        patternDensity: clamp(r.patternDensity, 0.25, 4, 1),
+        patternSpacing: clamp(r.patternSpacing, 50, 300, 100),
+        patternScatter: clamp(r.patternScatter, 0, 100, 0),
+        patternSizeVariance: clamp(r.patternSizeVariance, 0, 100, 0),
+        patternRotationVariance: clamp(r.patternRotationVariance, 0, 100, 0),
+        patternMotion: validMotions.includes(r.patternMotion) ? r.patternMotion : 'drift',
+        patternSpeed: clamp(r.patternSpeed, 0, 10, defaultSpeed),
+        patternPanDirection: validPanDir.includes(r.patternPanDirection) ? r.patternPanDirection : 'continuous',
+        patternPanAngle: clamp(r.patternPanAngle, -360, 360, 0),
+        patternInPlace: validInPlace.includes(r.patternInPlace) ? r.patternInPlace : 'auto',
+        patternInPlaceSpeed: clamp(r.patternInPlaceSpeed, 0.2, 5, 1),
+        patternSpin: validSpin.includes(r.patternSpin) ? r.patternSpin : 'none',
+        patternSpinSpeed: clamp(r.patternSpinSpeed, 0.1, 5, 1),
+        patternPalette: String(r.patternPalette && r.patternPalette !== 'midnight' ? r.patternPalette : 'galaxy').slice(0, 48),
+        patternAccent: sanitizeColor(r.patternAccent, '#58A6FFFF'),
+        patternSecondary: sanitizeColor(r.patternSecondary, '#A855F7FF'),
+        patternColorMode: validColorModes.includes(r.patternColorMode) ? r.patternColorMode : 'mosaic',
+        patternColorAnim: validColorAnims.includes(r.patternColorAnim) ? r.patternColorAnim : 'none',
+        patternColorSpeed: clamp(r.patternColorSpeed, 0, 5, 0.5),
+        patternOpacity: clamp(r.patternOpacity, 0, 1, 0.65),
+        patternVignette: clamp(r.patternVignette, 0, 100, 0),
+        patternVignetteColor: sanitizeColor(r.patternVignetteColor, '#000000FF')
+    };
+}
+
 function normalizeClip(raw = {}, idx = 0) {
     const c = raw && typeof raw === 'object' ? raw : {};
     const elementType = CLIP_ELEMENT_TYPES.includes(c.elementType) ? c.elementType : 'image';
@@ -452,9 +494,7 @@ function normalizeClip(raw = {}, idx = 0) {
         fillColor2: sanitizeColor(c.fillColor2, '#1E293BCC'),
         fillGradient: Boolean(c.fillGradient),
         fillAngle: clamp(c.fillAngle, 0, 360, 135),
-        patternPreset: String(c.patternPreset || 'constellation').slice(0, 48),
-        patternPalette: String(c.patternPalette || 'midnight').slice(0, 48),
-        patternSpeed: clamp(c.patternSpeed, 0, 4, 0.5),
+        ...normalizePatternFields(c, 0.6),
         counterValue: String(c.counterValue ?? '100').slice(0, 64),
         counterMax: clamp(c.counterMax, 1, 1000000, 100),
         counterLabel: String(c.counterLabel || 'Progress').slice(0, 80),
@@ -520,9 +560,9 @@ function normalizeThemePreset(raw = {}, fallbackIndex = 0) {
             type: ['solid', 'gradient', 'transparent', 'pattern', 'chroma'].includes(bg.type) ? bg.type : (fallback.background?.type || 'solid'),
             color1: sanitizeColor(bg.color1, fallback.background?.color1 || '#07080CFF'),
             color2: sanitizeColor(bg.color2, fallback.background?.color2 || '#11141FFF'),
+            chromaColor: sanitizeColor(bg.chromaColor, '#00FF00FF'),
             angle: clamp(bg.angle, 0, 360, fallback.background?.angle ?? 180),
-            patternPreset: String(bg.patternPreset || 'constellation').slice(0, 48),
-            patternPalette: String(bg.patternPalette || 'midnight').slice(0, 48)
+            ...normalizePatternFields(bg, 0.5)
         }
     };
 }
@@ -533,8 +573,9 @@ function buildDefaultThemes() {
 
 function normalizeProject(raw = {}, fallbackIndex = 0) {
     const p = raw && typeof raw === 'object' ? raw : {};
-    const themePresetId = STARTER_THEMES[p.theme?.preset] ? p.theme.preset : 'hollywood-classic';
-    const preset = STARTER_THEMES[themePresetId];
+    const rawPreset = String(p.theme?.preset || '').trim();
+    const themePresetId = rawPreset ? sanitizeId(rawPreset, 'hollywood-classic') : 'hollywood-classic';
+    const preset = STARTER_THEMES[themePresetId] || STARTER_THEMES['hollywood-classic'];
     const presetCanvas = CANVAS_PRESETS.find(c => c.id === p.canvas?.preset) || CANVAS_PRESETS[0];
 
     const canvasW = clamp(p.canvas?.width, 320, 7680, presetCanvas.width);
@@ -569,10 +610,7 @@ function normalizeProject(raw = {}, fallbackIndex = 0) {
             color2: sanitizeColor(p.background?.color2, preset.background?.color2 || '#11141FFF'),
             angle: clamp(p.background?.angle, 0, 360, preset.background?.angle ?? 180),
             chromaColor: sanitizeColor(p.background?.chromaColor, '#00FF00FF'),
-            patternPreset: String(p.background?.patternPreset || 'constellation').slice(0, 48),
-            patternPalette: String(p.background?.patternPalette || 'midnight').slice(0, 48),
-            patternSpeed: clamp(p.background?.patternSpeed, 0, 4, 0.4),
-            patternOpacity: clamp(p.background?.patternOpacity, 0, 1, 0.55),
+            ...normalizePatternFields(p.background, 0.5),
             mediaUrl: sanitizeMediaUrl(p.background?.mediaUrl),
             mediaFit: ['cover', 'contain', 'contain-blur'].includes(p.background?.mediaFit) ? p.background.mediaFit : 'cover',
             mediaOpacity: clamp(p.background?.mediaOpacity, 0, 1, 0.45),
@@ -636,7 +674,7 @@ function estimateBlockHeight(block, project) {
     const padTop = block.paddingTop !== '' ? Number(block.paddingTop) : spacing * 0.5;
     const padBot = block.paddingBottom !== '' ? Number(block.paddingBottom) : spacing * 0.5;
 
-    if (block.type === 'spacer') return block.spacerHeight || 120;
+    if (block.type === 'spacer') return Math.max(8, Number(block.spacerHeight) || 120);
     if (block.type === 'divider') return padTop + padBot + 44;
 
     let bodyH = 0;
@@ -941,7 +979,15 @@ function solveTimeline(project, measuredHeights = {}) {
                 }
             }
 
-            // Check exact screen-band intersection for timecode side clips against every block
+            // Check exact screen-band intersection for timecode side clips (and shifted/unanchored block clips)
+            const anchoredClipIds = new Set();
+            for (const rc of sideClips) {
+                if (rc.clip.timingMode === 'block' && rc.clip.anchorBlockId && enabledBlocks.some(b => b.id === rc.clip.anchorBlockId)) {
+                    if (Math.abs(Number(rc.clip.anchorOffsetSec) || 0) < 0.05) {
+                        anchoredClipIds.add(rc.clip.id);
+                    }
+                }
+            }
             for (const block of enabledBlocks) {
                 if (block.zoneOverride && block.zoneOverride !== 'auto') {
                     finalZones[block.id] = block.zoneOverride;
@@ -950,7 +996,7 @@ function solveTimeline(project, measuredHeights = {}) {
                 const bt = solved.blockTimings[block.id];
                 if (!bt) continue;
                 for (const rc of sideClips) {
-                    if (rc.clip.timingMode === 'block') continue;
+                    if (anchoredClipIds.has(rc.clip.id)) continue;
                     if (bt.kind === 'card') {
                         if (bt.endSec > rc.startSec + 0.1 && bt.startSec < rc.endSec - 0.1) {
                             finalZones[block.id] = rc.pushTargetZone;
@@ -971,13 +1017,14 @@ function solveTimeline(project, measuredHeights = {}) {
                 }
             }
 
-            // Re-run with finalized per-block zones & bounds, then compute vertical clearance where
-            // a side-column block transitions back to a centered section!
+            // Re-run with finalized per-block zones & bounds, then compute cumulative vertical clearance
+            // where a side-column block transitions back to a centered section!
             const zonedSolved = computePass(finalZones, {}, blockBounds);
             const clearanceMap = {};
             const resolvedSideClips = zonedSolved.resolvedClips.filter(rc => rc.pushTargetZone !== 'none');
 
             for (const run of zonedSolved.crawlRuns) {
+                let cumulativeClearancePx = 0;
                 for (let i = 1; i < run.blockMetrics.length; i++) {
                     const prevBm = run.blockMetrics[i - 1];
                     const curBm = run.blockMetrics[i];
@@ -996,10 +1043,12 @@ function solveTimeline(project, measuredHeights = {}) {
                             }
                         }
                         if (latestClipEnd > 0) {
-                            const reachClipBandSec = run.startSec + (curBm.offsetY + Math.max(0, canvasH - lowestClipBottomY)) / run.speedPxPerSec;
+                            const reachClipBandSec = run.startSec + (curBm.offsetY + cumulativeClearancePx + Math.max(0, canvasH - lowestClipBottomY)) / run.speedPxPerSec;
                             const neededDelaySec = Math.max(0, latestClipEnd - reachClipBandSec + 0.15);
                             if (neededDelaySec > 0.05) {
-                                clearanceMap[curBm.blockId] = Math.min(Math.round(canvasH * 0.72), Math.round(neededDelaySec * run.speedPxPerSec));
+                                const addPx = Math.min(Math.round(canvasH * 1.1), Math.round(neededDelaySec * run.speedPxPerSec));
+                                clearanceMap[curBm.blockId] = addPx;
+                                cumulativeClearancePx += addPx;
                             }
                         }
                     }
@@ -1116,7 +1165,7 @@ function evaluateTransition(type, progress, isExit) {
     const res = { opacity: 1, translateX: 0, translateY: 0, scale: 1, blur: 0, clipPath: '' };
     switch (type) {
         case 'none':
-            res.opacity = p > 0 ? 1 : 0;
+            res.opacity = 1;
             break;
         case 'fade':
             res.opacity = p;
@@ -1182,14 +1231,16 @@ function evaluateFrame(tSec, solved, project) {
     const activeRuns = [];
     const activeCards = [];
 
+    const isLooping = Boolean(project.timing?.loop || endBehavior === 'loop');
     const clearOnEnd = ended && endBehavior === 'clear';
 
     if (!clearOnEnd) {
+        const lastSeg = solved.segments[solved.segments.length - 1];
         for (const seg of solved.segments) {
+            const isLast = seg === lastSeg;
             if (seg.kind === 'crawl') {
-                const isLast = seg === solved.segments[solved.segments.length - 1];
-                const holdLast = ended && endBehavior === 'hold' && isLast;
-                if ((t >= seg.startSec && t <= seg.endSec) || holdLast) {
+                const inRange = t >= seg.startSec && (isLast ? t <= seg.endSec : t < seg.endSec);
+                if (inRange) {
                     const localT = Math.max(0, Math.min(seg.durationSec, t - seg.startSec));
                     const scrollY = canvasH - localT * seg.speedPxPerSec;
                     activeRuns.push({
@@ -1199,16 +1250,18 @@ function evaluateFrame(tSec, solved, project) {
                     });
                 }
             } else if (seg.kind === 'card') {
-                const isLast = seg === solved.segments[solved.segments.length - 1];
-                const holdLast = ended && endBehavior === 'hold' && isLast;
-                if ((t >= seg.startSec && t <= seg.endSec) || holdLast) {
+                const isHoldLastCard = !isLooping && endBehavior === 'hold' && isLast;
+                const inRange = isHoldLastCard
+                    ? (t >= seg.startSec)
+                    : (t >= seg.startSec && (isLast ? t <= seg.endSec : t < seg.endSec));
+                if (inRange) {
                     const localT = Math.max(0, Math.min(seg.durationSec, t - seg.startSec));
                     const inSec = Math.min(seg.block.transitionInSec ?? seg.block.transitionSec ?? 0.75, seg.durationSec * 0.48);
                     const outSec = Math.min(seg.block.transitionOutSec ?? seg.block.transitionSec ?? 0.75, seg.durationSec * 0.48);
                     let fx = { opacity: 1, translateX: 0, translateY: 0, scale: 1, blur: 0, clipPath: '' };
                     if (localT < inSec && inSec > 0) {
                         fx = evaluateTransition(seg.block.transitionIn || 'fade', easeOutCubic(localT / inSec), false);
-                    } else if (!holdLast && localT > seg.durationSec - outSec && outSec > 0) {
+                    } else if (!isHoldLastCard && localT > seg.durationSec - outSec && outSec > 0) {
                         fx = evaluateTransition(seg.block.transitionOut || 'fade', easeOutCubic((seg.durationSec - localT) / outSec), true);
                     }
                     activeCards.push({
@@ -1225,7 +1278,8 @@ function evaluateFrame(tSec, solved, project) {
     const activeClips = [];
     if (!clearOnEnd) {
         for (const rc of solved.resolvedClips) {
-            if (t < rc.startSec || t > rc.endSec) continue;
+            const clipEndMatch = rc.endSec >= durationSec - 0.001 ? t <= rc.endSec : t < rc.endSec;
+            if (t < rc.startSec || !clipEndMatch) continue;
             const localT = t - rc.startSec;
             const dur = rc.durationSec;
             const c = rc.clip;

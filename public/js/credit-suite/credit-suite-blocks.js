@@ -355,7 +355,7 @@ export function mountCreditSuiteBlocks({ state, seekToTime }) {
             listEl.innerHTML = (proj.tracks || []).map(tr => {
                 const layerLabel = tr.layer === 'behind' ? 'Behind' : (tr.layer === 'above' ? 'Above' : 'Side');
                 const clipsHtml = (tr.clips || []).map(c => {
-                    const isSel = sel.kind === 'clip' && sel.id === c.id;
+                    const isSel = (sel.kind === 'clip' && sel.id === c.id) || state.store.selectedClipIds?.has(c.id);
                     const rc = resolvedMap.get(c.id);
                     const tSpan = rc ? `${fmtSec(rc.startSec)} – ${fmtSec(rc.endSec)}` : `${fmtSec(c.startSec)}`;
                     return `
@@ -408,7 +408,7 @@ export function mountCreditSuiteBlocks({ state, seekToTime }) {
                     const tid = btn.dataset.delTrack;
                     state.mutateProject(p => {
                         p.tracks = p.tracks.filter(t => t.id !== tid);
-                    });
+                    }, { reason: 'project-structure' });
                 });
             });
             listEl.querySelectorAll('[data-clip-id]').forEach(row => {
@@ -423,13 +423,12 @@ export function mountCreditSuiteBlocks({ state, seekToTime }) {
                                 const tr = p.tracks.find(t => t.id === tid);
                                 const c = tr?.clips.find(x => x.id === cid);
                                 if (c) c.enabled = c.enabled === false ? true : false;
-                            });
+                            }, { reason: 'project-structure' });
                         } else if (act === 'del') {
                             state.mutateProject(p => {
                                 const tr = p.tracks.find(t => t.id === tid);
                                 if (tr) tr.clips = tr.clips.filter(x => x.id !== cid);
-                            });
-                            if (state.store.selection.id === cid) state.setSelection(null, null);
+                            }, { reason: 'project-structure' });
                         }
                         return;
                     }
@@ -442,7 +441,7 @@ export function mountCreditSuiteBlocks({ state, seekToTime }) {
     }
 
     state.subscribe(reason => {
-        if (['init', 'project', 'project-switched', 'selection', 'ui', 'solved', 'saved'].includes(reason)) {
+        if (['init', 'project-structure', 'project-switched', 'selection', 'outliner-ui', 'solved'].includes(reason)) {
             renderList();
         }
     });

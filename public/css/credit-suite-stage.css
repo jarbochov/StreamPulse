@@ -61,7 +61,6 @@
     bottom: 0;
     left: 50%;
     transform: translate3d(-50%, 0, 0);
-    will-change: transform, width;
     max-width: 100%;
 }
 
@@ -83,12 +82,16 @@
 .cs-card-layer {
     position: absolute;
     inset: 0;
-    display: flex;
     align-items: center;
     justify-content: center;
     padding: 40px 64px;
     will-change: transform, opacity;
     display: none;
+}
+
+.cs-card-layer.cs-zone-left,
+.cs-card-layer.cs-zone-right {
+    padding: 40px 0;
 }
 
 .cs-card-layer.active {
@@ -449,7 +452,6 @@
     width: 100%;
     height: 100%;
     display: block;
-    will-change: transform;
 }
 
 .cs-clip-blur-bg {

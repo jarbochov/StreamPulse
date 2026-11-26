@@ -437,6 +437,98 @@ describe('Credit Suite — Independent Cinematic Credits Module', () => {
         }
     });
 
+    it('preserves custom theme IDs, block uppercase inheritance, hold closing card, pattern schema, and real chatData/roster pulls', async () => {
+        // 1. Custom theme preset ID survives normalizeProject + re-normalization
+        const p1 = engine.normalizeProject({
+            id: 'custom-theme-test',
+            name: 'Custom Theme Test',
+            theme: { preset: 'my-midnight-cinema' },
+            background: {
+                type: 'pattern',
+                patternPreset: 'hexagons',
+                patternPalette: 'synthwave',
+                patternMotion: 'pan',
+                patternPanAngle: 45,
+                patternScale: 140,
+                patternDensity: 1.5,
+                patternInPlace: 'pulse',
+                patternSpin: 'cw',
+                patternColorMode: 'diagonal',
+                patternColorAnim: 'cycle',
+                patternVignette: 30
+            },
+            timing: { leadInSec: 0, leadOutSec: 1.5, endBehavior: 'hold', loop: false },
+            blocks: [
+                { id: 'b1', type: 'featured', presentation: 'card', title: 'FIN', duration: 3, transitionIn: 'none', transitionOut: 'fade' }
+            ]
+        });
+        assert.equal(p1.theme.preset, 'my-midnight-cinema');
+        assert.equal(p1.background.patternPreset, 'hexagons');
+        assert.equal(p1.background.patternMotion, 'pan');
+        assert.equal(p1.background.patternPanAngle, 45);
+        assert.equal(p1.background.patternColorAnim, 'cycle');
+        assert.equal(p1.background.patternVignette, 30);
+
+        // 2. Re-normalizing block.style.uppercase preserves '' ("inherit theme") instead of flipping to false
+        assert.equal(p1.blocks[0].style.uppercase, '');
+        const p2 = engine.normalizeProject(p1);
+        assert.equal(p2.blocks[0].style.uppercase, '');
+
+        // 3. transitionIn: 'none' renders opacity 1 at localT === 0, and endBehavior: 'hold' keeps closing card at opacity 1 through leadOutSec
+        const solved = engine.solveTimeline(p2);
+        const startFrame = engine.evaluateFrame(0, solved, p2);
+        assert.equal(startFrame.activeCards[0].opacity, 1);
+        const lateCardFrame = engine.evaluateFrame(2.9, solved, p2);
+        assert.equal(lateCardFrame.activeCards[0].opacity, 1);
+        const leadOutFrame = engine.evaluateFrame(3.8, solved, p2);
+        assert.equal(leadOutFrame.activeCards.length, 1);
+        assert.equal(leadOutFrame.activeCards[0].opacity, 1);
+
+        // 4. Real StreamPulse chatData (chatname, giftSubs, raids, bits, followers, chatters) & Variable Set roster + manual preservation
+        const tmpDir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'streampulse-cs-qa-'));
+        try {
+            const qaService = createCreditSuiteService({
+                dataDir: tmpDir2,
+                getVariablesState: () => ({
+                    variables: [{ name: 'guests', key: 'guests', type: 'list', items: ['Alice', 'Bob'] }],
+                    sets: [{ id: 'crew', name: 'Crew', fields: [{ key: 'role', label: 'Role' }], roster: [{ id: 'c1', label: 'Sam', enabled: true, values: { role: 'Producer' } }] }]
+                }),
+                getSessionData: () => ({
+                    subscribers: [{ chatname: 'SubHero' }],
+                    giftSubs: [{ chatname: 'GiftChamp' }],
+                    followers: [{ chatname: 'NewFollower' }],
+                    raids: [{ chatname: 'RaidBoss' }],
+                    bits: [{ chatname: 'CheerStar' }],
+                    chatters: { moduser: { chatname: 'ModUser', mod: true } }
+                })
+            });
+            const srcs = qaService.listDataSources();
+            assert.equal(srcs.variableSets[0].count, 1);
+            assert.equal(srcs.sessionCategories.find(c => c.id === 'gifters').count, 1);
+            assert.equal(srcs.sessionCategories.find(c => c.id === 'moderators').count, 1);
+
+            const pulledSet = qaService.pullDataSourceForBlock({
+                type: 'roster',
+                dataSource: { type: 'variable-set', sourceId: 'crew', field: '_label' },
+                names: [{ id: 'manual-1', name: 'Special Guest', editedName: '', checked: true }]
+            });
+            assert.equal(pulledSet.names.length, 2, 'manual entries are preserved alongside refreshed set roster');
+            assert.ok(pulledSet.names.some(n => n.name === 'Sam'));
+            assert.ok(pulledSet.names.some(n => n.name === 'Special Guest'));
+
+            // 5. Companion transport status & boolean query parsing
+            const st = qaService.getStatus();
+            assert.equal(st.state, 'paused');
+            assert.equal(typeof st.remainingSec, 'number');
+            assert.equal(typeof st.progressPct, 'number');
+            const seekPaused = qaService.controlTransport('seek', { t: 2, play: 'false' });
+            assert.equal(seekPaused.playing, false);
+            assert.throws(() => qaService.controlTransport('jump', { marker: '' }), /Marker name is required/);
+        } finally {
+            fs.rmSync(tmpDir2, { recursive: true, force: true });
+        }
+    });
+
     it('ships modular Studio HTML/CSS/JS, Live Overlay, Nav links, Backup spec, and Operator card without raw emojis', () => {
         const root = path.resolve(__dirname, '..');
         const studioHtml = fs.readFileSync(path.join(root, 'public/tools/credit-suite.html'), 'utf8');

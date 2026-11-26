@@ -121,11 +121,26 @@ function createCreditSuiteExporter(options = {}) {
     function pruneOldExports() {
         try {
             fs.mkdirSync(exportsDir, { recursive: true });
+            const activeFiles = new Set();
+            for (const j of jobs.values()) {
+                if (j.status === 'running' || j.status === 'queued') activeFiles.add(j.filePath);
+            }
             const entries = fs.readdirSync(exportsDir)
+                .filter(name => !name.startsWith('.tmp-'))
                 .map(name => ({ name, full: path.join(exportsDir, name), mtime: fs.statSync(path.join(exportsDir, name)).mtimeMs }))
                 .sort((a, b) => b.mtime - a.mtime);
             for (const stale of entries.slice(20)) {
+                if (activeFiles.has(stale.full)) continue;
                 try { fs.unlinkSync(stale.full); } catch {}
+            }
+            // Evict old finished job metadata so the jobs Map stays bounded
+            if (jobs.size > 30) {
+                const completed = [...jobs.values()]
+                    .filter(j => j.status !== 'running' && j.status !== 'queued')
+                    .sort((a, b) => Date.parse(a.createdAt || 0) - Date.parse(b.createdAt || 0));
+                while (jobs.size > 30 && completed.length) {
+                    jobs.delete(completed.shift().id);
+                }
             }
         } catch { /* ignore */ }
     }
@@ -180,9 +195,23 @@ function createCreditSuiteExporter(options = {}) {
         if (spec.needsFfmpeg && !caps.available) {
             throw new Error('FFmpeg was not found on this system. Install FFmpeg (e.g. brew install ffmpeg) to export video files.');
         }
+        if (format === 'mp4' && !caps.encoders?.libx264) {
+            throw new Error('FFmpeg libx264 encoder is unavailable on this system.');
+        }
+        if (format === 'webm-alpha' && !caps.encoders?.libvpxVp9) {
+            throw new Error('FFmpeg libvpx-vp9 encoder is unavailable on this system.');
+        }
+        if (format === 'prores-alpha' && !caps.encoders?.proresKs) {
+            throw new Error('FFmpeg prores_ks encoder is unavailable on this system.');
+        }
 
-        const width = Math.max(320, Math.min(3840, Math.round(Number(opts.width) || project.canvas?.width || 1920)));
-        const height = Math.max(240, Math.min(2160, Math.round(Number(opts.height) || project.canvas?.height || 1080)));
+        let width = Math.max(320, Math.min(3840, Math.round(Number(opts.width) || project.canvas?.width || 1920)));
+        let height = Math.max(240, Math.min(2160, Math.round(Number(opts.height) || project.canvas?.height || 1080)));
+        // yuv420p / yuva420p require even dimensions
+        if (format === 'mp4' || format === 'webm-alpha') {
+            width = width & ~1;
+            height = height & ~1;
+        }
         const fps = [24, 30, 60].includes(Number(opts.fps)) ? Number(opts.fps) : (project.canvas?.fps || 30);
         const bgOverride = opts.bgOverride || (spec.alpha && opts.transparent ? 'transparent' : '');
         const omitBackground = Boolean(bgOverride === 'transparent' || (spec.alpha && (project.background?.type === 'transparent' || opts.transparent)));
@@ -190,6 +219,9 @@ function createCreditSuiteExporter(options = {}) {
         const puppeteer = require('puppeteer');
         let browser = null;
         let page = null;
+        let ffmpegProc = null;
+        let ffmpegDonePromise = null;
+        let seqTmpDir = null;
 
         try {
             job.status = 'running';
@@ -286,45 +318,73 @@ function createCreditSuiteExporter(options = {}) {
             const totalFrames = Math.max(1, Math.ceil(durationSec * fps));
             job.totalFrames = totalFrames;
 
-            let ffmpegProc = null;
             let ffmpegStderr = '';
-            let ffmpegDonePromise = null;
-            let seqZip = null;
+            let ffmpegClosed = false;
+            let ffmpegStdinErr = null;
 
             if (format === 'png-sequence') {
-                seqZip = new AdmZip();
+                seqTmpDir = path.join(exportsDir, `.tmp-${job.id}`);
+                fs.mkdirSync(seqTmpDir, { recursive: true });
             } else {
                 const args = buildFfmpegArgs(format, fps, job.filePath);
                 ffmpegProc = spawn(caps.path, args, { stdio: ['pipe', 'ignore', 'pipe'] });
                 job.ffmpegProc = ffmpegProc;
-                ffmpegProc.stderr.on('data', chunk => { ffmpegStderr += chunk.toString('utf8').slice(-2000); });
+                ffmpegProc.stdin.on('error', err => {
+                    ffmpegStdinErr = err;
+                });
+                ffmpegProc.stderr.on('data', chunk => {
+                    ffmpegStderr = (ffmpegStderr + chunk.toString('utf8')).slice(-2500);
+                });
                 ffmpegDonePromise = new Promise((resolve, reject) => {
-                    ffmpegProc.on('error', reject);
+                    ffmpegProc.on('error', err => {
+                        ffmpegClosed = true;
+                        reject(err);
+                    });
                     ffmpegProc.on('close', code => {
+                        ffmpegClosed = true;
                         if (job.cancelled) return resolve();
                         if (code === 0) resolve();
                         else reject(new Error(`FFmpeg exited with code ${code}: ${ffmpegStderr.slice(-400)}`));
                     });
                 });
+                // Prevent unhandled rejection if we abort before explicitly awaiting ffmpegDonePromise
+                ffmpegDonePromise.catch(() => {});
             }
 
             const startedAt = Date.now();
             job.phase = `Rendering ${totalFrames} frames at ${fps} fps`;
             emitProgress(job);
 
+            const waitForDrain = () => new Promise(resolve => {
+                if (ffmpegClosed || job.cancelled || !ffmpegProc?.stdin?.writable) return resolve();
+                const done = () => {
+                    ffmpegProc?.stdin?.off('drain', done);
+                    ffmpegProc?.stdin?.off('error', done);
+                    ffmpegProc?.off('close', done);
+                    ffmpegProc?.off('error', done);
+                    resolve();
+                };
+                ffmpegProc.stdin.once('drain', done);
+                ffmpegProc.stdin.once('error', done);
+                ffmpegProc.once('close', done);
+                ffmpegProc.once('error', done);
+            });
+
             for (let f = 0; f < totalFrames; f++) {
                 if (job.cancelled) break;
+                if (ffmpegProc && (ffmpegClosed || ffmpegStdinErr)) {
+                    throw ffmpegStdinErr || new Error(`FFmpeg stopped unexpectedly: ${ffmpegStderr.slice(-400)}`);
+                }
                 const tSec = f / fps;
                 await page.evaluate(t => window.__creditSuiteSeek?.(t), tSec);
                 const pngBuf = await page.screenshot({ type: 'png', omitBackground });
 
-                if (seqZip) {
-                    seqZip.addFile(`frame_${String(f + 1).padStart(5, '0')}.png`, pngBuf);
-                } else if (ffmpegProc && ffmpegProc.stdin.writable) {
+                if (seqTmpDir) {
+                    const framePath = path.join(seqTmpDir, `frame_${String(f + 1).padStart(5, '0')}.png`);
+                    fs.writeFileSync(framePath, pngBuf);
+                } else if (ffmpegProc && ffmpegProc.stdin.writable && !ffmpegClosed) {
                     const ok = ffmpegProc.stdin.write(pngBuf);
-                    if (!ok) {
-                        await new Promise(resolve => ffmpegProc.stdin.once('drain', resolve));
-                    }
+                    if (!ok) await waitForDrain();
                 }
 
                 job.frame = f + 1;
@@ -344,10 +404,15 @@ function createCreditSuiteExporter(options = {}) {
                 return;
             }
 
-            if (seqZip) {
+            if (seqTmpDir) {
+                // Close Chromium before ZIP packaging to minimize peak memory footprint
+                if (page) { await page.close().catch(() => {}); page = null; }
+                if (browser) { await browser.close().catch(() => {}); browser = null; }
                 job.phase = 'Packaging PNG sequence ZIP';
                 job.percent = 98;
                 emitProgress(job);
+                const seqZip = new AdmZip();
+                seqZip.addLocalFolder(seqTmpDir);
                 seqZip.writeZip(job.filePath);
             } else if (ffmpegProc) {
                 job.phase = 'Finalizing video container';
@@ -374,13 +439,26 @@ function createCreditSuiteExporter(options = {}) {
             }
             try { if (fs.existsSync(job.filePath)) fs.unlinkSync(job.filePath); } catch {}
         } finally {
+            if (ffmpegProc && ffmpegProc.exitCode === null) {
+                try { ffmpegProc.stdin?.destroy(); } catch {}
+                try { ffmpegProc.kill('SIGKILL'); } catch {}
+            }
             job.ffmpegProc = null;
+            if (seqTmpDir) {
+                try { fs.rmSync(seqTmpDir, { recursive: true, force: true }); } catch {}
+            }
             if (page) await page.close().catch(() => {});
             if (browser) await browser.close().catch(() => {});
         }
     }
 
     function startExport(project, opts = {}) {
+        const activeJob = [...jobs.values()].find(j => j.status === 'running' || j.status === 'queued');
+        if (activeJob) {
+            const err = new Error(`An export job ("${activeJob.fileName}") is already in progress. Wait for it to finish or cancel it first.`);
+            err.statusCode = 409;
+            throw err;
+        }
         const format = EXPORT_FORMATS[opts.format] ? opts.format : 'mp4';
         const spec = EXPORT_FORMATS[format];
         const id = `exp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;

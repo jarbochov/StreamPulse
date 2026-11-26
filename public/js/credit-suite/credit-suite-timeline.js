@@ -3,7 +3,12 @@
  */
 
 function esc(str) {
-    return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 function fmtRuler(sec) {
@@ -29,9 +34,12 @@ export function mountCreditSuiteTimeline({ state, stage, blocksApi }) {
     let crawlResize = null;
     let marquee = null;
     let playheadEl = null;
+    let dragMoveRaf = 0;
+    let lastPointerEv = null;
 
     durInput?.addEventListener('change', () => {
-        const target = Math.max(5, Number(durInput.value) || 30);
+        const target = Math.max(5, Math.min(3600, Number(durInput.value) || 30));
+        durInput.value = String(Math.round(target));
         state.mutateProject(p => {
             p.timing.mode = 'duration';
             p.timing.targetDurationSec = target;
@@ -81,7 +89,7 @@ export function mountCreditSuiteTimeline({ state, stage, blocksApi }) {
         const out = [];
         for (const tr of (proj.tracks || [])) {
             for (const c of (tr.clips || [])) {
-                if (!ids.has(c.id)) continue;
+                if (!ids.has(c.id) || c.enabled === false) continue;
                 const rc = resolvedMap.get(c.id);
                 out.push({
                     trackId: tr.id,
@@ -111,15 +119,28 @@ export function mountCreditSuiteTimeline({ state, stage, blocksApi }) {
                     cursor = c.startSec + c.durationSec;
                 }
             } else {
-                items.forEach((it, idx) => {
+                // Adjust each inter-clip gap by deltaSec while preventing negative overlaps
+                let prevEnd = items[0].startSec + items[0].durationSec;
+                const first = byId.get(items[0].clipId);
+                if (first) {
+                    first.timingMode = 'timecode';
+                    first.startSec = Number(items[0].startSec.toFixed(2));
+                    first.durationSec = Number(items[0].durationSec.toFixed(2));
+                }
+                for (let idx = 1; idx < items.length; idx++) {
+                    const it = items[idx];
+                    const prevOrigEnd = items[idx - 1].startSec + items[idx - 1].durationSec;
+                    const origGap = it.startSec - prevOrigEnd;
+                    const nextGap = origGap >= 0 ? Math.max(0, origGap + deltaSec) : Math.max(0, deltaSec);
                     const c = byId.get(it.clipId);
-                    if (!c) return;
+                    if (!c) continue;
                     c.timingMode = 'timecode';
-                    c.startSec = Number(Math.max(0, it.startSec + idx * deltaSec).toFixed(2));
+                    c.startSec = Number(Math.max(0, prevEnd + nextGap).toFixed(2));
                     c.durationSec = Number(it.durationSec.toFixed(2));
-                });
+                    prevEnd = c.startSec + c.durationSec;
+                }
             }
-        });
+        }, { reason: 'project-structure' });
     }
 
     function applyMultiStretch(factor) {
@@ -129,14 +150,23 @@ export function mountCreditSuiteTimeline({ state, stage, blocksApi }) {
         state.mutateProject(p => {
             const byId = new Map();
             for (const tr of p.tracks) for (const c of tr.clips) byId.set(c.id, c);
-            for (const it of items) {
+            let prevEnd = origin;
+            items.forEach((it, idx) => {
                 const c = byId.get(it.clipId);
-                if (!c) continue;
+                if (!c) return;
                 c.timingMode = 'timecode';
-                c.startSec = Number(Math.max(0, origin + (it.startSec - origin) * factor).toFixed(2));
-                c.durationSec = Number(Math.max(0.5, it.durationSec * factor).toFixed(2));
-            }
-        });
+                const scaledStart = origin + (it.startSec - origin) * factor;
+                const nextStart = idx === 0
+                    ? origin
+                    : (it.startSec >= items[idx - 1].startSec + items[idx - 1].durationSec - 0.01
+                        ? Math.max(prevEnd, scaledStart)
+                        : Math.max(0, scaledStart));
+                const nextDur = Math.max(0.5, it.durationSec * factor);
+                c.startSec = Number(Math.max(0, nextStart).toFixed(2));
+                c.durationSec = Number(nextDur.toFixed(2));
+                prevEnd = c.startSec + c.durationSec;
+            });
+        }, { reason: 'project-structure' });
     }
 
     function renderMultiBar() {
@@ -333,19 +363,6 @@ export function mountCreditSuiteTimeline({ state, stage, blocksApi }) {
                 const bid = el.dataset.tlBlock;
                 ev.stopPropagation();
                 if (trimId || crawlTrimId) ev.preventDefault();
-                state.setSelection('block', bid);
-                if (trimId) {
-                    const blk = proj.blocks.find(b => b.id === trimId);
-                    if (blk) {
-                        cardResize = {
-                            blockId: trimId,
-                            startX: ev.clientX,
-                            origDur: Number(blk.duration) || 4.5,
-                            recorded: false
-                        };
-                    }
-                    return;
-                }
                 if (crawlTrimId) {
                     const run = solved.crawlRuns.find(r => r.id === crawlTrimId);
                     if (run) {
@@ -354,6 +371,19 @@ export function mountCreditSuiteTimeline({ state, stage, blocksApi }) {
                             startX: ev.clientX,
                             origRunDur: run.durationSec,
                             origTravel: run.travelDistance,
+                            recorded: false
+                        };
+                    }
+                    return;
+                }
+                state.setSelection('block', bid);
+                if (trimId) {
+                    const blk = proj.blocks.find(b => b.id === trimId);
+                    if (blk) {
+                        cardResize = {
+                            blockId: trimId,
+                            startX: ev.clientX,
+                            origDur: Number(blk.duration) || 4.5,
                             recorded: false
                         };
                     }
@@ -426,7 +456,10 @@ export function mountCreditSuiteTimeline({ state, stage, blocksApi }) {
         });
     }
 
-    window.addEventListener('pointermove', ev => {
+    function processPointerMove() {
+        dragMoveRaf = 0;
+        const ev = lastPointerEv;
+        if (!ev) return;
         if (marquee && gridEl) {
             const rect = gridEl.getBoundingClientRect();
             const curX = ev.clientX - rect.left;
@@ -493,7 +526,9 @@ export function mountCreditSuiteTimeline({ state, stage, blocksApi }) {
                 c.timingMode = 'timecode';
                 if (clipDrag.mode === 'move') {
                     c.startSec = Math.max(0, Number((clipDrag.origStart + dxSec).toFixed(2)));
+                    c.durationSec = Number(clipDrag.origDur.toFixed(2));
                 } else if (clipDrag.mode === 'right') {
+                    c.startSec = Number(clipDrag.origStart.toFixed(2));
                     c.durationSec = Math.max(0.5, Number((clipDrag.origDur + dxSec).toFixed(2)));
                 } else if (clipDrag.mode === 'left') {
                     const maxShift = clipDrag.origDur - 0.5;
@@ -503,14 +538,25 @@ export function mountCreditSuiteTimeline({ state, stage, blocksApi }) {
                 }
             }, { reason: 'project', recordUndo });
         }
-    });
+    }
 
-    window.addEventListener('pointerup', () => {
+    function handlePointerMove(ev) {
+        if (!marquee && !scrubbing && !crawlResize && !cardResize && !clipDrag) return;
+        lastPointerEv = ev;
+        if (!dragMoveRaf) dragMoveRaf = requestAnimationFrame(processPointerMove);
+    }
+
+    function finishPointerInteraction(cancelled = false) {
+        if (dragMoveRaf) {
+            cancelAnimationFrame(dragMoveRaf);
+            dragMoveRaf = 0;
+        }
+        lastPointerEv = null;
         if (marquee) {
             const mRect = marquee.rect;
             marquee.box.remove();
             marquee = null;
-            if (mRect && gridEl) {
+            if (!cancelled && mRect && gridEl) {
                 const gridRect = gridEl.getBoundingClientRect();
                 const hits = [];
                 gridEl.querySelectorAll('[data-tl-clip]').forEach(el => {
@@ -530,13 +576,28 @@ export function mountCreditSuiteTimeline({ state, stage, blocksApi }) {
         cardResize = null;
         crawlResize = null;
         clipDrag = null;
-    });
+    }
+
+    const handlePointerUp = () => finishPointerInteraction(false);
+    const handlePointerCancel = () => finishPointerInteraction(true);
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerCancel);
 
     state.subscribe(reason => {
-        if (['init', 'project', 'project-switched', 'solved', 'selection', 'timeline-zoom'].includes(reason)) {
+        if (marquee || state.store.studioView !== 'studio') return;
+        if (['init', 'project-switched', 'solved', 'selection', 'timeline-zoom'].includes(reason)) {
             render();
         }
     });
 
-    return { render, updatePlayhead, scrollEl };
+    function destroy() {
+        finishPointerInteraction(true);
+        window.removeEventListener('pointermove', handlePointerMove);
+        window.removeEventListener('pointerup', handlePointerUp);
+        window.removeEventListener('pointercancel', handlePointerCancel);
+    }
+
+    return { render, updatePlayhead, scrollEl, destroy };
 }

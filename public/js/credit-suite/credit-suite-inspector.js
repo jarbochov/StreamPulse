@@ -4,7 +4,41 @@
  */
 
 function esc(str) {
-    return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function copyTextWithFeedback(text, btnEl) {
+    const flash = () => {
+        if (!btnEl) return;
+        const prev = btnEl.dataset.origLabel || btnEl.textContent;
+        btnEl.dataset.origLabel = prev;
+        btnEl.textContent = 'Copied!';
+        clearTimeout(btnEl._copyTimer);
+        btnEl._copyTimer = setTimeout(() => { btnEl.textContent = prev; }, 1400);
+    };
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        navigator.clipboard.writeText(text).then(flash).catch(() => fallbackCopy(text, flash));
+    } else {
+        fallbackCopy(text, flash);
+    }
+}
+
+function fallbackCopy(text, onDone) {
+    try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none;';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+        onDone?.();
+    } catch {}
 }
 
 function toColorHex6(c, fallback = '#ffffff') {
@@ -22,18 +56,210 @@ function getBorderAnims() {
     return window.StreamPulseBorderCatalog?.BORDER_ANIM_TYPES || ['none', 'rotate', 'beam', 'dual-beam', 'pulse', 'palette-flow', 'shimmer-glint'];
 }
 
-function getPatternPresets() {
-    const raw = window.StreamPulsePatternCatalog?.PATTERN_PRESETS;
-    if (Array.isArray(raw)) return raw.map(p => (typeof p === 'string' ? p : p.id));
-    if (raw && typeof raw === 'object') return Object.keys(raw);
-    return ['constellation', 'bokeh', 'grid', 'stars', 'waves', 'diagonal-stripes'];
+function getPatternCatalog() {
+    return window.StreamPulsePatternCatalog || window.StreamPulsePatterns || {};
 }
 
-function getPatternPalettes() {
-    const raw = window.StreamPulsePatternCatalog?.PATTERN_PALETTES;
+function getPatternPresets() {
+    const cat = getPatternCatalog();
+    const raw = cat.PATTERNS || cat.PATTERN_PRESETS;
     if (Array.isArray(raw)) return raw.map(p => (typeof p === 'string' ? p : p.id));
     if (raw && typeof raw === 'object') return Object.keys(raw);
-    return ['midnight', 'neon', 'sunset', 'gold', 'ocean', 'forest'];
+    return ['starfield', 'sparkles', 'hexagons', 'orbits', 'mesh', 'topography', 'waves', 'grid'];
+}
+
+function getPatternPresetOptionsHtml(selected) {
+    const cat = getPatternCatalog();
+    if (Array.isArray(cat.PATTERN_CATEGORIES) && cat.PATTERN_CATEGORIES.length) {
+        return cat.PATTERN_CATEGORIES.map(grp =>
+            `<optgroup label="${esc(grp.group)}">${grp.options.map(([id, label]) =>
+                `<option value="${esc(id)}" ${selected === id ? 'selected' : ''}>${esc(label)}</option>`
+            ).join('')}</optgroup>`
+        ).join('');
+    }
+    return getPatternPresets().map(p => `<option value="${esc(p)}" ${selected === p ? 'selected' : ''}>${esc(p)}</option>`).join('');
+}
+
+function getPatternPaletteOptionsHtml(selected) {
+    const cat = getPatternCatalog();
+    if (Array.isArray(cat.PALETTE_OPTIONS) && cat.PALETTE_OPTIONS.length) {
+        return cat.PALETTE_OPTIONS
+            .filter(([id]) => id !== 'custom')
+            .map(([id, label]) => `<option value="${esc(id)}" ${selected === id ? 'selected' : ''}>${esc(label)}</option>`)
+            .join('');
+    }
+    const raw = cat.PALETTES;
+    const keys = raw && typeof raw === 'object' ? ['dual', ...Object.keys(raw)] : ['dual', 'galaxy', 'cool', 'neon', 'warm', 'sunset', 'ocean', 'royal', 'forest'];
+    return keys.map(p => `<option value="${esc(p)}" ${selected === p ? 'selected' : ''}>${esc(p)}</option>`).join('');
+}
+
+function renderPatternControlsHtml(obj, { attrStr, attrNum, attrColor, prefix = '', showOpacity = true }) {
+    const cat = getPatternCatalog();
+    const preset = obj.patternPreset || 'starfield';
+    const palette = obj.patternPalette || 'galaxy';
+    const caps = (cat.PATTERN_CAPABILITIES && cat.PATTERN_CAPABILITIES[preset]) || {
+        sizeVariance: true, scatter: true, inPlace: true, spin: true, fill: true, density: true, spacing: true
+    };
+    const motions = cat.PROCEDURAL_MOTIONS || [
+        { id: 'none', label: 'Static' }, { id: 'drift', label: 'Drift' }, { id: 'fall', label: 'Fall' },
+        { id: 'sway', label: 'Sway' }, { id: 'pulse', label: 'Pulse' }, { id: 'orbit', label: 'Orbit' },
+        { id: 'sweep', label: 'Sweep' }, { id: 'aurora', label: 'Aurora' }, { id: 'pan', label: 'Pan' }
+    ];
+    const fillModes = cat.PROCEDURAL_FILL_MODES || [
+        { id: 'tinted', label: 'Translucent Tint' }, { id: 'solid', label: 'Solid Color' }, { id: 'outline', label: 'Wireframe Outlines' }
+    ];
+    const inPlaceModes = cat.PROCEDURAL_IN_PLACE_MODES || [
+        { id: 'auto', label: 'In-place motion' }, { id: 'pulse', label: 'Rhythmic pulse' },
+        { id: 'gentle', label: 'Gentle shimmer' }, { id: 'sparkle', label: 'Fast twinkle' }, { id: 'none', label: 'Frozen' }
+    ];
+    const spinModes = cat.PROCEDURAL_SPIN_MODES || [
+        { id: 'none', label: 'No spin' }, { id: 'cw', label: 'Clockwise' }, { id: 'ccw', label: 'Counter-clockwise' }, { id: 'sway', label: 'Pendulum sway' }
+    ];
+    const colorModes = cat.PROCEDURAL_COLOR_MODES || [
+        { id: 'mosaic', label: 'Mosaic scatter' }, { id: 'radial', label: 'Concentric radial' },
+        { id: 'rows', label: 'Horizontal rows' }, { id: 'columns', label: 'Vertical columns' },
+        { id: 'diagonal', label: 'Diagonal waves' }, { id: 'spiral', label: 'Spiral vortex' }, { id: 'checker', label: 'Checkerboard' }
+    ];
+    const colorAnims = cat.PROCEDURAL_COLOR_ANIMS || [
+        { id: 'none', label: 'Static' }, { id: 'cycle', label: 'Continuous cycle' }, { id: 'breathe', label: 'Breathe' }
+    ];
+    const panDirs = cat.PROCEDURAL_PAN_DIRECTIONS || [
+        { id: 'continuous', label: 'Continuous glide' }, { id: 'oscillate', label: 'Back-and-forth' }
+    ];
+    const snowStyles = cat.SNOWFLAKE_STYLES || ['all', 'dendrite', 'plate', 'fern', 'rosette', 'cross', 'needle'];
+    const swatches = palette === 'dual'
+        ? [toColorHex6(obj.patternAccent, '#58a6ff'), toColorHex6(obj.patternSecondary, '#a855f7')]
+        : ((cat.PALETTES && cat.PALETTES[palette]) || ['#240046', '#9d4edd', '#00b4d8', '#e0aaff']);
+    const k = name => `${prefix}${name}`;
+    const curMotion = obj.patternMotion || 'drift';
+    const curFillMode = obj.patternFillMode || 'tinted';
+    const curInPlace = obj.patternInPlace || 'auto';
+    const curSpin = obj.patternSpin || 'none';
+    const curColorAnim = obj.patternColorAnim || 'none';
+
+    return `
+        <div class="cs-field">
+            <label>Pattern Preset (31 Presets)</label>
+            <select ${attrStr}="${k('patternPreset')}">${getPatternPresetOptionsHtml(preset)}</select>
+        </div>
+        ${preset === 'snowflakes' ? `
+            <div class="cs-field">
+                <label>Snowflake Style</label>
+                <select ${attrStr}="${k('patternSnowflakeStyle')}">
+                    ${snowStyles.map(s => `<option value="${esc(s)}" ${(obj.patternSnowflakeStyle || 'all') === s ? 'selected' : ''}>${esc(s[0].toUpperCase() + s.slice(1))}</option>`).join('')}
+                </select>
+            </div>
+        ` : ''}
+        ${caps.hint ? `<div style="font-size:10px;color:var(--text-muted);line-height:1.4;">${esc(caps.hint)}</div>` : ''}
+
+        <div class="cs-grid-2">
+            <div class="cs-field"><label>Scale (%)</label><input type="number" min="15" max="400" step="5" ${attrNum}="${k('patternScale')}" value="${obj.patternScale ?? 100}"></div>
+            <div class="cs-field"><label>Line Width (px)</label><input type="number" min="0.5" max="24" step="0.5" ${attrNum}="${k('patternLineWidth')}" value="${obj.patternLineWidth ?? 2}"></div>
+        </div>
+        ${caps.fill !== false ? `
+            <div class="cs-grid-2">
+                <div class="cs-field">
+                    <label>Fill Style</label>
+                    <select ${attrStr}="${k('patternFillMode')}">
+                        ${fillModes.map(m => `<option value="${esc(m.id)}" ${curFillMode === m.id ? 'selected' : ''}>${esc(m.label)}</option>`).join('')}
+                    </select>
+                </div>
+                ${curFillMode === 'tinted' ? `<div class="cs-field"><label>Fill Opacity (%)</label><input type="number" min="0" max="100" step="5" ${attrNum}="${k('patternFillOpacity')}" value="${obj.patternFillOpacity ?? 35}"></div>` : '<div></div>'}
+            </div>
+        ` : ''}
+        <div class="cs-grid-2">
+            ${caps.density !== false ? `<div class="cs-field"><label>Density</label><input type="number" min="0.25" max="4" step="0.25" ${attrNum}="${k('patternDensity')}" value="${obj.patternDensity ?? 1}"></div>` : ''}
+            ${caps.spacing !== false ? `<div class="cs-field"><label>Spacing (%)</label><input type="number" min="50" max="300" step="5" ${attrNum}="${k('patternSpacing')}" value="${obj.patternSpacing ?? 100}"></div>` : ''}
+        </div>
+
+        <div class="cs-grid-2">
+            <div class="cs-field">
+                <label>Canvas Movement</label>
+                <select ${attrStr}="${k('patternMotion')}">
+                    ${motions.map(m => `<option value="${esc(m.id)}" ${curMotion === m.id ? 'selected' : ''}>${esc(m.label)}</option>`).join('')}
+                </select>
+            </div>
+            <div class="cs-field"><label>Move Speed</label><input type="number" min="0" max="10" step="0.1" ${attrNum}="${k('patternSpeed')}" value="${obj.patternSpeed ?? 0.5}"></div>
+        </div>
+        ${curMotion === 'pan' ? `
+            <div class="cs-grid-2">
+                <div class="cs-field">
+                    <label>Pan Direction</label>
+                    <select ${attrStr}="${k('patternPanDirection')}">
+                        ${panDirs.map(d => `<option value="${esc(d.id)}" ${(obj.patternPanDirection || 'continuous') === d.id ? 'selected' : ''}>${esc(d.label)}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="cs-field"><label>Pan Angle (deg)</label><input type="number" min="-360" max="360" step="15" ${attrNum}="${k('patternPanAngle')}" value="${obj.patternPanAngle ?? 0}"></div>
+            </div>
+        ` : ''}
+        <div class="cs-grid-2">
+            <div class="cs-field">
+                <label>In-Place Motion</label>
+                <select ${attrStr}="${k('patternInPlace')}">
+                    ${inPlaceModes.map(m => `<option value="${esc(m.id)}" ${curInPlace === m.id ? 'selected' : ''}>${esc(m.label)}</option>`).join('')}
+                </select>
+            </div>
+            ${curInPlace !== 'none' ? `<div class="cs-field"><label>In-Place Speed</label><input type="number" min="0.2" max="5" step="0.2" ${attrNum}="${k('patternInPlaceSpeed')}" value="${obj.patternInPlaceSpeed ?? 1}"></div>` : '<div></div>'}
+        </div>
+        ${caps.spin ? `
+            <div class="cs-grid-2">
+                <div class="cs-field">
+                    <label>Element Spin</label>
+                    <select ${attrStr}="${k('patternSpin')}">
+                        ${spinModes.map(m => `<option value="${esc(m.id)}" ${curSpin === m.id ? 'selected' : ''}>${esc(m.label)}</option>`).join('')}
+                    </select>
+                </div>
+                ${curSpin !== 'none' ? `<div class="cs-field"><label>Spin Speed</label><input type="number" min="0.1" max="5" step="0.1" ${attrNum}="${k('patternSpinSpeed')}" value="${obj.patternSpinSpeed ?? 1}"></div>` : '<div></div>'}
+            </div>
+        ` : ''}
+
+        <div class="cs-field">
+            <label>Color Palette</label>
+            <select ${attrStr}="${k('patternPalette')}">${getPatternPaletteOptionsHtml(palette)}</select>
+            <div style="display:flex;gap:3px;height:10px;border-radius:4px;overflow:hidden;border:1px solid var(--border);margin-top:4px;">
+                ${swatches.map(hex => `<span style="flex:1;background:${esc(hex)};"></span>`).join('')}
+            </div>
+        </div>
+        ${palette === 'dual' ? `
+            <div class="cs-grid-2">
+                <div class="cs-field"><label>Accent Color</label><input type="color" ${attrColor}="${k('patternAccent')}" value="${toColorHex6(obj.patternAccent, '#58a6ff')}"></div>
+                <div class="cs-field"><label>Secondary Color</label><input type="color" ${attrColor}="${k('patternSecondary')}" value="${toColorHex6(obj.patternSecondary, '#a855f7')}"></div>
+            </div>
+        ` : ''}
+        <div class="cs-field">
+            <label>Color Placement</label>
+            <select ${attrStr}="${k('patternColorMode')}">
+                ${colorModes.map(m => `<option value="${esc(m.id)}" ${(obj.patternColorMode || 'mosaic') === m.id ? 'selected' : ''}>${esc(m.label)}</option>`).join('')}
+            </select>
+        </div>
+        <div class="cs-grid-2">
+            <div class="cs-field">
+                <label>Color Animation</label>
+                <select ${attrStr}="${k('patternColorAnim')}">
+                    ${colorAnims.map(m => `<option value="${esc(m.id)}" ${curColorAnim === m.id ? 'selected' : ''}>${esc(m.label)}</option>`).join('')}
+                </select>
+            </div>
+            ${curColorAnim !== 'none' ? `<div class="cs-field"><label>Color Speed</label><input type="number" min="0" max="5" step="0.05" ${attrNum}="${k('patternColorSpeed')}" value="${obj.patternColorSpeed ?? 0.5}"></div>` : '<div></div>'}
+        </div>
+
+        <details class="cs-acc" style="margin-top:4px;">
+            <summary>Pattern Opacity, Variation &amp; Vignette</summary>
+            <div class="cs-acc-body">
+                ${showOpacity ? `<div class="cs-field"><label>Pattern Opacity (0–1)</label><input type="number" min="0.05" max="1" step="0.05" ${attrNum}="${k('patternOpacity')}" value="${obj.patternOpacity ?? 0.65}"></div>` : ''}
+                ${(caps.scatter || caps.sizeVariance) ? `
+                    <div class="cs-grid-3">
+                        <div class="cs-field"><label>Scatter %</label><input type="number" min="0" max="100" step="5" ${attrNum}="${k('patternScatter')}" value="${obj.patternScatter ?? 0}"></div>
+                        <div class="cs-field"><label>Size Var %</label><input type="number" min="0" max="100" step="5" ${attrNum}="${k('patternSizeVariance')}" value="${obj.patternSizeVariance ?? 0}"></div>
+                        <div class="cs-field"><label>Rot Var %</label><input type="number" min="0" max="100" step="5" ${attrNum}="${k('patternRotationVariance')}" value="${obj.patternRotationVariance ?? 0}"></div>
+                    </div>
+                ` : ''}
+                <div class="cs-grid-2">
+                    <div class="cs-field"><label>Vignette (%)</label><input type="number" min="0" max="100" step="5" ${attrNum}="${k('patternVignette')}" value="${obj.patternVignette ?? 0}"></div>
+                    <div class="cs-field"><label>Vignette Color</label><input type="color" ${attrColor}="${k('patternVignetteColor')}" value="${toColorHex6(obj.patternVignetteColor, '#000000')}"></div>
+                </div>
+            </div>
+        </details>
+    `;
 }
 
 function openAssetPickerModal(_state, { kind = 'image', value = '', onPick }) {
@@ -113,7 +339,7 @@ export function mountCreditSuiteInspector({ state, stage }) {
                     <div class="cs-section-head">Spacer Size</div>
                     <div class="cs-field">
                         <label>Height (px)</label>
-                        <input type="number" min="16" max="1200" step="10" data-b="spacerHeight" value="${block.spacerHeight || 120}">
+                        <input type="number" min="16" max="1200" step="10" data-b-num="spacerHeight" value="${block.spacerHeight || 120}">
                     </div>
                 </div>
             `;
@@ -130,7 +356,7 @@ export function mountCreditSuiteInspector({ state, stage }) {
                         </div>
                         <div class="cs-field">
                             <label>Width (%)</label>
-                            <input type="number" min="10" max="100" data-b="dividerWidth" value="${block.dividerWidth || 55}">
+                            <input type="number" min="10" max="100" data-b-num="dividerWidth" value="${block.dividerWidth || 55}">
                         </div>
                     </div>
                     ${block.dividerStyle === 'icon' ? `
@@ -217,7 +443,7 @@ export function mountCreditSuiteInspector({ state, stage }) {
                 let sourceSelectHtml = '';
                 if (dsrc.type === 'variable-set') {
                     const sets = ds.variableSets || [];
-                    const curSet = sets.find(s => s.id === dsrc.sourceId) || sets[0];
+                    const curSet = sets.find(s => s.id === dsrc.sourceId) || null;
                     sourceSelectHtml = `
                         <div class="cs-grid-2">
                             <div class="cs-field">
@@ -229,8 +455,8 @@ export function mountCreditSuiteInspector({ state, stage }) {
                             </div>
                             <div class="cs-field">
                                 <label>Name Field</label>
-                                <select data-b-ds="field">
-                                    <option value="">First Field</option>
+                                <select data-b-ds="field" ${curSet ? '' : 'disabled'}>
+                                    <option value="">Entry Label</option>
                                     ${(curSet?.fields || []).map(f => `<option value="${esc(f.key)}" ${dsrc.field === f.key ? 'selected' : ''}>${esc(f.label)}</option>`).join('')}
                                 </select>
                             </div>
@@ -501,29 +727,37 @@ export function mountCreditSuiteInspector({ state, stage }) {
                     copy.id = `blk-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`;
                     p.blocks.splice(idx + 1, 0, copy);
                 }
-            });
+            }, { reason: 'project-structure' });
         });
         bodyEl.querySelector('#cs-insp-del-block')?.addEventListener('click', () => {
             state.mutateProject(p => {
                 p.blocks = p.blocks.filter(x => x.id !== block.id);
-            });
+            }, { reason: 'project-structure' });
             state.setSelection(null, null);
         });
 
         // Wire block bindings
-        const updateBlock = fn => state.mutateProject(p => {
+        const updateBlock = (fn, opts = {}) => state.mutateProject(p => {
             const b = p.blocks.find(x => x.id === block.id);
             if (b) fn(b);
-        });
+        }, opts);
 
         bodyEl.querySelectorAll('[data-b]').forEach(el => {
-            el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', () => {
-                updateBlock(b => { b[el.dataset.b] = el.value; });
+            const isSel = el.tagName === 'SELECT';
+            el.addEventListener(isSel ? 'change' : 'input', () => {
+                updateBlock(
+                    b => { b[el.dataset.b] = el.value; },
+                    isSel ? { reason: 'project-structure' } : { undoGroup: `b:${block.id}:${el.dataset.b}` }
+                );
             });
         });
         bodyEl.querySelectorAll('[data-b-num]').forEach(el => {
             el.addEventListener('change', () => {
-                updateBlock(b => { b[el.dataset.bNum] = Number(el.value) || 0; });
+                const min = el.min !== '' ? Number(el.min) : -Infinity;
+                const max = el.max !== '' ? Number(el.max) : Infinity;
+                const parsed = Number(el.value);
+                if (el.value === '' || !Number.isFinite(parsed)) return;
+                updateBlock(b => { b[el.dataset.bNum] = Math.max(min, Math.min(max, parsed)); });
             });
         });
         bodyEl.querySelectorAll('[data-b-optnum]').forEach(el => {
@@ -537,8 +771,17 @@ export function mountCreditSuiteInspector({ state, stage }) {
             });
         });
         bodyEl.querySelectorAll('[data-bs]').forEach(el => {
-            el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', () => {
-                updateBlock(b => { b.style = b.style || {}; b.style[el.dataset.bs] = el.value; });
+            const isSel = el.tagName === 'SELECT';
+            el.addEventListener(isSel ? 'change' : 'input', () => {
+                updateBlock(
+                    b => { b.style = b.style || {}; b.style[el.dataset.bs] = el.value; },
+                    isSel ? {} : { undoGroup: `bs:${block.id}:${el.dataset.bs}` }
+                );
+                // Keep paired color picker synced when typing a hex color
+                const pair = bodyEl.querySelector(`[data-bs-color="${CSS.escape(el.dataset.bs)}"]`);
+                if (pair && /^#[0-9a-f]{6,8}$/i.test(el.value.trim())) {
+                    pair.value = el.value.trim().slice(0, 7);
+                }
             });
         });
         bodyEl.querySelectorAll('[data-bs-num]').forEach(el => {
@@ -553,19 +796,22 @@ export function mountCreditSuiteInspector({ state, stage }) {
         });
         bodyEl.querySelectorAll('[data-bs-color]').forEach(el => {
             el.addEventListener('input', () => {
-                updateBlock(b => { b.style = b.style || {}; b.style[el.dataset.bsColor] = `${el.value.toUpperCase()}FF`; });
+                const hex8 = `${el.value.toUpperCase()}FF`;
+                updateBlock(b => { b.style = b.style || {}; b.style[el.dataset.bsColor] = hex8; }, { undoGroup: `bsc:${block.id}:${el.dataset.bsColor}` });
+                const textPair = bodyEl.querySelector(`input[type="text"][data-bs="${CSS.escape(el.dataset.bsColor)}"]`);
+                if (textPair) textPair.value = hex8;
             });
         });
 
         // Pickers
         bodyEl.querySelector('#cs-pick-block-icon')?.addEventListener('click', () => {
-            window.IconPicker?.open({ value: st.iconClass || '', onPick: cls => updateBlock(b => { b.style.iconClass = cls; }) });
+            window.IconPicker?.open({ value: st.iconClass || '', onPick: cls => updateBlock(b => { b.style = b.style || {}; b.style.iconClass = cls; }, { reason: 'project-structure' }) });
         });
         bodyEl.querySelector('#cs-pick-media-icon')?.addEventListener('click', () => {
-            window.IconPicker?.open({ value: block.mediaIcon || '', onPick: cls => updateBlock(b => { b.mediaIcon = cls; }) });
+            window.IconPicker?.open({ value: block.mediaIcon || '', onPick: cls => updateBlock(b => { b.mediaIcon = cls; }, { reason: 'project-structure' }) });
         });
         bodyEl.querySelector('#cs-pick-block-asset')?.addEventListener('click', () => {
-            openAssetPickerModal(state, { value: block.mediaUrl || '', kind: block.mediaKind === 'video' ? 'video' : 'image', onPick: url => updateBlock(b => { b.mediaUrl = url; }) });
+            openAssetPickerModal(state, { value: block.mediaUrl || '', kind: block.mediaKind === 'video' ? 'video' : 'image', onPick: url => updateBlock(b => { b.mediaUrl = url; }, { reason: 'project-structure' }) });
         });
 
         // Role-split rows
@@ -573,7 +819,7 @@ export function mountCreditSuiteInspector({ state, stage }) {
             updateBlock(b => {
                 b.rows = b.rows || [];
                 b.rows.push({ id: `r-${Date.now()}`, role: 'Role', name: 'Name', checked: true });
-            });
+            }, { reason: 'project-structure' });
         });
         bodyEl.querySelector('#cs-bulk-rows')?.addEventListener('click', () => {
             openBulkImportModal({
@@ -583,36 +829,46 @@ export function mountCreditSuiteInspector({ state, stage }) {
                         const parts = line.split(/\s*(?:\||,|\t|—|–| - )\s*/);
                         return { id: `r-${Date.now()}-${i}`, role: parts[0] || '', name: parts.slice(1).join(' ') || '', checked: true };
                     });
-                    updateBlock(b => { b.rows = replace ? parsed : [...(b.rows || []), ...parsed]; });
+                    updateBlock(b => { b.rows = replace ? parsed : [...(b.rows || []), ...parsed]; }, { reason: 'project-structure' });
                 }
             });
         });
         bodyEl.querySelectorAll('[data-row-chk]').forEach(el => {
-            el.addEventListener('change', () => updateBlock(b => { b.rows[Number(el.dataset.rowChk)].checked = el.checked; }));
+            el.addEventListener('change', () => updateBlock(b => { if (b.rows[Number(el.dataset.rowChk)]) b.rows[Number(el.dataset.rowChk)].checked = el.checked; }));
         });
         bodyEl.querySelectorAll('[data-row-role]').forEach(el => {
-            el.addEventListener('input', () => updateBlock(b => { b.rows[Number(el.dataset.rowRole)].role = el.value; }));
+            el.addEventListener('input', () => updateBlock(b => { if (b.rows[Number(el.dataset.rowRole)]) b.rows[Number(el.dataset.rowRole)].role = el.value; }, { undoGroup: `rr:${block.id}:${el.dataset.rowRole}` }));
         });
         bodyEl.querySelectorAll('[data-row-name]').forEach(el => {
-            el.addEventListener('input', () => updateBlock(b => { b.rows[Number(el.dataset.rowName)].name = el.value; }));
+            el.addEventListener('input', () => updateBlock(b => { if (b.rows[Number(el.dataset.rowName)]) b.rows[Number(el.dataset.rowName)].name = el.value; }, { undoGroup: `rn:${block.id}:${el.dataset.rowName}` }));
         });
         bodyEl.querySelectorAll('[data-row-del]').forEach(el => {
-            el.addEventListener('click', () => updateBlock(b => { b.rows.splice(Number(el.dataset.rowDel), 1); }));
+            el.addEventListener('click', () => updateBlock(b => { b.rows.splice(Number(el.dataset.rowDel), 1); }, { reason: 'project-structure' }));
         });
 
         // Roster names & Data Source
         bodyEl.querySelectorAll('[data-b-ds]').forEach(el => {
             el.addEventListener('change', () => {
-                updateBlock(b => { b.dataSource = b.dataSource || {}; b.dataSource[el.dataset.bDs] = el.value; });
+                updateBlock(b => { b.dataSource = b.dataSource || {}; b.dataSource[el.dataset.bDs] = el.value; }, { reason: 'project-structure' });
             });
         });
         bodyEl.querySelector('#cs-pull-ds')?.addEventListener('click', async () => {
+            const liveBlock = (state.store.project?.blocks || []).find(x => x.id === block.id);
+            if (!liveBlock) return;
+            const dsrc = liveBlock.dataSource || {};
+            if ((dsrc.type === 'variable-set' || dsrc.type === 'list-variable') && !dsrc.sourceId) {
+                window.alert('Please select a source first before pulling names.');
+                return;
+            }
             try {
-                const res = await state.pullDataSource(block);
+                const res = await state.pullDataSource(liveBlock);
                 updateBlock(b => {
                     if (res.names) b.names = res.names;
                     if (res.rows) b.rows = res.rows;
-                });
+                }, { reason: 'project-structure' });
+                if (res.conflicts && res.conflicts.length) {
+                    window.alert(`Refreshed ${res.count || 0} entries. ${res.conflicts.length} customized name override(s) were preserved despite upstream changes.`);
+                }
             } catch (err) {
                 window.alert(err.message);
             }
@@ -621,7 +877,7 @@ export function mountCreditSuiteInspector({ state, stage }) {
             updateBlock(b => {
                 b.names = b.names || [];
                 b.names.push({ id: `n-${Date.now()}`, name: 'New Contributor', editedName: '', checked: true });
-            });
+            }, { reason: 'project-structure' });
         });
         bodyEl.querySelector('#cs-bulk-names')?.addEventListener('click', () => {
             openBulkImportModal({
@@ -630,22 +886,23 @@ export function mountCreditSuiteInspector({ state, stage }) {
                     const parsed = raw.split(/[\n,]+/).map(s => s.trim()).filter(Boolean).map((name, i) => ({
                         id: `n-${Date.now()}-${i}`, name, editedName: '', checked: true
                     }));
-                    updateBlock(b => { b.names = replace ? parsed : [...(b.names || []), ...parsed]; });
+                    updateBlock(b => { b.names = replace ? parsed : [...(b.names || []), ...parsed]; }, { reason: 'project-structure' });
                 }
             });
         });
         bodyEl.querySelectorAll('[data-name-chk]').forEach(el => {
-            el.addEventListener('change', () => updateBlock(b => { b.names[Number(el.dataset.nameChk)].checked = el.checked; }));
+            el.addEventListener('change', () => updateBlock(b => { if (b.names[Number(el.dataset.nameChk)]) b.names[Number(el.dataset.nameChk)].checked = el.checked; }));
         });
         bodyEl.querySelectorAll('[data-name-val]').forEach(el => {
             el.addEventListener('input', () => updateBlock(b => {
                 const item = b.names[Number(el.dataset.nameVal)];
+                if (!item) return;
                 if (item.sourceKey) item.editedName = el.value;
                 else item.name = el.value;
-            }));
+            }, { undoGroup: `nv:${block.id}:${el.dataset.nameVal}` }));
         });
         bodyEl.querySelectorAll('[data-name-del]').forEach(el => {
-            el.addEventListener('click', () => updateBlock(b => { b.names.splice(Number(el.dataset.nameDel), 1); }));
+            el.addEventListener('click', () => updateBlock(b => { b.names.splice(Number(el.dataset.nameDel), 1); }, { reason: 'project-structure' }));
         });
 
         // Logo strip controls
@@ -653,25 +910,25 @@ export function mountCreditSuiteInspector({ state, stage }) {
             updateBlock(b => {
                 b.logos = b.logos || [];
                 b.logos.push({ id: `lg-${Date.now()}`, url: '', iconClass: 'fa-solid fa-star', label: 'Partner' });
-            });
+            }, { reason: 'project-structure' });
         });
         bodyEl.querySelectorAll('[data-logo-lbl]').forEach(el => {
-            el.addEventListener('input', () => updateBlock(b => { b.logos[Number(el.dataset.logoLbl)].label = el.value; }));
+            el.addEventListener('input', () => updateBlock(b => { if (b.logos[Number(el.dataset.logoLbl)]) b.logos[Number(el.dataset.logoLbl)].label = el.value; }, { undoGroup: `lg:${block.id}:${el.dataset.logoLbl}` }));
         });
         bodyEl.querySelectorAll('[data-logo-asset]').forEach(el => {
             el.addEventListener('click', () => {
                 const idx = Number(el.dataset.logoAsset);
-                openAssetPickerModal(state, { kind: 'image', onPick: url => updateBlock(b => { b.logos[idx].url = url; b.logos[idx].iconClass = ''; }) });
+                openAssetPickerModal(state, { kind: 'image', onPick: url => updateBlock(b => { if (b.logos[idx]) { b.logos[idx].url = url; b.logos[idx].iconClass = ''; } }, { reason: 'project-structure' }) });
             });
         });
         bodyEl.querySelectorAll('[data-logo-icon]').forEach(el => {
             el.addEventListener('click', () => {
                 const idx = Number(el.dataset.logoIcon);
-                window.IconPicker?.open({ value: block.logos[idx]?.iconClass || '', onPick: cls => updateBlock(b => { b.logos[idx].iconClass = cls; b.logos[idx].url = ''; }) });
+                window.IconPicker?.open({ value: block.logos[idx]?.iconClass || '', onPick: cls => updateBlock(b => { if (b.logos[idx]) { b.logos[idx].iconClass = cls; b.logos[idx].url = ''; } }, { reason: 'project-structure' }) });
             });
         });
         bodyEl.querySelectorAll('[data-logo-del]').forEach(el => {
-            el.addEventListener('click', () => updateBlock(b => { b.logos.splice(Number(el.dataset.logoDel), 1); }));
+            el.addEventListener('click', () => updateBlock(b => { b.logos.splice(Number(el.dataset.logoDel), 1); }, { reason: 'project-structure' }));
         });
 
         // Sortable drag-and-drop for inline Role/Roster rows
@@ -684,7 +941,7 @@ export function mountCreditSuiteInspector({ state, stage }) {
                     handle: '.cs-grip',
                     onEnd: evt => {
                         if (evt.oldIndex === evt.newIndex) return;
-                        updateBlock(b => { const [m] = b.rows.splice(evt.oldIndex, 1); b.rows.splice(evt.newIndex, 0, m); });
+                        updateBlock(b => { const [m] = b.rows.splice(evt.oldIndex, 1); b.rows.splice(evt.newIndex, 0, m); }, { reason: 'project-structure' });
                     }
                 });
             } else if (namesEl) {
@@ -693,7 +950,7 @@ export function mountCreditSuiteInspector({ state, stage }) {
                     handle: '.cs-grip',
                     onEnd: evt => {
                         if (evt.oldIndex === evt.newIndex) return;
-                        updateBlock(b => { const [m] = b.names.splice(evt.oldIndex, 1); b.names.splice(evt.newIndex, 0, m); });
+                        updateBlock(b => { const [m] = b.names.splice(evt.oldIndex, 1); b.names.splice(evt.newIndex, 0, m); }, { reason: 'project-structure' });
                     }
                 });
             }
@@ -820,6 +1077,15 @@ export function mountCreditSuiteInspector({ state, stage }) {
                         <label>Slide Interval (s)</label>
                         <input type="number" min="1" max="60" data-c-num="slideshowIntervalSec" value="${clip.slideshowIntervalSec || 4}">
                     </div>
+                    <div class="cs-inline-list" style="margin-bottom:6px;">
+                        ${(clip.slideshowImages || []).map((url, idx) => `
+                            <div class="cs-inline-row">
+                                <img src="${esc(url)}" alt="" style="width:24px;height:18px;object-fit:cover;border-radius:3px;flex-shrink:0;">
+                                <span style="flex:1;min-width:0;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(String(url).split('/').pop() || url)}</span>
+                                <button type="button" class="cs-mini-icon-btn danger" data-slide-del="${idx}" title="Remove image">&times;</button>
+                            </div>
+                        `).join('')}
+                    </div>
                     <button type="button" class="cs-btn cs-btn-sm cs-btn-primary" id="cs-add-slide-img">+ Add Image to Slideshow (${(clip.slideshowImages || []).length})</button>
                 ` : ''}
                 ${(t === 'text' || t === 'shape') ? `
@@ -848,10 +1114,8 @@ export function mountCreditSuiteInspector({ state, stage }) {
                     ${t === 'meter' ? `<div class="cs-field"><label>Max Value</label><input type="number" min="1" data-c-num="counterMax" value="${clip.counterMax || 100}"></div>` : ''}
                 ` : ''}
                 ${t === 'pattern' ? `
-                    <div class="cs-grid-2">
-                        <div class="cs-field"><label>Pattern</label><select data-c="patternPreset">${getPatternPresets().map(p => `<option value="${esc(p)}" ${clip.patternPreset === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></div>
-                        <div class="cs-field"><label>Palette</label><select data-c="patternPalette">${getPatternPalettes().map(p => `<option value="${esc(p)}" ${clip.patternPalette === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></div>
-                    </div>
+                    <div class="cs-field"><label>Base Fill Color</label><input type="color" data-c-color="fillColor" value="${toColorHex6(clip.fillColor, '#07080c')}"></div>
+                    ${renderPatternControlsHtml(clip, { attrStr: 'data-c', attrNum: 'data-c-num', attrColor: 'data-c-color', prefix: '', showOpacity: false })}
                 ` : ''}
             </div>
 
@@ -910,11 +1174,11 @@ export function mountCreditSuiteInspector({ state, stage }) {
             </details>
         `;
 
-        const updateClip = fn => state.mutateProject(p => {
+        const updateClip = (fn, opts = {}) => state.mutateProject(p => {
             const tr = p.tracks.find(x => x.id === track.id);
             const c = tr?.clips.find(x => x.id === clip.id);
             if (c) fn(c);
-        });
+        }, opts);
 
         bodyEl.querySelector('#cs-insp-dup-clip')?.addEventListener('click', () => {
             state.mutateProject(p => {
@@ -926,27 +1190,35 @@ export function mountCreditSuiteInspector({ state, stage }) {
                     copy.name = `${copy.name} (Copy)`;
                     tr.clips.splice(idx + 1, 0, copy);
                 }
-            });
+            }, { reason: 'project-structure' });
         });
         bodyEl.querySelector('#cs-insp-del-clip')?.addEventListener('click', () => {
             state.mutateProject(p => {
                 const tr = p.tracks.find(x => x.id === track.id);
                 if (tr) tr.clips = tr.clips.filter(x => x.id !== clip.id);
-            });
+            }, { reason: 'project-structure' });
             state.setSelection(null, null);
         });
 
         bodyEl.querySelectorAll('[data-c]').forEach(el => {
-            el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', () => updateClip(c => { c[el.dataset.c] = el.value; }));
+            const isSel = el.tagName === 'SELECT';
+            el.addEventListener(isSel ? 'change' : 'input', () => updateClip(
+                c => { c[el.dataset.c] = el.value; },
+                isSel ? { reason: 'project-structure' } : { undoGroup: `c:${clip.id}:${el.dataset.c}` }
+            ));
         });
         bodyEl.querySelectorAll('[data-c-num]').forEach(el => {
-            el.addEventListener('change', () => updateClip(c => { c[el.dataset.cNum] = Number(el.value) || 0; }));
+            el.addEventListener('change', () => {
+                const parsed = Number(el.value);
+                if (el.value === '' || !Number.isFinite(parsed)) return;
+                updateClip(c => { c[el.dataset.cNum] = parsed; });
+            });
         });
         bodyEl.querySelectorAll('[data-c-chk]').forEach(el => {
             el.addEventListener('change', () => updateClip(c => { c[el.dataset.cChk] = el.checked; }));
         });
         bodyEl.querySelectorAll('[data-c-color]').forEach(el => {
-            el.addEventListener('input', () => updateClip(c => { c[el.dataset.cColor] = `${el.value.toUpperCase()}FF`; }));
+            el.addEventListener('input', () => updateClip(c => { c[el.dataset.cColor] = `${el.value.toUpperCase()}FF`; }, { undoGroup: `cc:${clip.id}:${el.dataset.cColor}` }));
         });
 
         bodyEl.querySelectorAll('[data-place]').forEach(btn => {
@@ -956,7 +1228,7 @@ export function mountCreditSuiteInspector({ state, stage }) {
                     if (mode === 'left') { c.x = 4; c.y = 14; c.width = 42; c.height = 72; c.pushCredits = 'auto'; }
                     else if (mode === 'right') { c.x = 54; c.y = 14; c.width = 42; c.height = 72; c.pushCredits = 'auto'; }
                     else if (mode === 'full') { c.x = 0; c.y = 0; c.width = 100; c.height = 100; c.pushCredits = 'none'; }
-                });
+                }, { reason: 'project-structure' });
             });
         });
 
@@ -967,14 +1239,22 @@ export function mountCreditSuiteInspector({ state, stage }) {
             stage?.play();
         });
         bodyEl.querySelector('#cs-pick-clip-asset')?.addEventListener('click', () => {
-            openAssetPickerModal(state, { value: clip.mediaUrl || '', kind: t === 'video' ? 'video' : 'image', onPick: url => updateClip(c => { c.mediaUrl = url; }) });
+            openAssetPickerModal(state, { value: clip.mediaUrl || '', kind: t === 'video' ? 'video' : 'image', onPick: url => updateClip(c => { c.mediaUrl = url; }, { reason: 'project-structure' }) });
         });
         bodyEl.querySelector('#cs-add-slide-img')?.addEventListener('click', () => {
-            openAssetPickerModal(state, { kind: 'image', onPick: url => updateClip(c => { c.slideshowImages = [...(c.slideshowImages || []), url]; }) });
+            openAssetPickerModal(state, { kind: 'image', onPick: url => updateClip(c => { c.slideshowImages = [...(c.slideshowImages || []), url]; }, { reason: 'project-structure' }) });
+        });
+        bodyEl.querySelectorAll('[data-slide-del]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const idx = Number(btn.dataset.slideDel);
+                updateClip(c => {
+                    c.slideshowImages = (c.slideshowImages || []).filter((_, i) => i !== idx);
+                }, { reason: 'project-structure' });
+            });
         });
         bodyEl.querySelector('#cs-pick-clip-icon')?.addEventListener('click', () => {
             const key = t === 'badge' ? 'badgeIcon' : 'iconClass';
-            window.IconPicker?.open({ value: clip[key] || '', onPick: cls => updateClip(c => { c[key] = cls; }) });
+            window.IconPicker?.open({ value: clip[key] || '', onPick: cls => updateClip(c => { c[key] = cls; }, { reason: 'project-structure' }) });
         });
     }
 
@@ -1108,16 +1388,12 @@ export function mountCreditSuiteInspector({ state, stage }) {
                 </div>
                 ${(bg.type === 'solid' || bg.type === 'gradient' || bg.type === 'pattern') ? `
                     <div class="cs-grid-2">
-                        <div class="cs-field"><label>Primary Color</label><input type="color" data-p-color="background.color1" value="${toColorHex6(bg.color1, '#07080c')}"></div>
+                        <div class="cs-field"><label>${bg.type === 'pattern' ? 'Backdrop Color' : 'Primary Color'}</label><input type="color" data-p-color="background.color1" value="${toColorHex6(bg.color1, '#07080c')}"></div>
                         ${bg.type === 'gradient' ? `<div class="cs-field"><label>Secondary Color</label><input type="color" data-p-color="background.color2" value="${toColorHex6(bg.color2, '#131826')}"></div>` : ''}
                     </div>
                 ` : ''}
-                ${bg.type === 'pattern' ? `
-                    <div class="cs-grid-2">
-                        <div class="cs-field"><label>Pattern</label><select data-p="background.patternPreset">${getPatternPresets().map(p => `<option value="${esc(p)}" ${bg.patternPreset === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></div>
-                        <div class="cs-field"><label>Palette</label><select data-p="background.patternPalette">${getPatternPalettes().map(p => `<option value="${esc(p)}" ${bg.patternPalette === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></div>
-                    </div>
-                ` : ''}
+                ${bg.type === 'gradient' ? `<div class="cs-field"><label>Gradient Angle (deg)</label><input type="number" min="0" max="360" step="15" data-p-num="background.angle" value="${bg.angle ?? 180}"></div>` : ''}
+                ${bg.type === 'pattern' ? renderPatternControlsHtml(bg, { attrStr: 'data-p', attrNum: 'data-p-num', attrColor: 'data-p-color', prefix: 'background.', showOpacity: true }) : ''}
                 ${(bg.type === 'image' || bg.type === 'video') ? `
                     <div class="cs-field">
                         <label>Media Asset</label>
@@ -1125,6 +1401,14 @@ export function mountCreditSuiteInspector({ state, stage }) {
                             <input type="text" data-p="background.mediaUrl" value="${esc(bg.mediaUrl || '')}">
                             <button type="button" class="cs-btn cs-btn-sm" id="cs-pick-bg-asset">Library</button>
                         </div>
+                    </div>
+                    <div class="cs-field">
+                        <label>Fit Mode</label>
+                        <select data-p="background.mediaFit">
+                            <option value="cover" ${bg.mediaFit === 'cover' ? 'selected' : ''}>Cover (Fill)</option>
+                            <option value="contain" ${bg.mediaFit === 'contain' ? 'selected' : ''}>Contain (Fit)</option>
+                            <option value="contain-blur" ${bg.mediaFit === 'contain-blur' ? 'selected' : ''}>Contain + Blurred Fill</option>
+                        </select>
                     </div>
                     <div class="cs-grid-2">
                         <div class="cs-field"><label>Opacity</label><input type="number" min="0" max="1" step="0.05" data-p-num="background.mediaOpacity" value="${bg.mediaOpacity ?? 0.45}"></div>
@@ -1163,7 +1447,7 @@ export function mountCreditSuiteInspector({ state, stage }) {
         };
 
         bodyEl.querySelector('#cs-proj-name')?.addEventListener('input', ev => {
-            state.mutateProject(p => { p.name = ev.target.value; });
+            state.mutateProject(p => { p.name = ev.target.value; }, { undoGroup: 'proj:name' });
         });
         bodyEl.querySelector('#cs-cv-preset')?.addEventListener('change', ev => {
             const found = engine.CANVAS_PRESETS.find(c => c.id === ev.target.value);
@@ -1173,16 +1457,26 @@ export function mountCreditSuiteInspector({ state, stage }) {
                     p.canvas.width = found.width;
                     p.canvas.height = found.height;
                 }
-            });
+            }, { reason: 'project-structure' });
         });
         bodyEl.querySelectorAll('[data-p]').forEach(el => {
-            el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', () => {
-                state.mutateProject(p => setNested(p, el.dataset.p, el.value));
+            const isSel = el.tagName === 'SELECT';
+            el.addEventListener(isSel ? 'change' : 'input', () => {
+                state.mutateProject(
+                    p => setNested(p, el.dataset.p, el.value),
+                    isSel ? { reason: 'project-structure' } : { undoGroup: `p:${el.dataset.p}` }
+                );
             });
         });
         bodyEl.querySelectorAll('[data-p-num]').forEach(el => {
             el.addEventListener('change', () => {
-                state.mutateProject(p => setNested(p, el.dataset.pNum, Number(el.value)));
+                const parsed = Number(el.value);
+                if (el.value === '' || !Number.isFinite(parsed)) return;
+                const min = el.min !== '' ? Number(el.min) : -Infinity;
+                const max = el.max !== '' ? Number(el.max) : Infinity;
+                const clamped = Math.max(min, Math.min(max, parsed));
+                el.value = String(clamped);
+                state.mutateProject(p => setNested(p, el.dataset.pNum, clamped));
             });
         });
         bodyEl.querySelectorAll('[data-p-chk]').forEach(el => {
@@ -1192,7 +1486,7 @@ export function mountCreditSuiteInspector({ state, stage }) {
         });
         bodyEl.querySelectorAll('[data-p-color]').forEach(el => {
             el.addEventListener('input', () => {
-                state.mutateProject(p => setNested(p, el.dataset.pColor, `${el.value.toUpperCase()}FF`));
+                state.mutateProject(p => setNested(p, el.dataset.pColor, `${el.value.toUpperCase()}FF`), { undoGroup: `pc:${el.dataset.pColor}` });
             });
         });
         const snapshotCurrentTheme = name => ({
@@ -1214,12 +1508,7 @@ export function mountCreditSuiteInspector({ state, stage }) {
             subtitleColor: th.subtitleColor,
             dividerColor: th.dividerColor,
             background: {
-                type: bg.type,
-                color1: bg.color1,
-                color2: bg.color2,
-                angle: bg.angle,
-                patternPreset: bg.patternPreset,
-                patternPalette: bg.patternPalette
+                ...bg
             }
         });
 
@@ -1228,11 +1517,12 @@ export function mountCreditSuiteInspector({ state, stage }) {
             if (!name || !name.trim()) return;
             try {
                 const created = await state.saveTheme(snapshotCurrentTheme(name.trim()), { createNew: true });
-                state.mutateProject(p => { p.theme.preset = created.id; });
+                state.mutateProject(p => { p.theme.preset = created.id; }, { reason: 'project-structure' });
             } catch (err) { window.alert(err.message); }
         });
 
         bodyEl.querySelector('#cs-reset-themes-btn')?.addEventListener('click', async () => {
+            if (!window.confirm('Restore all built-in starter themes to their default colors and typography? (Your custom themes will be kept.)')) return;
             try { await state.resetThemes(); } catch (err) { window.alert(err.message); }
         });
 
@@ -1245,7 +1535,7 @@ export function mountCreditSuiteInspector({ state, stage }) {
                 if (!window.confirm(`Overwrite theme "${existing.name}" with your current typography, colors & background?`)) return;
                 try {
                     await state.updateTheme(tid, snapshotCurrentTheme(existing.name));
-                    state.mutateProject(p => { p.theme.preset = tid; });
+                    state.mutateProject(p => { p.theme.preset = tid; }, { reason: 'project-structure' });
                 } catch (err) { window.alert(err.message); }
             });
         });
@@ -1274,7 +1564,7 @@ export function mountCreditSuiteInspector({ state, stage }) {
         });
 
         bodyEl.querySelectorAll('[data-apply-theme]').forEach(btn => {
-            btn.addEventListener('click', () => {
+            const applyThisTheme = () => {
                 const preset = (state.store.themes || []).find(t => t.id === btn.dataset.applyTheme)
                     || engine.STARTER_THEMES[btn.dataset.applyTheme];
                 if (!preset) return;
@@ -1299,19 +1589,52 @@ export function mountCreditSuiteInspector({ state, stage }) {
                         dividerColor: preset.dividerColor
                     });
                     if (preset.background && ['solid', 'gradient', 'transparent', 'pattern', 'chroma'].includes(preset.background.type)) {
-                        p.background.type = preset.background.type;
-                        p.background.color1 = preset.background.color1;
-                        p.background.color2 = preset.background.color2;
-                        p.background.angle = preset.background.angle;
-                        if (preset.background.patternPreset) p.background.patternPreset = preset.background.patternPreset;
-                        if (preset.background.patternPalette) p.background.patternPalette = preset.background.patternPalette;
+                        Object.assign(p.background, preset.background);
                     }
-                });
+                }, { reason: 'project-structure' });
+            };
+            btn.addEventListener('click', applyThisTheme);
+            btn.addEventListener('keydown', ev => {
+                if (ev.key === 'Enter' || ev.key === ' ') {
+                    ev.preventDefault();
+                    applyThisTheme();
+                }
             });
         });
         bodyEl.querySelector('#cs-pick-bg-asset')?.addEventListener('click', () => {
-            openAssetPickerModal(state, { value: bg.mediaUrl || '', kind: bg.type === 'video' ? 'video' : 'image', onPick: url => state.mutateProject(p => { p.background.mediaUrl = url; }) });
+            openAssetPickerModal(state, { value: bg.mediaUrl || '', kind: bg.type === 'video' ? 'video' : 'image', onPick: url => state.mutateProject(p => { p.background.mediaUrl = url; }, { reason: 'project-structure' }) });
         });
+    }
+
+    function renderExportJobMarkup(job) {
+        if (!job) return '';
+        const isBusy = job.status === 'queued' || job.status === 'running';
+        return `
+            <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:7px;padding:9px;display:flex;flex-direction:column;gap:6px;">
+                <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;">
+                    <span>${esc(job.phase || job.status)}</span>
+                    <span>${job.percent || 0}%</span>
+                </div>
+                <div class="cs-progress-bar"><div class="cs-progress-fill" style="width:${job.percent || 0}%;"></div></div>
+                ${job.error ? `<div style="font-size:11px;color:#f87171;">${esc(job.error)}</div>` : ''}
+                <div style="display:flex;gap:6px;justify-content:flex-end;">
+                    ${isBusy ? '<button type="button" class="cs-btn cs-btn-sm cs-btn-danger" id="cs-cancel-export">Cancel</button>' : ''}
+                    ${job.status === 'done' && job.downloadUrl ? `<a class="cs-btn cs-btn-sm cs-btn-primary" href="${esc(job.downloadUrl)}" style="text-decoration:none;">Download ${esc(job.fileName)}</a>` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    function updateExportProgressDom() {
+        const slot = bodyEl?.querySelector('#cs-export-job-slot');
+        if (!slot) return false;
+        const job = state.store.activeExportJob;
+        const isBusy = Boolean(job && (job.status === 'queued' || job.status === 'running'));
+        slot.innerHTML = renderExportJobMarkup(job);
+        slot.querySelector('#cs-cancel-export')?.addEventListener('click', () => state.cancelExport());
+        const startBtn = bodyEl.querySelector('#cs-start-export');
+        if (startBtn) startBtn.disabled = isBusy;
+        return true;
     }
 
     function renderExportInspector() {
@@ -1319,26 +1642,13 @@ export function mountCreditSuiteInspector({ state, stage }) {
         const caps = state.store.capabilities;
         const hasFfmpeg = Boolean(caps?.ffmpeg?.available);
         const job = state.store.activeExportJob;
+        const isBusy = Boolean(job && (job.status === 'queued' || job.status === 'running'));
+        const expOpts = state.store.exportOptions || {};
+        const selFormat = expOpts.format || 'mp4';
+        const selFps = expOpts.fps === 'project' || !expOpts.fps ? String(proj.canvas.fps || 60) : String(expOpts.fps);
+        const selScale = expOpts.scale || '1';
+        const selAlpha = expOpts.transparent !== undefined ? Boolean(expOpts.transparent) : (proj.background.type === 'transparent');
         const overlayUrl = `${window.location.origin}/overlays/credit-suite.html?project=${encodeURIComponent(proj.id)}`;
-
-        let jobHtml = '';
-        if (job) {
-            const isBusy = job.status === 'queued' || job.status === 'running';
-            jobHtml = `
-                <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:7px;padding:9px;display:flex;flex-direction:column;gap:6px;">
-                    <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;">
-                        <span>${esc(job.phase || job.status)}</span>
-                        <span>${job.percent || 0}%</span>
-                    </div>
-                    <div class="cs-progress-bar"><div class="cs-progress-fill" style="width:${job.percent || 0}%;"></div></div>
-                    ${job.error ? `<div style="font-size:11px;color:#f87171;">${esc(job.error)}</div>` : ''}
-                    <div style="display:flex;gap:6px;justify-content:flex-end;">
-                        ${isBusy ? '<button type="button" class="cs-btn cs-btn-sm cs-btn-danger" id="cs-cancel-export">Cancel</button>' : ''}
-                        ${job.status === 'done' && job.downloadUrl ? `<a class="cs-btn cs-btn-sm cs-btn-primary" href="${esc(job.downloadUrl)}" style="text-decoration:none;">Download ${esc(job.fileName)}</a>` : ''}
-                    </div>
-                </div>
-            `;
-        }
 
         bodyEl.innerHTML = `
             <div class="cs-section">
@@ -1352,21 +1662,21 @@ export function mountCreditSuiteInspector({ state, stage }) {
                 <div class="cs-field">
                     <label>Export Format</label>
                     <select id="cs-exp-format">
-                        <option value="mp4">MP4 (H.264 — Universal / Opaque BG)</option>
-                        <option value="webm-alpha">WebM (VP9 + True Alpha — OBS &amp; Web)</option>
-                        <option value="prores-alpha">ProRes 4444 (.mov + True Alpha — Resolve/FCP/Premiere)</option>
-                        <option value="png-sequence">PNG Frame Sequence (.zip + True Alpha)</option>
-                        <option value="full-png">Full Tall Credits Sheet (.png)</option>
-                        <option value="section-pngs">Individual Section PNGs (.zip)</option>
+                        <option value="mp4" ${selFormat === 'mp4' ? 'selected' : ''}>MP4 (H.264 — Universal / Opaque BG)</option>
+                        <option value="webm-alpha" ${selFormat === 'webm-alpha' ? 'selected' : ''}>WebM (VP9 + True Alpha — OBS &amp; Web)</option>
+                        <option value="prores-alpha" ${selFormat === 'prores-alpha' ? 'selected' : ''}>ProRes 4444 (.mov + True Alpha — Resolve/FCP/Premiere)</option>
+                        <option value="png-sequence" ${selFormat === 'png-sequence' ? 'selected' : ''}>PNG Frame Sequence (.zip + True Alpha)</option>
+                        <option value="full-png" ${selFormat === 'full-png' ? 'selected' : ''}>Full Tall Credits Sheet (.png)</option>
+                        <option value="section-pngs" ${selFormat === 'section-pngs' ? 'selected' : ''}>Individual Section PNGs (.zip)</option>
                     </select>
                 </div>
                 <div class="cs-grid-2">
-                    <div class="cs-field"><label>FPS</label><select id="cs-exp-fps"><option value="60" ${proj.canvas.fps === 60 ? 'selected' : ''}>60 fps</option><option value="30" ${proj.canvas.fps === 30 ? 'selected' : ''}>30 fps</option><option value="24" ${proj.canvas.fps === 24 ? 'selected' : ''}>24 fps</option></select></div>
-                    <div class="cs-field"><label>Resolution</label><select id="cs-exp-scale"><option value="1">Project (${proj.canvas.width}x${proj.canvas.height})</option><option value="0.5">Half Preview (${Math.round(proj.canvas.width / 2)}x${Math.round(proj.canvas.height / 2)})</option></select></div>
+                    <div class="cs-field"><label>FPS</label><select id="cs-exp-fps"><option value="60" ${selFps === '60' ? 'selected' : ''}>60 fps</option><option value="30" ${selFps === '30' ? 'selected' : ''}>30 fps</option><option value="24" ${selFps === '24' ? 'selected' : ''}>24 fps</option></select></div>
+                    <div class="cs-field"><label>Resolution</label><select id="cs-exp-scale"><option value="1" ${selScale === '1' ? 'selected' : ''}>Project (${proj.canvas.width}x${proj.canvas.height})</option><option value="0.5" ${selScale === '0.5' ? 'selected' : ''}>Half Preview (${Math.round(proj.canvas.width / 2)}x${Math.round(proj.canvas.height / 2)})</option></select></div>
                 </div>
-                <label class="cs-check-row"><input type="checkbox" id="cs-exp-alpha" ${proj.background.type === 'transparent' ? 'checked' : ''}> Force Transparent Background (Alpha formats)</label>
-                <button type="button" class="cs-btn cs-btn-primary" id="cs-start-export">Start Render Export</button>
-                ${jobHtml}
+                <label class="cs-check-row"><input type="checkbox" id="cs-exp-alpha" ${selAlpha ? 'checked' : ''}> Force Transparent Background (Alpha formats)</label>
+                <button type="button" class="cs-btn cs-btn-primary" id="cs-start-export" ${isBusy ? 'disabled' : ''}>Start Render Export</button>
+                <div id="cs-export-job-slot">${renderExportJobMarkup(job)}</div>
             </div>
 
             <div class="cs-section">
@@ -1385,7 +1695,7 @@ export function mountCreditSuiteInspector({ state, stage }) {
                 </div>
                 <div class="cs-grid-2">
                     <button type="button" class="cs-btn cs-btn-primary" id="cs-copy-obs-url">Copy OBS URL</button>
-                    <a class="cs-btn" href="${esc(overlayUrl)}" target="_blank" style="text-decoration:none;">Open Live Tab</a>
+                    <a class="cs-btn" href="${esc(overlayUrl)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;">Open Live Tab</a>
                 </div>
                 <div class="cs-section-head" style="margin-top:6px;">Live OBS Transport (WebSocket / Companion)</div>
                 <div class="cs-grid-2">
@@ -1397,11 +1707,29 @@ export function mountCreditSuiteInspector({ state, stage }) {
             </div>
         `;
 
+        const formatEl = bodyEl.querySelector('#cs-exp-format');
+        const fpsEl = bodyEl.querySelector('#cs-exp-fps');
+        const scaleEl = bodyEl.querySelector('#cs-exp-scale');
+        const alphaEl = bodyEl.querySelector('#cs-exp-alpha');
+        const persistExp = () => {
+            state.store.exportOptions = {
+                format: formatEl?.value || 'mp4',
+                fps: fpsEl?.value || '60',
+                scale: scaleEl?.value || '1',
+                transparent: Boolean(alphaEl?.checked)
+            };
+        };
+        formatEl?.addEventListener('change', persistExp);
+        fpsEl?.addEventListener('change', persistExp);
+        scaleEl?.addEventListener('change', persistExp);
+        alphaEl?.addEventListener('change', persistExp);
+
         bodyEl.querySelector('#cs-start-export')?.addEventListener('click', async () => {
-            const format = bodyEl.querySelector('#cs-exp-format').value;
-            const fps = Number(bodyEl.querySelector('#cs-exp-fps').value) || 60;
-            const scale = Number(bodyEl.querySelector('#cs-exp-scale').value) || 1;
-            const transparent = bodyEl.querySelector('#cs-exp-alpha').checked;
+            persistExp();
+            const format = formatEl.value;
+            const fps = Number(fpsEl.value) || 60;
+            const scale = Number(scaleEl.value) || 1;
+            const transparent = alphaEl.checked;
             try {
                 await state.startExport({
                     format,
@@ -1415,20 +1743,37 @@ export function mountCreditSuiteInspector({ state, stage }) {
             }
         });
         bodyEl.querySelector('#cs-cancel-export')?.addEventListener('click', () => state.cancelExport());
-        bodyEl.querySelector('#cs-copy-plain')?.addEventListener('click', () => {
+        bodyEl.querySelector('#cs-copy-plain')?.addEventListener('click', ev => {
             const txt = window.StreamPulseCreditSuiteEngine.generatePlainText(proj);
-            navigator.clipboard?.writeText(txt);
+            copyTextWithFeedback(txt, ev.currentTarget);
         });
-        bodyEl.querySelector('#cs-copy-obs-url')?.addEventListener('click', () => {
-            navigator.clipboard?.writeText(overlayUrl);
+        bodyEl.querySelector('#cs-copy-obs-url')?.addEventListener('click', ev => {
+            copyTextWithFeedback(overlayUrl, ev.currentTarget);
         });
         bodyEl.querySelectorAll('[data-remote]').forEach(btn => {
-            btn.addEventListener('click', () => state.sendRemoteTransport(btn.dataset.remote));
+            btn.addEventListener('click', () => {
+                state.sendRemoteTransport(btn.dataset.remote).catch(err => window.alert(err.message));
+            });
         });
+    }
+
+    function isEditingTextIn(container) {
+        const active = document.activeElement;
+        if (!active || !container || !container.contains(active)) return false;
+        if (active.tagName === 'TEXTAREA') return true;
+        if (active.tagName === 'INPUT') {
+            return !['checkbox', 'radio', 'button', 'submit', 'reset'].includes(active.type);
+        }
+        return Boolean(active.isContentEditable);
     }
 
     function render() {
         if (!bodyEl || !state.store.project) return;
+        const prevScroll = bodyEl.scrollTop;
+        const openAccTitles = new Set(
+            [...bodyEl.querySelectorAll('details.cs-acc[open] > summary')].map(s => s.textContent.trim())
+        );
+
         if (inlineSortable) {
             inlineSortable.destroy();
             inlineSortable = null;
@@ -1449,15 +1794,27 @@ export function mountCreditSuiteInspector({ state, stage }) {
                 bodyEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:12px;">Select a Credit Block or Floating Clip to edit its properties, or switch to <strong>Theme</strong> / <strong>Export</strong>.</div>';
             }
         }
+
+        if (openAccTitles.size) {
+            bodyEl.querySelectorAll('details.cs-acc').forEach(det => {
+                const title = det.querySelector('summary')?.textContent?.trim();
+                if (title && openAccTitles.has(title)) det.open = true;
+            });
+        }
+        bodyEl.scrollTop = prevScroll;
     }
 
     state.subscribe(reason => {
-        if (['init', 'project-switched', 'selection', 'ui', 'export', 'saved'].includes(reason)) {
+        if (reason === 'export') {
+            if (state.store.inspectorTab === 'export') {
+                if (!updateExportProgressDom()) render();
+            }
+            return;
+        }
+        if (['init', 'project-switched', 'project-structure', 'selection', 'inspector-tab', 'themes'].includes(reason)) {
             render();
         } else if (reason === 'project') {
-            // Avoid clobbering focus while typing inside an input/textarea
-            const active = document.activeElement;
-            if (!active || !bodyEl.contains(active) || active.tagName === 'SELECT' || active.type === 'checkbox') {
+            if (!isEditingTextIn(bodyEl)) {
                 render();
             }
         }

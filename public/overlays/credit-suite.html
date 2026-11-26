@@ -77,23 +77,38 @@
 
         function flattenVariables(data) {
             const out = {};
+            if (data?.values && typeof data.values === 'object') {
+                for (const [k, val] of Object.entries(data.values)) {
+                    out[k] = val ?? '';
+                    out[`var.${k}`] = val ?? '';
+                }
+            }
             const list = Array.isArray(data?.variables) ? data.variables : Object.values(data?.variables || {});
             for (const v of list) {
-                if (!v || !v.key) continue;
+                if (!v) continue;
+                const key = v.key || v.name;
+                if (!key) continue;
                 const val = v.value ?? '';
-                out[v.key] = val;
-                out[`var.${v.key}`] = val;
+                out[key] = val;
+                out[`var.${key}`] = val;
+                if (v.name && v.name !== key) {
+                    out[v.name] = val;
+                    out[`var.${v.name}`] = val;
+                }
             }
             const sets = Array.isArray(data?.sets) ? data.sets : Object.values(data?.sets || {});
             for (const s of sets) {
                 if (!s || !s.id) continue;
-                const activeSlot = s.slots?.[0]?.entryId;
-                const entry = (s.entries || []).find(e => e.id === activeSlot) || s.entries?.[0];
+                const roster = Array.isArray(s.roster) ? s.roster : (Array.isArray(s.entries) ? s.entries : []);
+                const slot0 = s.slots?.[0];
+                const activeId = typeof slot0 === 'string' ? slot0 : (slot0?.entryId || s.activeEntry || '');
+                const entry = roster.find(e => e.id === activeId) || roster[0];
                 if (entry?.values) {
                     for (const [k, val] of Object.entries(entry.values)) {
                         out[`set.${s.id}.${k}`] = val;
                     }
                 }
+                if (entry?.label) out[`set.${s.id}.label`] = entry.label;
             }
             return out;
         }
@@ -110,7 +125,7 @@
             const s = Math.min(sx, sy);
             scaler.style.width = `${cw}px`;
             scaler.style.height = `${ch}px`;
-            scaler.style.transform = `scale(${s})`;
+            scaler.style.transform = Math.abs(s - 1) < 0.001 ? '' : `scale(${s})`;
         }
 
         function applyProjectOverrides(raw) {
@@ -118,18 +133,24 @@
             if (overrideW > 0) p.canvas.width = overrideW;
             if (overrideH > 0) p.canvas.height = overrideH;
             if (overrideAutoplay !== null) p.timing.autoplay = overrideAutoplay;
+            if (['clear', 'hold', 'loop'].includes(overrideEnd)) {
+                p.timing.endBehavior = overrideEnd;
+                if (overrideLoop === null) p.timing.loop = overrideEnd === 'loop';
+            }
             if (overrideLoop !== null) p.timing.loop = overrideLoop;
-            if (['clear', 'hold', 'loop'].includes(overrideEnd)) p.timing.endBehavior = overrideEnd;
             return p;
         }
 
-        async function loadVariables() {
+        let varReloadTimer = null;
+        async function loadVariables({ updateRenderer = true } = {}) {
             try {
                 const res = await fetch('/api/variables');
                 if (res.ok) {
                     const data = await res.json();
-                    variablesMap = flattenVariables(data);
-                    renderer?.setVariables(variablesMap);
+                    const nextMap = flattenVariables(data);
+                    const changed = JSON.stringify(nextMap) !== JSON.stringify(variablesMap);
+                    variablesMap = nextMap;
+                    if (updateRenderer && changed && renderer) renderer.setVariables(variablesMap);
                 }
             } catch {}
         }
@@ -182,30 +203,40 @@
             }
         }
 
+        let unloading = false;
+        let wasPlayingBeforeObsHide = false;
+
         function applyTransportMessage(msg) {
             if (!renderer || !currentProject || isExport || isStatic) return;
             if (requestedProjectId && msg.projectId && msg.projectId !== requestedProjectId) return;
             if (msg.speedRate) renderer.setSpeedRate(msg.speedRate);
-            renderer.seek(msg.timeSec || 0);
-            if (msg.playing) renderer.play();
-            else renderer.pause();
+            if (msg.timeSec !== undefined) renderer.seek(msg.timeSec);
+            if (msg.playing === true) renderer.play();
+            else if (msg.playing === false) renderer.pause();
         }
 
         function connectWs() {
-            if (isExport || isStatic) return;
+            if (isExport || isStatic || unloading) return;
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
             const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             ws = new WebSocket(`${proto}//${window.location.host}`);
             ws.onmessage = ev => {
                 try {
                     const msg = JSON.parse(ev.data);
                     if (msg.type === 'credit-suite-update') {
-                        const targetId = requestedProjectId || msg.data?.activeProjectId;
-                        const updated = (msg.data?.projects || []).find(p => p.id === targetId);
+                        const payload = msg.data || {};
+                        // Ignore theme-only broadcasts or edits to unrelated projects to prevent live on-air flicker
+                        if (!Array.isArray(payload.projects)) return;
+                        const targetId = requestedProjectId || payload.activeProjectId;
+                        const changedId = payload.changedProjectId || '';
+                        const isActiveSwitch = !requestedProjectId && payload.type === 'active-changed';
+                        if (changedId && changedId !== targetId && !isActiveSwitch) return;
+                        const updated = payload.projects.find(p => p.id === targetId);
                         if (updated && renderer) {
                             const wasPlaying = renderer.isPlaying();
-                            const prevTime = renderer.getTime();
+                            const prevTime = isActiveSwitch ? 0 : renderer.getTime();
                             currentProject = applyProjectOverrides(updated);
-                            renderer.setProject(currentProject, { bgOverride, chromaOverride });
+                            renderer.setProject(currentProject, { bgOverride, chromaOverride, variables: variablesMap });
                             applyResponsiveScale();
                             renderer.seek(prevTime);
                             if (wasPlaying) renderer.play();
@@ -213,11 +244,14 @@
                     } else if (msg.type === 'credit-suite-transport') {
                         applyTransportMessage(msg.data || {});
                     } else if (msg.type === 'variables-update') {
-                        loadVariables();
+                        clearTimeout(varReloadTimer);
+                        varReloadTimer = setTimeout(() => loadVariables({ updateRenderer: true }), 200);
                     }
                 } catch {}
             };
             ws.onclose = () => {
+                ws = null;
+                if (unloading) return;
                 clearTimeout(wsRetry);
                 wsRetry = setTimeout(connectWs, 3000);
             };
@@ -231,8 +265,12 @@
                     if (currentProject.timing?.resetOnVisible !== false) {
                         renderer.seek(0);
                         if (currentProject.timing?.autoplay !== false) renderer.play();
+                    } else if (wasPlayingBeforeObsHide) {
+                        renderer.play();
                     }
+                    wasPlayingBeforeObsHide = false;
                 } else {
+                    wasPlayingBeforeObsHide = renderer.isPlaying();
                     renderer.pause();
                 }
             };
@@ -241,7 +279,7 @@
         // Deterministic export API exposed for Puppeteer + FFmpeg frame stepping
         window.__creditSuiteSeek = tSec => {
             if (!renderer) return null;
-            return renderer.seek(tSec);
+            return isExport ? renderer.seekAsync(tSec) : renderer.seek(tSec);
         };
         window.__creditSuiteGetMeta = () => {
             const s = renderer?.getSolved();
@@ -259,13 +297,20 @@
 
         window.addEventListener('resize', applyResponsiveScale);
         window.addEventListener('beforeunload', () => {
+            unloading = true;
             clearTimeout(wsRetry);
-            try { ws?.close(); } catch {}
+            clearTimeout(varReloadTimer);
+            if (ws) {
+                ws.onclose = null;
+                try { ws.close(); } catch {}
+                ws = null;
+            }
             renderer?.destroy();
         });
 
-        // Bootstrap
-        Promise.all([loadVariables(), loadProject()])
+        // Bootstrap: load variables first so initial buildScene runs only once with zero flash
+        loadVariables({ updateRenderer: false })
+            .then(() => loadProject())
             .then(async () => {
                 if (moduleDisabled) {
                     window.__creditSuiteReady = true;
@@ -274,8 +319,8 @@
                 if (document.fonts && document.fonts.ready) {
                     try { await document.fonts.ready; } catch {}
                 }
-                renderer?.refit();
-                if (isExport) renderer?.seek(0);
+                renderer?.remeasureAndResolve();
+                if (isExport) await renderer?.seekAsync(0);
                 window.__creditSuiteReady = true;
                 connectWs();
             })

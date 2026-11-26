@@ -23,6 +23,12 @@ export function createCreditSuiteState() {
     const prefs = loadPrefs();
     const listeners = new Set();
 
+    let localMutationSeq = 0;
+    let inFlightSave = null;
+    let lastUndoGroup = '';
+    let lastUndoAt = 0;
+    let varFetchTimer = null;
+
     const store = {
         projects: [],
         themes: [],
@@ -44,6 +50,13 @@ export function createCreditSuiteState() {
         dirty: false,
         saving: false,
         activeExportJob: null,
+        exportOptions: {
+            format: 'mp4',
+            fps: 'project',
+            scale: '1',
+            transparent: false,
+            chromaColor: '#00ff00'
+        },
         undoStack: [],
         redoStack: [],
         ws: null
@@ -64,41 +77,98 @@ export function createCreditSuiteState() {
         return JSON.parse(JSON.stringify(obj));
     }
 
-    function pushUndoSnapshot() {
+    function findClipTrackId(clipId) {
+        for (const tr of (store.project?.tracks || [])) {
+            if ((tr.clips || []).some(c => c.id === clipId)) return tr.id;
+        }
+        return null;
+    }
+
+    function reconcileSelection() {
+        const p = store.project;
+        if (!p) {
+            store.selection = { kind: null, id: null, trackId: null };
+            store.selectedClipIds = new Set();
+            return;
+        }
+        const existingClipIds = new Set();
+        for (const tr of (p.tracks || [])) {
+            for (const c of (tr.clips || [])) existingClipIds.add(c.id);
+        }
+        if (store.selectedClipIds.size) {
+            store.selectedClipIds = new Set([...store.selectedClipIds].filter(id => existingClipIds.has(id)));
+        }
+        const sel = store.selection;
+        if (sel.kind === 'block') {
+            if (!(p.blocks || []).some(b => b.id === sel.id)) {
+                store.selection = { kind: null, id: null, trackId: null };
+            }
+        } else if (sel.kind === 'clip') {
+            const tid = findClipTrackId(sel.id);
+            if (!tid) {
+                if (store.selectedClipIds.size) {
+                    const fallbackId = [...store.selectedClipIds][0];
+                    store.selection = { kind: 'clip', id: fallbackId, trackId: findClipTrackId(fallbackId) };
+                } else {
+                    store.selection = { kind: null, id: null, trackId: null };
+                }
+            } else if (sel.trackId !== tid) {
+                store.selection = { kind: 'clip', id: sel.id, trackId: tid };
+            }
+        }
+    }
+
+    function pushUndoSnapshot(undoGroup = '') {
         if (!store.project) return;
+        const now = Date.now();
+        if (undoGroup && undoGroup === lastUndoGroup && now - lastUndoAt < 650 && store.undoStack.length) {
+            lastUndoAt = now;
+            return;
+        }
+        lastUndoGroup = undoGroup;
+        lastUndoAt = now;
         store.undoStack.push(clone(store.project));
-        if (store.undoStack.length > 35) store.undoStack.shift();
+        if (store.undoStack.length > 40) store.undoStack.shift();
         store.redoStack = [];
     }
 
-    function mutateProject(mutator, { reason = 'project', recordUndo = true } = {}) {
+    function mutateProject(mutator, { reason = 'project', recordUndo = true, undoGroup = '' } = {}) {
         if (!store.project) return;
-        if (recordUndo) pushUndoSnapshot();
+        if (recordUndo) pushUndoSnapshot(undoGroup);
         mutator(store.project);
+        reconcileSelection();
+        localMutationSeq++;
         store.dirty = true;
         emit(reason);
     }
 
     function undo() {
         if (!store.undoStack.length || !store.project) return false;
+        lastUndoGroup = '';
         store.redoStack.push(clone(store.project));
         store.project = store.undoStack.pop();
+        reconcileSelection();
+        localMutationSeq++;
         store.dirty = true;
-        emit('project');
+        emit('project-structure');
         return true;
     }
 
     function redo() {
         if (!store.redoStack.length || !store.project) return false;
+        lastUndoGroup = '';
         store.undoStack.push(clone(store.project));
         store.project = store.redoStack.pop();
+        reconcileSelection();
+        localMutationSeq++;
         store.dirty = true;
-        emit('project');
+        emit('project-structure');
         return true;
     }
 
     function setSelection(kind, id, trackId = null) {
-        store.selection = { kind, id, trackId };
+        const resolvedTrackId = kind === 'clip' ? (trackId || findClipTrackId(id)) : null;
+        store.selection = { kind, id, trackId: resolvedTrackId };
         store.selectedClipIds = kind === 'clip' && id ? new Set([id]) : new Set();
         if (kind) {
             store.inspectorTab = 'selected';
@@ -120,7 +190,8 @@ export function createCreditSuiteState() {
             store.selection = { kind: null, id: null, trackId: null };
         } else {
             const primary = next.has(id) ? id : [...next][next.size - 1];
-            store.selection = { kind: 'clip', id: primary, trackId };
+            const primaryTrackId = primary === id ? (trackId || findClipTrackId(id)) : findClipTrackId(primary);
+            store.selection = { kind: 'clip', id: primary, trackId: primaryTrackId };
             store.inspectorTab = 'selected';
         }
         emit('selection');
@@ -133,31 +204,29 @@ export function createCreditSuiteState() {
             store.selection = { kind: null, id: null, trackId: null };
         } else {
             const first = [...next][0];
-            let tid = null;
-            for (const tr of (store.project?.tracks || [])) {
-                if ((tr.clips || []).some(c => c.id === first)) { tid = tr.id; break; }
-            }
-            store.selection = { kind: 'clip', id: first, trackId: tid };
+            store.selection = { kind: 'clip', id: first, trackId: findClipTrackId(first) };
         }
         emit('selection');
     }
 
     function setStudioView(view) {
-        store.studioView = view === 'content' ? 'content' : 'studio';
+        const next = view === 'content' ? 'content' : 'studio';
+        if (store.studioView === next) return;
+        store.studioView = next;
         savePrefs({ studioView: store.studioView });
-        emit('ui');
+        emit('studio-view');
     }
 
     function setOutlinerTab(tab) {
         store.outlinerTab = tab === 'tracks' ? 'tracks' : 'blocks';
         savePrefs({ outlinerTab: store.outlinerTab });
-        emit('ui');
+        emit('outliner-ui');
     }
 
     function setInspectorTab(tab) {
         store.inspectorTab = ['selected', 'theme', 'export'].includes(tab) ? tab : 'selected';
         savePrefs({ inspectorTab: store.inspectorTab });
-        emit('ui');
+        emit('inspector-tab');
     }
 
     function setBackdrop(mode) {
@@ -199,23 +268,38 @@ export function createCreditSuiteState() {
 
     function flattenVariables(data) {
         const out = {};
+        if (data?.values && typeof data.values === 'object') {
+            for (const [k, val] of Object.entries(data.values)) {
+                out[k] = val ?? '';
+                out[`var.${k}`] = val ?? '';
+            }
+        }
         const list = Array.isArray(data?.variables) ? data.variables : Object.values(data?.variables || {});
         for (const v of list) {
-            if (!v || !v.key) continue;
+            if (!v) continue;
+            const key = v.key || v.name;
+            if (!key) continue;
             const val = v.value ?? '';
-            out[v.key] = val;
-            out[`var.${v.key}`] = val;
+            out[key] = val;
+            out[`var.${key}`] = val;
+            if (v.name && v.name !== key) {
+                out[v.name] = val;
+                out[`var.${v.name}`] = val;
+            }
         }
         const sets = Array.isArray(data?.sets) ? data.sets : Object.values(data?.sets || {});
         for (const s of sets) {
             if (!s || !s.id) continue;
-            const activeSlot = s.slots?.[0]?.entryId;
-            const entry = (s.entries || []).find(e => e.id === activeSlot) || s.entries?.[0];
+            const roster = Array.isArray(s.roster) ? s.roster : (Array.isArray(s.entries) ? s.entries : []);
+            const slot0 = s.slots?.[0];
+            const activeId = typeof slot0 === 'string' ? slot0 : (slot0?.entryId || s.activeEntry || '');
+            const entry = roster.find(e => e.id === activeId) || roster[0];
             if (entry?.values) {
                 for (const [k, val] of Object.entries(entry.values)) {
                     out[`set.${s.id}.${k}`] = val;
                 }
             }
+            if (entry?.label) out[`set.${s.id}.label`] = entry.label;
         }
         return out;
     }
@@ -258,11 +342,13 @@ export function createCreditSuiteState() {
     async function selectProject(id) {
         const found = store.projects.find(p => p.id === id);
         if (!found) return;
+        lastUndoGroup = '';
         store.activeProjectId = found.id;
         store.project = clone(found);
         store.dirty = false;
         store.undoStack = [];
         store.redoStack = [];
+        store.selectedClipIds = new Set();
         store.selection = found.blocks?.[0]
             ? { kind: 'block', id: found.blocks[0].id, trackId: null }
             : { kind: null, id: null, trackId: null };
@@ -278,26 +364,35 @@ export function createCreditSuiteState() {
     }
 
     async function saveProject() {
-        if (!store.project || store.saving) return null;
+        if (!store.project) return null;
+        if (inFlightSave) return inFlightSave;
+        const seqAtStart = localMutationSeq;
+        const projSnapshot = clone(store.project);
         store.saving = true;
-        emit('ui');
-        try {
-            const res = await fetch(`/api/credit-suite/projects/${encodeURIComponent(store.project.id)}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ project: store.project, setActive: true })
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Save failed');
-            store.projects = data.state?.projects || store.projects;
-            store.project = clone(data.project);
-            store.dirty = false;
-            emit('saved');
-            return data.project;
-        } finally {
-            store.saving = false;
-            emit('ui');
-        }
+        emit('save-status');
+        inFlightSave = (async () => {
+            try {
+                const res = await fetch(`/api/credit-suite/projects/${encodeURIComponent(projSnapshot.id)}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ project: projSnapshot, setActive: true })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Save failed');
+                store.projects = data.state?.projects || store.projects;
+                if (localMutationSeq === seqAtStart && store.project?.id === data.project?.id) {
+                    store.project = clone(data.project);
+                    store.dirty = false;
+                }
+                emit('saved');
+                return data.project;
+            } finally {
+                store.saving = false;
+                inFlightSave = null;
+                emit('save-status');
+            }
+        })();
+        return inFlightSave;
     }
 
     async function createNewProject(name = 'New Credit Sequence') {
@@ -316,12 +411,14 @@ export function createCreditSuiteState() {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Create failed');
+        lastUndoGroup = '';
         store.projects = data.state.projects;
         store.activeProjectId = data.project.id;
         store.project = clone(data.project);
         store.dirty = false;
         store.undoStack = [];
         store.redoStack = [];
+        store.selectedClipIds = new Set();
         savePrefs({ activeProjectId: data.project.id });
         store.selection = data.project.blocks?.[0]
             ? { kind: 'block', id: data.project.blocks[0].id, trackId: null }
@@ -332,6 +429,7 @@ export function createCreditSuiteState() {
 
     async function duplicateCurrentProject() {
         if (!store.project) return null;
+        if (store.dirty) await saveProject();
         const res = await fetch(`/api/credit-suite/projects/${encodeURIComponent(store.project.id)}/duplicate`, {
             method: 'POST'
         });
@@ -363,7 +461,7 @@ export function createCreditSuiteState() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to save theme');
         store.themes = data.themes || store.themes;
-        emit('ui');
+        emit('themes');
         return data.theme;
     }
 
@@ -376,7 +474,7 @@ export function createCreditSuiteState() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to update theme');
         store.themes = data.themes || store.themes;
-        emit('ui');
+        emit('themes');
         return data.theme;
     }
 
@@ -385,7 +483,7 @@ export function createCreditSuiteState() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to delete theme');
         store.themes = data.themes || store.themes;
-        emit('ui');
+        emit('themes');
         return store.themes;
     }
 
@@ -394,7 +492,7 @@ export function createCreditSuiteState() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to restore themes');
         store.themes = data.themes || store.themes;
-        emit('ui');
+        emit('themes');
         return store.themes;
     }
 
@@ -415,12 +513,14 @@ export function createCreditSuiteState() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ projectId: store.project?.id, ...params })
         });
-        return res.json();
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `Transport "${action}" failed`);
+        return data;
     }
 
     async function startExport(opts) {
         if (!store.project) return null;
-        if (store.dirty) await saveProject();
+        if (store.dirty || inFlightSave) await saveProject();
         const res = await fetch('/api/credit-suite/export', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -438,7 +538,7 @@ export function createCreditSuiteState() {
         const res = await fetch(`/api/credit-suite/export/${encodeURIComponent(store.activeExportJob.id)}`, {
             method: 'DELETE'
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (data.job) store.activeExportJob = data.job;
         emit('export');
     }
@@ -454,6 +554,7 @@ export function createCreditSuiteState() {
     }
 
     function connectWs() {
+        if (store.ws && (store.ws.readyState === WebSocket.OPEN || store.ws.readyState === WebSocket.CONNECTING)) return;
         const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const ws = new WebSocket(`${proto}//${window.location.host}`);
         store.ws = ws;
@@ -466,23 +567,38 @@ export function createCreditSuiteState() {
                         emit('export');
                     }
                 } else if (msg.type === 'variables-update') {
-                    fetch('/api/variables')
-                        .then(r => r.ok ? r.json() : null)
-                        .then(d => {
-                            if (d) {
-                                store.variablesMap = flattenVariables(d);
-                                emit('variables');
-                            }
-                        })
-                        .catch(() => {});
+                    clearTimeout(varFetchTimer);
+                    varFetchTimer = setTimeout(() => {
+                        fetch('/api/variables')
+                            .then(r => r.ok ? r.json() : null)
+                            .then(d => {
+                                if (d) {
+                                    store.variablesMap = flattenVariables(d);
+                                    emit('variables');
+                                }
+                            })
+                            .catch(() => {});
+                    }, 220);
                 }
             } catch {}
         };
         ws.onclose = () => {
+            if (store.ws !== ws) return;
+            store.ws = null;
             setTimeout(() => {
-                if (store.ws === ws) connectWs();
+                if (!store.ws) connectWs();
             }, 3500);
         };
+    }
+
+    function disconnectWs() {
+        clearTimeout(varFetchTimer);
+        const ws = store.ws;
+        store.ws = null;
+        if (ws) {
+            ws.onclose = null;
+            try { ws.close(); } catch {}
+        }
     }
 
     return {
@@ -519,6 +635,7 @@ export function createCreditSuiteState() {
         startExport,
         cancelExport,
         refreshAssets,
-        connectWs
+        connectWs,
+        disconnectWs
     };
 }

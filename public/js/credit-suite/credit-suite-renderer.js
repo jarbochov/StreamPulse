@@ -9,7 +9,8 @@ function escHtml(str) {
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 function getEngine() {
@@ -31,7 +32,7 @@ function resolvePlaceholders(text, vars = {}) {
         if (Object.prototype.hasOwnProperty.call(vars, stripped) && vars[stripped] !== undefined && vars[stripped] !== null && vars[stripped] !== '') {
             return String(vars[stripped]);
         }
-        return fallback !== undefined ? String(fallback) : '';
+        return fallback !== undefined ? String(fallback).trim() : '';
     });
 }
 
@@ -49,7 +50,93 @@ function resolveColorOrVar(val, vars = {}, fallback = '#FFFFFFFF') {
     return s;
 }
 
-function applyElementBorder(el, opts = {}, vars = {}) {
+function applyAlphaToColor(color, alpha = 1) {
+    const a = Math.max(0, Math.min(1, Number(alpha)));
+    const s = String(color || '').trim();
+    if (!s || s === 'transparent') return 'transparent';
+    const hex6 = s.match(/^#([0-9a-f]{6})([0-9a-f]{2})?$/i);
+    if (hex6) {
+        const baseA = hex6[2] ? parseInt(hex6[2], 16) / 255 : 1;
+        const finalHex = Math.round(Math.max(0, Math.min(1, baseA * a)) * 255).toString(16).padStart(2, '0');
+        return `#${hex6[1]}${finalHex}`;
+    }
+    return s;
+}
+
+function createProceduralPatternHost(hostEl, opts = {}) {
+    const sp = window.StreamPulsePatterns;
+    if (!sp || typeof sp.drawProceduralPattern !== 'function') return null;
+    const preset = opts.patternPreset || opts.preset || 'starfield';
+    const palette = opts.patternPalette || opts.palette || 'galaxy';
+    const width = Number(opts.width) || 1920;
+    const height = Number(opts.height) || 1080;
+    const validPreset = sp.PATTERNS && sp.PATTERNS.includes(preset) ? preset : 'starfield';
+    const validPalette = (sp.PALETTES && sp.PALETTES[palette]) || palette === 'dual' ? palette : 'galaxy';
+    // Cap backing resolution to avoid excessive 2D canvas fill cost on 4K stages
+    const scaleDown = Math.min(1, 1280 / Math.max(width, height));
+    const cw = Math.max(64, Math.round(width * scaleDown));
+    const ch = Math.max(64, Math.round(height * scaleDown));
+    const canvas = document.createElement('canvas');
+    canvas.width = cw;
+    canvas.height = ch;
+    canvas.style.cssText = 'width:100%;height:100%;display:block;';
+    hostEl.innerHTML = '';
+    hostEl.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    const drawOpts = {
+        scale: Number(opts.patternScale) || 100,
+        lineWidth: Number(opts.patternLineWidth) || 2,
+        fillMode: opts.patternFillMode || 'tinted',
+        fillOpacity: opts.patternFillOpacity ?? 35,
+        density: Number(opts.patternDensity) || 1,
+        spacing: Number(opts.patternSpacing) || 100,
+        scatter: Number(opts.patternScatter) || 0,
+        sizeVariance: Number(opts.patternSizeVariance) || 0,
+        rotationVariance: Number(opts.patternRotationVariance) || 0,
+        snowflakeStyle: opts.patternSnowflakeStyle || 'all',
+        motion: opts.patternMotion || 'drift',
+        speed: opts.patternSpeed !== undefined ? Number(opts.patternSpeed) : 0.6,
+        panDirection: opts.patternPanDirection || 'continuous',
+        panAngle: Number(opts.patternPanAngle) || 0,
+        inPlace: opts.patternInPlace || 'auto',
+        inPlaceSpeed: Number(opts.patternInPlaceSpeed) || 1,
+        spin: opts.patternSpin || 'none',
+        spinSpeed: Number(opts.patternSpinSpeed) || 1,
+        palette: validPalette,
+        accent: opts.accent || opts.patternAccent || '#58a6ff',
+        secondary: opts.secondary || opts.patternSecondary || '#a855f7',
+        colorMode: opts.patternColorMode || 'mosaic',
+        colorAnim: opts.patternColorAnim || 'none',
+        colorSpeed: Number(opts.patternColorSpeed) || 0.5,
+        vignette: Number(opts.patternVignette) || 0,
+        vignetteColor: opts.vignetteColor || opts.patternVignetteColor || '#000000FF',
+        color: opts.color || undefined
+    };
+    let lastDrawnT = -1;
+    const renderAt = tSec => {
+        const quantT = Math.round((Number(tSec) || 0) * 60) / 60;
+        if (quantT === lastDrawnT) return;
+        lastDrawnT = quantT;
+        ctx.clearRect(0, 0, cw, ch);
+        try {
+            sp.drawProceduralPattern(ctx, validPreset, cw, ch, {
+                ...drawOpts,
+                time: quantT
+            });
+        } catch {}
+    };
+    renderAt(0);
+    return {
+        renderAt,
+        destroy() {
+            canvas.width = 1;
+            canvas.height = 1;
+        }
+    };
+}
+
+function applyElementBorder(el, opts = {}, vars = {}, boxDims = null) {
     const style = opts.borderStyle || 'none';
     const width = Number(opts.borderWidth) || 0;
     const radius = Number(opts.borderRadius) || 0;
@@ -63,30 +150,36 @@ function applyElementBorder(el, opts = {}, vars = {}) {
     const anim = opts.borderAnim || 'none';
     const speed = Number(opts.borderAnimSpeed) || 3;
 
-    // Leverage shared OverlayShared border styling when available (all 31 styles + 17 animations)
+    // Leverage shared OverlayShared.applyBorderEffects (all 31 border styles + 17 animations)
     const os = window.OverlayShared;
-    if (os && typeof os.applyBoxBorder === 'function') {
+    if (os && typeof os.applyBorderEffects === 'function') {
         try {
-            os.applyBoxBorder(el, {
+            const hasGrad = c2 && c2.toLowerCase() !== c1.toLowerCase();
+            const effectStyle = {
                 borderStyle: style,
                 borderWidth: width,
                 borderColor: c1,
-                borderColor2: c2,
                 borderRadius: radius,
-                borderAnimation: anim,
-                borderAnimationSpeed: speed
+                ...(hasGrad ? { borderGradient: { enabled: true, colors: [c1, c2], angle: 135 } } : {}),
+                ...(anim && anim !== 'none' ? { borderAnimation: { type: anim, speed } } : {}),
+                ...(opts.shadow ? { boxShadow: { enabled: true, x: 0, y: 22, blur: 60, spread: 0, color: 'rgba(0,0,0,0.55)' } } : {})
+            };
+            os.applyBorderEffects(el, effectStyle, {
+                type: 'box',
+                width: boxDims?.width || 400,
+                height: boxDims?.height || 240
             });
             return;
         } catch { /* fallback below */ }
     }
 
     const cssNative = ['solid', 'dashed', 'dotted', 'double', 'groove', 'ridge', 'inset', 'outset'].includes(style) ? style : 'solid';
+    const existingShadow = el.style.boxShadow ? `${el.style.boxShadow}, ` : '';
     el.style.border = `${width}px ${cssNative} ${c1}`;
     if (style === 'neon-tube' || style === 'double-ring') {
-        el.style.boxShadow = `0 0 ${width * 3}px ${c1}, inset 0 0 ${width * 1.5}px ${c2}`;
+        el.style.boxShadow = `${existingShadow}0 0 ${width * 3}px ${c1}, inset 0 0 ${width * 1.5}px ${c2}`;
     } else if (style === 'corner-brackets') {
-        el.style.border = `${Math.max(1, Math.round(width * 0.5))}px solid ${c1}44`;
-        el.style.boxShadow = `inset 0 0 0 ${width}px transparent`;
+        el.style.border = `${Math.max(1, Math.round(width * 0.5))}px solid ${applyAlphaToColor(c1, 0.28)}`;
         el.style.outline = `${width}px solid ${c1}`;
         el.style.outlineOffset = `-${width}px`;
     }
@@ -146,6 +239,7 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
     const deterministic = Boolean(options.deterministic);
     const onSolved = typeof options.onSolved === 'function' ? options.onSolved : () => {};
     const onTimeUpdate = typeof options.onTimeUpdate === 'function' ? options.onTimeUpdate : () => {};
+    const onStateChange = typeof options.onStateChange === 'function' ? options.onStateChange : () => {};
     const onClipSelect = typeof options.onClipSelect === 'function' ? options.onClipSelect : () => {};
 
     let project = null;
@@ -153,14 +247,20 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
     let solved = null;
     let currentTime = 0;
     let playing = false;
+    let pausedByHidden = false;
     let speedRate = 1;
     let lastRafMs = 0;
     let rafId = 0;
     let bgOverride = options.bgOverride || '';
     let chromaOverride = options.chromaOverride || '';
-    let activePatterns = [];
+    let bgPatterns = [];
+    let bgVideos = [];
+    let inlineVideos = [];
     let destroyed = false;
     let lastCutoutSig = '';
+    let lastColW = '';
+    let lastColLeft = '';
+    let lastIsGlide = null;
 
     // DOM structure
     const viewport = document.createElement('div');
@@ -193,11 +293,25 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
     const cardDomMap = new Map();
     const clipDomMap = new Map();
 
+    function releaseVideosIn(rootEl) {
+        if (!rootEl) return;
+        for (const v of rootEl.querySelectorAll('video')) {
+            try {
+                v.pause();
+                v.removeAttribute('src');
+                v.load();
+            } catch {}
+        }
+    }
+
     function disposePatterns() {
-        for (const p of activePatterns) {
+        for (const p of bgPatterns) {
             try { p.destroy?.(); } catch {}
         }
-        activePatterns = [];
+        bgPatterns = [];
+        for (const entry of clipDomMap.values()) {
+            try { entry.pattern?.destroy?.(); } catch {}
+        }
     }
 
     function applyEdgeFadeMask() {
@@ -214,7 +328,12 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
     }
 
     function buildBackground() {
-        disposePatterns();
+        for (const p of bgPatterns) {
+            try { p.destroy?.(); } catch {}
+        }
+        bgPatterns = [];
+        releaseVideosIn(bgLayer);
+        bgVideos = [];
         bgLayer.innerHTML = '';
         bgLayer.style.background = '';
 
@@ -244,35 +363,50 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
             bgLayer.style.background = c1;
             const host = document.createElement('div');
             host.className = 'cs-bg-pattern';
-            host.style.opacity = String(bg.patternOpacity ?? 0.55);
+            host.style.opacity = String(bg.patternOpacity ?? 0.65);
             bgLayer.appendChild(host);
-            if (window.StreamPulsePatterns && typeof window.StreamPulsePatterns.mount === 'function') {
-                try {
-                    const inst = window.StreamPulsePatterns.mount(host, {
-                        preset: bg.patternPreset || 'constellation',
-                        palette: bg.patternPalette || 'midnight',
-                        speed: bg.patternSpeed ?? 0.4,
-                        paused: deterministic
-                    });
-                    if (inst) activePatterns.push(inst);
-                } catch { /* fallback to solid bg */ }
-            }
+            const inst = createProceduralPatternHost(host, {
+                ...bg,
+                width: project.canvas.width,
+                height: project.canvas.height,
+                color: 'transparent',
+                accent: resolveColorOrVar(bg.patternAccent, variables, '#58A6FFFF'),
+                secondary: resolveColorOrVar(bg.patternSecondary, variables, '#A855F7FF'),
+                vignetteColor: resolveColorOrVar(bg.patternVignetteColor, variables, '#000000FF')
+            });
+            if (inst) bgPatterns.push(inst);
             return;
         }
         if ((effectiveType === 'image' || effectiveType === 'video') && bg.mediaUrl) {
             bgLayer.style.background = resolveColorOrVar(bg.color1, variables, '#07080CFF');
+            if (bg.mediaFit === 'contain-blur') {
+                const blurEl = document.createElement(effectiveType === 'video' ? 'video' : 'img');
+                blurEl.className = 'cs-clip-blur-bg';
+                blurEl.src = bg.mediaUrl;
+                blurEl.style.opacity = String((bg.mediaOpacity ?? 0.45) * 0.8);
+                if (effectiveType === 'video') {
+                    blurEl.muted = true;
+                    blurEl.loop = true;
+                    blurEl.playsInline = true;
+                    blurEl.preload = 'metadata';
+                    bgVideos.push(blurEl);
+                } else {
+                    blurEl.crossOrigin = 'anonymous';
+                }
+                bgLayer.appendChild(blurEl);
+            }
             const media = document.createElement(effectiveType === 'video' ? 'video' : 'img');
             media.className = 'cs-bg-media';
             media.src = bg.mediaUrl;
             media.style.opacity = String(bg.mediaOpacity ?? 0.45);
-            media.style.objectFit = bg.mediaFit === 'contain' ? 'contain' : 'cover';
+            media.style.objectFit = (bg.mediaFit === 'contain' || bg.mediaFit === 'contain-blur') ? 'contain' : 'cover';
             if (bg.mediaBlur > 0) media.style.filter = `blur(${bg.mediaBlur}px)`;
             if (effectiveType === 'video') {
                 media.muted = true;
                 media.loop = true;
                 media.playsInline = true;
-                media.preload = 'auto';
-                if (!deterministic) media.play().catch(() => {});
+                media.preload = 'metadata';
+                bgVideos.push(media);
             } else {
                 media.crossOrigin = 'anonymous';
             }
@@ -318,13 +452,17 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
         }
 
         el.style.padding = `${padTop}px ${padH}px ${padBot}px`;
+        el.dataset.padH = String(padH);
         el.style.textAlign = st.align || 'center';
 
         const inner = document.createElement('div');
         inner.className = 'cs-block-inner';
-        if (st.bgColor && (st.bgOpacity > 0 || st.borderWidth > 0)) {
+        const hasBg = Boolean(st.bgColor && Number(st.bgOpacity) > 0);
+        if (hasBg || st.borderWidth > 0) {
             inner.style.padding = '28px 36px';
-            inner.style.background = resolveColorOrVar(st.bgColor, variables, 'transparent');
+            if (hasBg) {
+                inner.style.background = applyAlphaToColor(resolveColorOrVar(st.bgColor, variables, 'transparent'), st.bgOpacity);
+            }
             inner.style.borderRadius = `${st.bgRadius || 12}px`;
         }
         applyElementBorder(inner, {
@@ -334,7 +472,7 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
             borderColor2: st.borderColor2,
             borderRadius: st.bgRadius,
             borderAnim: st.borderAnim
-        }, variables);
+        }, variables, { width: Math.min(project.canvas.width, th.maxColumnWidth || 1180), height: 220 });
 
         if (st.contentFont) inner.style.fontFamily = `'${st.contentFont}', Georgia, serif`;
         if (st.contentSize) inner.style.fontSize = `${st.contentSize}px`;
@@ -436,10 +574,15 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
             if (cols > 1 && rawLines.length) {
                 const grid = document.createElement('div');
                 grid.className = `cs-roster-grid cs-roster-cols-${cols}`;
+                const useFit = block.autoFitNames !== false;
                 for (const line of rawLines) {
                     const cell = document.createElement('div');
-                    cell.className = 'cs-name-fit';
-                    cell.innerHTML = `<span class="cs-name-fit-sizer"><span class="cs-name-fit-text">${escHtml(line)}</span></span>`;
+                    cell.className = useFit ? 'cs-name-fit' : 'cs-roster-cell';
+                    if (useFit) {
+                        cell.innerHTML = `<span class="cs-name-fit-sizer"><span class="cs-name-fit-text">${escHtml(line)}</span></span>`;
+                    } else {
+                        cell.textContent = line;
+                    }
                     grid.appendChild(cell);
                 }
                 inner.appendChild(grid);
@@ -475,7 +618,8 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
                     m.muted = true;
                     m.loop = true;
                     m.playsInline = true;
-                    m.preload = 'auto';
+                    m.preload = 'metadata';
+                    inlineVideos.push(m);
                 } else {
                     m.crossOrigin = 'anonymous';
                 }
@@ -549,6 +693,8 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
                     m.muted = true;
                     m.loop = true;
                     m.playsInline = true;
+                    m.preload = 'metadata';
+                    inlineVideos.push(m);
                 } else {
                     m.crossOrigin = 'anonymous';
                 }
@@ -583,20 +729,28 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
         el.style.height = `${clip.height}%`;
         el.style.borderRadius = `${clip.borderRadius ?? 14}px`;
 
-        if (clip.shadow) {
+        const type = clip.elementType || 'image';
+        const clipPxW = Math.max(24, Math.round((Number(clip.width) || 35) / 100 * project.canvas.width));
+        const clipPxH = Math.max(24, Math.round((Number(clip.height) || 50) / 100 * project.canvas.height));
+
+        if (clip.shadow && type !== 'cutout') {
             el.style.boxShadow = '0 22px 60px rgba(0, 0, 0, 0.55)';
         }
-        applyElementBorder(el, clip, variables);
+        if (type !== 'cutout') {
+            applyElementBorder(el, clip, variables, { width: clipPxW, height: clipPxH });
+        }
 
         const filters = [];
         if ((clip.filterBrightness ?? 100) !== 100) filters.push(`brightness(${clip.filterBrightness}%)`);
         if ((clip.filterContrast ?? 100) !== 100) filters.push(`contrast(${clip.filterContrast}%)`);
         if ((clip.filterSaturate ?? 100) !== 100) filters.push(`saturate(${clip.filterSaturate}%)`);
         if ((clip.filterGrayscale ?? 0) > 0) filters.push(`grayscale(${clip.filterGrayscale}%)`);
-        if ((clip.filterBlur ?? 0) > 0) filters.push(`blur(${clip.filterBlur}px)`);
-        el.dataset.baseFilter = filters.join(' ');
+        const baseFilterNoBlur = filters.join(' ');
+        const baseBlurPx = Number(clip.filterBlur) || 0;
 
-        const type = clip.elementType || 'image';
+        let innerMedia = null;
+        const clipVideos = [];
+        let clipPattern = null;
 
         if (type === 'cutout') {
             // Cutout clips punch a hole in behind/background layers; invisible fill itself
@@ -610,12 +764,21 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
                     const bgM = document.createElement(type === 'video' ? 'video' : 'img');
                     bgM.className = 'cs-clip-blur-bg';
                     bgM.src = clip.mediaUrl;
-                    if (type === 'video') { bgM.muted = true; bgM.loop = clip.videoLoop !== false; bgM.playsInline = true; }
-                    else bgM.crossOrigin = 'anonymous';
+                    if (type === 'video') {
+                        bgM.muted = true;
+                        bgM.loop = clip.videoLoop !== false;
+                        bgM.playsInline = true;
+                        bgM.preload = 'metadata';
+                        bgM.playbackRate = (clip.videoRate || 1) * speedRate;
+                        clipVideos.push(bgM);
+                    } else {
+                        bgM.crossOrigin = 'anonymous';
+                    }
                     wrap.appendChild(bgM);
                 }
                 const media = document.createElement(type === 'video' ? 'video' : 'img');
                 media.className = clip.mediaFit === 'contain-blur' ? 'cs-clip-fg-contain cs-clip-media-el' : 'cs-clip-media-el';
+                if (clip.kenBurns && clip.kenBurns !== 'none') media.style.willChange = 'transform';
                 media.src = clip.mediaUrl;
                 if (clip.mediaFit !== 'contain-blur') {
                     media.style.objectFit = clip.mediaFit || 'cover';
@@ -624,11 +787,13 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
                     media.muted = clip.videoMuted !== false;
                     media.loop = clip.videoLoop !== false;
                     media.playsInline = true;
-                    media.preload = 'auto';
-                    media.playbackRate = clip.videoRate || 1;
+                    media.preload = 'metadata';
+                    media.playbackRate = (clip.videoRate || 1) * speedRate;
+                    clipVideos.push(media);
                 } else {
                     media.crossOrigin = 'anonymous';
                 }
+                innerMedia = media;
                 wrap.appendChild(media);
             } else {
                 wrap.style.background = 'rgba(15, 23, 42, 0.72)';
@@ -647,26 +812,27 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
             const imgs = (clip.slideshowImages || []).filter(Boolean);
             const img = document.createElement('img');
             img.className = 'cs-clip-media-el';
+            if (clip.kenBurns && clip.kenBurns !== 'none') img.style.willChange = 'transform';
             img.crossOrigin = 'anonymous';
             img.style.objectFit = clip.mediaFit === 'contain' ? 'contain' : 'cover';
             if (imgs.length) img.src = imgs[0];
+            innerMedia = img;
             wrap.appendChild(img);
             el.appendChild(wrap);
         } else if (type === 'pattern') {
             const host = document.createElement('div');
             host.className = 'cs-clip-media-wrap';
+            host.style.background = resolveColorOrVar(clip.fillColor, variables, '#07080CFF');
             el.appendChild(host);
-            if (window.StreamPulsePatterns && typeof window.StreamPulsePatterns.mount === 'function') {
-                try {
-                    const inst = window.StreamPulsePatterns.mount(host, {
-                        preset: clip.patternPreset || 'constellation',
-                        palette: clip.patternPalette || 'midnight',
-                        speed: clip.patternSpeed ?? 0.5,
-                        paused: deterministic
-                    });
-                    if (inst) activePatterns.push(inst);
-                } catch {}
-            }
+            clipPattern = createProceduralPatternHost(host, {
+                ...clip,
+                width: clipPxW,
+                height: clipPxH,
+                color: 'transparent',
+                accent: resolveColorOrVar(clip.patternAccent, variables, '#58A6FFFF'),
+                secondary: resolveColorOrVar(clip.patternSecondary, variables, '#A855F7FF'),
+                vignetteColor: resolveColorOrVar(clip.patternVignetteColor, variables, '#000000FF')
+            });
         } else if (type === 'icon') {
             const ic = document.createElement('i');
             ic.className = clip.iconClass || 'fa-solid fa-star';
@@ -702,7 +868,8 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
             box.innerHTML = `<div class="cs-clip-counter-val">${escHtml(resolvePlaceholders(clip.counterValue || '0', variables))}</div><div class="cs-clip-counter-lbl">${escHtml(resolvePlaceholders(clip.counterLabel || 'TOTAL', variables))}</div>`;
             el.appendChild(box);
         } else if (type === 'meter') {
-            const valNum = Number(resolvePlaceholders(clip.counterValue || '75', variables)) || 0;
+            const rawVal = resolvePlaceholders(clip.counterValue || '75', variables).replace(/,/g, '').trim();
+            const valNum = Number(rawVal) || 0;
             const maxNum = Math.max(1, Number(clip.counterMax) || 100);
             const pct = Math.max(0, Math.min(100, (valNum / maxNum) * 100));
             const box = document.createElement('div');
@@ -755,12 +922,45 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
                 onClipSelect(track.id, clip.id, ev);
             });
         }
-        return el;
+        return {
+            el,
+            clip,
+            innerMedia,
+            videos: clipVideos,
+            pattern: clipPattern,
+            baseFilterNoBlur,
+            baseBlurPx,
+            active: false,
+            lastOpacity: '',
+            lastTransform: '',
+            lastFilter: '',
+            lastClipPath: '',
+            lastKbTransform: ''
+        };
     }
 
     function applyAutoFitNames(root = creditsCol) {
         const entries = root.querySelectorAll('.cs-name-fit');
         if (!entries.length) return;
+        // Temporarily unhide display:none crawl runs / cards so clientWidth/scrollWidth measure accurately
+        const hiddenContainers = [];
+        for (const runEl of runDomMap.values()) {
+            if (!runEl.classList.contains('active') && runEl.style.display !== 'block') {
+                hiddenContainers.push({ el: runEl, disp: runEl.style.display, vis: runEl.style.visibility });
+                runEl.style.visibility = 'hidden';
+                runEl.style.display = 'block';
+            }
+        }
+        for (const cardEntry of cardDomMap.values()) {
+            const cEl = cardEntry.el;
+            if (!cEl.classList.contains('active') && cEl.style.display !== 'flex') {
+                hiddenContainers.push({ el: cEl, disp: cEl.style.display, vis: cEl.style.visibility });
+                cEl.style.visibility = 'hidden';
+                cEl.style.display = 'flex';
+            }
+        }
+        // Phase 1: Batch reset styles
+        const items = [];
         for (const el of entries) {
             const sizer = el.querySelector('.cs-name-fit-sizer');
             const txt = el.querySelector('.cs-name-fit-text');
@@ -768,13 +968,24 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
             sizer.style.width = '';
             txt.style.transform = '';
             txt.style.transformOrigin = 'left center';
-            const avail = Math.max(20, el.clientWidth - 6);
-            const measured = Math.max(txt.scrollWidth, txt.getBoundingClientRect().width);
-            if (measured > avail + 1) {
-                const sx = Math.max(0.55, (avail / measured) * 0.985);
-                sizer.style.width = `${Math.max(1, measured * sx)}px`;
-                txt.style.transform = `scaleX(${sx})`;
+            items.push({ el, sizer, txt, avail: 0, measured: 0 });
+        }
+        // Phase 2: Batch layout reads (single reflow)
+        for (const it of items) {
+            it.avail = Math.max(20, it.el.clientWidth - 6);
+            it.measured = Math.max(it.txt.scrollWidth, it.txt.getBoundingClientRect().width);
+        }
+        // Phase 3: Batch style writes
+        for (const it of items) {
+            if (it.measured > it.avail + 1) {
+                const sx = Math.max(0.55, (it.avail / it.measured) * 0.985);
+                it.sizer.style.width = `${Math.max(1, it.measured * sx)}px`;
+                it.txt.style.transform = `scaleX(${sx})`;
             }
+        }
+        for (const h of hiddenContainers) {
+            h.el.style.display = h.disp;
+            h.el.style.visibility = h.vis;
         }
     }
 
@@ -826,25 +1037,7 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
         behindLayer.style.maskImage = uri;
     }
 
-    function buildScene() {
-        if (!project) return;
-        ensureFontAwesome();
-        ensureFontsLoaded(project);
-        applyThemeCssVars();
-        applyEdgeFadeMask();
-        buildBackground();
-
-        creditsCol.innerHTML = '';
-        behindLayer.innerHTML = '';
-        sideLayer.innerHTML = '';
-        aboveLayer.innerHTML = '';
-        runDomMap.clear();
-        cardDomMap.clear();
-        clipDomMap.clear();
-        lastCutoutSig = '';
-
-        // Initial timeline pass to group runs & cards
-        const prelim = engine.solveTimeline(project);
+    function getZoneLayoutHelper() {
         const canvasW = project.canvas.width;
         const maxColW = Math.min(canvasW, project.theme?.maxColumnWidth || 1180);
         const reflowCfg = project.theme?.autoReflow || {};
@@ -853,22 +1046,30 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
         const gapPx = Number(reflowCfg.gapPx) || 48;
         const sideColW = Math.max(320, Math.round(canvasW * splitRatio - gapPx * 0.5));
 
-        creditsCol.style.width = isPerSection ? `${canvasW}px` : `${maxColW}px`;
-
         const applyBlockZoneLayout = (blkEl, zone, clearanceTopPx = 0, zoneBounds = null) => {
+            const prevW = blkEl.style.width;
             blkEl.classList.remove('cs-zone-center', 'cs-zone-left', 'cs-zone-right');
             blkEl.style.marginTop = clearanceTopPx > 0 ? `${clearanceTopPx}px` : '';
             blkEl.style.marginRight = '';
             blkEl.style.marginLeft = '';
+            const origPadH = blkEl.dataset.padH !== undefined ? `${blkEl.dataset.padH}px` : '';
             if (!isPerSection) {
                 blkEl.style.width = '100%';
-                return;
+                if (origPadH) {
+                    blkEl.style.paddingLeft = origPadH;
+                    blkEl.style.paddingRight = origPadH;
+                }
+                return blkEl.style.width !== prevW;
             }
             const z = zone || 'center';
             blkEl.classList.add(`cs-zone-${z}`);
             const safeOuterPx = Math.round(canvasW * 0.04);
             if (z === 'center') {
                 blkEl.style.width = `${maxColW}px`;
+                if (origPadH) {
+                    blkEl.style.paddingLeft = origPadH;
+                    blkEl.style.paddingRight = origPadH;
+                }
             } else {
                 let clearWidth = sideColW - safeOuterPx;
                 if (z === 'right' && zoneBounds?.leftEdgePct > 0) {
@@ -885,7 +1086,94 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
                 if (z === 'right') blkEl.style.marginRight = `${safeOuterPx}px`;
                 if (z === 'left') blkEl.style.marginLeft = `${safeOuterPx}px`;
             }
+            return blkEl.style.width !== prevW;
         };
+
+        return { canvasW, maxColW, isPerSection, applyBlockZoneLayout };
+    }
+
+    function syncZonesAndMeasure() {
+        const { isPerSection, applyBlockZoneLayout } = getZoneLayoutHelper();
+        applyAutoFitNames(creditsCol);
+        let measured = measureCrawlBlockHeights();
+        solved = engine.solveTimeline(project, measured);
+
+        if (isPerSection) {
+            let widthChanged = false;
+            const applySolvedZones = () => {
+                let changed = false;
+                for (const seg of solved.segments) {
+                    if (seg.kind === 'crawl') {
+                        const runEl = runDomMap.get(seg.id);
+                        if (!runEl) continue;
+                        for (const bm of seg.blockMetrics) {
+                            const blkEl = runEl.querySelector(`:scope > .cs-block[data-block-id="${bm.blockId}"]`);
+                            if (blkEl && applyBlockZoneLayout(blkEl, bm.zone, bm.clearanceTopPx, bm.zoneBounds)) {
+                                changed = true;
+                            }
+                        }
+                    } else if (seg.kind === 'card') {
+                        const cardEntry = cardDomMap.get(seg.blockId);
+                        if (cardEntry) {
+                            const cardWrap = cardEntry.el;
+                            cardWrap.classList.remove('cs-zone-center', 'cs-zone-left', 'cs-zone-right');
+                            cardWrap.classList.add(`cs-zone-${seg.zone || 'center'}`);
+                            const blkEl = cardWrap.querySelector(':scope > .cs-block');
+                            if (blkEl && applyBlockZoneLayout(blkEl, seg.zone, 0, seg.zoneBounds)) {
+                                changed = true;
+                            }
+                        }
+                    }
+                }
+                return changed;
+            };
+            widthChanged = applySolvedZones();
+            applyAutoFitNames(creditsCol);
+            // If narrowing/widening a block changed its wrapped height, re-measure & re-solve once!
+            if (widthChanged) {
+                measured = measureCrawlBlockHeights();
+                solved = engine.solveTimeline(project, measured);
+                applySolvedZones();
+                applyAutoFitNames(creditsCol);
+            }
+        }
+    }
+
+    function buildScene() {
+        if (!project) return;
+        ensureFontAwesome();
+        ensureFontsLoaded(project);
+        applyThemeCssVars();
+        applyEdgeFadeMask();
+
+        // Release all prior video decoders & pattern canvases before clearing DOM
+        disposePatterns();
+        releaseVideosIn(creditsCol);
+        releaseVideosIn(behindLayer);
+        releaseVideosIn(sideLayer);
+        releaseVideosIn(aboveLayer);
+        inlineVideos = [];
+        buildBackground();
+
+        creditsCol.innerHTML = '';
+        behindLayer.innerHTML = '';
+        sideLayer.innerHTML = '';
+        aboveLayer.innerHTML = '';
+        runDomMap.clear();
+        cardDomMap.clear();
+        clipDomMap.clear();
+        lastCutoutSig = '';
+        lastColW = '';
+        lastColLeft = '';
+        lastIsGlide = null;
+
+        // Initial timeline pass to group runs & cards
+        const prelim = engine.solveTimeline(project);
+        const { canvasW, maxColW, isPerSection, applyBlockZoneLayout } = getZoneLayoutHelper();
+
+        const initW = isPerSection ? `${canvasW}px` : `${maxColW}px`;
+        creditsCol.style.width = initW;
+        lastColW = initW;
 
         for (const seg of prelim.segments) {
             if (seg.kind === 'crawl') {
@@ -907,7 +1195,14 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
                 applyBlockZoneLayout(blkEl, seg.zone, 0, seg.zoneBounds);
                 cardWrap.appendChild(blkEl);
                 creditsCol.appendChild(cardWrap);
-                cardDomMap.set(seg.blockId, cardWrap);
+                cardDomMap.set(seg.blockId, {
+                    el: cardWrap,
+                    active: false,
+                    lastOpacity: '',
+                    lastTransform: '',
+                    lastFilter: '',
+                    lastClipPath: ''
+                });
             }
         }
 
@@ -917,42 +1212,40 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
             const host = track.layer === 'behind' ? behindLayer : (track.layer === 'above' ? aboveLayer : sideLayer);
             for (const clip of (track.clips || [])) {
                 if (clip.enabled === false) continue;
-                const clipEl = buildClipElement(track, clip);
-                host.appendChild(clipEl);
-                clipDomMap.set(clip.id, clipEl);
+                const clipEntry = buildClipElement(track, clip);
+                host.appendChild(clipEntry.el);
+                clipDomMap.set(clip.id, clipEntry);
             }
         }
 
-        // Auto-fit 2-4 column names and re-solve with actual DOM heights!
-        applyAutoFitNames(creditsCol);
-        const measured = measureCrawlBlockHeights();
-        solved = engine.solveTimeline(project, measured);
-
-        // Sync finalized per-section zones & computed clearance gaps after real DOM height pass
-        if (isPerSection) {
-            for (const seg of solved.segments) {
-                if (seg.kind === 'crawl') {
-                    const runEl = runDomMap.get(seg.id);
-                    if (!runEl) continue;
-                    for (const bm of seg.blockMetrics) {
-                        const blkEl = runEl.querySelector(`:scope > .cs-block[data-block-id="${bm.blockId}"]`);
-                        if (blkEl) applyBlockZoneLayout(blkEl, bm.zone, bm.clearanceTopPx, bm.zoneBounds);
-                    }
-                } else if (seg.kind === 'card') {
-                    const cardWrap = cardDomMap.get(seg.blockId);
-                    if (cardWrap) {
-                        cardWrap.classList.remove('cs-zone-center', 'cs-zone-left', 'cs-zone-right');
-                        cardWrap.classList.add(`cs-zone-${seg.zone || 'center'}`);
-                        const blkEl = cardWrap.querySelector(':scope > .cs-block');
-                        if (blkEl) applyBlockZoneLayout(blkEl, seg.zone, 0, seg.zoneBounds);
-                    }
-                }
-            }
-            applyAutoFitNames(creditsCol);
-        }
-
+        syncZonesAndMeasure();
         onSolved(solved);
         renderAtTime(currentTime);
+    }
+
+    function syncAmbientVideos(tSec) {
+        const shouldPlay = playing && !deterministic;
+        const syncList = list => {
+            for (const v of list) {
+                const targetRate = speedRate;
+                if (Math.abs((v.playbackRate || 1) - targetRate) > 0.01) {
+                    try { v.playbackRate = targetRate; } catch {}
+                }
+                const targetT = v.duration && Number.isFinite(v.duration) && v.duration > 0
+                    ? (tSec % v.duration)
+                    : tSec;
+                if (!shouldPlay) {
+                    if (!v.paused) v.pause();
+                    if (Math.abs((v.currentTime || 0) - targetT) > 0.05 && v.readyState >= 1) {
+                        try { v.currentTime = targetT; } catch {}
+                    }
+                } else {
+                    if (v.paused) v.play().catch(() => {});
+                }
+            }
+        };
+        if (bgVideos.length) syncList(bgVideos);
+        if (inlineVideos.length) syncList(inlineVideos);
     }
 
     function renderAtTime(tSec) {
@@ -960,86 +1253,129 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
         currentTime = Math.max(0, tSec);
         const frame = engine.evaluateFrame(currentTime, solved, project);
 
-        // 1. Dynamic Auto-Reflow of the Credits Column
+        // 1. Dynamic Auto-Reflow of the Credits Column (only mutate style when values actually change)
         const canvasW = project.canvas.width;
         const maxColW = Math.min(canvasW, project.theme?.maxColumnWidth || 1180);
         const gapPx = project.theme?.autoReflow?.gapPx ?? 48;
-        if (frame.reflow.mode === 'per-section' && project.theme?.autoReflow?.enabled !== false) {
-            creditsCol.style.width = `${canvasW}px`;
-            creditsCol.style.left = '50%';
-        } else {
-            const targetColW = Math.min(maxColW, Math.max(320, Math.round(canvasW * frame.reflow.widthRatio - gapPx)));
-            creditsCol.style.width = `${targetColW}px`;
-            creditsCol.style.left = `${frame.reflow.centerXPercent.toFixed(3)}%`;
+        const isPerSection = frame.reflow.mode === 'per-section' && project.theme?.autoReflow?.enabled !== false;
+        const nextW = isPerSection
+            ? `${canvasW}px`
+            : `${Math.min(maxColW, Math.max(320, Math.round(canvasW * frame.reflow.widthRatio - gapPx)))}px`;
+        const nextLeft = isPerSection ? '50%' : `${frame.reflow.centerXPercent.toFixed(3)}%`;
+        if (lastIsGlide !== !isPerSection) {
+            lastIsGlide = !isPerSection;
+            creditsCol.style.willChange = isPerSection ? '' : 'transform';
+        }
+        if (nextW !== lastColW) {
+            lastColW = nextW;
+            creditsCol.style.width = nextW;
+        }
+        if (nextLeft !== lastColLeft) {
+            lastColLeft = nextLeft;
+            creditsCol.style.left = nextLeft;
         }
 
         // 2. Crawl Runs (GPU translate3d)
-        const activeRunIds = new Set();
+        const activeRunIds = frame.activeRuns.length ? new Set(frame.activeRuns.map(r => r.runId)) : null;
         for (const r of frame.activeRuns) {
-            activeRunIds.add(r.runId);
             const el = runDomMap.get(r.runId);
             if (el) {
-                el.classList.add('active');
+                if (!el.classList.contains('active')) el.classList.add('active');
                 el.style.transform = `translate3d(0, ${r.scrollY.toFixed(2)}px, 0)`;
             }
         }
         for (const [id, el] of runDomMap.entries()) {
-            if (!activeRunIds.has(id)) el.classList.remove('active');
-        }
-
-        // 3. Featured / Timed Cards
-        const activeCardIds = new Set();
-        for (const card of frame.activeCards) {
-            activeCardIds.add(card.blockId);
-            const el = cardDomMap.get(card.blockId);
-            if (el) {
-                el.classList.add('active');
-                el.style.opacity = String(card.opacity.toFixed(4));
-                el.style.transform = `translate3d(${card.translateX.toFixed(2)}px, ${card.translateY.toFixed(2)}px, 0) scale(${card.scale.toFixed(4)})`;
-                el.style.filter = card.blur > 0.05 ? `blur(${card.blur.toFixed(2)}px)` : '';
-                el.style.clipPath = card.clipPath || '';
+            if (!activeRunIds || !activeRunIds.has(id)) {
+                if (el.classList.contains('active')) el.classList.remove('active');
             }
         }
-        for (const [id, el] of cardDomMap.entries()) {
-            if (!activeCardIds.has(id)) el.classList.remove('active');
+
+        // 3. Featured / Timed Cards (skip unchanged style writes during steady-state hold)
+        const activeCardIds = frame.activeCards.length ? new Set(frame.activeCards.map(c => c.blockId)) : null;
+        for (const card of frame.activeCards) {
+            const entry = cardDomMap.get(card.blockId);
+            if (!entry) continue;
+            const el = entry.el;
+            if (!entry.active) {
+                entry.active = true;
+                el.classList.add('active');
+            }
+            const op = card.opacity.toFixed(4);
+            const tr = `translate3d(${card.translateX.toFixed(2)}px, ${card.translateY.toFixed(2)}px, 0) scale(${card.scale.toFixed(4)})`;
+            const fl = card.blur > 0.05 ? `blur(${card.blur.toFixed(2)}px)` : '';
+            const cp = card.clipPath || '';
+            if (op !== entry.lastOpacity) { entry.lastOpacity = op; el.style.opacity = op; }
+            if (tr !== entry.lastTransform) { entry.lastTransform = tr; el.style.transform = tr; }
+            if (fl !== entry.lastFilter) { entry.lastFilter = fl; el.style.filter = fl; }
+            if (cp !== entry.lastClipPath) { entry.lastClipPath = cp; el.style.clipPath = cp; }
+        }
+        for (const [id, entry] of cardDomMap.entries()) {
+            if (!activeCardIds || !activeCardIds.has(id)) {
+                if (entry.active) {
+                    entry.active = false;
+                    entry.el.classList.remove('active');
+                }
+            }
         }
 
-        // 4. Floating / Side / Background Track Clips
-        const activeClipIds = new Set();
+        // 4. Floating / Side / Background Track Clips (zero DOM queries per frame)
+        const activeClipIds = frame.activeClips.length ? new Set(frame.activeClips.map(ac => ac.clip.id)) : null;
         for (const ac of frame.activeClips) {
-            activeClipIds.add(ac.clip.id);
-            const el = clipDomMap.get(ac.clip.id);
-            if (!el) continue;
-            el.classList.add('active');
-            el.style.opacity = String(ac.opacity.toFixed(4));
+            const entry = clipDomMap.get(ac.clip.id);
+            if (!entry) continue;
+            const el = entry.el;
+            if (!entry.active) {
+                entry.active = true;
+                el.classList.add('active');
+            }
+            const op = ac.opacity.toFixed(4);
             const rot = ac.clip.rotation || 0;
-            el.style.transform = `translate3d(${ac.translateX.toFixed(2)}px, ${ac.translateY.toFixed(2)}px, 0) rotate(${rot}deg) scale(${ac.scale.toFixed(4)})`;
-            const baseF = el.dataset.baseFilter || '';
-            const blurF = ac.blur > 0.05 ? `blur(${ac.blur.toFixed(2)}px)` : '';
-            el.style.filter = [baseF, blurF].filter(Boolean).join(' ');
-            el.style.clipPath = ac.clipPath || '';
+            const tr = `translate3d(${ac.translateX.toFixed(2)}px, ${ac.translateY.toFixed(2)}px, 0) rotate(${rot}deg) scale(${ac.scale.toFixed(4)})`;
+            const totalBlur = entry.baseBlurPx + (ac.blur > 0.05 ? ac.blur : 0);
+            const blurPart = totalBlur > 0.05 ? `blur(${totalBlur.toFixed(2)}px)` : '';
+            const fl = entry.baseFilterNoBlur
+                ? (blurPart ? `${entry.baseFilterNoBlur} ${blurPart}` : entry.baseFilterNoBlur)
+                : blurPart;
+            const cp = ac.clipPath || '';
+            if (op !== entry.lastOpacity) { entry.lastOpacity = op; el.style.opacity = op; }
+            if (tr !== entry.lastTransform) { entry.lastTransform = tr; el.style.transform = tr; }
+            if (fl !== entry.lastFilter) { entry.lastFilter = fl; el.style.filter = fl; }
+            if (cp !== entry.lastClipPath) { entry.lastClipPath = cp; el.style.clipPath = cp; }
 
-            // Ken Burns inner transform
-            const innerMedia = el.querySelector('.cs-clip-media-el');
-            if (innerMedia && (ac.kbScale !== 1 || ac.kbX !== 0 || ac.kbY !== 0)) {
-                innerMedia.style.transform = `translate3d(${ac.kbX.toFixed(2)}%, ${ac.kbY.toFixed(2)}%, 0) scale(${ac.kbScale.toFixed(4)})`;
+            // Ken Burns inner transform (always resets cleanly when back to identity)
+            if (entry.innerMedia) {
+                const kb = (ac.kbScale !== 1 || ac.kbX !== 0 || ac.kbY !== 0)
+                    ? `translate3d(${ac.kbX.toFixed(2)}%, ${ac.kbY.toFixed(2)}%, 0) scale(${ac.kbScale.toFixed(4)})`
+                    : '';
+                if (kb !== entry.lastKbTransform) {
+                    entry.lastKbTransform = kb;
+                    entry.innerMedia.style.transform = kb;
+                }
             }
 
             // Deterministic slideshow indexing
-            if (ac.clip.elementType === 'slideshow' && innerMedia) {
+            if (ac.clip.elementType === 'slideshow' && entry.innerMedia) {
                 const imgs = (ac.clip.slideshowImages || []).filter(Boolean);
                 if (imgs.length) {
                     const interval = Math.max(1, Number(ac.clip.slideshowIntervalSec) || 4);
                     const idx = Math.floor(ac.localTime / interval) % imgs.length;
-                    if (innerMedia.getAttribute('src') !== imgs[idx]) innerMedia.src = imgs[idx];
+                    if (entry.innerMedia.getAttribute('src') !== imgs[idx]) entry.innerMedia.src = imgs[idx];
                 }
             }
 
-            // Video synchronization
-            if (ac.clip.elementType === 'video') {
-                const vids = el.querySelectorAll('video');
-                for (const v of vids) {
-                    const targetT = v.duration && Number.isFinite(v.duration)
+            // Procedural pattern clip driven deterministically by timeline timestamp (zero idle RAFs)
+            if (entry.pattern) {
+                entry.pattern.renderAt(ac.localTime);
+            }
+
+            // Video synchronization using cached video refs
+            if (entry.videos.length) {
+                const targetRate = (ac.clip.videoRate || 1) * speedRate;
+                for (const v of entry.videos) {
+                    if (Math.abs((v.playbackRate || 1) - targetRate) > 0.01) {
+                        try { v.playbackRate = targetRate; } catch {}
+                    }
+                    const targetT = v.duration && Number.isFinite(v.duration) && v.duration > 0
                         ? (ac.clip.videoLoop !== false ? (ac.mediaTime % v.duration) : Math.min(v.duration, ac.mediaTime))
                         : ac.mediaTime;
                     if (deterministic || !playing) {
@@ -1056,11 +1392,14 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
                 }
             }
         }
-        for (const [id, el] of clipDomMap.entries()) {
-            if (!activeClipIds.has(id)) {
-                el.classList.remove('active');
-                for (const v of el.querySelectorAll('video')) {
-                    if (!v.paused) v.pause();
+        for (const [id, entry] of clipDomMap.entries()) {
+            if (!activeClipIds || !activeClipIds.has(id)) {
+                if (entry.active) {
+                    entry.active = false;
+                    entry.el.classList.remove('active');
+                    for (const v of entry.videos) {
+                        if (!v.paused) v.pause();
+                    }
                 }
             }
         }
@@ -1068,14 +1407,50 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
         // 5. Cutout punchout mask
         applyCutoutMasks(frame.activeClips);
 
-        // 6. Step pattern canvases deterministically during export
-        if (deterministic && activePatterns.length) {
-            for (const inst of activePatterns) {
-                try { inst.renderAt?.(currentTime * 1000); } catch {}
-            }
+        // 6. Background procedural pattern & ambient/inline videos
+        if (bgPatterns.length) {
+            for (const inst of bgPatterns) inst.renderAt(currentTime);
         }
+        syncAmbientVideos(currentTime);
 
         onTimeUpdate(frame);
+        return frame;
+    }
+
+    // Async deterministic seek for Puppeteer + FFmpeg export (awaits video seeked + image decode)
+    async function seekAsync(tSec) {
+        const frame = renderAtTime(Number(tSec) || 0);
+        if (!deterministic) return frame;
+        const pending = [];
+        const awaitVideo = v => {
+            if (v.seeking || v.readyState < 2) {
+                pending.push(new Promise(resolve => {
+                    const done = () => {
+                        v.removeEventListener('seeked', done);
+                        v.removeEventListener('loadeddata', done);
+                        v.removeEventListener('error', done);
+                        resolve();
+                    };
+                    v.addEventListener('seeked', done, { once: true });
+                    v.addEventListener('loadeddata', done, { once: true });
+                    v.addEventListener('error', done, { once: true });
+                    setTimeout(done, 400);
+                }));
+            }
+        };
+        for (const v of bgVideos) awaitVideo(v);
+        for (const v of inlineVideos) awaitVideo(v);
+        for (const entry of clipDomMap.values()) {
+            if (!entry.active) continue;
+            for (const v of entry.videos) awaitVideo(v);
+            if (entry.innerMedia && entry.innerMedia.tagName === 'IMG' && !entry.innerMedia.complete) {
+                pending.push(entry.innerMedia.decode?.().catch(() => {}) || Promise.resolve());
+            }
+        }
+        if (pending.length) {
+            await Promise.all(pending);
+            await new Promise(r => requestAnimationFrame(() => r()));
+        }
         return frame;
     }
 
@@ -1084,17 +1459,11 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
             rafId = 0;
             return;
         }
-        if (document.hidden && !deterministic) {
-            lastRafMs = nowMs;
-            rafId = requestAnimationFrame(tick);
-            return;
-        }
         const dt = lastRafMs ? Math.min(0.1, (nowMs - lastRafMs) / 1000) : 0;
         lastRafMs = nowMs;
         const frame = renderAtTime(currentTime + dt * speedRate);
         if (frame?.ended && !project?.timing?.loop && project?.timing?.endBehavior !== 'loop') {
-            playing = false;
-            rafId = 0;
+            pause();
             return;
         }
         rafId = requestAnimationFrame(tick);
@@ -1102,21 +1471,61 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
 
     function play() {
         if (destroyed || !project) return;
+        pausedByHidden = false;
         if (solved && currentTime >= solved.totalDurationSec) currentTime = 0;
+        const wasPlaying = playing;
         playing = true;
         lastRafMs = 0;
-        if (!rafId) rafId = requestAnimationFrame(tick);
+        if (!wasPlaying) onStateChange(true);
+        if (!document.hidden || deterministic) {
+            if (!rafId) rafId = requestAnimationFrame(tick);
+            syncAmbientVideos(currentTime);
+        } else {
+            pausedByHidden = true;
+        }
     }
 
     function pause() {
+        pausedByHidden = false;
+        const wasPlaying = playing;
         playing = false;
         if (rafId) {
             cancelAnimationFrame(rafId);
             rafId = 0;
         }
-        for (const v of viewport.querySelectorAll('video')) {
-            if (!v.paused) v.pause();
+        for (const v of bgVideos) { if (!v.paused) v.pause(); }
+        for (const v of inlineVideos) { if (!v.paused) v.pause(); }
+        for (const entry of clipDomMap.values()) {
+            for (const v of entry.videos) { if (!v.paused) v.pause(); }
         }
+        if (wasPlaying) onStateChange(false);
+    }
+
+    function handleVisibilityChange() {
+        if (destroyed || deterministic) return;
+        if (document.hidden) {
+            if (playing) {
+                pausedByHidden = true;
+                if (rafId) {
+                    cancelAnimationFrame(rafId);
+                    rafId = 0;
+                }
+                for (const v of bgVideos) { if (!v.paused) v.pause(); }
+                for (const v of inlineVideos) { if (!v.paused) v.pause(); }
+                for (const entry of clipDomMap.values()) {
+                    for (const v of entry.videos) { if (!v.paused) v.pause(); }
+                }
+            }
+        } else if (pausedByHidden && playing) {
+            pausedByHidden = false;
+            lastRafMs = 0;
+            if (!rafId) rafId = requestAnimationFrame(tick);
+            syncAmbientVideos(currentTime);
+        }
+    }
+
+    if (!deterministic) {
+        document.addEventListener('visibilitychange', handleVisibilityChange);
     }
 
     function seek(tSec) {
@@ -1125,22 +1534,45 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
 
     function setSpeedRate(rate) {
         speedRate = Math.max(0.25, Math.min(4, Number(rate) || 1));
+        for (const v of bgVideos) { try { v.playbackRate = speedRate; } catch {} }
+        for (const v of inlineVideos) { try { v.playbackRate = speedRate; } catch {} }
+        for (const entry of clipDomMap.values()) {
+            const r = (entry.clip?.videoRate || 1) * speedRate;
+            for (const v of entry.videos) { try { v.playbackRate = r; } catch {} }
+        }
     }
 
     function setProject(nextProject, opts = {}) {
         project = engine.normalizeProject(nextProject);
+        if (opts.variables !== undefined) variables = opts.variables || {};
         if (opts.bgOverride !== undefined) bgOverride = opts.bgOverride;
         if (opts.chromaOverride !== undefined) chromaOverride = opts.chromaOverride;
         buildScene();
     }
 
-    function setVariables(nextVars) {
+    function setVariables(nextVars, { skipRebuild = false } = {}) {
         variables = nextVars || {};
-        if (project) buildScene();
+        if (project && !skipRebuild) buildScene();
+    }
+
+    function remeasureAndResolve() {
+        if (!project || !solved) return solved;
+        syncZonesAndMeasure();
+        onSolved(solved);
+        renderAtTime(currentTime);
+        return solved;
     }
 
     // Static PNG export helpers (Full Tall Sheet & Per-Section PNGs)
-    function prepareStaticSheet() {
+    async function awaitImagesIn(root) {
+        const imgs = [...root.querySelectorAll('img')];
+        if (!imgs.length) return;
+        await Promise.all(imgs.map(img => (
+            img.complete ? Promise.resolve() : (img.decode?.().catch(() => {}) || new Promise(r => { img.onload = img.onerror = r; setTimeout(r, 2000); }))
+        )));
+    }
+
+    async function prepareStaticSheet() {
         if (!project) return { width: 1920, height: 1080 };
         pause();
         viewport.classList.add('cs-static-mode');
@@ -1157,6 +1589,7 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
             if (!blk.enabled) continue;
             creditsCol.appendChild(buildBlockElement(blk));
         }
+        await awaitImagesIn(creditsCol);
         applyAutoFitNames(creditsCol);
         return { width: project.canvas.width, height: Math.max(project.canvas.height, creditsCol.scrollHeight + 80) };
     }
@@ -1168,7 +1601,7 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
             .map(b => ({ id: b.id, title: b.title, type: b.type }));
     }
 
-    function prepareStaticBlock(blockId) {
+    async function prepareStaticBlock(blockId) {
         if (!project) return { width: 1920, height: 1080 };
         const blk = (project.blocks || []).find(b => b.id === blockId);
         if (!blk) return { width: project.canvas.width, height: project.canvas.height };
@@ -1187,14 +1620,21 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
         creditsCol.style.alignItems = 'center';
         creditsCol.style.justifyContent = 'center';
         creditsCol.appendChild(buildBlockElement(blk));
+        await awaitImagesIn(creditsCol);
         applyAutoFitNames(creditsCol);
         return { width: project.canvas.width, height: Math.max(project.canvas.height, creditsCol.scrollHeight + 80) };
     }
 
     function destroy() {
         destroyed = true;
+        if (!deterministic) {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        }
         pause();
         disposePatterns();
+        releaseVideosIn(viewport);
+        bgVideos = [];
+        inlineVideos = [];
         mountEl.innerHTML = '';
     }
 
@@ -1205,12 +1645,14 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
         play,
         pause,
         seek,
+        seekAsync,
         setSpeedRate,
         isPlaying: () => playing,
         getTime: () => currentTime,
         getSolved: () => solved,
         getProject: () => project,
         refit: () => applyAutoFitNames(creditsCol),
+        remeasureAndResolve,
         prepareStaticSheet,
         listStaticBlocks,
         prepareStaticBlock,
