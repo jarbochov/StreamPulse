@@ -18,7 +18,7 @@
 .mp-grid button { padding: 0; overflow: hidden; display: flex; flex-direction: column; text-align: left; background: var(--bg-inset, #0d1117); }
 .mp-grid button:hover, .mp-grid button:focus-visible, .mp-grid button.on { border-color: var(--accent, #58a6ff); outline: none; }
 .mp-thumb { height: 84px; background: repeating-conic-gradient(#2a2f36 0 25%, #1c2128 0 50%) 0 0 / 14px 14px; }
-.mp-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.mp-thumb img, .mp-thumb video { width: 100%; height: 100%; object-fit: contain; display: block; }
 .mp-cap { padding: 4px 6px; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mp-empty { grid-column: 1 / -1; text-align: center; color: var(--text-muted, #8b949e); padding: 20px; }
 .mp-status { margin-right: auto; }
@@ -35,15 +35,29 @@
     }
 
     const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const safeHeaderName = name => String(name || 'asset').replace(/[^\x20-\x7E]/g, '-').slice(0, 180) || 'asset';
+    const safeDecode = s => { try { return decodeURIComponent(String(s || '')); } catch { return String(s || ''); } };
 
-    function open({ value = '', onPick }) {
+    let activeClose = null;
+
+    function open({ value = '', kind = 'image', onPick }) {
         injectStyle();
+        if (typeof activeClose === 'function') {
+            try { activeClose(); } catch {}
+        }
+        const isVideo = kind === 'video';
+        const isMedia = kind === 'media';
+        const noun = isVideo ? 'video' : (isMedia ? 'media file' : 'image');
+        const plural = isVideo ? 'Videos' : (isMedia ? 'Images and videos' : 'Images');
+        const accept = isVideo ? 'video/mp4,video/webm,video/ogg' : (isMedia ? 'image/*,video/mp4,video/webm,video/ogg' : 'image/*');
+        const browserKey = isVideo ? 'videos' : (isMedia ? 'media' : 'images');
+
         const backdrop = document.createElement('div');
         backdrop.className = 'mp-backdrop';
-        backdrop.innerHTML = `<div class="mp-dialog" role="dialog" aria-label="Choose an image">
-            <div class="mp-head"><input type="search" placeholder="Filter by name" aria-label="Filter images"><label class="mp-upload">Upload from computer<input type="file" accept="image/*" hidden></label><button type="button" data-clear>No image</button><button type="button" data-close>Cancel</button></div>
+        backdrop.innerHTML = `<div class="mp-dialog" role="dialog" aria-label="Choose a ${noun}">
+            <div class="mp-head"><input type="search" placeholder="Filter by name" aria-label="Filter ${plural.toLowerCase()}"><label class="mp-upload">Upload from computer<input type="file" accept="${accept}" hidden></label><button type="button" data-clear>Clear</button><button type="button" data-close>Cancel</button></div>
             <div class="mp-grid" role="listbox"><div class="mp-empty">Loading…</div></div>
-            <div class="mp-foot"><span class="mp-status">Images from the Asset Library. Uploads are saved there too.</span></div>
+            <div class="mp-foot"><span class="mp-status">${plural} from the Asset Library. Uploads are saved there too.</span><a href="/assets.html" target="_blank" rel="noopener" style="color:var(--accent,#58a6ff);text-decoration:none;font-weight:600;">Manage Library</a></div>
         </div>`;
         const input = backdrop.querySelector('input[type=search]');
         const file = backdrop.querySelector('input[type=file]');
@@ -53,41 +67,58 @@
         let closed = false, loaded = false, browser = null;
         import('/js/asset-browser.js').then(({ mountAssetBrowser }) => {
             if (closed) return;
-            browser = mountAssetBrowser({ search: input, key: 'images', onChange: draw });
+            browser = mountAssetBrowser({ search: input, key: browserKey, onChange: draw });
+            backdrop.querySelector('input[type=search]')?.focus();
             if (loaded) draw();
         }).catch(() => {
             if (!closed) grid.innerHTML = '<div class="mp-empty">Could not load browsing controls. Close and try again.</div>';
         });
 
         const close = () => {
+            if (closed) return;
             closed = true;
+            if (activeClose === close) activeClose = null;
             browser?.destroy();
             grid.innerHTML = '';
             assets = [];
             backdrop.remove();
             document.removeEventListener('keydown', onKey, true);
         };
+        activeClose = close;
         const pick = url => { close(); onPick && onPick(url); };
         function onKey(e) { if (e.key === 'Escape') { e.stopPropagation(); close(); } }
 
         function draw() {
             if (!browser) return;
             const list = browser.filter(assets);
-            grid.innerHTML = list.length ? '' : '<div class="mp-empty">No images match. Change the search or tag, or upload an image.</div>';
+            grid.innerHTML = list.length ? '' : `<div class="mp-empty">No ${plural.toLowerCase()} match. Change the search or tag, or upload a ${noun}.</div>`;
             list.forEach(a => {
                 const b = document.createElement('button');
                 b.type = 'button';
                 b.setAttribute('role', 'option');
                 if (a.url === value) b.classList.add('on');
-                b.innerHTML = `<div class="mp-thumb"><img src="${esc(a.url)}" alt="" loading="lazy" decoding="async"></div><div class="mp-cap" title="${esc(a.label || a.name)}">${esc(a.label || a.name)}</div>`;
+                const thumb = a.kind === 'video'
+                    ? `<video src="${esc(a.url)}" muted preload="metadata"></video>`
+                    : `<img src="${esc(a.url)}" alt="" loading="lazy" decoding="async">`;
+                b.innerHTML = `<div class="mp-thumb">${thumb}</div><div class="mp-cap" title="${esc(a.label || a.name)}">${esc(a.label || a.name)}</div>`;
                 b.onclick = () => pick(a.url);
                 grid.appendChild(b);
             });
         }
 
         fetch('/api/custom-overlays/assets', { cache: 'no-store' })
-            .then(r => r.json())
-            .then(list => { if (!closed) { assets = list.filter(a => a.kind === 'image'); loaded = true; draw(); } })
+            .then(r => {
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                return r.json();
+            })
+            .then(list => {
+                if (!closed) {
+                    const arr = Array.isArray(list) ? list : (list?.assets || []);
+                    assets = arr.filter(a => (isMedia ? (a.kind === 'image' || a.kind === 'video') : a.kind === kind));
+                    loaded = true;
+                    draw();
+                }
+            })
             .catch(() => { if (!closed) grid.innerHTML = '<div class="mp-empty">Could not load the Asset Library.</div>'; });
 
         file.addEventListener('change', async () => {
@@ -97,14 +128,16 @@
             try {
                 const res = await fetch('/api/custom-overlays/assets', {
                     method: 'POST',
-                    headers: { 'Content-Type': f.type || 'application/octet-stream', 'X-Asset-Name': f.name },
+                    headers: { 'Content-Type': f.type || 'application/octet-stream', 'X-Asset-Name': safeHeaderName(f.name) },
                     body: f
                 });
-                const data = await res.json();
+                const data = await res.json().catch(() => ({}));
                 if (!res.ok) throw new Error(data.error || 'Upload failed');
                 if (!closed) pick(data.url);
             } catch (err) {
                 if (!closed) status.textContent = err.message;
+            } finally {
+                file.value = '';
             }
         });
 
@@ -117,7 +150,7 @@
     }
 
     const LOCAL = '/local-file?path=';
-    const friendly = url => decodeURIComponent(String(url).split('/').pop()).replace(/^[a-z0-9]{6,}-/, '');
+    const friendly = url => safeDecode(String(url).split('/').pop()).replace(/^[a-z0-9]{6,}-/, '');
 
     // Turns a hidden/text input into a three-way image source field: library, file on this computer, or web URL.
     function mount(input) {
@@ -135,7 +168,7 @@
             host.innerHTML = `<div class="mf-tabs">${[['library', 'Library & upload'], ['file', 'File on computer'], ['url', 'Web URL']].map(([k, l]) => `<button type="button" data-tab="${k}" aria-pressed="${tab === k}">${l}</button>`).join('')}</div><div class="mf-body"></div>`;
             const body = host.querySelector('.mf-body');
             if (tab === 'file') {
-                body.innerHTML = `<div class="mf-row"><input type="text" placeholder="/Users/you/Pictures/logo.png" spellcheck="false" value="${esc(v.startsWith(LOCAL) ? decodeURIComponent(v.slice(LOCAL.length)) : '')}"><button type="button" class="btn" data-browse style="width:auto;padding:0.2rem 0.6rem;">Browse…</button></div><div class="mf-hint">Uses the file in place, nothing is uploaded. If you move or delete it, the image disappears.</div>`;
+                body.innerHTML = `<div class="mf-row"><input type="text" placeholder="/Users/you/Pictures/logo.png" spellcheck="false" value="${esc(v.startsWith(LOCAL) ? safeDecode(v.slice(LOCAL.length)) : '')}"><button type="button" class="btn" data-browse style="width:auto;padding:0.2rem 0.6rem;">Browse…</button></div><div class="mf-hint">Uses the file in place, nothing is uploaded. If you move or delete it, the image disappears.</div>`;
                 const t = body.querySelector('input');
                 t.onchange = () => t.value.trim() && set(LOCAL + encodeURIComponent(t.value.trim()));
                 body.querySelector('[data-browse]').onclick = async e => {
@@ -154,14 +187,21 @@
                 t.onchange = () => set(t.value.trim());
             } else {
                 body.innerHTML = `<div class="mf-row"><input type="text" readonly placeholder="Nothing chosen" value="${esc(v.startsWith('/custom-overlay-assets/') ? friendly(v) : '')}"><button type="button" class="btn" data-lib style="width:auto;padding:0.2rem 0.6rem;">Library…</button><label class="btn" style="width:auto;padding:0.2rem 0.6rem;cursor:pointer;margin:0;">Upload new…<input type="file" accept="image/*" hidden></label></div><div class="mf-hint">Pick from the Asset Library or upload a new image (saved to the library).</div>`;
+                const hint = body.querySelector('.mf-hint');
                 body.querySelector('[data-lib]').onclick = () => open({ value: v, onPick: set });
                 body.querySelector('input[type=file]').onchange = async e => {
                     const f = e.target.files[0]; if (!f) return;
+                    if (hint) hint.textContent = 'Uploading…';
                     try {
-                        const r = await fetch('/api/custom-overlays/assets', { method: 'POST', headers: { 'Content-Type': f.type || 'application/octet-stream', 'X-Asset-Name': f.name }, body: f });
-                        const d = await r.json();
-                        if (r.ok) set(d.url);
-                    } catch { /* ignore */ }
+                        const r = await fetch('/api/custom-overlays/assets', { method: 'POST', headers: { 'Content-Type': f.type || 'application/octet-stream', 'X-Asset-Name': safeHeaderName(f.name) }, body: f });
+                        const d = await r.json().catch(() => ({}));
+                        if (!r.ok) throw new Error(d.error || 'Upload failed');
+                        set(d.url);
+                    } catch (err) {
+                        if (hint) hint.textContent = err.message || 'Upload failed';
+                    } finally {
+                        e.target.value = '';
+                    }
                 };
             }
             if (v) {
