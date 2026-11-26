@@ -35,9 +35,16 @@
     }
 
     const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const safeHeaderName = name => String(name || 'asset').replace(/[^\x20-\x7E]/g, '-').slice(0, 180) || 'asset';
+    const safeDecode = s => { try { return decodeURIComponent(String(s || '')); } catch { return String(s || ''); } };
+
+    let activeClose = null;
 
     function open({ value = '', kind = 'image', onPick }) {
         injectStyle();
+        if (typeof activeClose === 'function') {
+            try { activeClose(); } catch {}
+        }
         const isVideo = kind === 'video';
         const isMedia = kind === 'media';
         const noun = isVideo ? 'video' : (isMedia ? 'media file' : 'image');
@@ -61,19 +68,23 @@
         import('/js/asset-browser.js').then(({ mountAssetBrowser }) => {
             if (closed) return;
             browser = mountAssetBrowser({ search: input, key: browserKey, onChange: draw });
+            backdrop.querySelector('input[type=search]')?.focus();
             if (loaded) draw();
         }).catch(() => {
             if (!closed) grid.innerHTML = '<div class="mp-empty">Could not load browsing controls. Close and try again.</div>';
         });
 
         const close = () => {
+            if (closed) return;
             closed = true;
+            if (activeClose === close) activeClose = null;
             browser?.destroy();
             grid.innerHTML = '';
             assets = [];
             backdrop.remove();
             document.removeEventListener('keydown', onKey, true);
         };
+        activeClose = close;
         const pick = url => { close(); onPick && onPick(url); };
         function onKey(e) { if (e.key === 'Escape') { e.stopPropagation(); close(); } }
 
@@ -96,7 +107,10 @@
         }
 
         fetch('/api/custom-overlays/assets', { cache: 'no-store' })
-            .then(r => r.json())
+            .then(r => {
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                return r.json();
+            })
             .then(list => {
                 if (!closed) {
                     const arr = Array.isArray(list) ? list : (list?.assets || []);
@@ -114,14 +128,16 @@
             try {
                 const res = await fetch('/api/custom-overlays/assets', {
                     method: 'POST',
-                    headers: { 'Content-Type': f.type || 'application/octet-stream', 'X-Asset-Name': f.name },
+                    headers: { 'Content-Type': f.type || 'application/octet-stream', 'X-Asset-Name': safeHeaderName(f.name) },
                     body: f
                 });
-                const data = await res.json();
+                const data = await res.json().catch(() => ({}));
                 if (!res.ok) throw new Error(data.error || 'Upload failed');
                 if (!closed) pick(data.url);
             } catch (err) {
                 if (!closed) status.textContent = err.message;
+            } finally {
+                file.value = '';
             }
         });
 
@@ -134,7 +150,7 @@
     }
 
     const LOCAL = '/local-file?path=';
-    const friendly = url => decodeURIComponent(String(url).split('/').pop()).replace(/^[a-z0-9]{6,}-/, '');
+    const friendly = url => safeDecode(String(url).split('/').pop()).replace(/^[a-z0-9]{6,}-/, '');
 
     // Turns a hidden/text input into a three-way image source field: library, file on this computer, or web URL.
     function mount(input) {
@@ -152,7 +168,7 @@
             host.innerHTML = `<div class="mf-tabs">${[['library', 'Library & upload'], ['file', 'File on computer'], ['url', 'Web URL']].map(([k, l]) => `<button type="button" data-tab="${k}" aria-pressed="${tab === k}">${l}</button>`).join('')}</div><div class="mf-body"></div>`;
             const body = host.querySelector('.mf-body');
             if (tab === 'file') {
-                body.innerHTML = `<div class="mf-row"><input type="text" placeholder="/Users/you/Pictures/logo.png" spellcheck="false" value="${esc(v.startsWith(LOCAL) ? decodeURIComponent(v.slice(LOCAL.length)) : '')}"><button type="button" class="btn" data-browse style="width:auto;padding:0.2rem 0.6rem;">Browse…</button></div><div class="mf-hint">Uses the file in place, nothing is uploaded. If you move or delete it, the image disappears.</div>`;
+                body.innerHTML = `<div class="mf-row"><input type="text" placeholder="/Users/you/Pictures/logo.png" spellcheck="false" value="${esc(v.startsWith(LOCAL) ? safeDecode(v.slice(LOCAL.length)) : '')}"><button type="button" class="btn" data-browse style="width:auto;padding:0.2rem 0.6rem;">Browse…</button></div><div class="mf-hint">Uses the file in place, nothing is uploaded. If you move or delete it, the image disappears.</div>`;
                 const t = body.querySelector('input');
                 t.onchange = () => t.value.trim() && set(LOCAL + encodeURIComponent(t.value.trim()));
                 body.querySelector('[data-browse]').onclick = async e => {
@@ -171,14 +187,21 @@
                 t.onchange = () => set(t.value.trim());
             } else {
                 body.innerHTML = `<div class="mf-row"><input type="text" readonly placeholder="Nothing chosen" value="${esc(v.startsWith('/custom-overlay-assets/') ? friendly(v) : '')}"><button type="button" class="btn" data-lib style="width:auto;padding:0.2rem 0.6rem;">Library…</button><label class="btn" style="width:auto;padding:0.2rem 0.6rem;cursor:pointer;margin:0;">Upload new…<input type="file" accept="image/*" hidden></label></div><div class="mf-hint">Pick from the Asset Library or upload a new image (saved to the library).</div>`;
+                const hint = body.querySelector('.mf-hint');
                 body.querySelector('[data-lib]').onclick = () => open({ value: v, onPick: set });
                 body.querySelector('input[type=file]').onchange = async e => {
                     const f = e.target.files[0]; if (!f) return;
+                    if (hint) hint.textContent = 'Uploading…';
                     try {
-                        const r = await fetch('/api/custom-overlays/assets', { method: 'POST', headers: { 'Content-Type': f.type || 'application/octet-stream', 'X-Asset-Name': f.name }, body: f });
-                        const d = await r.json();
-                        if (r.ok) set(d.url);
-                    } catch { /* ignore */ }
+                        const r = await fetch('/api/custom-overlays/assets', { method: 'POST', headers: { 'Content-Type': f.type || 'application/octet-stream', 'X-Asset-Name': safeHeaderName(f.name) }, body: f });
+                        const d = await r.json().catch(() => ({}));
+                        if (!r.ok) throw new Error(d.error || 'Upload failed');
+                        set(d.url);
+                    } catch (err) {
+                        if (hint) hint.textContent = err.message || 'Upload failed';
+                    } finally {
+                        e.target.value = '';
+                    }
                 };
             }
             if (v) {
