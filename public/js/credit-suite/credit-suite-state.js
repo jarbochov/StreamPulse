@@ -35,6 +35,7 @@ export function createCreditSuiteState() {
         assets: [],
         selection: { kind: null, id: null, trackId: null },
         selectedClipIds: new Set(),
+        studioView: prefs.studioView === 'content' ? 'content' : 'studio',
         outlinerTab: prefs.outlinerTab === 'tracks' ? 'tracks' : 'blocks',
         inspectorTab: ['selected', 'theme', 'export'].includes(prefs.inspectorTab) ? prefs.inspectorTab : 'selected',
         backdrop: ['checker', 'dark', 'light'].includes(prefs.backdrop) ? prefs.backdrop : 'checker',
@@ -139,6 +140,12 @@ export function createCreditSuiteState() {
             store.selection = { kind: 'clip', id: first, trackId: tid };
         }
         emit('selection');
+    }
+
+    function setStudioView(view) {
+        store.studioView = view === 'content' ? 'content' : 'studio';
+        savePrefs({ studioView: store.studioView });
+        emit('ui');
     }
 
     function setOutlinerTab(tab) {
@@ -488,6 +495,7 @@ export function createCreditSuiteState() {
         setSelection,
         toggleClipSelection,
         setClipSelectionSet,
+        setStudioView,
         setOutlinerTab,
         setInspectorTab,
         setBackdrop,

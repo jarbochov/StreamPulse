@@ -3,6 +3,7 @@ import { mountCreditSuiteBlocks } from './credit-suite-blocks.js';
 import { mountCreditSuiteStage } from './credit-suite-stage.js';
 import { mountCreditSuiteTimeline } from './credit-suite-timeline.js';
 import { mountCreditSuiteInspector } from './credit-suite-inspector.js';
+import { mountCreditSuiteContent } from './credit-suite-content.js';
 
 function esc(str) {
     return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -38,6 +39,29 @@ function initCreditSuiteStudio() {
     });
 
     mountCreditSuiteInspector({ state, stage: stageApi });
+    const contentApi = mountCreditSuiteContent({ state });
+
+    const studioShell = document.getElementById('cs-studio-shell');
+    const contentView = document.getElementById('cs-content-view');
+    const mainViewBtns = document.querySelectorAll('[data-cs-main-view]');
+    mainViewBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            state.setStudioView(btn.dataset.csMainView);
+        });
+    });
+
+    function syncMainView() {
+        const isContent = state.store.studioView === 'content';
+        if (studioShell) studioShell.style.display = isContent ? 'none' : 'flex';
+        if (contentView) contentView.style.display = isContent ? 'block' : 'none';
+        mainViewBtns.forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.csMainView === state.store.studioView);
+        });
+        if (isContent) {
+            stageApi.pause();
+            contentApi.render();
+        }
+    }
 
     const projSelect = document.getElementById('cs-project-select');
     const dirtyPill = document.getElementById('cs-dirty-pill');
@@ -230,11 +254,15 @@ function initCreditSuiteStudio() {
         }
     });
 
-    state.subscribe(() => syncTopBar());
+    state.subscribe(() => {
+        syncTopBar();
+        syncMainView();
+    });
 
     state.loadInitial()
         .then(() => {
             syncTopBar();
+            syncMainView();
             state.connectWs();
         })
         .catch(err => console.error('[Credit Suite Init]', err));

@@ -42,6 +42,19 @@
             </div>
 
             <div class="cs-topbar-group">
+                <div class="cs-seg-nav" role="tablist" aria-label="Credit Suite Workspace View">
+                    <button type="button" class="cs-seg-btn active" data-cs-main-view="studio" role="tab">
+                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                        Studio &amp; Timeline
+                    </button>
+                    <button type="button" class="cs-seg-btn" data-cs-main-view="content" role="tab">
+                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                        Content &amp; Proofread
+                    </button>
+                </div>
+            </div>
+
+            <div class="cs-topbar-group">
                 <span class="cs-pill saved" id="cs-dirty-pill">Saved</span>
                 <button type="button" class="cs-btn cs-btn-icon" id="cs-btn-undo" title="Undo (Cmd/Ctrl+Z)" disabled>
                     <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
@@ -60,6 +73,8 @@
             </div>
         </div>
 
+        <!-- Main View 1: Visual Studio & Timeline -->
+        <div id="cs-studio-shell" class="cs-studio-shell">
         <!-- 3-Column Main Studio Workspace -->
         <div class="cs-workspace">
             <!-- Left Panel: Sequence Blocks & Floating Tracks Outliner -->
@@ -135,8 +150,16 @@
                 <div class="cs-topbar-group">
                     <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);">Timeline</span>
                     <button type="button" class="cs-btn cs-btn-sm" id="cs-tl-add-track">+ Add Track</button>
-                    <span class="cs-pill" id="cs-duration-pill">0:00</span>
-                    <span class="cs-pill" id="cs-speed-pill">95 px/s</span>
+                    <label class="cs-tl-inline-num" title="Edit exact target sequence duration (seconds)">
+                        <span>Dur</span>
+                        <input type="number" id="cs-tl-dur-input" min="5" max="3600" step="1" value="40">
+                        <span>s</span>
+                    </label>
+                    <label class="cs-tl-inline-num" title="Edit crawl scroll speed (px/s)">
+                        <span>Speed</span>
+                        <input type="number" id="cs-tl-speed-input" min="15" max="600" step="5" value="95">
+                        <span>px/s</span>
+                    </label>
                     <div class="cs-topbar-group" id="cs-tl-multiselect-bar" style="display:none;"></div>
                 </div>
                 <div class="cs-topbar-group">
@@ -148,6 +171,30 @@
             </div>
             <div class="cs-timeline-scroll" id="cs-timeline-scroll">
                 <div class="cs-timeline-grid" id="cs-timeline-grid"></div>
+            </div>
+        </section>
+        </div>
+
+        <!-- Main View 2: Distraction-Free Content & Proofread Sheet -->
+        <section id="cs-content-view" class="cs-content-view" style="display:none;" aria-label="Content and Proofread View">
+            <div class="cs-cr-inner">
+                <div class="cs-cr-toolbar">
+                    <input type="search" id="cs-content-search" class="cs-cr-search" placeholder="Search names, roles, headings, or assets to proofread...">
+                    <select id="cs-content-filter" class="cs-cr-filter" aria-label="Filter items">
+                        <option value="all">All Elements</option>
+                        <option value="blocks">Credit Blocks Only</option>
+                        <option value="clips">Side &amp; Media Clips Only</option>
+                    </select>
+                    <span class="cs-pill" id="cs-content-stats">0 blocks</span>
+                    <button type="button" class="cs-btn cs-btn-sm" id="cs-content-copy-text">Copy Plain Text</button>
+                </div>
+
+                <div id="cs-content-blocks-list" class="cs-cr-list"></div>
+
+                <div id="cs-content-clips-wrap" class="cs-cr-clips-wrap" style="display:none;">
+                    <div class="cs-cr-section-divider">Side &amp; Overlay Track Clips</div>
+                    <div id="cs-content-clips-list" class="cs-cr-list"></div>
+                </div>
             </div>
         </section>
     </div>

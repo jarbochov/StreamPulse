@@ -19,13 +19,32 @@ export function mountCreditSuiteTimeline({ state, stage, blocksApi }) {
     const zoomInput = document.getElementById('cs-timeline-zoom');
     const addTrackBtn = document.getElementById('cs-tl-add-track');
     const multiBar = document.getElementById('cs-tl-multiselect-bar');
+    const durInput = document.getElementById('cs-tl-dur-input');
+    const speedInput = document.getElementById('cs-tl-speed-input');
     const LABEL_W = 170;
 
     let scrubbing = false;
     let clipDrag = null;
     let cardResize = null;
+    let crawlResize = null;
     let marquee = null;
     let playheadEl = null;
+
+    durInput?.addEventListener('change', () => {
+        const target = Math.max(5, Number(durInput.value) || 30);
+        state.mutateProject(p => {
+            p.timing.mode = 'duration';
+            p.timing.targetDurationSec = target;
+        });
+    });
+
+    speedInput?.addEventListener('change', () => {
+        const spd = Math.max(15, Math.min(600, Number(speedInput.value) || 95));
+        state.mutateProject(p => {
+            p.timing.mode = 'speed';
+            p.timing.speedPxPerSec = spd;
+        });
+    });
 
     zoomInput?.addEventListener('input', () => {
         state.setTimelineZoom(Number(zoomInput.value) || 18);
@@ -167,6 +186,12 @@ export function mountCreditSuiteTimeline({ state, stage, blocksApi }) {
         renderMultiBar();
 
         if (zoomInput) zoomInput.value = String(state.store.timelineZoom);
+        if (durInput && document.activeElement !== durInput) {
+            durInput.value = String(Math.round(solved.totalDurationSec || 0));
+        }
+        if (speedInput && document.activeElement !== speedInput) {
+            speedInput.value = String(Math.round(solved.effectiveSpeed || 95));
+        }
 
         const pps = pxPerSec();
         const dur = Math.max(10, solved.totalDurationSec || 10);
@@ -199,18 +224,21 @@ export function mountCreditSuiteTimeline({ state, stage, blocksApi }) {
                 `;
             } else if (seg.kind === 'crawl') {
                 const totalH = Math.max(1, seg.contentHeight || 1);
-                for (const bm of seg.blockMetrics) {
+                for (let idx = 0; idx < seg.blockMetrics.length; idx++) {
+                    const bm = seg.blockMetrics[idx];
+                    const isLastInRun = idx === seg.blockMetrics.length - 1;
                     const startFrac = bm.offsetY / totalH;
                     const endFrac = (bm.offsetY + bm.height) / totalH;
                     const sliceStart = seg.startSec + startFrac * seg.durationSec;
                     const sliceEnd = seg.startSec + endFrac * seg.durationSec;
                     const left = sliceStart * pps;
-                    const w = Math.max(18, (sliceEnd - sliceStart) * pps - 2);
+                    const w = Math.max(20, (sliceEnd - sliceStart) * pps - 2);
                     const isSel = sel.kind === 'block' && sel.id === bm.blockId;
                     const label = bm.block.title || bm.block.type;
                     seqHtml += `
-                        <div class="cs-tl-clip kind-crawl ${isSel ? 'selected' : ''}" data-tl-block="${esc(bm.blockId)}" style="left:${left.toFixed(1)}px;width:${w.toFixed(1)}px;" title="Crawl: ${esc(label)}">
+                        <div class="cs-tl-clip kind-crawl ${isSel ? 'selected' : ''}" data-tl-block="${esc(bm.blockId)}" style="left:${left.toFixed(1)}px;width:${w.toFixed(1)}px;" title="Crawl: ${esc(label)}${isLastInRun ? ' (drag right handle to stretch/shorten crawl duration)' : ''}">
                             <span>${esc(label)}</span>
+                            ${isLastInRun ? `<div class="cs-tl-trim right" data-crawl-trim="${esc(seg.id)}" title="Drag to change crawl duration & speed"></div>` : ''}
                         </div>
                     `;
                 }
@@ -297,12 +325,14 @@ export function mountCreditSuiteTimeline({ state, stage, blocksApi }) {
             });
         });
 
-        // Credit block clicks & Card duration trim
+        // Credit block clicks, Card duration trim, & Crawl duration stretch
         gridEl.querySelectorAll('[data-tl-block]').forEach(el => {
             el.addEventListener('pointerdown', ev => {
                 const trimId = ev.target.closest('[data-card-trim]')?.dataset.cardTrim;
+                const crawlTrimId = ev.target.closest('[data-crawl-trim]')?.dataset.crawlTrim;
                 const bid = el.dataset.tlBlock;
                 ev.stopPropagation();
+                if (trimId || crawlTrimId) ev.preventDefault();
                 state.setSelection('block', bid);
                 if (trimId) {
                     const blk = proj.blocks.find(b => b.id === trimId);
@@ -316,6 +346,19 @@ export function mountCreditSuiteTimeline({ state, stage, blocksApi }) {
                     }
                     return;
                 }
+                if (crawlTrimId) {
+                    const run = solved.crawlRuns.find(r => r.id === crawlTrimId);
+                    if (run) {
+                        crawlResize = {
+                            runId: crawlTrimId,
+                            startX: ev.clientX,
+                            origRunDur: run.durationSec,
+                            origTravel: run.travelDistance,
+                            recorded: false
+                        };
+                    }
+                    return;
+                }
                 const bt = solved.blockTimings[bid];
                 if (bt) stage.seek(bt.kind === 'crawl' ? bt.centerSec : bt.startSec + Math.min(1, bt.durationSec * 0.35));
             });
@@ -324,6 +367,7 @@ export function mountCreditSuiteTimeline({ state, stage, blocksApi }) {
         // Track clip drag/move (supports single OR multi-select group move!) & edge trim
         gridEl.querySelectorAll('[data-tl-clip]').forEach(el => {
             el.addEventListener('pointerdown', ev => {
+                ev.preventDefault();
                 ev.stopPropagation();
                 const cid = el.dataset.tlClip;
                 const tid = el.dataset.tlTrack;
@@ -402,6 +446,18 @@ export function mountCreditSuiteTimeline({ state, stage, blocksApi }) {
             stage.seek(timeFromClientX(ev.clientX));
             return;
         }
+        if (crawlResize) {
+            const dxSec = (ev.clientX - crawlResize.startX) / pxPerSec();
+            const nextRunDur = Math.max(2, crawlResize.origRunDur + dxSec);
+            const nextSpeed = Math.max(15, Math.min(600, Math.round(crawlResize.origTravel / nextRunDur)));
+            const recordUndo = !crawlResize.recorded;
+            crawlResize.recorded = true;
+            state.mutateProject(p => {
+                p.timing.mode = 'speed';
+                p.timing.speedPxPerSec = nextSpeed;
+            }, { reason: 'project', recordUndo });
+            return;
+        }
         if (cardResize) {
             const dxSec = (ev.clientX - cardResize.startX) / pxPerSec();
             const nextDur = Math.max(0.5, Number((cardResize.origDur + dxSec).toFixed(2)));
@@ -472,6 +528,7 @@ export function mountCreditSuiteTimeline({ state, stage, blocksApi }) {
         }
         scrubbing = false;
         cardResize = null;
+        crawlResize = null;
         clipDrag = null;
     });
 
