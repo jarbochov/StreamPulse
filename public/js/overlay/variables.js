@@ -963,8 +963,9 @@ function resolveStyleVariables(style, status, context, member = null) {
     const expandFn = v => resolveColorToken(v, status, context, member);
     const hasToken = v => typeof v === 'string' && (v.includes('{{') || (Boolean(member) && v.trim().startsWith('@')));
     const gradKeys = ['gradient', 'textGradient', 'borderGradient'];
+    const gradHasToken = g => Boolean(g && (hasToken(g.from) || hasToken(g.mid) || hasToken(g.to) || (Array.isArray(g.colors) && g.colors.some(hasToken))));
     const needsClone = ['color', 'background', 'fill', 'borderColor', 'fontFamily'].some(k => hasToken(style[k]))
-        || gradKeys.some(k => style[k] && (hasToken(style[k].from) || hasToken(style[k].mid) || hasToken(style[k].to)))
+        || gradKeys.some(k => gradHasToken(style[k]))
         || (style.borderGlow && hasToken(style.borderGlow.color))
         || (style.borderAnimation && (hasToken(style.borderAnimation.color2) || hasToken(style.borderAnimation.color3)))
         || (style.shadow && hasToken(style.shadow.color))
@@ -979,11 +980,15 @@ function resolveStyleVariables(style, status, context, member = null) {
     }
     for (const k of gradKeys) {
         if (out[k] && typeof out[k] === 'object') {
+            const nextColors = Array.isArray(out[k].colors)
+                ? out[k].colors.map(c => (hasToken(c) ? (expandFn(c) || '#38bdf8') : c))
+                : undefined;
             out[k] = {
                 ...out[k],
                 from: hasToken(out[k].from) ? (expandFn(out[k].from) || '#1f6feb') : out[k].from,
                 mid: hasToken(out[k].mid) ? expandFn(out[k].mid) : out[k].mid,
-                to: hasToken(out[k].to) ? (expandFn(out[k].to) || '#8957e5') : out[k].to
+                to: hasToken(out[k].to) ? (expandFn(out[k].to) || '#8957e5') : out[k].to,
+                ...(nextColors ? { colors: nextColors } : {})
             };
         }
     }

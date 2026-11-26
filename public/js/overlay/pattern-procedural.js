@@ -61,12 +61,19 @@ function mountProceduralPattern(node, element, options = {}) {
         if (patternsEngine?.drawProceduralPattern) {
             const cleanAccent = (p.accent && p.accent !== 'transparent') ? p.accent : '#58a6ff';
             const cleanSecondary = (p.secondary && p.secondary !== 'transparent') ? p.secondary : cleanAccent;
+            const sharedCustom = (p.palette && p.palette !== 'dual' && p.palette !== 'custom' && !patternsEngine.PALETTES?.[p.palette])
+                ? window.StreamPulsePalettes?.getById?.(p.palette)?.colors
+                : null;
+            const customColors = Array.isArray(p.customColors) && p.customColors.length >= 2
+                ? p.customColors
+                : (Array.isArray(sharedCustom) && sharedCustom.length >= 2 ? sharedCustom : undefined);
             patternsEngine.drawProceduralPattern(ctx, presetName, cw, ch, {
                 scale: p.scale ?? 100,
                 color: p.color || 'transparent',
                 accent: cleanAccent,
                 secondary: cleanSecondary,
-                palette: p.palette || 'dual',
+                palette: customColors ? 'custom' : (p.palette || 'dual'),
+                customColors,
                 fillMode: p.fillMode || 'tinted',
                 fillOpacity: p.fillOpacity,
                 lineWidth: Number(p.lineWidth) || 0,

@@ -112,7 +112,7 @@ export function renderSettings() {
     settingsEl.innerHTML = `
         <label class="field"><span>Canvas size</span><select id="canvas-preset">${presetOptions.map(([v, l]) => `<option value="${v}"${v === preset ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
         <div class="grid2">${F.number('canvas.width', 'Width', c.width, { min: LIMITS.canvasW[0], max: LIMITS.canvasW[1], lazy: true })}${F.number('canvas.height', 'Height', c.height, { min: LIMITS.canvasH[0], max: LIMITS.canvasH[1], lazy: true })}</div>
-        ${F.color('canvas.background', 'Canvas background', c.background, { clear: true })}
+        ${fillControl(c, 'gradient', 'Canvas background', F.color('canvas.background', 'Color', c.background, { clear: true }), 'canvas')}
         <label class="field"><span>Preview backdrop</span><select id="backdrop-select">${[['checker', 'Transparent checkerboard'], ['dark', 'Dark'], ['light', 'Light'], ['green', 'Green screen']].map(([v, l]) => `<option value="${v}"${v === prefs.backdrop ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
         <div class="field">
             <span>Screenshot backdrop</span>
@@ -204,13 +204,71 @@ export const gradOf = (s, key) => ({ from: '#1f6feb', to: '#8957e5', angle: 135,
 export const hasMidStop = val => Boolean(val && val !== 'transparent' && val !== 'none');
 export const fillSeg = (s, key, label, prefix = 'style') => F.seg(`${prefix}.${key}.enabled`, label, s[key]?.enabled ? 'true' : 'false', [['false', 'Solid color', 'Solid'], ['true', 'Gradient', 'Gradient']]);
 
+function gradStopsOf(g) {
+    if (Array.isArray(g.colors) && g.colors.length >= 2) return g.colors.slice(0, 8);
+    return [g.from || '#1f6feb', hasMidStop(g.mid) ? g.mid : '', g.to || '#8957e5'].filter(Boolean);
+}
+
+function toHex6Local(c, fallback = '#38bdf8') {
+    const s = String(c || '').trim();
+    if (/^#[0-9a-fA-F]{6,8}$/.test(s)) return s.slice(0, 7);
+    if (/^#[0-9a-fA-F]{3}$/.test(s)) return `#${s[1]}${s[1]}${s[2]}${s[2]}${s[3]}${s[3]}`;
+    return fallback;
+}
+
+function paletteSelectHtml(gradBasePath, g, stops) {
+    const lib = window.StreamPulsePalettes;
+    const custom = lib?.getCustom?.() || [];
+    const builtin = lib?.getBuiltin?.() || [];
+    const selId = g.paletteId || '';
+    const previewCss = lib?.buildGradientCss
+        ? lib.buildGradientCss(stops, { type: 'linear', angle: 90 })
+        : `linear-gradient(90deg, ${stops.join(', ')})`;
+    const customGroup = custom.length
+        ? `<optgroup label="My Custom Palettes">${custom.map(p => `<option value="${esc(p.id)}"${selId === p.id ? ' selected' : ''}>${esc(p.name)} (${p.colors.length})</option>`).join('')}</optgroup>`
+        : '';
+    const builtinGroup = builtin.length
+        ? `<optgroup label="Curated Presets">${builtin.map(p => `<option value="${esc(p.id)}"${selId === p.id ? ' selected' : ''}>${esc(p.name)}</option>`).join('')}</optgroup>`
+        : '';
+    const isMulti = Array.isArray(g.colors) && g.colors.length >= 3;
+
+    return `<div class="sp-pal-inline">
+        <div class="sp-pal-inline-head">
+            <span class="sp-pal-inline-title">Color Palette (${stops.length} stops)</span>
+            <div class="sp-pal-inline-acts">
+                <button type="button" class="sp-pal-btn" data-grad-stop-add="${esc(gradBasePath)}" title="Add color stop (up to 8)" ${stops.length >= 8 ? 'disabled' : ''}>+ Stop</button>
+                <button type="button" class="sp-pal-btn" data-grad-stop-rev="${esc(gradBasePath)}" title="Reverse color order">Flip</button>
+                <button type="button" class="sp-pal-btn" data-grad-palette-save="${esc(gradBasePath)}" title="Save current stops to Shared Palettes Library">Save</button>
+                <button type="button" class="sp-pal-btn primary" data-grad-palette-lib="${esc(gradBasePath)}" title="Browse or build palettes in the Shared Library">Library</button>
+            </div>
+        </div>
+        <select data-grad-palette="${esc(gradBasePath)}" aria-label="Choose color palette">
+            <option value=""${!selId ? ' selected' : ''}>Custom Stops</option>
+            ${customGroup}
+            ${builtinGroup}
+        </select>
+        <div class="sp-pal-preview-bar" style="background:${esc(previewCss)};"></div>
+        ${isMulti ? `<div class="sp-pal-stops-grid">${stops.map((col, idx) => `
+            <span class="sp-pal-stop-chip">
+                <input type="color" data-grad-stop-color="${esc(gradBasePath)}" data-stop-idx="${idx}" value="${esc(toHex6Local(col))}" title="Stop ${idx + 1}: ${esc(col)}">
+                ${stops.length > 2 ? `<button type="button" class="sp-pal-stop-remove" data-grad-stop-del="${esc(gradBasePath)}" data-stop-idx="${idx}" title="Remove stop">&times;</button>` : ''}
+            </span>`).join('')}</div>` : ''}
+    </div>`;
+}
+
 export function gradientFields(s, key = 'gradient', prefix = 'style') {
     const g = gradOf(s, key), at = name => `${prefix}.${key}.${name}`;
-    const hasMid = hasMidStop(g.mid);
-    return `<div class="grid2">${F.select(at('type'), 'Type', g.type, [['linear', 'Linear'], ['radial', 'Radial']])}${g.type === 'radial' ? F.select(at('position'), 'Center', g.position, [['center', 'Center'], ['top', 'Top'], ['bottom', 'Bottom'], ['left', 'Left'], ['right', 'Right']]) : F.number(at('angle'), 'Angle (°)', g.angle, { min: 0, max: 360 })}</div>
-        <div class="grid2">${F.color(at('from'), 'From', g.from)}${F.color(at('to'), 'To', g.to)}</div>
-        <label class="check"><input type="checkbox" data-grad-mid-toggle="${esc(at('mid'))}" ${hasMid ? 'checked' : ''}> Middle color stop (optional)</label>
-        ${hasMid ? F.color(at('mid'), 'Middle color', g.mid, { clear: true, clearValue: '', clearLabel: 'Off' }) : ''}
+    const gradBase = `${prefix}.${key}`;
+    const stops = gradStopsOf(g);
+    const isMulti = Array.isArray(g.colors) && g.colors.length >= 3;
+    const hasMid = !isMulti && hasMidStop(g.mid);
+    return `${paletteSelectHtml(gradBase, g, stops)}
+        <div class="grid2">${F.select(at('type'), 'Type', g.type, [['linear', 'Linear'], ['radial', 'Radial']])}${g.type === 'radial' ? F.select(at('position'), 'Center', g.position, [['center', 'Center'], ['top', 'Top'], ['bottom', 'Bottom'], ['left', 'Left'], ['right', 'Right']]) : F.number(at('angle'), 'Angle (°)', g.angle, { min: 0, max: 360 })}</div>
+        ${isMulti ? '' : `
+            <div class="grid2">${F.color(at('from'), 'From', g.from)}${F.color(at('to'), 'To', g.to)}</div>
+            <label class="check"><input type="checkbox" data-grad-mid-toggle="${esc(at('mid'))}" ${hasMid ? 'checked' : ''}> Middle color stop (optional)</label>
+            ${hasMid ? F.color(at('mid'), 'Middle color', g.mid, { clear: true, clearValue: '', clearLabel: 'Off' }) : ''}
+        `}
         ${F.check(at('animate'), 'Animate', g.animate)}
         ${g.animate ? F.number(at('speed'), 'Speed (sec per sweep)', g.speed, { min: 1, max: 120 }) : ''}`;
 }
@@ -1812,8 +1870,11 @@ export function renderProperties() {
     if (lookIdx >= 0) {
         const presentationPath = path => path.startsWith('style.') || path.startsWith('mediaFilter.')
             || shared.ALERT_PRESENTATION_KEYS.includes(path.split('.')[1]) && path.startsWith('alert.');
-        for (const node of root.querySelectorAll('[data-inspector-panel="style"] [data-path], [data-inspector-panel="style"] [data-seg-path], [data-inspector-panel="style"] [data-swatch-path], [data-inspector-panel="style"] [data-reset], [data-inspector-panel="style"] [data-clear], [data-inspector-panel="style"] [data-eyedrop], [data-inspector-panel="style"] [data-grad-mid-toggle], [data-inspector-panel="style"] [data-number-pick], [data-inspector-panel="style"] [data-number-unbind]')) {
-            for (const attr of ['data-path', 'data-seg-path', 'data-swatch-path', 'data-reset', 'data-clear', 'data-eyedrop', 'data-grad-mid-toggle', 'data-number-pick', 'data-number-unbind']) {
+        const gradPaletteAttrs = ['data-grad-palette', 'data-grad-palette-lib', 'data-grad-palette-save', 'data-grad-stop-add', 'data-grad-stop-del', 'data-grad-stop-rev', 'data-grad-stop-color'];
+        const allAttrs = ['data-path', 'data-seg-path', 'data-swatch-path', 'data-reset', 'data-clear', 'data-eyedrop', 'data-grad-mid-toggle', 'data-number-pick', 'data-number-unbind', ...gradPaletteAttrs];
+        const attrSelector = allAttrs.map(a => `[data-inspector-panel="style"] [${a}]`).join(', ');
+        for (const node of root.querySelectorAll(attrSelector)) {
+            for (const attr of allAttrs) {
                 const path = node.getAttribute(attr);
                 if (path && presentationPath(path) && path !== 'style.rotate') node.setAttribute(attr, `alert.looks.${lookIdx}.${path}`);
             }
@@ -1982,12 +2043,180 @@ export function openColorVariablePicker({ onSelect } = {}) {
 
 // ---- Inspector & Settings Event Initialization ------------------------------------
 export function initInspectorEvents() {
+    function applyGradientStopsToTargets(targets, gradPath, colors, paletteId = '', angle = undefined) {
+        const clean = Array.isArray(colors) ? colors.filter(Boolean).slice(0, 8) : ['#1f6feb', '#8957e5'];
+        if (clean.length < 2) return;
+        for (const target of targets) {
+            const cur = getPath(target, gradPath) || {};
+            const next = {
+                ...cur,
+                enabled: true,
+                from: clean[0],
+                to: clean[clean.length - 1],
+                mid: clean.length === 3 ? clean[1] : '',
+                colors: clean.length >= 3 ? [...clean] : undefined,
+                paletteId: paletteId || ''
+            };
+            if (angle !== undefined && Number.isFinite(Number(angle)) && cur.angle === undefined) {
+                next.angle = Number(angle);
+            }
+            if (!next.colors) delete next.colors;
+            if (!next.paletteId) delete next.paletteId;
+            setPath(target, gradPath, next);
+        }
+    }
+
+    function bindGradientPaletteEvents(container, getTargets, onAfterChange) {
+        container.addEventListener('change', event => {
+            const palSel = event.target.closest('[data-grad-palette]');
+            if (palSel) {
+                const gradPath = palSel.dataset.gradPalette;
+                const targets = getTargets(gradPath);
+                const palId = palSel.value;
+                if (!palId) {
+                    for (const t of targets) {
+                        const cur = getPath(t, gradPath) || {};
+                        const next = { ...cur };
+                        delete next.paletteId;
+                        setPath(t, gradPath, next);
+                    }
+                    onAfterChange(true);
+                    return;
+                }
+                const pal = window.StreamPulsePalettes?.getById?.(palId);
+                if (pal && Array.isArray(pal.colors) && pal.colors.length >= 2) {
+                    applyGradientStopsToTargets(targets, gradPath, pal.colors, pal.id, pal.angle);
+                    onAfterChange(true);
+                }
+            }
+        });
+
+        container.addEventListener('input', event => {
+            const stopPicker = event.target.closest('[data-grad-stop-color]');
+            if (!stopPicker) return;
+            const gradPath = stopPicker.dataset.gradStopColor;
+            const idx = Number(stopPicker.dataset.stopIdx);
+            const targets = getTargets(gradPath);
+            for (const t of targets) {
+                const cur = getPath(t, gradPath) || {};
+                const stops = gradStopsOf(cur);
+                if (idx >= 0 && idx < stops.length) {
+                    stops[idx] = stopPicker.value;
+                    applyGradientStopsToTargets([t], gradPath, stops, '');
+                }
+            }
+            const bar = stopPicker.closest('.sp-pal-inline')?.querySelector('.sp-pal-preview-bar');
+            const first = targets[0];
+            if (bar && first) {
+                const stops = gradStopsOf(getPath(first, gradPath) || {});
+                bar.style.background = `linear-gradient(90deg, ${stops.join(', ')})`;
+            }
+            onAfterChange(false);
+        });
+
+        container.addEventListener('click', async event => {
+            const addBtn = event.target.closest('[data-grad-stop-add]');
+            if (addBtn) {
+                const gradPath = addBtn.dataset.gradStopAdd;
+                const targets = getTargets(gradPath);
+                for (const t of targets) {
+                    const cur = getPath(t, gradPath) || {};
+                    const stops = gradStopsOf(cur);
+                    if (stops.length < 8) {
+                        stops.splice(Math.max(1, stops.length - 1), 0, stops[stops.length - 1] || '#38bdf8');
+                        applyGradientStopsToTargets([t], gradPath, stops, '');
+                    }
+                }
+                onAfterChange(true);
+                return;
+            }
+            const delBtn = event.target.closest('[data-grad-stop-del]');
+            if (delBtn) {
+                const gradPath = delBtn.dataset.gradStopDel;
+                const idx = Number(delBtn.dataset.stopIdx);
+                const targets = getTargets(gradPath);
+                for (const t of targets) {
+                    const cur = getPath(t, gradPath) || {};
+                    const stops = gradStopsOf(cur);
+                    if (stops.length > 2 && idx >= 0 && idx < stops.length) {
+                        stops.splice(idx, 1);
+                        applyGradientStopsToTargets([t], gradPath, stops, '');
+                    }
+                }
+                onAfterChange(true);
+                return;
+            }
+            const revBtn = event.target.closest('[data-grad-stop-rev]');
+            if (revBtn) {
+                const gradPath = revBtn.dataset.gradStopRev;
+                const targets = getTargets(gradPath);
+                for (const t of targets) {
+                    const cur = getPath(t, gradPath) || {};
+                    const stops = gradStopsOf(cur).reverse();
+                    applyGradientStopsToTargets([t], gradPath, stops, '');
+                }
+                onAfterChange(true);
+                return;
+            }
+            const saveBtn = event.target.closest('[data-grad-palette-save]');
+            if (saveBtn) {
+                const gradPath = saveBtn.dataset.gradPaletteSave;
+                const targets = getTargets(gradPath);
+                const cur = targets[0] ? (getPath(targets[0], gradPath) || {}) : {};
+                const stops = gradStopsOf(cur);
+                const name = window.prompt('Save color palette to Shared Library as:', 'My Custom Palette');
+                if (!name || !name.trim()) return;
+                try {
+                    const created = await window.StreamPulsePalettes?.create({ name: name.trim(), colors: stops, angle: cur.angle ?? 135 });
+                    if (created) {
+                        applyGradientStopsToTargets(targets, gradPath, created.colors, created.id);
+                        toast(`Saved "${created.name}" to Shared Palettes Library`, 'success', 2000);
+                        onAfterChange(true);
+                    }
+                } catch (err) {
+                    toast(err.message || 'Could not save palette', 'error', 2600);
+                }
+                return;
+            }
+            const libBtn = event.target.closest('[data-grad-palette-lib]');
+            if (libBtn && window.StreamPulsePalettes?.openManagerModal) {
+                const gradPath = libBtn.dataset.gradPaletteLib;
+                const targets = getTargets(gradPath);
+                const cur = targets[0] ? (getPath(targets[0], gradPath) || {}) : {};
+                window.StreamPulsePalettes.openManagerModal({
+                    title: 'Shared Color Palettes Library',
+                    currentColors: gradStopsOf(cur),
+                    currentPaletteId: cur.paletteId || '',
+                    angle: cur.angle ?? 135,
+                    onApply: picked => {
+                        applyGradientStopsToTargets(getTargets(gradPath), gradPath, picked.colors, picked.paletteId, picked.angle);
+                        onAfterChange(true);
+                    }
+                });
+            }
+        });
+    }
+
     const settingsEl = $('settings');
     if (settingsEl) {
         bindFields(settingsEl, () => [state.overlay], path => {
             syncCanvasUI();
+            if (/^canvas\.gradient\.(enabled|type|animate)$/.test(path)) renderSettings();
             if (path.startsWith('canvas.') && state.autoFit) fitView(true);
             changed(false);
+        });
+        bindGradientPaletteEvents(settingsEl, () => [state.overlay], rerender => {
+            syncCanvasUI();
+            if (rerender) renderSettings();
+            changed(rerender);
+        });
+        settingsEl.addEventListener('change', event => {
+            const midToggle = event.target.closest('[data-grad-mid-toggle]');
+            if (!midToggle) return;
+            setPath(state.overlay, midToggle.dataset.gradMidToggle, midToggle.checked ? '#38bdf8' : '');
+            syncCanvasUI();
+            renderSettings();
+            changed(true);
         });
 
         settingsEl.addEventListener('click', event => {
@@ -2235,6 +2464,16 @@ export function initInspectorEvents() {
             changed(false);
         });
 
+        bindGradientPaletteEvents(
+            propEl,
+            actualPath => (actualPath === lookPath(actualPath) ? selectedElements() : lookPresentationTargets()),
+            rerender => {
+                renderCanvas(state.selectedIds.size ? new Set(state.selectedIds) : undefined);
+                if (rerender) renderProperties();
+                changed(rerender);
+            }
+        );
+
         propEl.addEventListener('change', event => {
             const midToggle = event.target.closest('[data-grad-mid-toggle]');
             if (!midToggle) return;
@@ -2247,6 +2486,13 @@ export function initInspectorEvents() {
             renderCanvas();
             renderProperties();
             changed(true);
+        });
+
+        window.StreamPulsePalettes?.subscribe?.(() => {
+            if (!document.activeElement || !document.activeElement.closest('#properties, #settings')) {
+                renderSettings();
+                renderProperties();
+            }
         });
 
         propEl.addEventListener('change', event => {

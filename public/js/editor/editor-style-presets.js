@@ -70,7 +70,10 @@ export function applyStylePreset(preset, elements) {
 function previewStyleAttr(preset) {
     const p = preset.preview || {};
     const st = preset.style || {};
-    const bg = p.bg || (st.gradient?.enabled ? `linear-gradient(${st.gradient.angle ?? 135}deg, ${st.gradient.from || '#1f6feb'}, ${st.gradient.to || '#8957e5'})` : st.background || 'rgba(15,23,42,0.7)');
+    const gradStops = Array.isArray(st.gradient?.colors) && st.gradient.colors.length >= 2
+        ? st.gradient.colors.join(', ')
+        : [st.gradient?.from || '#1f6feb', st.gradient?.mid || '', st.gradient?.to || '#8957e5'].filter(Boolean).join(', ');
+    const bg = p.bg || (st.gradient?.enabled ? `linear-gradient(${st.gradient.angle ?? 135}deg, ${gradStops})` : st.background || 'rgba(15,23,42,0.7)');
     const border = p.border || `${Math.min(3, Math.max(1, Number(st.borderWidth) || 0))}px solid ${st.borderColor || 'rgba(255,255,255,0.22)'}`;
     const radius = p.radius || `${Math.min(12, Number(st.borderRadius) || 0)}px`;
     const color = p.color || st.color || '#f8fafc';

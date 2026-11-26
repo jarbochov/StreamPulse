@@ -151,6 +151,12 @@
             const list = PALETTES[palette];
             return list[Math.abs(index) % list.length];
         }
+        if (palette && typeof palette === 'string' && root?.StreamPulsePalettes?.getById) {
+            const custom = root.StreamPulsePalettes.getById(palette);
+            if (custom && Array.isArray(custom.colors) && custom.colors.length >= 2) {
+                return custom.colors[Math.abs(index) % custom.colors.length];
+            }
+        }
         return (index & 1) === 0 ? accent : secondary;
     }
 
@@ -1519,7 +1525,11 @@
             }
         } else if (pattern === 'sunburst') {
             const cx = width * 0.5, cy = height * 0.5, radius = Math.hypot(maxX - minX, maxY - minY);
-            const rays = Math.max(4, Math.min(180, Math.round(Number(options.density ?? options.rays) || 28)));
+            const rawSunDens = Number(options.density ?? options.rays);
+            const raysVal = Number.isFinite(rawSunDens) && rawSunDens > 0
+                ? (rawSunDens <= 4 && options.rays === undefined ? Math.round(28 * rawSunDens) : Math.round(rawSunDens))
+                : 28;
+            const rays = Math.max(4, Math.min(180, raysVal));
             const rotOffset = motion === 'fall' ? time * speed * 0.35 : 0;
             const sunRot = hasSpin ? (continuousSpinAngle * 0.2) : (hasInPlaceAnim ? (inPlacePhase * 0.15) : 0);
             ctx.lineWidth = getLineW(1);
@@ -1562,7 +1572,11 @@
             }
         } else if (pattern === 'starfield' || pattern === 'sparkles') {
             const defaultCount = pattern === 'starfield' ? 600 : 100;
-            const count = Math.max(6, Math.min(8000, Math.round(Number(options.density ?? options.count) || defaultCount)));
+            const rawStarDens = Number(options.density ?? options.count);
+            const starCountVal = Number.isFinite(rawStarDens) && rawStarDens > 0
+                ? (rawStarDens <= 4 && options.count === undefined ? Math.round(defaultCount * rawStarDens) : Math.round(rawStarDens))
+                : defaultCount;
+            const count = Math.max(6, Math.min(8000, starCountVal));
             const wrapW = Math.max(fullWidth * 2.5, width * 1.5);
             const wrapH = Math.max(fullHeight * 2.5, height * 1.5);
             const seeds = getStarSeeds(count);

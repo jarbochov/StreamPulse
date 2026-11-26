@@ -83,12 +83,20 @@ export const toLogical = (clientX, clientY) => {
 
 // ---- Canvas UI synchronization ----------------------------------------------------
 export function syncCanvasUI() {
-    const { width, height, background } = state.overlay.canvas;
+    const { width, height, background, gradient } = state.overlay.canvas;
     for (const node of [backdrop, canvasEl, underlayerEl, toplayerEl, gridEl, guidesEl, uiEl, $('safe-zones')]) {
         if (node) { node.style.width = `${width}px`; node.style.height = `${height}px`; }
     }
     if (canvasEl) canvasEl.style.background = 'transparent';
-    if (underlayerEl) underlayerEl.style.background = background || 'transparent';
+    if (underlayerEl) {
+        if (gradient?.enabled && typeof shared.gradientStyle === 'function') {
+            Object.assign(underlayerEl.style, shared.gradientStyle(gradient));
+        } else {
+            underlayerEl.style.background = background || 'transparent';
+            underlayerEl.style.backgroundSize = '';
+            underlayerEl.style.animation = '';
+        }
+    }
     if (backdrop) backdrop.className = `bd-${prefs.backdrop}`;
     const bdImg = $('backdrop-img');
     if (bdImg) {

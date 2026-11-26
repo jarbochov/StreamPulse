@@ -4177,7 +4177,8 @@
 
         ['inner', 'outer', 'glow', 'icons'].forEach(layerKey => {
             const maxStops = (layerKey === 'inner' || layerKey === 'icons') ? 8 : 4;
-            document.getElementById(`ob-${layerKey}-customize-btn`)?.addEventListener('click', () => {
+            const custBtn = document.getElementById(`ob-${layerKey}-customize-btn`);
+            custBtn?.addEventListener('click', () => {
                 if (!workingProfile?.[layerKey]) return;
                 const curStops = getLayerPaletteStops(layerKey, maxStops).map(c => c.length === 7 ? c + 'FF' : c);
                 workingProfile[layerKey].palette = 'custom';
@@ -4187,6 +4188,33 @@
                 renderPaletteStops(layerKey, maxStops);
                 triggerChange();
             });
+            if (custBtn && custBtn.parentNode && !document.getElementById(`ob-${layerKey}-shared-pal-btn`)) {
+                const libBtn = document.createElement('button');
+                libBtn.type = 'button';
+                libBtn.id = `ob-${layerKey}-shared-pal-btn`;
+                libBtn.className = 'btn btn-secondary btn-sm';
+                libBtn.style.whiteSpace = 'nowrap';
+                libBtn.title = 'Open Shared Color Palettes Library';
+                libBtn.textContent = 'Library';
+                custBtn.insertAdjacentElement('afterend', libBtn);
+                libBtn.addEventListener('click', () => {
+                    if (!workingProfile?.[layerKey] || !window.StreamPulsePalettes?.openManagerModal) return;
+                    const curStops = getLayerPaletteStops(layerKey, maxStops);
+                    window.StreamPulsePalettes.openManagerModal({
+                        title: `Shared Color Palettes (${layerKey})`,
+                        currentColors: curStops,
+                        onApply: picked => {
+                            const stops = (picked.colors || []).slice(0, maxStops).map(c => c.length === 7 ? c.toUpperCase() + 'FF' : c.toUpperCase());
+                            workingProfile[layerKey].palette = 'custom';
+                            workingProfile[layerKey].paletteColors = stops;
+                            const pSel = document.getElementById(`ob-${layerKey}-pal-preset`);
+                            if (pSel) pSel.value = 'custom';
+                            renderPaletteStops(layerKey, maxStops);
+                            triggerChange();
+                        }
+                    });
+                });
+            }
             document.getElementById(`ob-${layerKey}-pal-mode`)?.addEventListener('change', () => {
                 triggerChange();
                 renderPaletteStops(layerKey, maxStops);

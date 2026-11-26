@@ -256,22 +256,30 @@ export function getDocumentColors() {
         if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(val)) colors.add(val.toLowerCase());
         else if (/^rgba?\(/i.test(val) && !val.includes(', 0)')) colors.add(val);
     };
+    const addGrad = g => {
+        if (!g || typeof g !== 'object') return;
+        if (Array.isArray(g.colors)) g.colors.forEach(add);
+        if (g.from) add(g.from);
+        if (g.mid) add(g.mid);
+        if (g.to) add(g.to);
+    };
     if (state.overlay.canvas?.background) add(state.overlay.canvas.background);
+    addGrad(state.overlay.canvas?.gradient);
     for (const el of state.overlay.elements || []) {
         if (el.style) {
             add(el.style.color); add(el.style.background); add(el.style.borderColor);
             add(el.style.shadowColor); add(el.style.glowColor);
             if (el.style.fillColor) add(el.style.fillColor);
-            if (el.style.textGradient?.from) add(el.style.textGradient.from);
-            if (el.style.textGradient?.to) add(el.style.textGradient.to);
-            if (el.style.borderGradient?.from) add(el.style.borderGradient.from);
-            if (el.style.borderGradient?.to) add(el.style.borderGradient.to);
+            addGrad(el.style.gradient);
+            addGrad(el.style.textGradient);
+            addGrad(el.style.borderGradient);
         }
         if (el.qr) { add(el.qr.fg); add(el.qr.bg); }
         if (el.pattern) {
             add(el.pattern.accent);
             add(el.pattern.secondary);
             add(el.pattern.color);
+            if (Array.isArray(el.pattern.customColors)) el.pattern.customColors.forEach(add);
             if (Array.isArray(el.pattern.tiles)) {
                 for (const t of el.pattern.tiles) if (t?.color) add(t.color);
             }

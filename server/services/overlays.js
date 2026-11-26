@@ -504,7 +504,13 @@ function normalizePattern(p = {}, isProcedural = false) {
     });
     const cleanAccent = String(p.accent && p.accent !== 'transparent' ? p.accent : '#58a6ff').slice(0, 80);
     const cleanSecondary = String(p.secondary && p.secondary !== 'transparent' ? p.secondary : cleanAccent).slice(0, 80);
-    const palette = PATTERN_PALETTES.includes(p.palette) ? p.palette : 'dual';
+    const rawPalette = String(p.palette || '').trim().slice(0, 64);
+    const palette = (PATTERN_PALETTES.includes(rawPalette) || rawPalette === 'custom' || /^[a-z0-9][a-z0-9_-]{0,63}$/i.test(rawPalette))
+        ? rawPalette
+        : 'dual';
+    const customColors = Array.isArray(p.customColors)
+        ? p.customColors.map(c => String(c || '').trim().slice(0, 80)).filter(Boolean).slice(0, 8)
+        : [];
     const fillMode = PATTERN_FILL_MODES.includes(p.fillMode) ? p.fillMode : 'tinted';
     const defaultFillOpacity = fillMode === 'solid' ? 100 : (fillMode === 'outline' ? 0 : 30);
     const fillOpacity = Math.round(num(p.fillOpacity, 0, 100, defaultFillOpacity));
@@ -532,6 +538,7 @@ function normalizePattern(p = {}, isProcedural = false) {
         tiles,
         preset: String(p.preset || 'hexagons').slice(0, 40),
         palette,
+        ...(customColors.length >= 2 ? { customColors } : {}),
         fillMode,
         fillOpacity,
         inPlace,
@@ -599,13 +606,27 @@ function normalizePattern(p = {}, isProcedural = false) {
 function normalizeGradient(g) {
     g = g || {};
     const rawMid = String(g.mid || '').trim().slice(0, 80);
+    const rawColors = Array.isArray(g.colors)
+        ? g.colors.map(c => String(c || '').trim().slice(0, 80)).filter(c => c && c !== 'transparent' && c !== 'none').slice(0, 8)
+        : [];
+    const colors = rawColors.length >= 2 ? rawColors : undefined;
+    const paletteId = typeof g.paletteId === 'string' && g.paletteId.trim()
+        ? g.paletteId.trim().slice(0, 64)
+        : '';
+    const from = colors ? colors[0] : String(g.from || '#1f6feb').slice(0, 80);
+    const to = colors ? colors[colors.length - 1] : String(g.to || '#8957e5').slice(0, 80);
+    const mid = colors
+        ? (colors.length === 3 ? colors[1] : '')
+        : (rawMid && rawMid !== 'transparent' && rawMid !== 'none' ? rawMid : '');
     return {
         enabled: g.enabled === true,
-        from: String(g.from || '#1f6feb').slice(0, 80),
-        to: String(g.to || '#8957e5').slice(0, 80),
+        from,
+        to,
         angle: Number.isFinite(Number(g.angle)) && g.angle !== '' && g.angle !== null ? Math.max(0, Math.min(360, Number(g.angle))) : 135,
         type: g.type === 'radial' ? 'radial' : 'linear',
-        mid: rawMid && rawMid !== 'transparent' && rawMid !== 'none' ? rawMid : '',
+        mid,
+        ...(colors ? { colors } : {}),
+        ...(paletteId ? { paletteId } : {}),
         position: ['center', 'top', 'bottom', 'left', 'right'].includes(g.position) ? g.position : 'center',
         animate: g.animate === true,
         speed: Math.max(1, Math.min(120, Number(g.speed) || 8))
@@ -1445,7 +1466,8 @@ function normalizeCustomOverlay(input = {}, idOverride = '', alertTriggers = {})
         canvas: {
             width: Math.max(1, Math.min(3840, Number(input.canvas?.width) || 1920)),
             height: Math.max(1, Math.min(2160, Number(input.canvas?.height) || 1080)),
-            background: String(input.canvas?.background || 'transparent').slice(0, 120)
+            background: String(input.canvas?.background || 'transparent').slice(0, 120),
+            ...(input.canvas?.gradient ? { gradient: normalizeGradient(input.canvas.gradient) } : {})
         },
         pages,
         variableSetRotations,
@@ -1495,13 +1517,15 @@ function generateSvgThumbnail(overlay, { customOverlayAssetsDir = '', page = nul
     // Background gradient or color
     if (canvasGrad && canvasGrad.enabled) {
         const gradId = 'canvas-bg-grad';
-        const from = canvasGrad.from || '#1f6feb';
-        const to = canvasGrad.to || '#8957e5';
-        const mid = canvasGrad.mid ? `<stop offset="50%" stop-color="${escapeXml(canvasGrad.mid)}" />` : '';
+        const stops = (Array.isArray(canvasGrad.colors) && canvasGrad.colors.length >= 2)
+            ? canvasGrad.colors
+            : [canvasGrad.from || '#1f6feb', canvasGrad.mid || '', canvasGrad.to || '#8957e5'].filter(Boolean);
+        const stopTags = stops.map((col, i) => {
+            const pct = stops.length > 1 ? Math.round((i / (stops.length - 1)) * 100) : 0;
+            return `<stop offset="${pct}%" stop-color="${escapeXml(col)}" />`;
+        }).join('\n            ');
         defs.push(`<linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="${escapeXml(from)}" />
-            ${mid}
-            <stop offset="100%" stop-color="${escapeXml(to)}" />
+            ${stopTags}
         </linearGradient>`);
         elementsSvg.push(`<rect width="100%" height="100%" fill="url(#${gradId})" />`);
     } else if (bg && bg !== 'transparent') {

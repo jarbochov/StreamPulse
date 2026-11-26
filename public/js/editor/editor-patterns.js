@@ -49,40 +49,58 @@ export function proceduralPatternSection(el) {
     const secColor = (p.secondary && p.secondary !== 'transparent') ? p.secondary : (p.accent || '#38bdf8');
     const palettesDict = window.StreamPulsePatterns?.PALETTES || {};
 
+    const customPalettes = window.StreamPulsePalettes?.getCustom?.() || [];
+    const customGroup = customPalettes.length
+        ? [{ group: 'My Custom Palettes', options: customPalettes.map(cp => [cp.id, `${cp.name} (${cp.colors.length} colors)`]) }]
+        : [];
+    const customInlineOpt = (palette === 'custom' && Array.isArray(p.customColors) && p.customColors.length >= 2)
+        ? [['custom', `Custom Stops (${p.customColors.length} colors)`]]
+        : [];
+
     const paletteOptions = [
         ['dual', 'Custom Two-Tone (Accent & Secondary)'],
-        ['multicolor', 'Festive Multicolor (7 Jewel Tones)'],
-        ['christmas', 'Holiday Classic (Emerald, Ruby, Gold)'],
-        ['autumn', 'Autumn Harvest (Crimson, Orange, Gold, Chestnut)'],
-        ['halloween', 'Spooky Halloween (Pumpkin, Witch Violet, Slime)'],
-        ['winter', 'Winter Frost (Ice Blue, Periwinkle, Snow)'],
-        ['valentines', 'Romance (Crimson, Rose, Blush Pink)'],
-        ['neon', 'Cyber Neon (Electric Cyan, Hot Pink, Lime)'],
-        ['warm', 'Warm Hearth (Amber, Crimson, Gold)'],
-        ['cool', 'Cool Breeze (Sky, Mint, Ocean Teal)'],
-        ['pastel', 'Soft Pastel (Coral, Peach, Mint, Lavender)'],
-        ['forest', 'Forest & Moss (Deep Pine, Sage, Earth)'],
-        ['sunset', 'Dusk & Sunset (Twilight Violet, Coral, Gold)'],
-        ['synthwave', 'Synthwave (Neon Magenta, Deep Violet, Electric Cyan)'],
-        ['galaxy', 'Cosmic Galaxy (Deep Void, Royal Purple, Bright Teal, Lavender)'],
-        ['terracotta', 'Terracotta & Clay (Burnt Sienna, Rust, Sage, Ochre)'],
-        ['vaporwave', 'Vaporwave (Hot Pink, Cyan, Mint, Lilac, Pastel Yellow)'],
-        ['ocean', 'Deep Ocean (Deep Teal, Emerald, Coral, Gold)'],
-        ['royal', 'Imperial Royal (Velvet Crimson, Burgundy, Antique Gold)'],
-        ['sakura', 'Cherry Blossom Sakura (Blush Pink, Sage, Tender Green)'],
-        ['coffee', 'Warm Coffee & Mocha (Espresso, Warm Caramel, Cream, Chestnut)'],
-        ['monochrome', 'Sleek Monochrome (White, Silver, Slate)']
+        ...customInlineOpt,
+        ...customGroup,
+        { group: 'Curated Palettes', options: [
+            ['multicolor', 'Festive Multicolor (7 Jewel Tones)'],
+            ['christmas', 'Holiday Classic (Emerald, Ruby, Gold)'],
+            ['autumn', 'Autumn Harvest (Crimson, Orange, Gold, Chestnut)'],
+            ['halloween', 'Spooky Halloween (Pumpkin, Witch Violet, Slime)'],
+            ['winter', 'Winter Frost (Ice Blue, Periwinkle, Snow)'],
+            ['valentines', 'Romance (Crimson, Rose, Blush Pink)'],
+            ['neon', 'Cyber Neon (Electric Cyan, Hot Pink, Lime)'],
+            ['warm', 'Warm Hearth (Amber, Crimson, Gold)'],
+            ['cool', 'Cool Breeze (Sky, Mint, Ocean Teal)'],
+            ['pastel', 'Soft Pastel (Coral, Peach, Mint, Lavender)'],
+            ['forest', 'Forest & Moss (Deep Pine, Sage, Earth)'],
+            ['sunset', 'Dusk & Sunset (Twilight Violet, Coral, Gold)'],
+            ['synthwave', 'Synthwave (Neon Magenta, Deep Violet, Electric Cyan)'],
+            ['galaxy', 'Cosmic Galaxy (Deep Void, Royal Purple, Bright Teal, Lavender)'],
+            ['terracotta', 'Terracotta & Clay (Burnt Sienna, Rust, Sage, Ochre)'],
+            ['vaporwave', 'Vaporwave (Hot Pink, Cyan, Mint, Lilac, Pastel Yellow)'],
+            ['ocean', 'Deep Ocean (Deep Teal, Emerald, Coral, Gold)'],
+            ['royal', 'Imperial Royal (Velvet Crimson, Burgundy, Antique Gold)'],
+            ['sakura', 'Cherry Blossom Sakura (Blush Pink, Sage, Tender Green)'],
+            ['coffee', 'Warm Coffee & Mocha (Espresso, Warm Caramel, Cream, Chestnut)'],
+            ['monochrome', 'Sleek Monochrome (White, Silver, Slate)']
+        ] }
     ];
 
-    let colorFields = F.select('pattern.palette', 'Color palette', palette, paletteOptions);
+    const customPalObj = customPalettes.find(cp => cp.id === palette);
+    const activeSwatchColors = (palette === 'custom' && Array.isArray(p.customColors) && p.customColors.length >= 2)
+        ? p.customColors
+        : (customPalObj?.colors || palettesDict[palette] || null);
 
-    if (palette !== 'dual' && palettesDict[palette]) {
-        const swatches = palettesDict[palette].map(c => `<span style="flex:1;background:${c};height:100%;"></span>`).join('');
+    let colorFields = F.select('pattern.palette', 'Color palette', palette, paletteOptions)
+        + `<div style="display:flex;justify-content:flex-end;margin:-4px 0 8px;"><button type="button" class="sp-pal-btn primary" data-pat-palette-lib="1">Shared Palettes Library…</button></div>`;
+
+    if (palette !== 'dual' && activeSwatchColors) {
+        const swatches = activeSwatchColors.map(c => `<span style="flex:1;background:${c};height:100%;"></span>`).join('');
         colorFields += `
-            <div class="pattern-palette-bar" style="display:flex;height:8px;border-radius:4px;overflow:hidden;margin:4px 0 10px;" title="Curated palette preview">
+            <div class="pattern-palette-bar" style="display:flex;height:8px;border-radius:4px;overflow:hidden;margin:4px 0 10px;" title="Active palette preview">
                 ${swatches}
             </div>
-            <p class="hint" style="margin:2px 0 8px;">Shapes, lights, and foliage alternate through the curated palette.</p>
+            <p class="hint" style="margin:2px 0 8px;">Shapes, lights, and foliage alternate through the active palette.</p>
             <details class="sub-details" style="margin-bottom:8px;">
                 <summary>Custom fallback colors</summary>
                 <div class="grid2" style="margin-top:6px;">
@@ -777,6 +795,35 @@ export function handlePatternInspectorClick(event, { renderProperties, openAsset
                 changed(true);
             });
         }
+        return true;
+    }
+
+    // 0. Shared Color Palettes Library picker for procedural pattern elements
+    const patPalBtn = target.closest('[data-pat-palette-lib]');
+    if (patPalBtn && window.StreamPulsePalettes?.openManagerModal) {
+        const el = primary();
+        const curP = el?.pattern || {};
+        const initColors = Array.isArray(curP.customColors) && curP.customColors.length >= 2
+            ? curP.customColors
+            : (window.StreamPulsePalettes.getById(curP.palette)?.colors || [curP.accent || '#58a6ff', curP.secondary || '#a855f7']);
+        window.StreamPulsePalettes.openManagerModal({
+            title: 'Shared Color Palettes Library',
+            currentColors: initColors,
+            currentPaletteId: curP.palette !== 'dual' && curP.palette !== 'custom' ? curP.palette : '',
+            onApply: picked => {
+                for (const item of selectedElements()) {
+                    if (item.type !== 'pattern') continue;
+                    item.pattern = item.pattern || {};
+                    item.pattern.palette = picked.paletteId || 'custom';
+                    item.pattern.customColors = [...picked.colors];
+                    if (picked.colors[0]) item.pattern.accent = picked.colors[0];
+                    if (picked.colors[1]) item.pattern.secondary = picked.colors[picked.colors.length - 1];
+                }
+                renderCanvas();
+                renderProperties();
+                changed(true);
+            }
+        });
         return true;
     }
 

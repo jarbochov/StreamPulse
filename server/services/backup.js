@@ -225,6 +225,7 @@ function buildBackupFileSpecs({
         { src: path.join(dataDir, 'variables.json'), dest: 'data/variables.json' },
         { src: path.join(dataDir, 'variable-groups.json'), dest: 'data/variable-groups.json' },
         { src: path.join(dataDir, 'variable-displays.json'), dest: 'data/variable-displays.json' },
+        { src: path.join(dataDir, 'palettes.json'), dest: 'data/palettes.json' },
         { src: path.join(dataDir, 'operator-profiles.json'), dest: 'data/operator-profiles.json' },
         { src: randomizerPresetsPath, dest: 'data/randomizer-presets.json' },
         { src: randomizerButtonPresetsPath, dest: 'data/randomizer-button-presets.json' },

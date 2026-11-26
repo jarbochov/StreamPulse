@@ -87,6 +87,8 @@ const { createObsBordersRoutes } = require('./server/routes/obs-borders');
 const { createObsPatternsService } = require('./server/services/obs-patterns');
 const { renderPatternStamps } = require('./server/services/obs-pattern-baker');
 const { createObsPatternsRoutes } = require('./server/routes/obs-patterns');
+const { createPalettesService } = require('./server/services/palettes');
+const { createPalettesRoutes } = require('./server/routes/palettes');
 const { createRateLimiter } = require('./server/services/rate-limit');
 const { createGameInfoService, infoKey, GAME_INFO_VERSION } = require('./server/services/game-info');
 const { createShareBundleService } = require('./server/services/share-bundle');
@@ -1340,6 +1342,11 @@ const handleObsPatternsRoutes = createObsPatternsRoutes({
     obsService,
     isLoopbackRequest
 });
+const palettesService = createPalettesService({
+    dataDir: DATA_DIR,
+    onChange: state => broadcastToOverlays({ type: 'palettes-update', ...state })
+});
+const handlePalettesRoutes = createPalettesRoutes({ palettesService });
 const obsLayoutService = require('./server/services/obs-layout')({
     dataDir: DATA_DIR,
     broadcastToOverlays
@@ -1942,6 +1949,7 @@ const server = createHttpServer(async (req, res) => {
     if (await handleObsRoutes(req, res, pathname)) return;
     if (await handleObsBordersRoutes(req, res, url, pathname)) return;
     if (await handleObsPatternsRoutes(req, res, url, pathname)) return;
+    if (await handlePalettesRoutes(req, res, url, pathname)) return;
     if (await handleObsLayoutRoutes(req, res, url, pathname)) return;
 
     // Static file serving via cascading static router

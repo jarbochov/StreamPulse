@@ -1363,12 +1363,20 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       animation: anims.join(", ")
     });
     out.webkitTextFillColor = text ? "transparent" : "";
-    if (text) out.color = text.from || "#1f6feb";
+    if (text) out.color = gradientStops(text)[0] || "#1f6feb";
     return out;
   }
-  function gradientCss(g) {
+  function gradientStops(g) {
+    if (!g || typeof g !== "object") return ["#1f6feb", "#8957e5"];
+    if (Array.isArray(g.colors)) {
+      const cleaned = g.colors.map((c) => String(c || "").trim()).filter((c) => c && c !== "transparent" && c !== "none").slice(0, 8);
+      if (cleaned.length >= 2) return cleaned;
+    }
     const mid = g.mid && g.mid !== "transparent" && g.mid !== "none" ? g.mid : "";
-    const stops = [g.from || "#1f6feb", mid, g.to || "#8957e5"].filter(Boolean).join(", ");
+    return [g.from || "#1f6feb", mid, g.to || "#8957e5"].filter(Boolean);
+  }
+  function gradientCss(g) {
+    const stops = gradientStops(g).join(", ");
     return g.type === "radial" ? `radial-gradient(circle at ${g.position || "center"}, ${stops})` : `linear-gradient(${g.angle ?? 135}deg, ${stops})`;
   }
   function slidesVertically(g) {
@@ -2219,11 +2227,12 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
       node.style.backgroundClip = "";
       return;
     }
-    const basePaint1 = hasBorderGradient ? g.from || "#1f6feb" : c;
-    const basePaintMid = hasBorderGradient && g.mid && g.mid !== "transparent" && g.mid !== "none" ? g.mid : "";
-    const basePaint2 = hasBorderGradient ? g.to || "#8957e5" : "";
+    const borderStops = hasBorderGradient ? gradientStops(g) : [];
+    const basePaint1 = hasBorderGradient ? borderStops[0] : c;
+    const basePaintMid = hasBorderGradient ? borderStops.length >= 3 ? borderStops[Math.floor(borderStops.length / 2)] : "" : "";
+    const basePaint2 = hasBorderGradient ? borderStops[borderStops.length - 1] : "";
     const staticPaintCss = hasBorderGradient ? gradientCss(g) : c;
-    const neonGlowCol = hasBorderGradient ? g.from || c : glow.enabled && glow.color && glow.color !== "transparent" ? glow.color : c;
+    const neonGlowCol = hasBorderGradient ? borderStops[0] || c : glow.enabled && glow.color && glow.color !== "transparent" ? glow.color : c;
     const isNeon = borderStyle === "neon-tube";
     if (hasBorderAnim) {
       if (node._borderRing) {
@@ -2349,11 +2358,8 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           animRule = `sp-border-spin ${speed}s linear infinite`;
         } else if (animType === "palette-flow") {
           const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 4));
-          const c1 = basePaint1;
-          const mid = basePaintMid || anim.color2 || "";
-          const c2 = basePaint2 || anim.color2 || "#8957e5";
-          const stops = [c1, mid, c2, c1].filter(Boolean).join(", ");
-          paintBg = `conic-gradient(from var(--sp-angle), ${stops})`;
+          const list = borderStops.length >= 2 ? [...borderStops, borderStops[0]] : [basePaint1, basePaintMid || anim.color2 || "", basePaint2 || anim.color2 || "#8957e5", basePaint1].filter(Boolean);
+          paintBg = `conic-gradient(from var(--sp-angle), ${list.join(", ")})`;
           animRule = `sp-border-spin ${speed}s linear infinite`;
         } else if (animType === "pulsing" || animType === "strobe-flash" || animType === "heartbeat" || animType === "neon-flicker" || animType === "glitch-split") {
           const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 2));
@@ -2365,11 +2371,12 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
           filterRule = "";
         } else if (animType === "gradient") {
           const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 4));
-          const c1 = basePaint1 === "#38bdf8" && borderColor === "transparent" ? "#1f6feb" : basePaint1;
-          const mid = anim.color3 && anim.color3 !== "transparent" && anim.color3 !== "none" ? anim.color3 : basePaintMid;
-          const c2 = anim.color2 || basePaint2 || "#8957e5";
-          const stops = [c1, mid, c2].filter(Boolean).join(", ");
-          paintBg = `linear-gradient(135deg, ${stops})`;
+          const list = borderStops.length >= 2 ? borderStops : [
+            basePaint1 === "#38bdf8" && borderColor === "transparent" ? "#1f6feb" : basePaint1,
+            anim.color3 && anim.color3 !== "transparent" && anim.color3 !== "none" ? anim.color3 : basePaintMid,
+            anim.color2 || basePaint2 || "#8957e5"
+          ].filter(Boolean);
+          paintBg = `linear-gradient(${g?.angle ?? 135}deg, ${list.join(", ")})`;
           bgSize = "200% 200%";
           animRule = `sp-border-gradient-shift ${speed}s ease-in-out infinite alternate`;
         } else if (animType === "rainbow") {
@@ -7826,7 +7833,8 @@ html.sp-fx-paused .sp-bingo-banner {
     const expandFn = (v) => resolveColorToken(v, status, context, member);
     const hasToken = (v) => typeof v === "string" && (v.includes("{{") || Boolean(member) && v.trim().startsWith("@"));
     const gradKeys = ["gradient", "textGradient", "borderGradient"];
-    const needsClone = ["color", "background", "fill", "borderColor", "fontFamily"].some((k) => hasToken(style[k])) || gradKeys.some((k) => style[k] && (hasToken(style[k].from) || hasToken(style[k].mid) || hasToken(style[k].to))) || style.borderGlow && hasToken(style.borderGlow.color) || style.borderAnimation && (hasToken(style.borderAnimation.color2) || hasToken(style.borderAnimation.color3)) || style.shadow && hasToken(style.shadow.color) || style.innerShadow && hasToken(style.innerShadow.color) || style.textStroke && hasToken(style.textStroke.color) || style.textShadow && hasToken(style.textShadow.color);
+    const gradHasToken = (g) => Boolean(g && (hasToken(g.from) || hasToken(g.mid) || hasToken(g.to) || Array.isArray(g.colors) && g.colors.some(hasToken)));
+    const needsClone = ["color", "background", "fill", "borderColor", "fontFamily"].some((k) => hasToken(style[k])) || gradKeys.some((k) => gradHasToken(style[k])) || style.borderGlow && hasToken(style.borderGlow.color) || style.borderAnimation && (hasToken(style.borderAnimation.color2) || hasToken(style.borderAnimation.color3)) || style.shadow && hasToken(style.shadow.color) || style.innerShadow && hasToken(style.innerShadow.color) || style.textStroke && hasToken(style.textStroke.color) || style.textShadow && hasToken(style.textShadow.color);
     if (!needsClone) return style;
     const out = { ...style };
     if (hasToken(out.fontFamily)) out.fontFamily = expandFn(out.fontFamily) || "sans-serif";
@@ -7835,11 +7843,13 @@ html.sp-fx-paused .sp-bingo-banner {
     }
     for (const k of gradKeys) {
       if (out[k] && typeof out[k] === "object") {
+        const nextColors = Array.isArray(out[k].colors) ? out[k].colors.map((c) => hasToken(c) ? expandFn(c) || "#38bdf8" : c) : void 0;
         out[k] = {
           ...out[k],
           from: hasToken(out[k].from) ? expandFn(out[k].from) || "#1f6feb" : out[k].from,
           mid: hasToken(out[k].mid) ? expandFn(out[k].mid) : out[k].mid,
-          to: hasToken(out[k].to) ? expandFn(out[k].to) || "#8957e5" : out[k].to
+          to: hasToken(out[k].to) ? expandFn(out[k].to) || "#8957e5" : out[k].to,
+          ...nextColors ? { colors: nextColors } : {}
         };
       }
     }
@@ -9555,12 +9565,15 @@ html.sp-fx-paused .sp-bingo-banner {
       if (patternsEngine?.drawProceduralPattern) {
         const cleanAccent = p.accent && p.accent !== "transparent" ? p.accent : "#58a6ff";
         const cleanSecondary = p.secondary && p.secondary !== "transparent" ? p.secondary : cleanAccent;
+        const sharedCustom = p.palette && p.palette !== "dual" && p.palette !== "custom" && !patternsEngine.PALETTES?.[p.palette] ? window.StreamPulsePalettes?.getById?.(p.palette)?.colors : null;
+        const customColors = Array.isArray(p.customColors) && p.customColors.length >= 2 ? p.customColors : Array.isArray(sharedCustom) && sharedCustom.length >= 2 ? sharedCustom : void 0;
         patternsEngine.drawProceduralPattern(ctx, presetName, cw, ch, {
           scale: p.scale ?? 100,
           color: p.color || "transparent",
           accent: cleanAccent,
           secondary: cleanSecondary,
-          palette: p.palette || "dual",
+          palette: customColors ? "custom" : p.palette || "dual",
+          customColors,
           fillMode: p.fillMode || "tinted",
           fillOpacity: p.fillOpacity,
           lineWidth: Number(p.lineWidth) || 0,
@@ -13050,7 +13063,7 @@ html.sp-fx-paused .sp-bingo-banner {
       var import_border_catalog2 = __toESM(require_border_catalog());
       init_displays();
       init_display_counter();
-      root.OverlayShared = Object.assign(root.OverlayShared || {}, { cleanupMedia, cleanupNode, alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, TEXT_ANIM_TYPES, applyBorderGradient, applyTextAnimation, resolveBorderRadius, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, pruneSourceCaches, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, playSoundValue, resolveSoundUrl, zzfxSamples, BUILTIN_SOUNDS, renderGameList, renderSpeakerBadge, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, mountPattern, mountTextCycle, resolveCycleLines, createVarRotationEngine, decorationStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, resolveColorToken, resolveStyleVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, renderImageGroupStrip, applyMediaFilter: root.OverlayFilters?.applyMediaFilter || applyMediaFilter, shadowClipStyle });
+      root.OverlayShared = Object.assign(root.OverlayShared || {}, { cleanupMedia, cleanupNode, alertSample, ALERT_SAMPLE, ALERT_SAMPLE_IMAGE, setEffectsPaused, isListKey, isListFormat, LIST_FORMAT_PRESETS, applyBorderEffects, BORDER_STYLES, BORDER_ANIM_TYPES, TEXT_ANIM_TYPES, applyBorderGradient, applyTextAnimation, resolveBorderRadius, hasBoxFill, textEffectStyle, wrapMarquee, fitText, refreshTextSources, pruneSourceCaches, textSourceState, textSourceKey, elementContent, elementItems, qrUrl, renderIcon, prepareAlertNode, playAlert, playBuiltinSound, playSoundValue, resolveSoundUrl, zzfxSamples, BUILTIN_SOUNDS, renderGameList, renderSpeakerBadge, matchesPeriodFilter, matchesPeriodToken, mountSlideshow, slideshowItems, mountPattern, mountTextCycle, resolveCycleLines, createVarRotationEngine, decorationStyle, gradientCss, gradientStops, gradientStyle, renderProgress, GOOGLE_FONTS, VARIABLE_GROUPS, variableGroups, variableTable, formatDuration, formatDate, applyFormat, isDateKey, FORMAT_PRESETS, hasTicking, loadLiveExtras, assetFonts, loadAssetFonts, expandVariables, resolveColorToken, resolveStyleVariables, variableSnapshot, renderMarkdown, loadGoogleFont, parseYouTubeUrl, embedUrl, renderImageGroupStrip, applyMediaFilter: root.OverlayFilters?.applyMediaFilter || applyMediaFilter, shadowClipStyle });
       root.OverlayShared.borderPlacement = borderPlacement;
       Object.assign(root.OverlayShared, { ALERT_PRESENTATION_KEYS, resolveAlertLook, renderInlineText, sanitizeIconClass });
       Object.assign(root.OverlayShared, import_numeric_bindings4.default);

@@ -44,14 +44,24 @@ function decorationStyle(style = {}, type = '') {
     });
     // Fill is transparent but color stays solid, so borders, rules and bullets that use currentColor remain visible.
     out.webkitTextFillColor = text ? 'transparent' : '';
-    if (text) out.color = text.from || '#1f6feb';
+    if (text) out.color = gradientStops(text)[0] || '#1f6feb';
     return out;
 }
 
-// Linear or radial fill with 2-3 stops; animated gradients slide an oversized fill back and forth like the timer wizard.
-function gradientCss(g) {
+// Extract 2-8 gradient stops (supports multi-stop custom palettes as well as legacy from/mid/to).
+function gradientStops(g) {
+    if (!g || typeof g !== 'object') return ['#1f6feb', '#8957e5'];
+    if (Array.isArray(g.colors)) {
+        const cleaned = g.colors.map(c => String(c || '').trim()).filter(c => c && c !== 'transparent' && c !== 'none').slice(0, 8);
+        if (cleaned.length >= 2) return cleaned;
+    }
     const mid = g.mid && g.mid !== 'transparent' && g.mid !== 'none' ? g.mid : '';
-    const stops = [g.from || '#1f6feb', mid, g.to || '#8957e5'].filter(Boolean).join(', ');
+    return [g.from || '#1f6feb', mid, g.to || '#8957e5'].filter(Boolean);
+}
+
+// Linear or radial fill with 2-8 stops; animated gradients slide an oversized fill back and forth like the timer wizard.
+function gradientCss(g) {
+    const stops = gradientStops(g).join(', ');
     return g.type === 'radial' ? `radial-gradient(circle at ${g.position || 'center'}, ${stops})` : `linear-gradient(${g.angle ?? 135}deg, ${stops})`;
 }
 
@@ -944,11 +954,12 @@ function applyBorderEffects(node, style = {}, element = {}) {
         return;
     }
 
-    const basePaint1 = hasBorderGradient ? (g.from || '#1f6feb') : c;
-    const basePaintMid = hasBorderGradient && g.mid && g.mid !== 'transparent' && g.mid !== 'none' ? g.mid : '';
-    const basePaint2 = hasBorderGradient ? (g.to || '#8957e5') : '';
+    const borderStops = hasBorderGradient ? gradientStops(g) : [];
+    const basePaint1 = hasBorderGradient ? borderStops[0] : c;
+    const basePaintMid = hasBorderGradient ? (borderStops.length >= 3 ? borderStops[Math.floor(borderStops.length / 2)] : '') : '';
+    const basePaint2 = hasBorderGradient ? borderStops[borderStops.length - 1] : '';
     const staticPaintCss = hasBorderGradient ? gradientCss(g) : c;
-    const neonGlowCol = hasBorderGradient ? (g.from || c) : (glow.enabled && glow.color && glow.color !== 'transparent' ? glow.color : c);
+    const neonGlowCol = hasBorderGradient ? (borderStops[0] || c) : (glow.enabled && glow.color && glow.color !== 'transparent' ? glow.color : c);
     const isNeon = borderStyle === 'neon-tube';
 
     // Animated Border (handles all 11 animations composed cleanly with all 31 styles and optional borderGradient)
@@ -1080,11 +1091,10 @@ function applyBorderEffects(node, style = {}, element = {}) {
                 animRule = `sp-border-spin ${speed}s linear infinite`;
             } else if (animType === 'palette-flow') {
                 const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 4));
-                const c1 = basePaint1;
-                const mid = basePaintMid || anim.color2 || '';
-                const c2 = basePaint2 || anim.color2 || '#8957e5';
-                const stops = [c1, mid, c2, c1].filter(Boolean).join(', ');
-                paintBg = `conic-gradient(from var(--sp-angle), ${stops})`;
+                const list = borderStops.length >= 2
+                    ? [...borderStops, borderStops[0]]
+                    : [basePaint1, basePaintMid || anim.color2 || '', basePaint2 || anim.color2 || '#8957e5', basePaint1].filter(Boolean);
+                paintBg = `conic-gradient(from var(--sp-angle), ${list.join(', ')})`;
                 animRule = `sp-border-spin ${speed}s linear infinite`;
             } else if (animType === 'pulsing' || animType === 'strobe-flash' || animType === 'heartbeat' || animType === 'neon-flicker' || animType === 'glitch-split') {
                 const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 2));
@@ -1098,11 +1108,14 @@ function applyBorderEffects(node, style = {}, element = {}) {
                 filterRule = '';
             } else if (animType === 'gradient') {
                 const speed = Math.max(0.5, Math.min(60, Number(anim.speed) || 4));
-                const c1 = basePaint1 === '#38bdf8' && borderColor === 'transparent' ? '#1f6feb' : basePaint1;
-                const mid = (anim.color3 && anim.color3 !== 'transparent' && anim.color3 !== 'none') ? anim.color3 : basePaintMid;
-                const c2 = anim.color2 || basePaint2 || '#8957e5';
-                const stops = [c1, mid, c2].filter(Boolean).join(', ');
-                paintBg = `linear-gradient(135deg, ${stops})`;
+                const list = borderStops.length >= 2
+                    ? borderStops
+                    : [
+                        basePaint1 === '#38bdf8' && borderColor === 'transparent' ? '#1f6feb' : basePaint1,
+                        (anim.color3 && anim.color3 !== 'transparent' && anim.color3 !== 'none') ? anim.color3 : basePaintMid,
+                        anim.color2 || basePaint2 || '#8957e5'
+                    ].filter(Boolean);
+                paintBg = `linear-gradient(${g?.angle ?? 135}deg, ${list.join(', ')})`;
                 bgSize = '200% 200%';
                 animRule = `sp-border-gradient-shift ${speed}s ease-in-out infinite alternate`;
             } else if (animType === 'rainbow') {
@@ -1668,4 +1681,4 @@ function shadowClipStyle(element) {
     return { overflow: 'visible', overflowClipMargin: '' };
 }
 
-export { BORDER_ANIM_TYPES, BORDER_STYLES, TEXT_ANIM_TYPES, applyBorderEffects, applyBorderGradient, applyTextAnimation, borderPlacement, decorationStyle, gradientStyle, hasBoxFill, resolveBorderRadius, shadowClipStyle, textEffectStyle };
+export { BORDER_ANIM_TYPES, BORDER_STYLES, TEXT_ANIM_TYPES, applyBorderEffects, applyBorderGradient, applyTextAnimation, borderPlacement, decorationStyle, gradientCss, gradientStops, gradientStyle, hasBoxFill, resolveBorderRadius, shadowClipStyle, textEffectStyle };

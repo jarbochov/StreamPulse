@@ -1151,6 +1151,46 @@
             ]
         },
         {
+            section: 'Shared Color Palettes Library',
+            items: [
+                {
+                    method: 'GET', path: '/api/palettes',
+                    desc: 'List all built-in curated presets and user-created custom palettes',
+                    details: 'Returns { builtin: [...], custom: [...], palettes: [...] }. Each palette contains { id, name, colors, angle, builtin }. Persisted in data/palettes.json and shared across Custom Overlay Editor, OBS Pattern Studio, and OBS Border Studio.'
+                },
+                {
+                    method: 'GET', path: '/api/palettes/status',
+                    desc: 'Lightweight count summary for Companion / diagnostics polling',
+                    details: 'Returns { builtinCount, customCount, totalCount, customNames }.'
+                },
+                {
+                    method: 'GET', path: '/api/palettes/:id',
+                    desc: 'Fetch a single built-in or custom palette by ID'
+                },
+                {
+                    method: 'POST', path: '/api/palettes',
+                    desc: 'Create a new shared custom palette (2–8 stops, supports hex/rgba/hsla and {{var.color}} tokens)',
+                    body: '{ "name": "Brand Sunset", "colors": ["#FF4D6D", "#FF9E00", "#FFD166"], "angle": 135 }',
+                    details: 'Persists to data/palettes.json, broadcasts palettes-update, and returns 201 with { ok, palette, builtin, custom, palettes }.'
+                },
+                {
+                    method: 'PUT', path: '/api/palettes/:id',
+                    desc: 'Update name, color stops, or angle of an existing custom palette',
+                    body: '{ "name": "Brand Sunset v2", "colors": ["#FF0055", "#7B2CBF", "#00BBF9"] }',
+                    details: 'Built-in palettes cannot be overwritten directly; duplicate them first.'
+                },
+                {
+                    method: 'POST', path: '/api/palettes/:id/duplicate',
+                    desc: 'Duplicate any built-in or custom palette into a new editable custom palette',
+                    body: '{ "name": "My Neon Copy" }'
+                },
+                {
+                    method: 'DELETE', path: '/api/palettes/:id',
+                    desc: 'Delete a saved custom palette by ID'
+                }
+            ]
+        },
+        {
             section: 'Custom Overlays & Assets',
             items: [
                 {

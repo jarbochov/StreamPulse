@@ -1176,3 +1176,21 @@ Saved Operator Mode presets live in `data/operator-profiles.json` (included in f
 | `/api/operator/import` | `POST` | Import JSON presets (`?mode=merge` default or `?mode=replace`) |
 
 WebSocket broadcasts: `operator-active-profile` updates normal `/operator.html` tabs live while keeping URL-pinned `?profile=<id>` docks locked; `operator-update` broadcasts preset additions, edits, deletions, and restores. See [Operator Mode Guide](operator-guide.md).
+
+---
+
+## Shared Color Palettes Library (`/api/palettes`)
+
+Centralized custom multi-stop color palettes (2–8 stops, supporting hex, RGBA/HSLA, and `{{var.key}}` live color variables) shared across Custom Overlay Editor (Text Gradients, Box/Shape/Progress/Canvas Background Gradients, Border Gradients, and Procedural Patterns), OBS Pattern Studio, and OBS Border Studio. Persisted in `data/palettes.json` and included in full backups.
+
+| Endpoint | Methods | Description |
+| --- | --- | --- |
+| `/api/palettes` | `GET` | Return `{ builtin, custom, palettes }` with all curated presets and user-created custom palettes |
+| `/api/palettes/status` | `GET` | Lightweight count summary (`{ builtinCount, customCount, totalCount, customNames }`) |
+| `/api/palettes/:id` | `GET` | Fetch a single built-in or custom palette by ID |
+| `/api/palettes` | `POST` | Create a new custom palette (`{ name, colors: ["#...", "#...", ...], angle? }`) |
+| `/api/palettes/:id` | `PUT`, `PATCH` | Update name, color stops (2–8), or default angle of a custom palette |
+| `/api/palettes/:id/duplicate` | `POST`, `GET` | Duplicate any built-in or custom palette into a new editable custom palette (`{ name? }`) |
+| `/api/palettes/:id` | `DELETE` | Delete a custom palette (built-in palettes are protected) |
+
+WebSocket broadcasts: `palettes-update` notifies open studios and editors immediately whenever custom palettes are added, edited, duplicated, or deleted.

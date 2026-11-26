@@ -734,7 +734,13 @@
         if (pagesOn(overlay) && !(overlay.pages.items || []).some(item => item.id === currentPage && item.enabled !== false)) currentPage = (overlay.pages.items.find(item => item.enabled !== false) || overlay.pages.items[0]).id;
 
         const { masked, top } = ensureLayers();
-        masked.style.background = overlay.canvas.background || 'transparent';
+        if (overlay.canvas.gradient?.enabled && typeof shared.gradientStyle === 'function') {
+            Object.assign(masked.style, shared.gradientStyle(overlay.canvas.gradient));
+        } else {
+            masked.style.background = overlay.canvas.background || 'transparent';
+            masked.style.backgroundSize = '';
+            masked.style.animation = '';
+        }
         updateCutoutMask();
 
         const activeCutouts = pageElements(overlay).filter(el => el.type === 'cutout' && (cutoutStates.has(el.id) ? cutoutStates.get(el.id) : el.visible !== false));

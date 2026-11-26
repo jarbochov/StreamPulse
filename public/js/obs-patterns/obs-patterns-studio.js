@@ -3226,7 +3226,8 @@
                 syncWorkingProfileFromDom();
             });
 
-            document.getElementById(ui.customizeBtnId)?.addEventListener('click', () => {
+            const custBtn = document.getElementById(ui.customizeBtnId);
+            custBtn?.addEventListener('click', () => {
                 const target = getPaletteTarget(scope);
                 if (!target) return;
                 const curHexList = getActivePaletteHexList(target);
@@ -3238,6 +3239,33 @@
                 renderCustomPaletteStops(scope);
                 syncWorkingProfileFromDom();
             });
+            if (custBtn && custBtn.parentNode && !document.getElementById(`${ui.customizeBtnId}-shared`)) {
+                const libBtn = document.createElement('button');
+                libBtn.type = 'button';
+                libBtn.id = `${ui.customizeBtnId}-shared`;
+                libBtn.className = 'btn sm';
+                libBtn.style.whiteSpace = 'nowrap';
+                libBtn.title = 'Open Shared Color Palettes Library';
+                libBtn.textContent = 'Library';
+                custBtn.insertAdjacentElement('afterend', libBtn);
+                libBtn.addEventListener('click', () => {
+                    const target = getPaletteTarget(scope);
+                    if (!target || !window.StreamPulsePalettes?.openManagerModal) return;
+                    window.StreamPulsePalettes.openManagerModal({
+                        title: 'Shared Color Palettes Library',
+                        currentColors: getActivePaletteHexList(target),
+                        onApply: picked => {
+                            target.customColors = (picked.colors || []).slice(0, 7).map(c => c.length === 7 ? c.toUpperCase() + 'FF' : c.toUpperCase());
+                            ensureCustomColors(target);
+                            target.palette = 'custom';
+                            const palSel = document.getElementById(ui.selectId);
+                            if (palSel) palSel.value = 'custom';
+                            renderCustomPaletteStops(scope);
+                            syncWorkingProfileFromDom();
+                        }
+                    });
+                });
+            }
 
             document.getElementById(ui.addBtnId)?.addEventListener('click', () => {
                 const target = getPaletteTarget(scope);
