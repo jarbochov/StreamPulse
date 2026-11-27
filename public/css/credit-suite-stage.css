@@ -84,7 +84,7 @@
     inset: 0;
     align-items: center;
     justify-content: center;
-    padding: 40px 64px;
+    padding: 40px 0;
     will-change: transform, opacity;
     display: none;
 }
@@ -115,6 +115,12 @@
     position: relative;
     width: 100%;
     margin: 0 auto;
+}
+
+.cs-block-inner.cs-has-custom-width .cs-role-table,
+.cs-block-inner.cs-has-custom-width .cs-paragraph-body,
+.cs-block-inner.cs-has-custom-width .cs-split-row {
+    max-width: 100%;
 }
 
 /* Per-Section Auto-Column Placement (zero sideways sliding mid-scroll) */

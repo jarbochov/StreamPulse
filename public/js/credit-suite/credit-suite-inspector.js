@@ -716,8 +716,8 @@ export function mountCreditSuiteInspector({ state, stage }) {
                             </div>
                         `}
                         <div class="cs-grid-2">
-                            <div class="cs-field"><label>Width (px)</label><input type="number" min="40" max="1600" data-b-num="mediaWidth" value="${block.mediaWidth || 320}"></div>
-                            <div class="cs-field"><label>Height (0=Auto)</label><input type="number" min="0" max="1200" data-b-num="mediaHeight" value="${block.mediaHeight || 0}"></div>
+                            <div class="cs-field"><label>Width (px)</label><input type="number" min="40" max="3840" data-b-num="mediaWidth" value="${block.mediaWidth || 320}"></div>
+                            <div class="cs-field"><label>Height (0=Auto)</label><input type="number" min="0" max="2160" data-b-num="mediaHeight" value="${block.mediaHeight || 0}"></div>
                         </div>
                         ${block.mediaKind !== 'icon' ? `
                             <div class="cs-grid-2">
@@ -961,7 +961,7 @@ export function mountCreditSuiteInspector({ state, stage }) {
             <div class="cs-section">
                 <div class="cs-section-head"><span>Box, Spacing &amp; Borders</span></div>
                 <div class="cs-grid-2">
-                    <div class="cs-field"><label>Max Width (px)</label><input type="number" min="200" max="3200" step="20" placeholder="Column" data-bs-optnum="maxWidth" value="${esc(st.maxWidth)}"></div>
+                    <div class="cs-field"><label>Max Width (px)</label><input type="number" min="200" max="3840" step="20" placeholder="Column" data-bs-optnum="maxWidth" value="${esc(st.maxWidth)}"></div>
                     <div class="cs-field"><label>Opacity (0.05–1)</label><input type="number" min="0.05" max="1" step="0.05" data-bs-num="opacity" value="${st.opacity ?? 1}"></div>
                 </div>
                 <div class="cs-grid-3">
@@ -2083,6 +2083,8 @@ export function mountCreditSuiteInspector({ state, stage }) {
                     <div class="cs-field"><label>Content Size</label><input type="number" min="10" max="120" data-p-num="theme.contentSize" value="${th.contentSize}"></div>
                     <div class="cs-field"><label>Section Gap</label><input type="number" min="0" max="300" data-p-num="theme.sectionSpacing" value="${th.sectionSpacing}"></div>
                     <div class="cs-field"><label>Line Height</label><input type="number" min="1" max="3.2" step="0.05" data-p-num="theme.lineHeight" value="${th.lineHeight}"></div>
+                    <div class="cs-field"><label>Column Width (px)</label><input type="number" min="400" max="3840" step="20" data-p-num="theme.maxColumnWidth" value="${th.maxColumnWidth ?? 1180}"></div>
+                    <div class="cs-field"><label>Side Padding (px)</label><input type="number" min="0" max="400" step="4" data-p-num="theme.paddingH" value="${th.paddingH ?? 96}"></div>
                 </div>
                 <div class="cs-grid-3">
                     <div class="cs-field"><label>Text</label><input type="color" data-p-color="theme.textColor" value="${toColorHex6(th.textColor, '#f3f4f6')}"></div>

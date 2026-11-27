@@ -970,4 +970,62 @@ describe('Credit Suite — Independent Cinematic Credits Module', () => {
             await new Promise(resolve => uploadServer.close(resolve));
         }
     });
+
+    it('lets per-block Max Width and Media Width break out past the default 1180px column up to full canvas width', async () => {
+        service.upsertProject({
+            id: 'wide-block-qa',
+            name: 'Wide Block QA',
+            canvas: { preset: '1080p', width: 1920, height: 1080, fps: 30 },
+            theme: { maxColumnWidth: 1180, paddingH: 96 },
+            timing: { mode: 'speed', speedPxPerSec: 100, leadInSec: 0, leadOutSec: 0 },
+            blocks: [
+                {
+                    id: 'wb-card',
+                    type: 'role-split',
+                    presentation: 'card',
+                    title: 'WIDE ROLE SPLIT',
+                    duration: 4,
+                    rows: [{ id: 'r1', role: 'Director', name: 'Alex Rivera', checked: true }],
+                    style: { maxWidth: 1650 }
+                },
+                {
+                    id: 'wb-media',
+                    type: 'media',
+                    presentation: 'card',
+                    title: '',
+                    duration: 4,
+                    mediaKind: 'image',
+                    mediaUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="9"><rect width="16" height="9" fill="%23334155"/></svg>',
+                    mediaWidth: 1920,
+                    mediaHeight: 600
+                }
+            ]
+        });
+
+        const puppeteer = require('puppeteer');
+        const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+        try {
+            const page = await browser.newPage();
+            await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
+            await page.goto(`http://127.0.0.1:${port}/overlays/credit-suite.html?project=wide-block-qa&export=1`, { waitUntil: 'networkidle0' });
+            await page.waitForFunction(() => Boolean(window.__creditSuiteReady), { timeout: 10000 });
+
+            const widths = await page.evaluate(async () => {
+                await window.__creditSuiteSeek(1.5);
+                const roleTable = document.querySelector('[data-block-id="wb-card"] .cs-role-table');
+                const roleW = roleTable ? Math.round(roleTable.getBoundingClientRect().width) : 0;
+
+                await window.__creditSuiteSeek(5.5);
+                const mediaFrame = document.querySelector('[data-block-id="wb-media"] .cs-inline-media-frame');
+                const mediaW = mediaFrame ? Math.round(mediaFrame.getBoundingClientRect().width) : 0;
+
+                return { roleW, mediaW };
+            });
+
+            assert.ok(widths.roleW >= 1640, `Role-Split with maxWidth=1650 should render at ~1650px (got ${widths.roleW}px)`);
+            assert.ok(widths.mediaW >= 1910, `Media block with mediaWidth=1920 should render full-bleed ~1920px (got ${widths.mediaW}px)`);
+        } finally {
+            await browser.close();
+        }
+    });
 });

@@ -489,7 +489,12 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
         const inner = document.createElement('div');
         inner.className = 'cs-block-inner';
         if (st.maxWidth) {
+            inner.classList.add('cs-has-custom-width');
             inner.style.maxWidth = `${st.maxWidth}px`;
+            el.dataset.customWidth = String(st.maxWidth);
+        }
+        if (block.type === 'media' && block.mediaKind !== 'icon' && Number(block.mediaWidth) > 0) {
+            el.dataset.mediaWidth = String(block.mediaWidth);
         }
         if (st.opacity !== undefined && Number(st.opacity) < 1) {
             inner.style.opacity = String(st.opacity);
@@ -1181,24 +1186,54 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
             blkEl.style.marginTop = clearanceTopPx > 0 ? `${clearanceTopPx}px` : '';
             blkEl.style.marginRight = '';
             blkEl.style.marginLeft = '';
-            const origPadH = blkEl.dataset.padH !== undefined ? `${blkEl.dataset.padH}px` : '';
+            const origPadNum = blkEl.dataset.padH !== undefined ? Math.max(0, Number(blkEl.dataset.padH) || 0) : 0;
+            const customW = Number(blkEl.dataset.customWidth) || 0;
+            const mediaW = Number(blkEl.dataset.mediaWidth) || 0;
+            const wantedInnerW = customW > 0 ? customW : mediaW;
+            const defaultInnerW = Math.max(200, maxColW - origPadNum * 2);
+
+            const applyExpandedCenterWidth = () => {
+                if (wantedInnerW > defaultInnerW) {
+                    const clampedInner = Math.min(canvasW, wantedInnerW);
+                    const effPadH = Math.max(0, Math.min(origPadNum, Math.floor((canvasW - clampedInner) / 2)));
+                    blkEl.style.width = `${Math.min(canvasW, clampedInner + effPadH * 2)}px`;
+                    blkEl.style.paddingLeft = `${effPadH}px`;
+                    blkEl.style.paddingRight = `${effPadH}px`;
+                } else {
+                    blkEl.style.width = `${maxColW}px`;
+                    if (blkEl.dataset.padH !== undefined) {
+                        blkEl.style.paddingLeft = `${origPadNum}px`;
+                        blkEl.style.paddingRight = `${origPadNum}px`;
+                    }
+                }
+            };
+
             if (!isPerSection) {
-                blkEl.style.width = '100%';
-                if (origPadH) {
-                    blkEl.style.paddingLeft = origPadH;
-                    blkEl.style.paddingRight = origPadH;
+                blkEl.style.marginLeft = 'auto';
+                blkEl.style.marginRight = 'auto';
+                if (wantedInnerW > defaultInnerW) {
+                    const clampedInner = Math.min(canvasW, wantedInnerW);
+                    const effPadH = Math.max(0, Math.min(origPadNum, Math.floor((canvasW - clampedInner) / 2)));
+                    blkEl.style.width = '100%';
+                    blkEl.style.maxWidth = `${Math.min(canvasW, clampedInner + effPadH * 2)}px`;
+                    blkEl.style.paddingLeft = `${effPadH}px`;
+                    blkEl.style.paddingRight = `${effPadH}px`;
+                } else {
+                    blkEl.style.width = '100%';
+                    blkEl.style.maxWidth = `${maxColW}px`;
+                    if (blkEl.dataset.padH !== undefined) {
+                        blkEl.style.paddingLeft = `${origPadNum}px`;
+                        blkEl.style.paddingRight = `${origPadNum}px`;
+                    }
                 }
                 return blkEl.style.width !== prevW;
             }
+            blkEl.style.maxWidth = '';
             const z = zone || 'center';
             blkEl.classList.add(`cs-zone-${z}`);
             const safeOuterPx = Math.round(canvasW * 0.04);
             if (z === 'center') {
-                blkEl.style.width = `${maxColW}px`;
-                if (origPadH) {
-                    blkEl.style.paddingLeft = origPadH;
-                    blkEl.style.paddingRight = origPadH;
-                }
+                applyExpandedCenterWidth();
             } else {
                 let clearWidth = sideColW - safeOuterPx;
                 if (z === 'right' && zoneBounds?.leftEdgePct > 0) {
@@ -1208,7 +1243,8 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
                     const clipLeftPx = (zoneBounds.rightEdgePct / 100) * canvasW;
                     clearWidth = clipLeftPx - gapPx - safeOuterPx;
                 }
-                const availSide = Math.max(280, Math.min(maxColW, Math.round(clearWidth)));
+                const maxSide = wantedInnerW > maxColW ? Math.min(canvasW, wantedInnerW) : maxColW;
+                const availSide = Math.max(280, Math.min(maxSide, Math.round(clearWidth)));
                 blkEl.style.width = `${availSide}px`;
                 blkEl.style.paddingLeft = '20px';
                 blkEl.style.paddingRight = '20px';
@@ -1437,12 +1473,10 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
 
         // 1. Dynamic Auto-Reflow of the Credits Column (only mutate style when values actually change)
         const canvasW = project.canvas.width;
-        const maxColW = Math.min(canvasW, project.theme?.maxColumnWidth || 1180);
         const gapPx = project.theme?.autoReflow?.gapPx ?? 48;
         const isPerSection = frame.reflow.mode === 'per-section' && project.theme?.autoReflow?.enabled !== false;
-        const nextW = isPerSection
-            ? `${canvasW}px`
-            : `${Math.min(maxColW, Math.max(320, Math.round(canvasW * frame.reflow.widthRatio - gapPx)))}px`;
+        const glideMaxW = frame.reflow.widthRatio >= 0.99 ? canvasW : Math.min(canvasW, Math.max(320, Math.round(canvasW * frame.reflow.widthRatio - gapPx)));
+        const nextW = isPerSection ? `${canvasW}px` : `${glideMaxW}px`;
         const nextLeft = isPerSection ? '50%' : `${frame.reflow.centerXPercent.toFixed(3)}%`;
         if (lastIsGlide !== !isPerSection) {
             lastIsGlide = !isPerSection;
