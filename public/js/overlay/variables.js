@@ -1,6 +1,8 @@
 import numericBindings from '../../../shared/numeric-bindings.cjs';
 import variablePaths from '../../../shared/variable-paths.cjs';
+import variableSetItems from '../../../shared/variable-set-items.cjs';
 const { variableKey } = variablePaths;
+const { resolveSetItemToken, slugifyEntryLabel, listSetItemChoices } = variableSetItems;
 import { loadDisplayLibrary } from './displays.js';
 import { linkedPlaceholders } from './linked-placeholders.js';
 const VARIABLE_GROUPS = [
@@ -792,22 +794,40 @@ function customVarValues(status, linked = { values: {}, lists: {}, types: {} }, 
     const done = new Map();
     const resolving = new Set();
     const resolve = (key, depth) => {
-        if (!templates.has(key)) return entries[key];
+        if (!templates.has(key)) {
+            if (Object.prototype.hasOwnProperty.call(entries, key)) return entries[key];
+            const setItem = resolveSetItemToken(key, status);
+            if (!setItem.matched) return undefined;
+            if (setItem.type === 'template' && depth < 3) {
+                return String(setItem.value ?? '').replace(/\{\{\s*var\.([a-zA-Z0-9_.-]+)\s*(?:\|([^{}]*?))?\s*\}\}/g, (_, ref, fb) => {
+                    const val = resolve(`var.${ref}`, depth + 1);
+                    const str = val === undefined || val === null ? '' : String(val);
+                    return str !== '' ? str : (fb !== undefined ? fb.trim() : '');
+                });
+            }
+            return setItem.value;
+        }
         if (done.has(key)) return done.get(key);
         if (depth > 3 || resolving.has(key)) return '';
         resolving.add(key);
         const text = templates.get(key).replace(/\{\{\s*var\.([a-zA-Z0-9_.-]+)\s*(?:\|([^{}]*?))?\s*\}\}/g, (_, ref, fb) => {
-            const val = resolve(`var.${ref}`, depth + 1);
+            const refKey = `var.${ref}`;
+            const hasDirect = templates.has(refKey) || Object.prototype.hasOwnProperty.call(entries, refKey);
+            const setItem = hasDirect ? null : resolveSetItemToken(refKey, status);
+            const val = hasDirect ? resolve(refKey, depth + 1) : (setItem?.matched ? resolve(refKey, depth + 1) : undefined);
             const str = val === undefined || val === null ? '' : String(val);
             if (fb === undefined) return str;
             const format = fb.trim();
-            const refKey = `var.${ref}`;
+            if (setItem?.matched && setItem.isList) {
+                if (!str && !isListFormat(format)) return format;
+                return String(applyFormat(refKey, val, fb.replace(/^\s+/, ''), now, { __lists: { [refKey]: setItem.listItems || [] } }));
+            }
             if (isListKey(refKey, { __lists: linked.lists })) return String(applyFormat(refKey, val, fb.replace(/^\s+/, ''), now, { __lists: linked.lists }));
             if (!str) {
                 const setVar = (status.customVars || []).some(v => v.setId && (ref === v.name || ref.startsWith(`${v.name}.`)));
                 return setVar && !linked.types[refKey] && isListFormat(format) ? '' : format;
             }
-            const type = linked.types[refKey] || vars.find(v => `var.${variableKey(v)}` === refKey)?.type;
+            const type = linked.types[refKey] || setItem?.type || vars.find(v => `var.${variableKey(v)}` === refKey)?.type;
             if (['number', 'counter'].includes(type)) return formatNumberVariable(val, format) ?? str;
             return String(applyFormat(refKey, val, format, now));
         });
@@ -847,7 +867,11 @@ function expandVariables(value, status, context = {}, keepEmpty = false, _depth 
     const numberNames = new Set(enabledVars.filter(v => v.type === 'number' || v.type === 'counter').map(v => `var.${variableKey(v)}`));
     return String(value ?? '').replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*(?:\|([^{}]*?))?\s*\}\}/g, (match, name, format) => {
         if (name.startsWith('var.') && name.endsWith('.icon') && !table.__types[name]) {
-            const iconCls = String(table[name] || '').trim();
+            let iconCls = String(table[name] || '').trim();
+            if (!iconCls && !Object.prototype.hasOwnProperty.call(table, name)) {
+                const setItem = resolveSetItemToken(name, status);
+                if (setItem.matched) iconCls = String(setItem.icon || setItem.value || '').trim();
+            }
             if (iconCls) return context?.inlineIcons ? `{{icon:${iconCls}}}` : iconCls;
             if (format !== undefined) {
                 const fb = format.trim();
@@ -863,6 +887,53 @@ function expandVariables(value, status, context = {}, keepEmpty = false, _depth 
                 return fb === '' && keepEmpty ? match : fb;
             }
             return keepEmpty ? match : '';
+        }
+        if (name.startsWith('var.') && !Object.prototype.hasOwnProperty.call(table, name)) {
+            const setItem = resolveSetItemToken(name, status);
+            if (setItem.matched) {
+                if (setItem.type === 'template' && _depth < 3) {
+                    const expanded = expandVariables(setItem.value ?? '', status, context, keepEmpty, _depth + 1);
+                    if (expanded !== '') return expanded;
+                    if (format !== undefined) {
+                        const fb = format.trim();
+                        return fb === '' && keepEmpty ? match : fb;
+                    }
+                    return keepEmpty ? match : '';
+                }
+                const str = setItem.value === undefined || setItem.value === null ? '' : String(setItem.value);
+                if (setItem.isList) {
+                    if (format !== undefined) {
+                        const trimmedFmt = format.trim();
+                        if (str === '' && !isListFormat(trimmedFmt)) {
+                            return trimmedFmt === '' && keepEmpty ? match : trimmedFmt;
+                        }
+                        const miniTable = { __lists: { [name]: setItem.listItems || [] } };
+                        const out = applyFormat(name, str, format.replace(/^\s+/, ''), now, miniTable);
+                        const text = out === undefined || out === null ? '' : String(out);
+                        return text === '' && keepEmpty ? match : text;
+                    }
+                    return str === '' && keepEmpty ? match : str;
+                }
+                const isSetNum = ['number', 'counter'].includes(setItem.type);
+                if (format !== undefined) {
+                    const trimmedFmt = format.trim();
+                    if (trimmedFmt === 'icon' || trimmedFmt === 'withIcon') {
+                        const iconCls = String(setItem.icon || '').trim();
+                        if (str === '') return keepEmpty ? match : '';
+                        if (!iconCls) return trimmedFmt === 'icon' ? '' : str;
+                        const iconTok = context?.inlineIcons ? `{{icon:${iconCls}}}` : iconCls;
+                        return trimmedFmt === 'icon' ? iconTok : (context?.inlineIcons ? `${iconTok} ${str}` : str);
+                    }
+                    if (str === '') {
+                        if (/^number:/.test(trimmedFmt) || ['date', 'datetime', 'time'].includes(setItem.type)) return keepEmpty ? match : '';
+                        return trimmedFmt === '' && keepEmpty ? match : trimmedFmt;
+                    }
+                }
+                const numeric = isSetNum && str !== '' ? formatNumberVariable(str, format?.trim()) : undefined;
+                const resolved = numeric !== undefined ? numeric : format === undefined || isSetNum ? str : applyFormat(name, str, format.trim(), now, table);
+                const text = resolved === undefined || resolved === null ? '' : String(resolved);
+                return text === '' && keepEmpty ? match : text;
+            }
         }
         const isNumber = !isListKey(name, table) && (numberNames.has(name) || ['number', 'counter'].includes(table.__types[name]));
         if (name.startsWith('var.') && format !== undefined && !isListKey(name, table)) {
@@ -900,6 +971,7 @@ function variableSnapshot(status, context) {
     for (const key of Object.keys(table)) if (key.startsWith('timer.') && !/\.(label|state)$/.test(key)) delete table[key];
     table.__plan = (status.gamePlan?.items || []).map(item => [item.name, item.status, item.period, item.cover, item.playingNow, item.note, item.finished, (item.played || []).join(','), (item.extraLists || []).join(',')]);
     if (status.variableDisplays) table.__displays = [status.variableDisplaysRevision, status.variableSets];
+    else if (status.modules?.variableSets !== false && Array.isArray(status.variableSets) && status.variableSets.length) table.__sets = status.variableSets;
     return JSON.stringify(table);
 }
 
@@ -1017,4 +1089,4 @@ function resolveStyleVariables(style, status, context, member = null) {
     return out;
 }
 
-export { FORMAT_PRESETS, LIST_FORMAT_PRESETS, VARIABLE_GROUPS, applyFormat, expandVariables, formatDate, formatDuration, hasTicking, inPlanList, isDateKey, isListFormat, isListKey, loadLiveExtras, resolveColorToken, resolveStyleVariables, variableGroups, variableSnapshot, variableTable };
+export { FORMAT_PRESETS, LIST_FORMAT_PRESETS, VARIABLE_GROUPS, applyFormat, expandVariables, formatDate, formatDuration, hasTicking, inPlanList, isDateKey, isListFormat, isListKey, listSetItemChoices, loadLiveExtras, resolveColorToken, resolveSetItemToken, resolveStyleVariables, slugifyEntryLabel, variableGroups, variableSnapshot, variableTable };

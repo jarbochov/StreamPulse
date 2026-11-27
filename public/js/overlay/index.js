@@ -16,7 +16,7 @@ import { BORDER_ANIM_TYPES, BORDER_STYLES, TEXT_ANIM_TYPES, applyBorderEffects, 
 import { elementContent, elementItems, fitText, refreshTextSources, renderMarkdown, textSourceKey, textSourceState, wrapMarquee } from './text.js';
 import { mountTextCycle, resolveCycleLines } from './text-cycle.js';
 import { createVarRotationEngine } from './var-rotation.js';
-import { FORMAT_PRESETS, LIST_FORMAT_PRESETS, VARIABLE_GROUPS, applyFormat, expandVariables, formatDate, formatDuration, hasTicking, isDateKey, isListFormat, isListKey, loadLiveExtras, resolveColorToken, resolveStyleVariables, variableGroups, variableSnapshot, variableTable } from './variables.js';
+import { FORMAT_PRESETS, LIST_FORMAT_PRESETS, VARIABLE_GROUPS, applyFormat, expandVariables, formatDate, formatDuration, hasTicking, isDateKey, isListFormat, isListKey, listSetItemChoices, loadLiveExtras, resolveColorToken, resolveSetItemToken, resolveStyleVariables, slugifyEntryLabel, variableGroups, variableSnapshot, variableTable } from './variables.js';
 import { matchesPeriodFilter, matchesPeriodToken, renderGameList, renderProgress } from './widgets.js';
 import numericBindings from '../../../shared/numeric-bindings.cjs';
 import variableLinks from '../../../shared/variable-links.cjs';
@@ -43,6 +43,6 @@ Object.assign(root.OverlayShared, displayCounter, { renderMiniCounterHtml });
 Object.assign(root.OverlayShared, displayMeter);
 Object.assign(root.OverlayShared, displayTicker);
 Object.assign(root.OverlayShared, displayBingo);
-Object.assign(root.OverlayShared, { variableKey: variablePaths.variableKey, blurFillShadowCss, normalizeBlurFill, syncBlurFillMedia });
+Object.assign(root.OverlayShared, { variableKey: variablePaths.variableKey, resolveSetItemToken, slugifyEntryLabel, listSetItemChoices, blurFillShadowCss, normalizeBlurFill, syncBlurFillMedia });
 Object.assign(root.OverlayShared, borderCatalog);
 Object.defineProperty(root.OverlayShared, Symbol.for('StreamPulse.OverlayShared'), { value: true });

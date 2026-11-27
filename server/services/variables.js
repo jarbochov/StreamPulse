@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { isDeepStrictEqual } = require('node:util');
 const { variableKey, variableGroupKey } = require('../../shared/variable-paths.cjs');
+const { resolveSetItemToken } = require('../../shared/variable-set-items.cjs');
 
 const NAME_RE = /^[a-z0-9_]{1,40}$/;
 const VALID_TYPES = ['counter', 'number', 'text', 'list', 'select', 'tags', 'image', 'icon', 'toggle', 'color', 'template', 'font', 'date', 'time', 'datetime', 'duration'];
@@ -57,7 +58,7 @@ function resolveSetFieldValue(field, entry) {
 const ROTATION_TRANSITIONS = ['none', 'fade', 'slide-up', 'flip'];
 const MAX_USER_VARS = 500;
 const MAX_SET_VARS = 25000;
-const TEMPLATE_RE = /\{\{\s*var\.([a-z0-9_.]+)\s*(?:\|([^{}]*?))?\s*\}\}/gi;
+const TEMPLATE_RE = /\{\{\s*var\.([a-z0-9_.-]+)\s*(?:\|([^{}]*?))?\s*\}\}/gi;
 
 function sanitizeIcon(raw) {
     const cls = String(raw || '').trim()
@@ -149,9 +150,26 @@ module.exports = function createVariables({ dataDir, onChange = null, getDepende
         }
         const resolving = new Set();
         const resolved = new Map();
+        let setStatusCache = null;
         const resolve = (name, depth) => {
             const v = records.get(name);
-            if (v?.type !== 'template') return out[name];
+            if (v?.type !== 'template') {
+                if (out[name] !== undefined) return out[name];
+                if (moduleEnabled && name.includes('.')) {
+                    if (!setStatusCache) setStatusCache = { variableSets: listSets(), modules: { variableSets: moduleEnabled } };
+                    const item = resolveSetItemToken(name, setStatusCache);
+                    if (item.matched) {
+                        if (item.type === 'template' && depth < 3) {
+                            return String(item.value ?? '').replace(TEMPLATE_RE, (_m, ref, fallback) => {
+                                const val = resolve(ref.toLowerCase(), depth + 1);
+                                return (val !== undefined && val !== null && String(val) !== '') ? String(val) : (fallback !== undefined ? fallback.trim() : '');
+                            });
+                        }
+                        return item.value;
+                    }
+                }
+                return out[name];
+            }
             if (resolved.has(name)) return resolved.get(name);
             if (depth > 3 || resolving.has(name)) return '';
             resolving.add(name);

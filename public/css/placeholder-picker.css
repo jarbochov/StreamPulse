@@ -24,10 +24,19 @@
 #sp-list .preview { grid-row: 1 / span 2; grid-column: 2; align-self: center; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent); display: inline-flex; align-items: center; justify-content: flex-end; gap: 6px; }
 #sp-picker.is-color-mode .sp-fmt { display: none; }
 .sp-color-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.35); flex: none; }
+.sp-direct-items { margin: .25rem 0 .7rem; padding: .5rem .65rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-inset, var(--panel)); }
+.sp-direct-items > summary { cursor: pointer; font-size: .78rem; font-weight: 600; color: var(--text); list-style: none; display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.sp-direct-items > summary::-webkit-details-marker { display: none; }
+.sp-direct-items > summary::before { content: ''; width: 6px; height: 6px; border-right: 1.8px solid currentColor; border-bottom: 1.8px solid currentColor; transform: rotate(-45deg); transition: transform .15s ease; margin-right: 2px; }
+.sp-direct-items[open] > summary::before { transform: rotate(45deg); }
+.sp-direct-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; margin: .55rem 0; }
+.sp-direct-grid label { display: grid; gap: .18rem; font-size: .72rem; color: var(--muted, var(--text-muted)); min-width: 0; }
+.sp-direct-grid select { width: 100%; min-width: 0; padding: .35rem .45rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-card, var(--panel)); color: var(--text); font: inherit; font-size: .78rem; }
+.sp-direct-insert { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .2rem .8rem; width: 100%; text-align: left; margin-top: .2rem; }
 @media (max-width: 560px) {
     #sp-picker { padding: .9rem; }
-    #sp-list > button { grid-template-columns: minmax(0, 1fr); }
+    #sp-list > button, .sp-direct-insert { grid-template-columns: minmax(0, 1fr); }
     #sp-list .preview { grid-row: auto; grid-column: 1; justify-content: flex-start; max-width: 100%; }
     #sp-list .sep { margin-left: 0; }
-    #sp-list .sp-number-fields { grid-template-columns: 1fr; }
+    #sp-list .sp-number-fields, .sp-direct-grid { grid-template-columns: 1fr; }
 }

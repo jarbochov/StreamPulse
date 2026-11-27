@@ -3713,10 +3713,498 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
     }
   });
 
+  // shared/variable-options.cjs
+  var require_variable_options = __commonJS({
+    "shared/variable-options.cjs"(exports, module) {
+      "use strict";
+      var MAX_OPTIONS = 30;
+      function sanitizeOptionIcon(raw) {
+        const cls = String(raw || "").trim().replace(/^fab\b/, "fa-brands").replace(/^fas\b/, "fa-solid").replace(/^far\b/, "fa-regular").replace(/\s+/g, " ").slice(0, 80);
+        return /^[a-z0-9 -]+$/i.test(cls) && /\bfa-[a-z0-9-]+/i.test(cls) ? cls : "";
+      }
+      function sanitizeOptionColor(raw) {
+        const str = String(raw || "").trim();
+        if (/^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/i.test(str)) return str.toLowerCase();
+        if (/^#[0-9a-f]{3}$/i.test(str)) return `#${str[1]}${str[1]}${str[2]}${str[2]}${str[3]}${str[3]}`.toLowerCase();
+        return "";
+      }
+      function normalizeOptions(raw) {
+        let list = [];
+        if (Array.isArray(raw)) {
+          list = raw;
+        } else if (typeof raw === "string") {
+          const trimmed = raw.trim();
+          if (trimmed.startsWith("[")) {
+            try {
+              const parsed = JSON.parse(trimmed);
+              if (Array.isArray(parsed)) list = parsed;
+            } catch {
+              list = trimmed.split(/[\r\n,]+/);
+            }
+          } else {
+            list = trimmed.split(/[\r\n,]+/);
+          }
+        }
+        const seen = /* @__PURE__ */ new Set();
+        const out = [];
+        for (const item of list) {
+          if (out.length >= MAX_OPTIONS) break;
+          const obj = typeof item === "string" ? { value: item, label: item } : item || {};
+          const label = String(obj.label ?? obj.value ?? "").trim().slice(0, 60);
+          const value = String(obj.value ?? obj.label ?? "").trim().slice(0, 60) || label;
+          if (!value) continue;
+          const key = value.toLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
+          const color = sanitizeOptionColor(obj.color);
+          const icon = sanitizeOptionIcon(obj.icon);
+          out.push({
+            value,
+            label: label || value,
+            ...color ? { color } : {},
+            ...icon ? { icon } : {}
+          });
+        }
+        return out;
+      }
+      function findOption(rawValue, options = []) {
+        const needle = String(rawValue ?? "").trim().toLowerCase();
+        if (!needle) return null;
+        return options.find((opt) => opt.value.toLowerCase() === needle) || options.find((opt) => opt.label.toLowerCase() === needle) || null;
+      }
+      function normalizeSelectValue(rawValue, options = []) {
+        if (!options.length) return String(rawValue ?? "").trim().slice(0, 60);
+        const match = findOption(rawValue, options);
+        return match ? match.value : options[0].value;
+      }
+      function resolveSelectMeta(rawValue, options = []) {
+        const match = findOption(rawValue, options);
+        if (match) {
+          return {
+            value: match.value,
+            label: match.label || match.value,
+            color: match.color || "",
+            icon: match.icon || ""
+          };
+        }
+        const val = String(rawValue ?? "").trim();
+        return { value: val, label: val, color: "", icon: "" };
+      }
+      function normalizeTagsValue(rawValue, options = []) {
+        let rawList = [];
+        if (Array.isArray(rawValue)) {
+          rawList = rawValue;
+        } else if (typeof rawValue === "string") {
+          const trimmed = rawValue.trim();
+          if (!trimmed) rawList = [];
+          else if (trimmed.startsWith("[")) {
+            try {
+              const parsed = JSON.parse(trimmed);
+              rawList = Array.isArray(parsed) ? parsed : [];
+            } catch {
+              rawList = trimmed.split(",");
+            }
+          } else {
+            rawList = trimmed.split(",");
+          }
+        }
+        const seen = /* @__PURE__ */ new Set();
+        const out = [];
+        for (const item of rawList) {
+          const str = String(item ?? "").trim().slice(0, 60);
+          if (!str) continue;
+          if (options.length) {
+            const match = findOption(str, options);
+            if (!match) continue;
+            const k = match.value.toLowerCase();
+            if (seen.has(k)) continue;
+            seen.add(k);
+            out.push(match.value);
+          } else {
+            const k = str.toLowerCase();
+            if (seen.has(k)) continue;
+            seen.add(k);
+            out.push(str);
+          }
+          if (out.length >= MAX_OPTIONS) break;
+        }
+        if (options.length && out.length > 1) {
+          const order = new Map(options.map((opt, idx) => [opt.value.toLowerCase(), idx]));
+          out.sort((a, b) => (order.get(a.toLowerCase()) ?? 999) - (order.get(b.toLowerCase()) ?? 999));
+        }
+        return out;
+      }
+      function formatTagsValue(values = [], options = []) {
+        const list = Array.isArray(values) ? values : normalizeTagsValue(values, options);
+        return list.map((val) => {
+          const match = findOption(val, options);
+          return match ? match.label || match.value : String(val);
+        }).filter(Boolean).join(", ");
+      }
+      module.exports = {
+        MAX_OPTIONS,
+        normalizeOptions,
+        findOption,
+        normalizeSelectValue,
+        resolveSelectMeta,
+        normalizeTagsValue,
+        formatTagsValue
+      };
+    }
+  });
+
+  // shared/variable-links.cjs
+  var require_variable_links = __commonJS({
+    "shared/variable-links.cjs"(exports, module) {
+      function trackerMax4(field, item) {
+        const levels = (item?.tiers || []).map((tier) => Number(tier.level)).filter((level) => Number.isInteger(level) && level > 0);
+        return Math.min(100, levels.length ? Math.max(...levels) : Math.max(1, Number(field?.maxTier) || 1));
+      }
+      function linkedSourceEntry(sets, source = {}) {
+        const set = (sets || []).find((candidate) => candidate.id === source.setId);
+        if (!set) return { set: null, entry: null };
+        const selector = source.selector || "active";
+        const id = selector.startsWith("entry:") ? selector.slice(6) : selector.startsWith("slot:") ? set.slots?.[Number(selector.slice(5)) - 1] : set.slotsCount > 0 ? set.slots?.[0] : set.activeEntry;
+        return { set, entry: (set.roster || []).find((candidate) => candidate.id === id) || null };
+      }
+      function linkedSourceFields2(sets, source = {}, types = ["ref", "ref_list"]) {
+        const { set, entry } = linkedSourceEntry(sets, source);
+        const keys = Array.isArray(source.fields) ? source.fields : [];
+        const fields = keys.map((key) => (set?.fields || []).find((field) => key === field.key && types.includes(field.type))).filter(Boolean);
+        return { set, entry, fields };
+      }
+      module.exports = { trackerMax: trackerMax4, linkedSourceEntry, linkedSourceFields: linkedSourceFields2 };
+    }
+  });
+
+  // shared/variable-set-items.cjs
+  var require_variable_set_items = __commonJS({
+    "shared/variable-set-items.cjs"(exports, module) {
+      "use strict";
+      var { resolveSelectMeta, normalizeTagsValue, formatTagsValue } = require_variable_options();
+      var { trackerMax: trackerMax4 } = require_variable_links();
+      var LINK_TYPES2 = /* @__PURE__ */ new Set(["ref", "ref_list", "checklist"]);
+      var RESERVED_SELECTORS = /* @__PURE__ */ new Set(["count", "total", "all"]);
+      function isEntryEnabled(entry) {
+        return Boolean(entry) && entry.enabled !== false && entry.enabled !== "false" && entry.enabled !== 0 && entry.enabled !== "0";
+      }
+      function slugifyEntryLabel2(raw) {
+        return String(raw ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40);
+      }
+      function entryDisplayLabel(entry) {
+        if (!entry) return "";
+        if (entry.label !== void 0 && entry.label !== null && String(entry.label).trim() !== "") {
+          return String(entry.label);
+        }
+        const nameVal = entry.values?.name;
+        if ((typeof nameVal === "string" || typeof nameVal === "number") && String(nameVal).trim() !== "") {
+          return String(nameVal);
+        }
+        return String(entry.id || "");
+      }
+      function parseJsonSafe(value, fallback) {
+        if (typeof value !== "string") return value ?? fallback;
+        try {
+          return JSON.parse(value);
+        } catch {
+          return fallback;
+        }
+      }
+      function findEntryBySelector(set, selector, includeDisabled = false) {
+        const roster = Array.isArray(set?.roster) ? set.roster : [];
+        const pool = includeDisabled ? roster : roster.filter(isEntryEnabled);
+        if (/^[1-9]\d*$/.test(selector)) {
+          const idx = Number(selector) - 1;
+          return pool[idx] || null;
+        }
+        const needle = String(selector || "").toLowerCase();
+        if (!needle) return null;
+        const byIdEnabled = roster.find((e) => isEntryEnabled(e) && String(e.id || "").toLowerCase() === needle);
+        if (byIdEnabled) return byIdEnabled;
+        const byIdAny = roster.find((e) => String(e.id || "").toLowerCase() === needle);
+        if (byIdAny) return byIdAny;
+        const bySlugEnabled = roster.find((e) => isEntryEnabled(e) && slugifyEntryLabel2(e.label) === needle);
+        if (bySlugEnabled) return bySlugEnabled;
+        const bySlugAny = roster.find((e) => slugifyEntryLabel2(e.label) === needle);
+        return bySlugAny || null;
+      }
+      function resolveTagItems(raw, options = []) {
+        const normalized = normalizeTagsValue(raw, options);
+        return normalized.map((val) => resolveSelectMeta(val, options).label).filter(Boolean);
+      }
+      function resolveListItems(raw) {
+        if (Array.isArray(raw)) return raw.map((v) => String(v ?? "").trim()).filter(Boolean);
+        const str = String(raw ?? "").trim();
+        if (!str) return [];
+        if (str.startsWith("[")) {
+          const parsed = parseJsonSafe(str, null);
+          if (Array.isArray(parsed)) return parsed.map((v) => String(v ?? "").trim()).filter(Boolean);
+        }
+        return str.split(/[\r\n,]+/).map((v) => v.trim()).filter(Boolean);
+      }
+      function resolveEntryTemplate(raw, entry, set, setsById) {
+        const tpl = String(raw ?? "");
+        if (!tpl) return "";
+        const fields = Array.isArray(set?.fields) ? set.fields : [];
+        const vals = entry?.values || {};
+        return tpl.replace(/@([a-z0-9_]{1,20})\b/gi, (_, key) => {
+          const targetField = fields.find((f) => f.key === key);
+          const val = vals[key];
+          if (targetField && LINK_TYPES2.has(targetField.type)) {
+            const target = setsById.get(targetField.targetSet);
+            const parsed = targetField.type === "checklist" ? parseJsonSafe(val, {}) : targetField.type === "ref_list" ? parseJsonSafe(val, []) : [val];
+            const ids = targetField.type === "checklist" && parsed && !Array.isArray(parsed) ? Object.keys(parsed).filter((id) => Number(parsed[id]) > 0) : parsed;
+            return (Array.isArray(ids) ? ids : []).map((id) => target?.roster?.find((c) => c.id === id && isEntryEnabled(c))).filter(Boolean).map(entryDisplayLabel).filter(Boolean).join(", ");
+          }
+          if (targetField?.type === "select") return resolveSelectMeta(val, targetField.options || []).label;
+          if (targetField?.type === "tags") return formatTagsValue(val, targetField.options || []);
+          return val == null || typeof val === "object" ? "" : String(val);
+        });
+      }
+      function resolveSimpleField(field, entry, set, setsById, subMeta = "") {
+        if (!field) return { matched: false };
+        const raw = entry ? entry.values?.[field.key] ?? "" : "";
+        if (field.type === "select") {
+          const meta = entry ? resolveSelectMeta(raw, field.options || []) : { value: "", label: "", color: "", icon: "" };
+          if (subMeta === "value") return { matched: true, found: Boolean(entry), value: meta.value, type: "text", isList: false };
+          if (subMeta === "color") return { matched: true, found: Boolean(entry), value: meta.color, type: "color", isList: false };
+          if (subMeta === "icon") return { matched: true, found: Boolean(entry), value: meta.icon, type: "icon", icon: meta.icon, isList: false };
+          return { matched: true, found: Boolean(entry), value: meta.label, type: "select", icon: meta.icon, isList: false };
+        }
+        if (field.type === "tags") {
+          const items = entry ? resolveTagItems(raw, field.options || []) : [];
+          if (subMeta === "count") {
+            return { matched: true, found: Boolean(entry), value: entry ? String(items.length) : "", type: "number", isList: false };
+          }
+          return {
+            matched: true,
+            found: Boolean(entry),
+            value: entry ? items.join(", ") : "",
+            type: "tags",
+            isList: true,
+            listItems: items
+          };
+        }
+        if (field.type === "list") {
+          const items = entry ? resolveListItems(raw) : [];
+          if (subMeta === "count") {
+            return { matched: true, found: Boolean(entry), value: entry ? String(items.length) : "", type: "number", isList: false };
+          }
+          return {
+            matched: true,
+            found: Boolean(entry),
+            value: entry ? items.join(", ") : "",
+            type: "list",
+            isList: true,
+            listItems: items
+          };
+        }
+        if (subMeta === "icon") {
+          const iconVal = field.type === "icon" ? String(raw || "").trim() : "";
+          return { matched: true, found: Boolean(entry), value: iconVal, type: "icon", icon: iconVal, isList: false };
+        }
+        if (subMeta) return { matched: false };
+        if (field.type === "template") {
+          const val = entry ? resolveEntryTemplate(raw, entry, set, setsById) : "";
+          return { matched: true, found: Boolean(entry), value: val, type: "template", isList: false };
+        }
+        const str = entry && raw !== void 0 && raw !== null ? String(raw) : "";
+        return {
+          matched: true,
+          found: Boolean(entry),
+          value: str,
+          type: field.type || "text",
+          ...field.type === "icon" ? { icon: str } : {},
+          isList: false
+        };
+      }
+      function resolveLinkField(field, entry, setsById, restSegments) {
+        const target = setsById.get(field.targetSet);
+        const raw = entry?.values?.[field.key];
+        const map = field.type === "checklist" ? parseJsonSafe(raw, {}) : null;
+        const ids = field.type === "ref" ? [raw] : field.type === "ref_list" ? parseJsonSafe(raw, []) : Object.keys(map && typeof map === "object" && !Array.isArray(map) ? map : {}).filter((id) => Number(map[id]) > 0);
+        const validIds = Array.isArray(ids) ? ids : [];
+        const matchedEntries = [];
+        if (entry && target) {
+          for (const id of validIds) {
+            const found = (target.roster || []).find((c) => c.id === id && isEntryEnabled(c));
+            if (found) matchedEntries.push(found);
+          }
+        }
+        const tail = restSegments[0] === "field" ? restSegments.slice(1) : restSegments;
+        const subKey = tail[0] || "";
+        if (!subKey) {
+          const names = matchedEntries.map(entryDisplayLabel).filter(Boolean);
+          const isMulti = field.type !== "ref";
+          return {
+            matched: true,
+            found: Boolean(entry),
+            value: isMulti ? names.join(", ") : names[0] || "",
+            type: "text",
+            isList: isMulti,
+            ...isMulti ? { listItems: names } : {}
+          };
+        }
+        if (field.type !== "ref" && subKey === "count" && tail.length === 1) {
+          return { matched: true, found: Boolean(entry && target), value: entry && target ? String(matchedEntries.length) : "", type: "number", isList: false };
+        }
+        if (field.type === "checklist" && tail.length === 1 && ["started", "completed", "total", "progress"].includes(subKey)) {
+          if (!entry || !target) return { matched: true, found: false, value: "", type: subKey === "progress" ? "text" : "number", isList: false };
+          const eligible = (target.roster || []).filter(isEntryEnabled);
+          const total = eligible.length;
+          const started = eligible.filter((c) => Number(map?.[c.id]) > 0).length;
+          const completed = eligible.filter((c) => Number(map?.[c.id]) >= trackerMax4(field, c)).length;
+          const val = subKey === "started" ? String(started) : subKey === "completed" ? String(completed) : subKey === "total" ? String(total) : `${completed}/${total}`;
+          return { matched: true, found: true, value: val, type: subKey === "progress" ? "text" : "number", isList: false };
+        }
+        if (target) {
+          const targetFields = Array.isArray(target.fields) ? target.fields : [];
+          const subField = targetFields.find((f) => f.key === subKey);
+          if (subField && !LINK_TYPES2.has(subField.type)) {
+            const subMeta = tail[1] || "";
+            if (field.type === "ref") {
+              return resolveSimpleField(subField, matchedEntries[0] || null, target, setsById, subMeta);
+            }
+            const vals = matchedEntries.map((me) => resolveSimpleField(subField, me, target, setsById, subMeta).value).filter((v) => v !== "");
+            return {
+              matched: true,
+              found: Boolean(entry),
+              value: vals.join(", "),
+              type: subField.type || "text",
+              isList: true,
+              listItems: vals
+            };
+          }
+        }
+        return { matched: false };
+      }
+      function matchFieldAndSuffix(fields, segment, nextSegment) {
+        const exact = fields.find((f) => f.key === segment);
+        if (exact) return { field: exact, subMeta: nextSegment || "", consumedNext: Boolean(nextSegment) };
+        const suffixMatch = /^(.+)_(color|icon|value|count)$/.exec(segment);
+        if (suffixMatch) {
+          const base = fields.find((f) => f.key === suffixMatch[1]);
+          if (base) return { field: base, subMeta: suffixMatch[2], consumedNext: false };
+        }
+        return null;
+      }
+      function resolveSetItemToken2(tokenName, status = {}) {
+        if (status?.modules?.variableSets === false) return { matched: false };
+        const setsList = Array.isArray(status?.variableSets) ? status.variableSets : [];
+        if (!setsList.length) return { matched: false };
+        const raw = String(tokenName || "").trim();
+        const path = raw.startsWith("var.") ? raw.slice(4) : raw;
+        const dotIdx = path.indexOf(".");
+        if (dotIdx <= 0) return { matched: false };
+        const setId = path.slice(0, dotIdx);
+        const setsById = new Map(setsList.map((s) => [s.id, s]));
+        const set = setsById.get(setId);
+        if (!set) return { matched: false };
+        const segments = path.slice(dotIdx + 1).split(".").filter(Boolean);
+        if (!segments.length) return { matched: false };
+        const roster = Array.isArray(set.roster) ? set.roster : [];
+        const fields = Array.isArray(set.fields) ? set.fields : [];
+        if (segments.length === 1 && segments[0] === "count") {
+          return { matched: true, found: true, value: String(roster.filter(isEntryEnabled).length), type: "number", isList: false, setId };
+        }
+        if (segments.length === 1 && segments[0] === "total") {
+          return { matched: true, found: true, value: String(roster.length), type: "number", isList: false, setId };
+        }
+        let includeDisabled = false;
+        let selector = segments[0];
+        let rest = segments.slice(1);
+        if (selector === "all") {
+          if (!rest.length) return { matched: false };
+          includeDisabled = true;
+          selector = rest[0];
+          rest = rest.slice(1);
+        }
+        const entry = findEntryBySelector(set, selector, includeDisabled);
+        const isPositional = /^[1-9]\d*$/.test(selector);
+        if (!entry && !isPositional) {
+          if (rest.length > 0) {
+            const firstTail = rest[0];
+            const isKnownTail = ["label", "id", "enabled"].includes(firstTail) || Boolean(matchFieldAndSuffix(fields, firstTail, rest[1]));
+            if (!isKnownTail) return { matched: false };
+          }
+        }
+        if (!rest.length) {
+          return {
+            matched: true,
+            found: Boolean(entry),
+            value: entry ? entryDisplayLabel(entry) : "",
+            type: "text",
+            isList: false,
+            setId,
+            entryId: entry?.id || ""
+          };
+        }
+        if (rest.length === 1 && rest[0] === "label") {
+          return { matched: true, found: Boolean(entry), value: entry ? entryDisplayLabel(entry) : "", type: "text", isList: false, setId, entryId: entry?.id || "" };
+        }
+        if (rest.length === 1 && rest[0] === "id") {
+          return { matched: true, found: Boolean(entry), value: entry ? String(entry.id || "") : "", type: "text", isList: false, setId, entryId: entry?.id || "" };
+        }
+        if (rest.length === 1 && rest[0] === "enabled") {
+          return { matched: true, found: Boolean(entry), value: entry ? isEntryEnabled(entry) ? "true" : "false" : "false", type: "toggle", isList: false, setId, entryId: entry?.id || "" };
+        }
+        const matched = matchFieldAndSuffix(fields, rest[0], rest[1]);
+        if (!matched) return { matched: false };
+        const { field, subMeta, consumedNext } = matched;
+        if (LINK_TYPES2.has(field.type)) {
+          const res2 = resolveLinkField(field, entry, setsById, rest.slice(1));
+          return res2.matched ? { ...res2, setId, entryId: entry?.id || "" } : res2;
+        }
+        const expectedLen = consumedNext ? 2 : 1;
+        if (rest.length > expectedLen) return { matched: false };
+        const res = resolveSimpleField(field, entry, set, setsById, subMeta);
+        return res.matched ? { ...res, setId, entryId: entry?.id || "" } : res;
+      }
+      function listSetItemChoices2(set) {
+        const roster = Array.isArray(set?.roster) ? set.roster : [];
+        const enabled = roster.filter(isEntryEnabled);
+        const positional = enabled.map((entry, idx) => ({
+          selector: String(idx + 1),
+          mode: "position",
+          index: idx + 1,
+          entryId: entry.id,
+          label: `#${idx + 1} \u2014 ${entryDisplayLabel(entry)}`,
+          entryLabel: entryDisplayLabel(entry),
+          enabled: true
+        }));
+        const usedSlugs = /* @__PURE__ */ new Set();
+        const pinned = roster.map((entry) => {
+          const slug = slugifyEntryLabel2(entry.label);
+          const safeSlug = slug && !RESERVED_SELECTORS.has(slug) && !/^\d+$/.test(slug) && !usedSlugs.has(slug) ? slug : String(entry.id || "");
+          if (safeSlug) usedSlugs.add(safeSlug);
+          return {
+            selector: safeSlug,
+            mode: "pinned",
+            entryId: entry.id,
+            label: `${entryDisplayLabel(entry)} (${safeSlug})`,
+            entryLabel: entryDisplayLabel(entry),
+            enabled: isEntryEnabled(entry)
+          };
+        }).filter((item) => item.selector);
+        return { positional, pinned, enabledCount: enabled.length, totalCount: roster.length };
+      }
+      module.exports = {
+        isEntryEnabled,
+        slugifyEntryLabel: slugifyEntryLabel2,
+        entryDisplayLabel,
+        resolveSetItemToken: resolveSetItemToken2,
+        listSetItemChoices: listSetItemChoices2
+      };
+    }
+  });
+
   // shared/numeric-bindings.cjs
   var require_numeric_bindings = __commonJS({
     "shared/numeric-bindings.cjs"(exports, module) {
       var { variableKey: variableKey2, isVariableKey } = require_variable_paths();
+      var { resolveSetItemToken: resolveSetItemToken2 } = require_variable_set_items();
+      var SET_ITEM_NUMERIC_RE = /^[a-z0-9_]{1,24}\.(?:count|total|(?:all\.)?[a-z0-9_-]{1,40}(?:\.[a-z0-9_]{1,40}){1,2})$/i;
+      var isNumericBindingKey = (name) => isVariableKey(name) || typeof name === "string" && SET_ITEM_NUMERIC_RE.test(name);
       var style = {
         fontSize: [8, 400],
         borderWidth: [0, 40],
@@ -3780,15 +4268,16 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         const out = {};
         if (!bindings || typeof bindings !== "object" || Array.isArray(bindings)) return out;
         for (const [key, name] of Object.entries(bindings)) {
-          if (Object.hasOwn(domains[domain] || {}, key) && isVariableKey(name)) out[key] = name;
+          if (Object.hasOwn(domains[domain] || {}, key) && isNumericBindingKey(name)) out[key] = name;
         }
         return out;
       }
       function resolveNumericConfig(config, domain, status) {
         if (status?.modules?.variableSettings === false) return config;
         if (!config?.numberBindings || typeof config.numberBindings !== "object") return config;
-        const vars = status?.customVars;
-        if (!Array.isArray(vars)) return config;
+        const vars = Array.isArray(status?.customVars) ? status.customVars : [];
+        const hasSets = status?.modules?.variableSets !== false && Array.isArray(status?.variableSets) && status.variableSets.length > 0;
+        if (!vars.length && !hasSets) return config;
         let lookup = variableMaps.get(vars);
         if (!lookup) {
           lookup = new Map(vars.map((variable) => [variableKey2(variable), variable]));
@@ -3797,8 +4286,15 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         let out = config;
         for (const [key, name] of Object.entries(config.numberBindings)) {
           const field = numericBindingField(`${domain}.${key}`);
-          const variable = lookup.get(name);
-          if (!field || !["number", "counter"].includes(variable?.type) || !["number", "string"].includes(typeof variable.value) || String(variable.value).trim() === "" || !Number.isFinite(Number(variable.value))) continue;
+          if (!field) continue;
+          let variable = lookup.get(name);
+          if (!variable && hasSets) {
+            const item = resolveSetItemToken2(`var.${name}`, status);
+            if (item.matched && ["number", "counter"].includes(item.type)) {
+              variable = { type: item.type, value: item.value };
+            }
+          }
+          if (!["number", "counter"].includes(variable?.type) || !["number", "string"].includes(typeof variable.value) || String(variable.value).trim() === "" || !Number.isFinite(Number(variable.value))) continue;
           const value = Math.max(field.min, Math.min(field.max, Number(variable.value))) * field.scale;
           const parts = key.split(".");
           if (parts.reduce((current, part) => current?.[part], config) === value) continue;
@@ -4984,30 +5480,6 @@ if (!window.OverlayShared?.[Symbol.for('StreamPulse.OverlayShared')]) {
         };
       }
       module.exports = { normalizeDisplay, normalizeDisplayBinding, resolveDisplayOwner: resolveDisplayOwner3 };
-    }
-  });
-
-  // shared/variable-links.cjs
-  var require_variable_links = __commonJS({
-    "shared/variable-links.cjs"(exports, module) {
-      function trackerMax4(field, item) {
-        const levels = (item?.tiers || []).map((tier) => Number(tier.level)).filter((level) => Number.isInteger(level) && level > 0);
-        return Math.min(100, levels.length ? Math.max(...levels) : Math.max(1, Number(field?.maxTier) || 1));
-      }
-      function linkedSourceEntry(sets, source = {}) {
-        const set = (sets || []).find((candidate) => candidate.id === source.setId);
-        if (!set) return { set: null, entry: null };
-        const selector = source.selector || "active";
-        const id = selector.startsWith("entry:") ? selector.slice(6) : selector.startsWith("slot:") ? set.slots?.[Number(selector.slice(5)) - 1] : set.slotsCount > 0 ? set.slots?.[0] : set.activeEntry;
-        return { set, entry: (set.roster || []).find((candidate) => candidate.id === id) || null };
-      }
-      function linkedSourceFields2(sets, source = {}, types = ["ref", "ref_list"]) {
-        const { set, entry } = linkedSourceEntry(sets, source);
-        const keys = Array.isArray(source.fields) ? source.fields : [];
-        const fields = keys.map((key) => (set?.fields || []).find((field) => key === field.key && types.includes(field.type))).filter(Boolean);
-        return { set, entry, fields };
-      }
-      module.exports = { trackerMax: trackerMax4, linkedSourceEntry, linkedSourceFields: linkedSourceFields2 };
     }
   });
 
@@ -7700,22 +8172,40 @@ html.sp-fx-paused .sp-bingo-banner {
     const done = /* @__PURE__ */ new Map();
     const resolving = /* @__PURE__ */ new Set();
     const resolve = (key, depth) => {
-      if (!templates.has(key)) return entries[key];
+      if (!templates.has(key)) {
+        if (Object.prototype.hasOwnProperty.call(entries, key)) return entries[key];
+        const setItem = resolveSetItemToken(key, status);
+        if (!setItem.matched) return void 0;
+        if (setItem.type === "template" && depth < 3) {
+          return String(setItem.value ?? "").replace(/\{\{\s*var\.([a-zA-Z0-9_.-]+)\s*(?:\|([^{}]*?))?\s*\}\}/g, (_, ref, fb) => {
+            const val = resolve(`var.${ref}`, depth + 1);
+            const str = val === void 0 || val === null ? "" : String(val);
+            return str !== "" ? str : fb !== void 0 ? fb.trim() : "";
+          });
+        }
+        return setItem.value;
+      }
       if (done.has(key)) return done.get(key);
       if (depth > 3 || resolving.has(key)) return "";
       resolving.add(key);
       const text = templates.get(key).replace(/\{\{\s*var\.([a-zA-Z0-9_.-]+)\s*(?:\|([^{}]*?))?\s*\}\}/g, (_, ref, fb) => {
-        const val = resolve(`var.${ref}`, depth + 1);
+        const refKey = `var.${ref}`;
+        const hasDirect = templates.has(refKey) || Object.prototype.hasOwnProperty.call(entries, refKey);
+        const setItem = hasDirect ? null : resolveSetItemToken(refKey, status);
+        const val = hasDirect ? resolve(refKey, depth + 1) : setItem?.matched ? resolve(refKey, depth + 1) : void 0;
         const str = val === void 0 || val === null ? "" : String(val);
         if (fb === void 0) return str;
         const format = fb.trim();
-        const refKey = `var.${ref}`;
+        if (setItem?.matched && setItem.isList) {
+          if (!str && !isListFormat(format)) return format;
+          return String(applyFormat(refKey, val, fb.replace(/^\s+/, ""), now, { __lists: { [refKey]: setItem.listItems || [] } }));
+        }
         if (isListKey(refKey, { __lists: linked.lists })) return String(applyFormat(refKey, val, fb.replace(/^\s+/, ""), now, { __lists: linked.lists }));
         if (!str) {
           const setVar = (status.customVars || []).some((v) => v.setId && (ref === v.name || ref.startsWith(`${v.name}.`)));
           return setVar && !linked.types[refKey] && isListFormat(format) ? "" : format;
         }
-        const type = linked.types[refKey] || vars.find((v) => `var.${variableKey(v)}` === refKey)?.type;
+        const type = linked.types[refKey] || setItem?.type || vars.find((v) => `var.${variableKey(v)}` === refKey)?.type;
         if (["number", "counter"].includes(type)) return formatNumberVariable(val, format) ?? str;
         return String(applyFormat(refKey, val, format, now));
       });
@@ -7758,7 +8248,11 @@ html.sp-fx-paused .sp-bingo-banner {
     const numberNames = new Set(enabledVars.filter((v) => v.type === "number" || v.type === "counter").map((v) => `var.${variableKey(v)}`));
     return String(value ?? "").replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*(?:\|([^{}]*?))?\s*\}\}/g, (match, name, format) => {
       if (name.startsWith("var.") && name.endsWith(".icon") && !table.__types[name]) {
-        const iconCls = String(table[name] || "").trim();
+        let iconCls = String(table[name] || "").trim();
+        if (!iconCls && !Object.prototype.hasOwnProperty.call(table, name)) {
+          const setItem = resolveSetItemToken(name, status);
+          if (setItem.matched) iconCls = String(setItem.icon || setItem.value || "").trim();
+        }
         if (iconCls) return context?.inlineIcons ? `{{icon:${iconCls}}}` : iconCls;
         if (format !== void 0) {
           const fb = format.trim();
@@ -7774,6 +8268,53 @@ html.sp-fx-paused .sp-bingo-banner {
           return fb === "" && keepEmpty ? match : fb;
         }
         return keepEmpty ? match : "";
+      }
+      if (name.startsWith("var.") && !Object.prototype.hasOwnProperty.call(table, name)) {
+        const setItem = resolveSetItemToken(name, status);
+        if (setItem.matched) {
+          if (setItem.type === "template" && _depth < 3) {
+            const expanded = expandVariables(setItem.value ?? "", status, context, keepEmpty, _depth + 1);
+            if (expanded !== "") return expanded;
+            if (format !== void 0) {
+              const fb = format.trim();
+              return fb === "" && keepEmpty ? match : fb;
+            }
+            return keepEmpty ? match : "";
+          }
+          const str = setItem.value === void 0 || setItem.value === null ? "" : String(setItem.value);
+          if (setItem.isList) {
+            if (format !== void 0) {
+              const trimmedFmt = format.trim();
+              if (str === "" && !isListFormat(trimmedFmt)) {
+                return trimmedFmt === "" && keepEmpty ? match : trimmedFmt;
+              }
+              const miniTable = { __lists: { [name]: setItem.listItems || [] } };
+              const out = applyFormat(name, str, format.replace(/^\s+/, ""), now, miniTable);
+              const text3 = out === void 0 || out === null ? "" : String(out);
+              return text3 === "" && keepEmpty ? match : text3;
+            }
+            return str === "" && keepEmpty ? match : str;
+          }
+          const isSetNum = ["number", "counter"].includes(setItem.type);
+          if (format !== void 0) {
+            const trimmedFmt = format.trim();
+            if (trimmedFmt === "icon" || trimmedFmt === "withIcon") {
+              const iconCls = String(setItem.icon || "").trim();
+              if (str === "") return keepEmpty ? match : "";
+              if (!iconCls) return trimmedFmt === "icon" ? "" : str;
+              const iconTok = context?.inlineIcons ? `{{icon:${iconCls}}}` : iconCls;
+              return trimmedFmt === "icon" ? iconTok : context?.inlineIcons ? `${iconTok} ${str}` : str;
+            }
+            if (str === "") {
+              if (/^number:/.test(trimmedFmt) || ["date", "datetime", "time"].includes(setItem.type)) return keepEmpty ? match : "";
+              return trimmedFmt === "" && keepEmpty ? match : trimmedFmt;
+            }
+          }
+          const numeric2 = isSetNum && str !== "" ? formatNumberVariable(str, format?.trim()) : void 0;
+          const resolved2 = numeric2 !== void 0 ? numeric2 : format === void 0 || isSetNum ? str : applyFormat(name, str, format.trim(), now, table);
+          const text2 = resolved2 === void 0 || resolved2 === null ? "" : String(resolved2);
+          return text2 === "" && keepEmpty ? match : text2;
+        }
       }
       const isNumber = !isListKey(name, table) && (numberNames.has(name) || ["number", "counter"].includes(table.__types[name]));
       if (name.startsWith("var.") && format !== void 0 && !isListKey(name, table)) {
@@ -7809,6 +8350,7 @@ html.sp-fx-paused .sp-bingo-banner {
     for (const key of Object.keys(table)) if (key.startsWith("timer.") && !/\.(label|state)$/.test(key)) delete table[key];
     table.__plan = (status.gamePlan?.items || []).map((item) => [item.name, item.status, item.period, item.cover, item.playingNow, item.note, item.finished, (item.played || []).join(","), (item.extraLists || []).join(",")]);
     if (status.variableDisplays) table.__displays = [status.variableDisplaysRevision, status.variableSets];
+    else if (status.modules?.variableSets !== false && Array.isArray(status.variableSets) && status.variableSets.length) table.__sets = status.variableSets;
     return JSON.stringify(table);
   }
   async function loadLiveExtras(status, elements = null) {
@@ -7916,14 +8458,16 @@ html.sp-fx-paused .sp-bingo-banner {
     }
     return out;
   }
-  var import_numeric_bindings2, import_variable_paths, variableKey, VARIABLE_GROUPS, CLOCK_ITEMS, GAME_ITEMS, WEATHER_ITEMS, PLAN_ITEMS, EVENT_ITEMS, MILESTONE_ITEMS, MATCHUP_ITEMS, TOURNAMENT_ITEMS, TRIVIA_ITEMS, TIER_LIST_ITEMS, SUBATHON_ITEMS, TICKING, isTicking, hasTicking, inPlanList, LIST_FORMAT_PRESETS, FORMAT_PRESETS, isDateKey, ordinal, isListFormat, isListKey, numberFormatters, pendingSets, retrySetsAt;
+  var import_numeric_bindings2, import_variable_paths, import_variable_set_items, variableKey, resolveSetItemToken, slugifyEntryLabel, listSetItemChoices, VARIABLE_GROUPS, CLOCK_ITEMS, GAME_ITEMS, WEATHER_ITEMS, PLAN_ITEMS, EVENT_ITEMS, MILESTONE_ITEMS, MATCHUP_ITEMS, TOURNAMENT_ITEMS, TRIVIA_ITEMS, TIER_LIST_ITEMS, SUBATHON_ITEMS, TICKING, isTicking, hasTicking, inPlanList, LIST_FORMAT_PRESETS, FORMAT_PRESETS, isDateKey, ordinal, isListFormat, isListKey, numberFormatters, pendingSets, retrySetsAt;
   var init_variables = __esm({
     "public/js/overlay/variables.js"() {
       import_numeric_bindings2 = __toESM(require_numeric_bindings());
       import_variable_paths = __toESM(require_variable_paths());
+      import_variable_set_items = __toESM(require_variable_set_items());
       init_displays();
       init_linked_placeholders();
       ({ variableKey } = import_variable_paths.default);
+      ({ resolveSetItemToken, slugifyEntryLabel, listSetItemChoices } = import_variable_set_items.default);
       VARIABLE_GROUPS = [
         { label: "Viewers", items: [["viewers.current", "Current viewers"], ["viewers.peak", "Peak viewers"], ["viewers.average", "Average viewers"]] },
         { label: "Chat", items: [["chatters", "Chatters"], ["messages", "Messages"], ["followers", "Followers (current total)"], ["followers.session", "New followers this session"], ["subscribers", "Subscribers (current total)"], ["subscribers.session", "Subscribers seen this session"], ["emotes", "Different emotes used this session"], ["raids", "Raids this session"], ["highlights", "Saved highlights"], ["clips.pending", "Clip candidates waiting"]] },
@@ -13113,7 +13657,7 @@ html.sp-fx-paused .sp-bingo-banner {
       Object.assign(root.OverlayShared, import_display_meter3.default);
       Object.assign(root.OverlayShared, import_display_ticker3.default);
       Object.assign(root.OverlayShared, import_display_bingo3.default);
-      Object.assign(root.OverlayShared, { variableKey: import_variable_paths2.default.variableKey, blurFillShadowCss, normalizeBlurFill, syncBlurFillMedia });
+      Object.assign(root.OverlayShared, { variableKey: import_variable_paths2.default.variableKey, resolveSetItemToken, slugifyEntryLabel, listSetItemChoices, blurFillShadowCss, normalizeBlurFill, syncBlurFillMedia });
       Object.assign(root.OverlayShared, import_border_catalog2.default);
       Object.defineProperty(root.OverlayShared, Symbol.for("StreamPulse.OverlayShared"), { value: true });
     }

@@ -20,6 +20,7 @@ let rosterFilter = localStorage.getItem('variables_roster_filter') || '';
 let directoryFilter = localStorage.getItem('variables_directory_filter') || '';
 let directoryMode = localStorage.getItem('variables_dir_mode') || 'all';
 const openTokenKeys = new Set();
+const directItemState = new Map();
 let activePickerCleanup = null;
 
 function supportsRotation(setObj) {
@@ -64,7 +65,7 @@ function getSetOverlays(setObj) {
     const result = [];
     for (const o of overlays) {
         const follows = o.variableSetFollow?.[setObj.id] === true;
-        const usesToken = Array.isArray(o.varRefs) && o.varRefs.some(tok => tok === prefix || tok.startsWith(`${prefix}_`));
+        const usesToken = Array.isArray(o.varRefs) && o.varRefs.some(tok => tok === prefix || tok.startsWith(`${prefix}_`) || tok.startsWith(`${prefix}.`));
         if (follows || usesToken) {
             result.push({ id: o.id, name: o.name || o.id, following: follows && supportsRotation(setObj) });
         }
@@ -364,7 +365,7 @@ function renderActivePresetBar(setObj, entry) {
     `;
 }
 
-function renderRosterItem(setObj, entry) {
+function renderRosterItem(setObj, entry, enabledPos = 0) {
     const slotsCount = setObj.slotsCount || 0;
     const isEnabled = entry.enabled !== false;
     const slotLabel = idx => (setObj.slotNames?.[idx] || '').trim() || `Slot ${idx + 1}`;
@@ -384,6 +385,9 @@ function renderRosterItem(setObj, entry) {
     const inGroup = entry.inGroup !== false;
 
     const summary = getEntrySummary(setObj, entry);
+    const posBadge = enabledPos > 0
+        ? `<code class="copyable" style="font-size:.68rem; padding:.06rem .32rem;" title="Click to copy positional placeholder {{var.${esc(setObj.id)}.${enabledPos}}}" data-copy="{{var.${esc(setObj.id)}.${enabledPos}}}">#${enabledPos}</code>`
+        : '';
     const liveBadge = [
         isRotatingNow ? '<span class="rot-live-pill">Rotating Now</span>' : '',
         liveSlotLabels.length ? `<span class="live-slot-pill">${esc(liveSlotLabels.join(', '))}</span>` : ''
@@ -397,7 +401,7 @@ function renderRosterItem(setObj, entry) {
             ${slotsCount > 0 ? `<span class="roster-grip" title="Drag onto a slot">${SVG_GRIP}</span>` : ''}
             ${getEntryThumb(setObj, entry)}
             <div class="roster-meta">
-                <div class="roster-name">${esc(entry.label)}${liveBadge}</div>
+                <div class="roster-name">${posBadge}${esc(entry.label)}${liveBadge}</div>
                 <div class="roster-sub">${esc(summary || entry.id)}</div>
             </div>
             <div class="roster-controls">
@@ -500,6 +504,109 @@ function renderGroupBar(setObj) {
                 </div>
                 <div class="group-preview-box">${previewText ? esc(previewText) : '<span class="muted">(no active group entries — click "In Group" on roster entries below)</span>'}</div>
                 <div class="token-pills">${tokenChips}</div>
+            </div>
+        </details>`;
+}
+
+function renderDirectItemTokensBar(setObj) {
+    const shared = window.OverlayShared;
+    const choices = shared?.listSetItemChoices
+        ? shared.listSetItemChoices(setObj)
+        : { positional: [], pinned: [], enabledCount: 0, totalCount: (setObj.roster || []).length };
+    const fields = setObj.fields || [];
+    const firstField = fields[0]?.key || '';
+    const saved = directItemState.get(setObj.id) || { mode: 'position', selector: '1', field: firstField || '__label__' };
+
+    const mode = ['position', 'all', 'pinned'].includes(saved.mode) ? saved.mode : 'position';
+    const roster = setObj.roster || [];
+    const selectorList = mode === 'position'
+        ? choices.positional.map(c => ({ value: c.selector, label: c.label }))
+        : mode === 'all'
+            ? roster.map((entry, idx) => ({ value: `all.${idx + 1}`, label: `#${idx + 1} — ${entry.label || entry.id}${entry.enabled === false ? ' (off)' : ''}` }))
+            : choices.pinned.map(c => ({ value: c.selector, label: `${c.label}${c.enabled ? '' : ' (off)'}` }));
+
+    let selector = saved.selector;
+    if (!selectorList.some(item => item.value === selector)) {
+        selector = selectorList[0]?.value || (mode === 'all' ? 'all.1' : '1');
+    }
+
+    const fieldOptions = [
+        { value: '__label__', label: 'Entry Label' },
+        ...fields.map(f => ({ value: f.key, label: `${f.label || f.key} (${f.type})` })),
+        { value: 'enabled', label: 'Enabled (true / false)' },
+        { value: '__count__', label: 'Set Enabled Count (.count)' },
+        { value: '__total__', label: 'Set Total Count (.total)' }
+    ];
+    let fieldKey = saved.field;
+    if (!fieldOptions.some(opt => opt.value === fieldKey)) {
+        fieldKey = firstField || '__label__';
+    }
+    directItemState.set(setObj.id, { mode, selector, field: fieldKey });
+
+    const tokenKey = fieldKey === '__count__'
+        ? `var.${setObj.id}.count`
+        : fieldKey === '__total__'
+            ? `var.${setObj.id}.total`
+            : fieldKey === '__label__'
+                ? `var.${setObj.id}.${selector}`
+                : `var.${setObj.id}.${selector}.${fieldKey}`;
+
+    const resolved = shared?.resolveSetItemToken
+        ? shared.resolveSetItemToken(tokenKey, { variableSets: state.variableSets || [], modules: { variableSets: true } })
+        : { matched: false };
+    const previewVal = resolved.matched ? String(resolved.value ?? '') : '';
+
+    const exampleToken = firstField ? `var.${setObj.id}.1.${firstField}` : `var.${setObj.id}.1`;
+    const isOpen = openTokenKeys.has(`${setObj.id}:items`);
+
+    const quickTokens = [
+        `var.${setObj.id}.${selector}`,
+        ...fields.map(f => `var.${setObj.id}.${selector}.${f.key}`),
+        `var.${setObj.id}.count`,
+        `var.${setObj.id}.total`
+    ].map(key => `<code class="copyable" title="Click to copy" data-copy="{{${esc(key)}}}">{{${esc(key)}}}</code>`).join('');
+
+    return `
+        <details class="set-group-panel" data-item-tokens-details="${esc(setObj.id)}"${isOpen ? ' open' : ''}>
+            <summary>
+                <div style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; min-width:0;">
+                    <span class="set-section-title" style="margin:0;">Direct Item Placeholders</span>
+                    <span class="badge">${choices.enabledCount} enabled${choices.totalCount !== choices.enabledCount ? ` / ${choices.totalCount} total` : ''}</span>
+                    <code class="copyable" title="Click to copy" data-copy="{{${esc(exampleToken)}}}">{{${esc(exampleToken)}}}</code>
+                </div>
+                <span class="muted" style="font-size:.75rem;">Reference any item by position (.1, .2) or pinned entry</span>
+            </summary>
+            <div class="set-group-body">
+                <div class="set-rot-controls" style="border-top:0; padding-top:0; flex-wrap:wrap;">
+                    <label>Address by
+                        <select data-direct-item-ctrl="mode">
+                            <option value="position"${mode === 'position' ? ' selected' : ''}>Position — enabled only (.1, .2)</option>
+                            <option value="all"${mode === 'all' ? ' selected' : ''}>Position — all items (.all.1)</option>
+                            <option value="pinned"${mode === 'pinned' ? ' selected' : ''}>Pinned entry — stable slug</option>
+                        </select>
+                    </label>
+                    <label>Item
+                        <select data-direct-item-ctrl="selector"${selectorList.length ? '' : ' disabled'}>
+                            ${selectorList.length
+                                ? selectorList.map(opt => `<option value="${esc(opt.value)}"${opt.value === selector ? ' selected' : ''}>${esc(opt.label)}</option>`).join('')
+                                : '<option value="1">No items yet</option>'}
+                        </select>
+                    </label>
+                    <label>Field
+                        <select data-direct-item-ctrl="field">
+                            ${fieldOptions.map(opt => `<option value="${esc(opt.value)}"${opt.value === fieldKey ? ' selected' : ''}>${esc(opt.label)}</option>`).join('')}
+                        </select>
+                    </label>
+                </div>
+                <div class="group-preview-box" style="display:flex; align-items:center; justify-content:space-between; gap:.6rem; flex-wrap:wrap;">
+                    <div style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; min-width:0;">
+                        <code class="copyable" title="Click to copy" data-copy="{{${esc(tokenKey)}}}">{{${esc(tokenKey)}}}</code>
+                        <span class="muted" style="font-size:.76rem;">Live value:</span>
+                        <span style="font-weight:600; font-size:.82rem;">${previewVal ? esc(previewVal) : '<span class="muted">(empty)</span>'}</span>
+                    </div>
+                    <button type="button" class="b sm" data-copy="{{${esc(tokenKey)}}}">Copy Token</button>
+                </div>
+                <div class="token-pills">${quickTokens}</div>
             </div>
         </details>`;
 }
@@ -629,8 +736,13 @@ export function renderSets() {
         return `${entry.label} ${entry.id} ${Object.values(entry.values || {}).join(' ')}`.toLowerCase().includes(q);
     });
 
+    const enabledPosById = new Map();
+    let enabledIdx = 0;
+    for (const entry of activeSet.roster || []) {
+        if (entry.enabled !== false) enabledPosById.set(entry.id, ++enabledIdx);
+    }
     const rosterHtml = filteredRoster.length
-        ? filteredRoster.map(entry => renderRosterItem(activeSet, entry)).join('')
+        ? filteredRoster.map(entry => renderRosterItem(activeSet, entry, enabledPosById.get(entry.id) || 0)).join('')
         : `<div class="muted" style="font-size:.82rem; padding:.5rem 0;">${(activeSet.roster || []).length ? 'No entries match your filter.' : 'No entries yet. Click "+ Add Entry" or "Import CSV" above to populate this set.'}</div>`;
 
     const slotBadge = slotsCount === 0 ? 'Preset mode (0 slots)' : `${slotsCount} output slot${slotsCount === 1 ? '' : 's'}`;
@@ -659,6 +771,7 @@ export function renderSets() {
                 </div>
                 ${renderRotationBar(activeSet)}
                 ${renderGroupBar(activeSet)}
+                ${renderDirectItemTokensBar(activeSet)}
                 <div class="${slotsCount > 0 ? 'sets-split' : ''}" style="${slotsCount > 0 ? '' : 'display:grid; gap:1rem;'}">
                     <div>
                         <div class="set-section-title">
@@ -1326,12 +1439,27 @@ export function bindSetEvents(onReload) {
             const key = `${grpDet.dataset.groupDetails}:group`;
             if (grpDet.open) openTokenKeys.add(key);
             else openTokenKeys.delete(key);
+            return;
+        }
+        const itemDet = e.target.closest('[data-item-tokens-details]');
+        if (itemDet) {
+            const key = `${itemDet.dataset.itemTokensDetails}:items`;
+            if (itemDet.open) openTokenKeys.add(key);
+            else openTokenKeys.delete(key);
         }
     }, true);
 
     host.addEventListener('change', async e => {
-        const slotNameInput = e.target.closest('[data-slot-name]');
+        const directCtrl = e.target.closest('[data-direct-item-ctrl]');
         const card = e.target.closest('[data-set-card]');
+        if (directCtrl && card) {
+            const setId = card.dataset.setCard;
+            const prev = directItemState.get(setId) || { mode: 'position', selector: '1', field: '' };
+            directItemState.set(setId, { ...prev, [directCtrl.dataset.directItemCtrl]: directCtrl.value });
+            renderSets();
+            return;
+        }
+        const slotNameInput = e.target.closest('[data-slot-name]');
         if (slotNameInput && card) {
             const setObj = (state.variableSets || []).find(s => s.id === card.dataset.setCard);
             if (!setObj) return;

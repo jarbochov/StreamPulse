@@ -106,6 +106,24 @@ For a set with ID `squad` and fields `name`, `avatar`, `role`, and `accent`, Str
   - `{{var.squad_group_members}}`: Comma-separated list of active member names
   - `{{var.squad_group_<field>}}` / `{{var.squad_joined_<field>}}`: Delimited list of a single field across all group members
 
+### Direct Item Placeholders (By Position or Pinned Entry)
+
+You can reference **any item in a Variable Set directly** — even when it is not assigned to an active slot — using dot notation resolved lazily on demand (without bloating your variable list):
+
+| Token Pattern | What It Returns | Example |
+| :--- | :--- | :--- |
+| `{{var.<set>.1}}` / `{{var.<set>.2}}` | 1st, 2nd, … **enabled** entry's label (skips disabled items) | `{{var.sponsors.1}}` |
+| `{{var.<set>.1.<field>}}` | Field value on the Nth enabled entry | `{{var.sponsors.2.name}}` |
+| `{{var.<set>.all.1.<field>}}` | Field value by position across **all** entries (including disabled) | `{{var.sponsors.all.2.enabled}}` |
+| `{{var.<set>.<slug>.<field>}}` | Stable lookup by entry ID or slugified label (immune to reordering) | `{{var.sponsors.northstar_audio.accent}}` |
+| `{{var.<set>.count}}` / `{{var.<set>.total}}` | Count of enabled entries / total roster entries | `{{var.sponsors.count}}` |
+
+All field features work automatically on direct item tokens:
+- **Fallbacks**: `{{var.sponsors.4.name|Open Slot}}`
+- **Select & Tags Metadata**: `{{var.sponsors.1.tier_color}}`, `{{var.sponsors.1.tier_icon}}`, `{{var.sponsors.1.tier|withIcon}}`, `{{var.sponsors.1.tags|bullets}}`, `{{var.sponsors.1.tags_count}}`
+- **Number & Date Formatting**: `{{var.sponsors.2.score|number:2:comma:$:}}`
+- **Color & Numeric Style Bindings**: Bind element colors (`{{var.teams.1.color}}`), images (`{{var.teams.1.logo}}`), and numeric style properties directly to any item via the **Direct Variable Set Item** picker inside **Placeholder Picker**, or build and copy tokens inside **Placeholders → Variable Sets → Direct Item Placeholders** (enabled roster rows also display clickable `#1`, `#2`, … positional copy badges).
+
 ### Rotation & Studio Sets Follow
 
 Variable Sets include a built-in **Timed Rotation** controller (`intervalSeconds`, `mode`, `transition`, `durationMs`) to cycle through queued or enabled entries automatically:

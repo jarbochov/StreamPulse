@@ -5,6 +5,7 @@
     const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
     const matches = (query, text) => query.split(/\s+/).every(term => text.toLowerCase().includes(term));
     let dialog = null, options = null;
+    const directState = { open: false, setId: '', mode: 'position', selector: '1', field: '' };
 
     function injectStyles() {
         if (document.getElementById('sp-picker-style')) return;
@@ -33,6 +34,17 @@
         $('sp-search').addEventListener('input', render);
         $('sp-format').addEventListener('input', render);
         $('sp-close').addEventListener('click', () => dialog.close());
+        $('sp-list').addEventListener('change', event => {
+            const ctrl = event.target.closest('[data-sp-direct-ctrl]');
+            if (!ctrl) return;
+            directState[ctrl.dataset.spDirectCtrl] = ctrl.value;
+            directState.open = true;
+            render();
+        });
+        $('sp-list').addEventListener('toggle', event => {
+            const det = event.target.closest('.sp-direct-items');
+            if (det) directState.open = det.open;
+        }, true);
         $('sp-list').addEventListener('click', event => {
             const numberButton = event.target.closest('[data-number-key]');
             if (numberButton) {
@@ -61,6 +73,106 @@
     function looksLikeCssColor(value) {
         const s = String(value || '').trim();
         return /^#[0-9a-f]{3,8}$/i.test(s) || /^rgba?\([^)]+\)$/i.test(s) || /^hsla?\([^)]+\)$/i.test(s);
+    }
+
+    function renderDirectSetItemPicker(status, filterMode) {
+        const shared = root.OverlayShared;
+        if (status?.modules?.variableSets === false) return '';
+        const sets = Array.isArray(status?.variableSets) ? status.variableSets : [];
+        if (!sets.length || !shared?.listSetItemChoices || !shared?.resolveSetItemToken) return '';
+
+        const fieldMatchesMode = field => {
+            if (filterMode === 'color') return field.type === 'color';
+            if (filterMode === 'image') return field.type === 'image';
+            if (filterMode === 'number') return ['number', 'counter'].includes(field.type);
+            return true;
+        };
+
+        const eligibleSets = sets.filter(set => {
+            if (filterMode === 'color' || filterMode === 'image') {
+                return (set.fields || []).some(fieldMatchesMode);
+            }
+            return true;
+        });
+        if (!eligibleSets.length) return '';
+
+        const activeSet = eligibleSets.find(s => s.id === directState.setId) || eligibleSets[0];
+        directState.setId = activeSet.id;
+
+        const choices = shared.listSetItemChoices(activeSet);
+        const mode = ['position', 'all', 'pinned'].includes(directState.mode) ? directState.mode : 'position';
+        directState.mode = mode;
+
+        const roster = activeSet.roster || [];
+        const selectorList = mode === 'position'
+            ? choices.positional.map(c => ({ value: c.selector, label: c.label }))
+            : mode === 'all'
+                ? roster.map((e, i) => ({ value: `all.${i + 1}`, label: `#${i + 1} — ${e.label || e.id}${e.enabled === false ? ' (off)' : ''}` }))
+                : choices.pinned.map(c => ({ value: c.selector, label: `${c.label}${c.enabled ? '' : ' (off)'}` }));
+
+        let selector = directState.selector;
+        if (!selectorList.some(item => item.value === selector)) {
+            selector = selectorList[0]?.value || (mode === 'all' ? 'all.1' : '1');
+            directState.selector = selector;
+        }
+
+        const fields = (activeSet.fields || []).filter(fieldMatchesMode);
+        const fieldOpts = [];
+        if (!filterMode) fieldOpts.push({ value: '__label__', label: 'Entry Label' });
+        for (const f of fields) fieldOpts.push({ value: f.key, label: `${f.label || f.key} (${f.type})` });
+        if (!filterMode) fieldOpts.push({ value: 'enabled', label: 'Enabled (true / false)' });
+        if (!filterMode || filterMode === 'number') {
+            fieldOpts.push({ value: '__count__', label: 'Set Enabled Count (.count)' });
+            fieldOpts.push({ value: '__total__', label: 'Set Total Count (.total)' });
+        }
+        if (!fieldOpts.length) return '';
+
+        let fieldKey = directState.field;
+        if (!fieldOpts.some(o => o.value === fieldKey)) {
+            fieldKey = fieldOpts[0].value;
+            directState.field = fieldKey;
+        }
+
+        const tokenKey = fieldKey === '__count__'
+            ? `var.${activeSet.id}.count`
+            : fieldKey === '__total__'
+                ? `var.${activeSet.id}.total`
+                : fieldKey === '__label__'
+                    ? `var.${activeSet.id}.${selector}`
+                    : `var.${activeSet.id}.${selector}.${fieldKey}`;
+
+        const resolved = shared.resolveSetItemToken(tokenKey, status);
+        const previewVal = resolved.matched ? String(resolved.value ?? '') : '';
+        const swatch = filterMode === 'color' && looksLikeCssColor(previewVal)
+            ? `<span class="sp-color-dot" style="background-color:${esc(previewVal)}"></span>`
+            : '';
+
+        return `<details class="sp-direct-items"${directState.open ? ' open' : ''}>
+            <summary>Direct Variable Set Item <span class="hint">(pick any item by .1, .2, or pinned slug)</span></summary>
+            <div class="sp-direct-grid">
+                <label>Set
+                    <select data-sp-direct-ctrl="setId">${eligibleSets.map(s => `<option value="${esc(s.id)}"${s.id === activeSet.id ? ' selected' : ''}>${esc(s.name || s.id)}</option>`).join('')}</select>
+                </label>
+                <label>Address by
+                    <select data-sp-direct-ctrl="mode">
+                        <option value="position"${mode === 'position' ? ' selected' : ''}>Position — enabled (.1, .2)</option>
+                        <option value="all"${mode === 'all' ? ' selected' : ''}>Position — all (.all.1)</option>
+                        <option value="pinned"${mode === 'pinned' ? ' selected' : ''}>Pinned entry (slug)</option>
+                    </select>
+                </label>
+                <label>Item
+                    <select data-sp-direct-ctrl="selector"${selectorList.length ? '' : ' disabled'}>${selectorList.length ? selectorList.map(o => `<option value="${esc(o.value)}"${o.value === selector ? ' selected' : ''}>${esc(o.label)}</option>`).join('') : '<option value="1">No items yet</option>'}</select>
+                </label>
+                <label>Field
+                    <select data-sp-direct-ctrl="field">${fieldOpts.map(o => `<option value="${esc(o.value)}"${o.value === fieldKey ? ' selected' : ''}>${esc(o.label)}</option>`).join('')}</select>
+                </label>
+            </div>
+            <button type="button" class="sp-direct-insert" data-token="${esc(tokenKey)}">
+                <span>Insert direct set item</span>
+                <code>{{${esc(tokenKey)}}}</code>
+                <span class="preview">${swatch}<span>${esc(previewVal || 'Empty')}</span></span>
+            </button>
+        </details>`;
     }
 
     function buildColorGroups(status, table) {
@@ -109,17 +221,20 @@
             const bindable = new Set((status.customVars || []).filter(v => !v.hidden && ['number', 'counter'].includes(v.type)).map(v => `var.${variableKey(v)}`));
             const groups = [{ label: 'Custom Numbers', items: vars.map(v => [`var.${variableKey(v)}`, v.group ? `${v.group} / ${v.name}` : v.name, { preview: v.value, search: v.group }]) },
                 ...shared.variableGroups(status).map(group => ({ ...group, items: group.items.filter(([key, , meta]) => bindable.has(key) && ['number', 'counter'].includes(meta?.type) && !meta.list) }))];
-            dialog.querySelector('#sp-list').innerHTML = groups.map(group => {
+            const directHtml = renderDirectSetItemPicker(status, 'number');
+            const listHtml = groups.map(group => {
                 const items = group.items.filter(([key, label, meta]) => !query || matches(query, `${group.label} ${key} ${label} ${meta.preview ?? ''} ${meta.search || ''}`));
                 return items.length ? `<h4>${esc(group.label)}</h4>` + items.map(([key, label, meta]) =>
                     `<button type="button" data-token="${esc(key)}"><span>${esc(label)}</span><code>{{${esc(key)}}}</code><span class="preview">${esc(meta.preview === '' ? meta.state || 'Empty' : meta.preview)}</span></button>`
                 ).join('') : '';
-            }).join('')
+            }).join('');
+            dialog.querySelector('#sp-list').innerHTML = (directHtml + listHtml)
                 || '<p class="hint">No Number variables match. Create one in <a href="/tools/placeholders.html#variables" target="_blank" rel="noopener">Variables</a>.</p>';
             return;
         }
 
         if (colorMode) {
+            const directHtml = renderDirectSetItemPicker(status, 'color');
             const groups = buildColorGroups(status, table);
             const html = groups.map(group => {
                 const items = group.items.filter(item => !query || matches(query, `${group.label} ${item.key} ${item.label} ${item.preview || ''}`));
@@ -133,7 +248,7 @@
                     return `<button type="button" data-token="${esc(item.key)}"${item.raw ? ' data-raw-token="1"' : ''}><span>${esc(item.label)}</span><code>${esc(codeText)}</code><span class="preview">${swatch}<span>${esc(previewColor || item.state || (item.raw ? 'Per member' : 'Empty'))}</span></span></button>`;
                 }).join('');
             }).join('');
-            dialog.querySelector('#sp-list').innerHTML = html || '<p class="hint">No color variables or member color fields defined yet. Create a Color variable in Variables &amp; Placeholders.</p>';
+            dialog.querySelector('#sp-list').innerHTML = (directHtml + html) || '<p class="hint">No color variables or member color fields defined yet. Create a Color variable in Variables &amp; Placeholders.</p>';
             return;
         }
 
@@ -190,7 +305,8 @@
                 return `<button type="button" data-token="${esc(token)}"><span>${esc(label)}</span><code>{{${esc(token)}}}</code><span class="preview">${esc(preview)}</span></button>${chips}${numberOptions}`;
             }).join('');
         }).join('');
-        dialog.querySelector('#sp-list').innerHTML = html || (imageMode ? '<p class="hint">No image placeholders match. Create an Image variable or an Image field in a variable set.</p>' : '<p class="hint">No placeholders match.</p>');
+        const directHtml = renderDirectSetItemPicker(status, imageMode ? 'image' : '');
+        dialog.querySelector('#sp-list').innerHTML = (directHtml + html) || (imageMode ? '<p class="hint">No image placeholders match. Create an Image variable or an Image field in a variable set.</p>' : '<p class="hint">No placeholders match.</p>');
     }
 
     function open(opts) {

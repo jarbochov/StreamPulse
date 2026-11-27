@@ -1,4 +1,7 @@
 const { variableKey, isVariableKey } = require('./variable-paths.cjs');
+const { resolveSetItemToken } = require('./variable-set-items.cjs');
+const SET_ITEM_NUMERIC_RE = /^[a-z0-9_]{1,24}\.(?:count|total|(?:all\.)?[a-z0-9_-]{1,40}(?:\.[a-z0-9_]{1,40}){1,2})$/i;
+const isNumericBindingKey = name => isVariableKey(name) || (typeof name === 'string' && SET_ITEM_NUMERIC_RE.test(name));
 const style = {
     fontSize: [8, 400], borderWidth: [0, 40], borderRadius: [0, 200],
     padding: [0, 200], opacity: [0, 100, 0.01], rotate: [-180, 180],
@@ -37,7 +40,7 @@ function normalizeNumericBindings(bindings, domain) {
     const out = {};
     if (!bindings || typeof bindings !== 'object' || Array.isArray(bindings)) return out;
     for (const [key, name] of Object.entries(bindings)) {
-        if (Object.hasOwn(domains[domain] || {}, key) && isVariableKey(name)) out[key] = name;
+        if (Object.hasOwn(domains[domain] || {}, key) && isNumericBindingKey(name)) out[key] = name;
     }
     return out;
 }
@@ -45,15 +48,23 @@ function normalizeNumericBindings(bindings, domain) {
 function resolveNumericConfig(config, domain, status) {
     if (status?.modules?.variableSettings === false) return config;
     if (!config?.numberBindings || typeof config.numberBindings !== 'object') return config;
-    const vars = status?.customVars;
-    if (!Array.isArray(vars)) return config;
+    const vars = Array.isArray(status?.customVars) ? status.customVars : [];
+    const hasSets = status?.modules?.variableSets !== false && Array.isArray(status?.variableSets) && status.variableSets.length > 0;
+    if (!vars.length && !hasSets) return config;
     let lookup = variableMaps.get(vars);
     if (!lookup) { lookup = new Map(vars.map(variable => [variableKey(variable), variable])); variableMaps.set(vars, lookup); }
     let out = config;
     for (const [key, name] of Object.entries(config.numberBindings)) {
         const field = numericBindingField(`${domain}.${key}`);
-        const variable = lookup.get(name);
-        if (!field || !['number', 'counter'].includes(variable?.type) || !['number', 'string'].includes(typeof variable.value) || String(variable.value).trim() === '' || !Number.isFinite(Number(variable.value))) continue;
+        if (!field) continue;
+        let variable = lookup.get(name);
+        if (!variable && hasSets) {
+            const item = resolveSetItemToken(`var.${name}`, status);
+            if (item.matched && ['number', 'counter'].includes(item.type)) {
+                variable = { type: item.type, value: item.value };
+            }
+        }
+        if (!['number', 'counter'].includes(variable?.type) || !['number', 'string'].includes(typeof variable.value) || String(variable.value).trim() === '' || !Number.isFinite(Number(variable.value))) continue;
         const value = Math.max(field.min, Math.min(field.max, Number(variable.value))) * field.scale;
         const parts = key.split('.');
         if (parts.reduce((current, part) => current?.[part], config) === value) continue;
