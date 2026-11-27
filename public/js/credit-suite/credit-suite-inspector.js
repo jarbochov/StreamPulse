@@ -370,7 +370,9 @@ const INSP_ICONS = {
     content: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>',
     style: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>',
     fx: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
-    clock: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'
+    clock: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+    copy: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+    paste: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>'
 };
 
 function probeVideoDuration(url) {
@@ -865,11 +867,24 @@ export function mountCreditSuiteInspector({ state, stage }) {
             </div>
         `;
 
+        const cb = state.store.styleClipboard;
         const styleTabHtml = `
+            <div class="cs-style-bar">
+                <button type="button" class="cs-btn cs-btn-sm" id="cs-copy-style" title="Copy this element's style overrides (Cmd/Ctrl+Alt+C)">
+                    ${INSP_ICONS.copy}
+                    <span>Copy Style</span>
+                </button>
+                <button type="button" class="cs-btn cs-btn-sm ${cb ? 'cs-btn-primary' : ''}" id="cs-paste-style" ${cb ? '' : 'disabled'} title="${cb ? `Paste style from "${esc(cb.sourceLabel)}" (Cmd/Ctrl+Alt+V)` : 'Copy a style from another block or clip first (Cmd/Ctrl+Alt+C)'}">
+                    ${INSP_ICONS.paste}
+                    <span>${cb ? 'Paste Style' : 'Paste Style'}</span>
+                </button>
+                <button type="button" class="cs-btn cs-btn-sm" id="cs-reset-block-style" ${styleOverrideCount ? '' : 'disabled'} title="Reset all style overrides back to global theme">Reset</button>
+            </div>
+            ${cb ? `<div style="font-size:11px;color:var(--text-muted);margin-top:-6px;">Copied from <strong>${esc(cb.sourceLabel)}</strong> (${cb.kind === 'block' ? 'Block' : 'Clip'})</div>` : ''}
+
             <div class="cs-section">
                 <div class="cs-section-head">
                     <span>Typography Overrides</span>
-                    <button type="button" class="cs-btn cs-btn-sm" id="cs-reset-block-style" ${styleOverrideCount ? '' : 'disabled'}>Reset Overrides</button>
                 </div>
                 <div class="cs-grid-2">
                     <div class="cs-field"><label>Heading Font</label><select data-bs="headingFont">${fontOptionsHtml(st.headingFont, true)}</select></div>
@@ -1185,6 +1200,12 @@ export function mountCreditSuiteInspector({ state, stage }) {
                 const val = el.value === '' ? '' : (el.value === 'true');
                 updateBlock(b => { b.style = b.style || {}; b.style[el.dataset.bsTri] = val; });
             });
+        });
+        bodyEl.querySelector('#cs-copy-style')?.addEventListener('click', () => {
+            state.copySelectedStyle();
+        });
+        bodyEl.querySelector('#cs-paste-style')?.addEventListener('click', () => {
+            state.pasteStyleToSelection();
         });
         bodyEl.querySelector('#cs-reset-block-style')?.addEventListener('click', () => {
             updateBlock(b => {
@@ -1600,12 +1621,25 @@ export function mountCreditSuiteInspector({ state, stage }) {
             </div>
         `;
 
+        const clipCb = state.store.styleClipboard;
         const clipStyleTabHtml = `
+            <div class="cs-style-bar">
+                <button type="button" class="cs-btn cs-btn-sm" id="cs-copy-style" title="Copy this clip's style, borders & filters (Cmd/Ctrl+Alt+C)">
+                    ${INSP_ICONS.copy}
+                    <span>Copy Style</span>
+                </button>
+                <button type="button" class="cs-btn cs-btn-sm ${clipCb ? 'cs-btn-primary' : ''}" id="cs-paste-style" ${clipCb ? '' : 'disabled'} title="${clipCb ? `Paste style from "${esc(clipCb.sourceLabel)}" (Cmd/Ctrl+Alt+V)` : 'Copy a style from another block or clip first (Cmd/Ctrl+Alt+C)'}">
+                    ${INSP_ICONS.paste}
+                    <span>Paste Style</span>
+                </button>
+                <button type="button" class="cs-btn cs-btn-sm" id="cs-reset-clip-style" title="Reset style, borders & filters to default">Reset</button>
+            </div>
+            ${clipCb ? `<div style="font-size:11px;color:var(--text-muted);margin-top:-6px;">Copied from <strong>${esc(clipCb.sourceLabel)}</strong> (${clipCb.kind === 'block' ? 'Block' : 'Clip'})</div>` : ''}
+
             ${['text', 'shape', 'badge', 'counter', 'meter', 'icon'].includes(t) ? `
                 <div class="cs-section">
                     <div class="cs-section-head">
                         <span>Typography &amp; Color Overrides</span>
-                        <button type="button" class="cs-btn cs-btn-sm" id="cs-reset-clip-style">Reset Style</button>
                     </div>
                     ${t !== 'icon' ? `
                         <div class="cs-grid-2">
@@ -1656,7 +1690,6 @@ export function mountCreditSuiteInspector({ state, stage }) {
             <div class="cs-section">
                 <div class="cs-section-head">
                     <span>Borders &amp; Corner Radius</span>
-                    ${!['text', 'shape', 'badge', 'counter', 'meter', 'icon'].includes(t) ? '<button type="button" class="cs-btn cs-btn-sm" id="cs-reset-clip-style">Reset Style</button>' : ''}
                 </div>
                 <div class="cs-grid-3">
                     <div class="cs-field">
@@ -1842,6 +1875,12 @@ export function mountCreditSuiteInspector({ state, stage }) {
                 btn.disabled = false;
                 if (hint) hint.textContent = err.message || 'Could not read duration';
             }
+        });
+        bodyEl.querySelector('#cs-copy-style')?.addEventListener('click', () => {
+            state.copySelectedStyle();
+        });
+        bodyEl.querySelector('#cs-paste-style')?.addEventListener('click', () => {
+            state.pasteStyleToSelection();
         });
         bodyEl.querySelector('#cs-reset-clip-style')?.addEventListener('click', () => {
             updateClip(c => {
@@ -2469,7 +2508,7 @@ export function mountCreditSuiteInspector({ state, stage }) {
             }
             return;
         }
-        if (['init', 'project-switched', 'project-structure', 'selection', 'inspector-tab', 'themes'].includes(reason)) {
+        if (['init', 'project-switched', 'project-structure', 'selection', 'inspector-tab', 'themes', 'clipboard'].includes(reason)) {
             render();
         } else if (reason === 'project') {
             if (!isEditingTextIn(bodyEl)) {

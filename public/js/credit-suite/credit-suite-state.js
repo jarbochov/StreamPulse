@@ -59,6 +59,7 @@ export function createCreditSuiteState() {
         },
         undoStack: [],
         redoStack: [],
+        styleClipboard: null,
         ws: null
     };
 
@@ -591,6 +592,152 @@ export function createCreditSuiteState() {
         };
     }
 
+    const CLIP_STYLE_KEYS = [
+        'fontFamily', 'fontSize', 'fontWeight', 'textAlign', 'letterSpacing',
+        'italic', 'underline', 'uppercase', 'textShadow',
+        'textColor', 'iconColor', 'fillColor', 'fillColor2', 'fillGradient', 'fillAngle',
+        'borderStyle', 'borderWidth', 'borderRadius', 'borderAnim', 'borderAnimSpeed',
+        'borderColor', 'borderColor2', 'shadow',
+        'filterBrightness', 'filterContrast', 'filterSaturate', 'filterBlur', 'filterGrayscale',
+        'opacity'
+    ];
+
+    function copySelectedStyle() {
+        const block = getSelectedBlock();
+        if (block) {
+            const engine = window.StreamPulseCreditSuiteEngine;
+            const normStyle = engine?.normalizeBlockStyle ? engine.normalizeBlockStyle(block.style || {}) : clone(block.style || {});
+            store.styleClipboard = {
+                kind: 'block',
+                sourceLabel: String(block.title || block.type || 'Block').slice(0, 48),
+                style: clone(normStyle),
+                padding: {
+                    paddingTop: block.paddingTop ?? '',
+                    paddingBottom: block.paddingBottom ?? '',
+                    paddingH: block.paddingH ?? ''
+                }
+            };
+            emit('clipboard');
+            return store.styleClipboard;
+        }
+        const selClip = getSelectedClip();
+        if (selClip?.clip) {
+            const c = selClip.clip;
+            const clipStyle = {};
+            for (const k of CLIP_STYLE_KEYS) {
+                if (c[k] !== undefined) clipStyle[k] = c[k];
+            }
+            store.styleClipboard = {
+                kind: 'clip',
+                sourceLabel: String(c.name || c.elementType || 'Clip').slice(0, 48),
+                clipStyle: clone(clipStyle)
+            };
+            emit('clipboard');
+            return store.styleClipboard;
+        }
+        return null;
+    }
+
+    function pasteStyleToSelection() {
+        const cb = store.styleClipboard;
+        if (!cb || !store.project) return null;
+        const engine = window.StreamPulseCreditSuiteEngine;
+
+        const block = getSelectedBlock();
+        if (block) {
+            mutateProject(p => {
+                const target = p.blocks.find(b => b.id === block.id);
+                if (!target) return;
+                if (cb.kind === 'block') {
+                    target.style = engine?.normalizeBlockStyle
+                        ? engine.normalizeBlockStyle(clone(cb.style || {}))
+                        : clone(cb.style || {});
+                    target.paddingTop = cb.padding?.paddingTop ?? '';
+                    target.paddingBottom = cb.padding?.paddingBottom ?? '';
+                    target.paddingH = cb.padding?.paddingH ?? '';
+                } else if (cb.kind === 'clip' && cb.clipStyle) {
+                    const cs = cb.clipStyle;
+                    const nextStyle = { ...(target.style || {}) };
+                    if (cs.fontFamily !== undefined) {
+                        nextStyle.headingFont = cs.fontFamily;
+                        nextStyle.contentFont = cs.fontFamily;
+                    }
+                    if (cs.fontWeight) nextStyle.headingWeight = cs.fontWeight;
+                    if (cs.textAlign) nextStyle.align = cs.textAlign;
+                    if (cs.letterSpacing !== undefined) nextStyle.letterSpacing = cs.letterSpacing;
+                    if (cs.italic !== undefined) nextStyle.italic = Boolean(cs.italic);
+                    if (cs.underline !== undefined) nextStyle.underline = Boolean(cs.underline);
+                    if (cs.uppercase !== undefined) nextStyle.uppercase = cs.uppercase ? true : '';
+                    if (cs.textShadow !== undefined) nextStyle.textShadow = Boolean(cs.textShadow);
+                    if (cs.textColor) {
+                        nextStyle.headingColor = cs.textColor;
+                        nextStyle.contentColor = cs.textColor;
+                    }
+                    if (cs.iconColor) nextStyle.iconColor = cs.iconColor;
+                    if (cs.fillColor) {
+                        nextStyle.bgColor = cs.fillColor;
+                        if (!(nextStyle.bgOpacity > 0)) nextStyle.bgOpacity = 0.75;
+                    }
+                    if (cs.borderRadius !== undefined) nextStyle.bgRadius = cs.borderRadius;
+                    if (cs.borderStyle !== undefined) nextStyle.borderStyle = cs.borderStyle;
+                    if (cs.borderWidth !== undefined) nextStyle.borderWidth = cs.borderWidth;
+                    if (cs.borderColor) nextStyle.borderColor = cs.borderColor;
+                    if (cs.borderColor2) nextStyle.borderColor2 = cs.borderColor2;
+                    if (cs.borderAnim !== undefined) nextStyle.borderAnim = cs.borderAnim;
+                    if (cs.borderAnimSpeed !== undefined) nextStyle.borderAnimSpeed = cs.borderAnimSpeed;
+                    if (cs.opacity !== undefined) nextStyle.opacity = Math.max(0.05, Number(cs.opacity) || 1);
+                    target.style = engine?.normalizeBlockStyle ? engine.normalizeBlockStyle(nextStyle) : nextStyle;
+                }
+            }, { reason: 'project-structure' });
+            return { applied: 1, sourceLabel: cb.sourceLabel };
+        }
+
+        const selClip = getSelectedClip();
+        if (selClip?.clip) {
+            const targetIds = store.selectedClipIds && store.selectedClipIds.size > 0
+                ? new Set(store.selectedClipIds)
+                : new Set([selClip.clip.id]);
+            let count = 0;
+            mutateProject(p => {
+                for (const tr of (p.tracks || [])) {
+                    for (const c of (tr.clips || [])) {
+                        if (!targetIds.has(c.id)) continue;
+                        count++;
+                        if (cb.kind === 'clip' && cb.clipStyle) {
+                            for (const k of CLIP_STYLE_KEYS) {
+                                if (cb.clipStyle[k] !== undefined) c[k] = cb.clipStyle[k];
+                            }
+                        } else if (cb.kind === 'block' && cb.style) {
+                            const bs = cb.style;
+                            if (bs.headingFont || bs.contentFont) c.fontFamily = bs.headingFont || bs.contentFont;
+                            if (bs.headingWeight || bs.contentWeight) c.fontWeight = bs.headingWeight || bs.contentWeight;
+                            if (bs.align) c.textAlign = bs.align;
+                            if (bs.letterSpacing !== undefined) c.letterSpacing = bs.letterSpacing;
+                            c.italic = Boolean(bs.italic);
+                            c.underline = Boolean(bs.underline);
+                            c.uppercase = bs.uppercase === true;
+                            c.textShadow = Boolean(bs.textShadow);
+                            if (bs.headingColor || bs.contentColor) c.textColor = bs.headingColor || bs.contentColor;
+                            if (bs.iconColor) c.iconColor = bs.iconColor;
+                            if (bs.bgColor && Number(bs.bgOpacity) > 0) c.fillColor = bs.bgColor;
+                            if (bs.bgRadius !== undefined) c.borderRadius = bs.bgRadius;
+                            c.borderStyle = bs.borderStyle || 'none';
+                            c.borderWidth = Number(bs.borderWidth) || 0;
+                            if (bs.borderColor) c.borderColor = bs.borderColor;
+                            if (bs.borderColor2) c.borderColor2 = bs.borderColor2;
+                            c.borderAnim = bs.borderAnim || 'none';
+                            c.borderAnimSpeed = Number(bs.borderAnimSpeed) || 3;
+                            if (bs.opacity !== undefined) c.opacity = Number(bs.opacity);
+                        }
+                    }
+                }
+            }, { reason: 'project-structure' });
+            return count ? { applied: count, sourceLabel: cb.sourceLabel } : null;
+        }
+
+        return null;
+    }
+
     function disconnectWs() {
         clearTimeout(varFetchTimer);
         const ws = store.ws;
@@ -620,6 +767,8 @@ export function createCreditSuiteState() {
         setSolved,
         getSelectedBlock,
         getSelectedClip,
+        copySelectedStyle,
+        pasteStyleToSelection,
         loadInitial,
         selectProject,
         saveProject,

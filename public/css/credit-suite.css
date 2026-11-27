@@ -1030,6 +1030,17 @@ details.cs-acc[open] > summary {
     flex-shrink: 0;
 }
 
+.cs-style-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.cs-style-bar .cs-btn {
+    flex: 1 1 auto;
+}
+
 .cs-section {
     background: var(--bg-inset, #0d1117);
     border: 1px solid var(--border, #30363d);

@@ -249,6 +249,18 @@ function initCreditSuiteStudio() {
             state.redo();
             return;
         }
+        if ((ev.metaKey || ev.ctrlKey) && ev.altKey && !isTyping && state.store.studioView === 'studio') {
+            if (ev.code === 'KeyC') {
+                ev.preventDefault();
+                state.copySelectedStyle();
+                return;
+            }
+            if (ev.code === 'KeyV') {
+                ev.preventDefault();
+                state.pasteStyleToSelection();
+                return;
+            }
+        }
         if (isTyping || state.store.studioView !== 'studio') return;
         const isInteractiveTarget = tag === 'button' || tag === 'a' || ev.target?.getAttribute?.('role') === 'button';
         if (ev.key === 'Delete' || ev.key === 'Backspace') {

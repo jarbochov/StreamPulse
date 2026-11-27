@@ -860,24 +860,49 @@ describe('Credit Suite — Independent Cinematic Credits Module', () => {
             assert.equal(blockStyleCheck.hasBorderStyle, true);
             assert.equal(blockStyleCheck.insideDetails, false, 'Block Style overrides must be directly open in the Style tab');
 
-            // Switch to Side & FX Tracks tab, select a floating clip, and verify Clip Style sub-tab exposes Borders & Filters directly
+            // Copy Style from Block 1 and Paste Style onto Block 2
+            await page.select('[data-bs="headingFont"]', 'Oswald');
+            await page.evaluate(() => {
+                const inp = document.querySelector('input[type="text"][data-bs="headingColor"]');
+                inp.value = '#FF3366FF';
+                inp.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+            await page.click('#cs-copy-style');
+            await page.waitForSelector('#cs-paste-style:not([disabled])', { timeout: 5000 });
+            const secondBlock = await page.$$('.cs-block-row[data-block-id]');
+            assert.ok(secondBlock.length >= 2, 'project should have at least 2 blocks');
+            await secondBlock[1].click();
+            await page.waitForSelector('#cs-paste-style:not([disabled])', { timeout: 5000 });
+            await page.click('#cs-paste-style');
+            const pastedBlockStyle = await page.evaluate(() => ({
+                headingFont: document.querySelector('[data-bs="headingFont"]')?.value || '',
+                headingColor: document.querySelector('input[type="text"][data-bs="headingColor"]')?.value || ''
+            }));
+            assert.equal(pastedBlockStyle.headingFont, 'Oswald');
+            assert.equal(pastedBlockStyle.headingColor, '#FF3366FF');
+
+            // Switch to Side & FX Tracks tab, select a floating clip, and verify Clip Style sub-tab exposes Borders & Filters + Cross-Paste directly
             await page.click('#cs-outliner-tab-tracks');
             await page.waitForSelector('.cs-block-row[data-clip-id]', { timeout: 5000 });
             await page.click('.cs-block-row[data-clip-id]');
             await page.waitForSelector('[data-c-subtab="style"]', { timeout: 5000 });
             await page.click('[data-c-subtab="style"]');
             await page.waitForSelector('[data-c="borderStyle"]', { timeout: 5000 });
+            await page.click('#cs-paste-style');
             const clipStyleCheck = await page.evaluate(() => {
                 const borderStyle = document.querySelector('[data-c="borderStyle"]');
                 const bright = document.querySelector('[data-c-num="filterBrightness"]');
+                const copyBtn = document.querySelector('#cs-copy-style');
                 return {
                     hasBorderStyle: Boolean(borderStyle),
                     hasFilterBrightness: Boolean(bright),
+                    hasCopyStyle: Boolean(copyBtn),
                     insideDetails: Boolean(borderStyle?.closest('details'))
                 };
             });
             assert.equal(clipStyleCheck.hasBorderStyle, true);
             assert.equal(clipStyleCheck.hasFilterBrightness, true);
+            assert.equal(clipStyleCheck.hasCopyStyle, true);
             assert.equal(clipStyleCheck.insideDetails, false, 'Clip Style overrides must be directly open in the Style tab');
         } finally {
             await browser.close();
