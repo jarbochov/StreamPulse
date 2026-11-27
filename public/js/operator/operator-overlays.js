@@ -23,6 +23,21 @@ const ALL_SECTIONS = [
     { id: 'speakers', label: 'Speakers' }
 ];
 const DOMAIN_SECTIONS_PREFIX = 'streampulse_op_ov_sections_';
+const OV_COLS_PREFIX = 'streampulse_op_ov_cols_';
+
+function getOverlayCols(profileId) {
+    try {
+        const n = Number(localStorage.getItem(`${OV_COLS_PREFIX}${profileId || 'default'}`));
+        if ([1, 2, 3].includes(n)) return n;
+    } catch { /* ignore */ }
+    return 2;
+}
+
+function setOverlayCols(profileId, cols) {
+    const clean = [1, 2, 3].includes(Number(cols)) ? Number(cols) : 2;
+    try { localStorage.setItem(`${OV_COLS_PREFIX}${profileId || 'default'}`, String(clean)); } catch { /* ignore */ }
+    return clean;
+}
 
 let overlayCatalog = [];
 const overlayDetails = new Map();
@@ -317,19 +332,23 @@ function renderDomain(container, ctx) {
     const addedIds = profile?.overlays || [];
     const layoutLocked = isLayoutLocked();
     const { collapsed } = resolveOverlayCollapsedSet(profile, addedIds);
+    const cols = getOverlayCols(profile?.id);
     container.innerHTML = `
         <div class="op-domain-stack">
             <div class="op-toolbar">
-                <div class="op-toolbar-left">
-                    <span class="op-pill">${addedIds.length} added overlay${addedIds.length === 1 ? '' : 's'}</span>
-                    <span style="font-size:.76rem;color:var(--text-muted);">Preset: ${esc(profile?.name || 'Main Show')}</span>
+                <div class="op-toolbar-left" style="flex-wrap:wrap;gap:.45rem;">
+                    <span style="display:inline-flex;align-items:center;gap:.4rem;font-weight:700;font-size:.88rem;">${OP_ICONS.overlays} Overlays</span>
+                    <span class="op-pill">${addedIds.length} added</span>
+                    ${addedIds.length ? `<div class="op-filter-seg" role="group" aria-label="Overlay grid columns">
+                        ${[1, 2, 3].map(n => `<button type="button" class="op-filter-btn${cols === n ? ' active' : ''}" data-ov-cols="${n}" title="${n} column${n === 1 ? '' : 's'}">${n} Col</button>`).join('')}
+                    </div>` : ''}
                 </div>
                 <div class="op-toolbar-right">
                     ${layoutLocked ? '' : `<button type="button" class="op-btn sm primary" data-ov-open-picker="1">${OP_ICONS.plus} Add Overlay</button>`}
                 </div>
             </div>
             ${addedIds.length ? `
-                <div class="op-overlay-list">
+                <div class="op-board-grid" style="--op-board-cols:${cols};" data-ov-card-list="1">
                     ${addedIds.map(id => {
                         const entry = overlayDetails.get(id);
                         const meta = overlayCatalog.find(o => o.id === id);
@@ -339,9 +358,10 @@ function renderDomain(container, ctx) {
                         const activeSet = pref ? new Set(pref) : new Set(avail);
                         const isCollapsed = collapsed.has(id);
                         return `
-                        <article class="op-overlay-card${isCollapsed ? ' is-collapsed' : ''}" data-ov-panel="${esc(id)}">
+                        <article class="op-overlay-card${isCollapsed ? ' is-collapsed' : ''}" data-ov-panel="${esc(id)}"${layoutLocked ? '' : ' draggable="true"'}>
                             <header class="op-overlay-card-head">
-                                <div class="op-overlay-card-title" style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;min-width:0;">
+                                <div class="op-overlay-card-title" style="display:flex;align-items:center;gap:.38rem;flex-wrap:wrap;min-width:0;">
+                                    ${layoutLocked ? '' : `<span class="op-drag-grip" title="Drag to reorder">${OP_ICONS.grip}</span>`}
                                     <button type="button" class="op-icon-btn op-collapse-btn" data-ov-collapse="${esc(id)}" aria-expanded="${!isCollapsed}" title="${isCollapsed ? 'Expand overlay' : 'Collapse overlay'}">${OP_ICONS.chevronDown}</button>
                                     <strong style="font-size:.86rem;">${esc(title)}</strong>
                                     <span class="op-pill">${esc(id)}</span>
@@ -365,7 +385,7 @@ function renderDomain(container, ctx) {
                 <div class="op-card">
                     <div class="op-empty">
                         <div>No overlays added to this preset yet.</div>
-                        <button type="button" class="op-btn sm primary" data-ov-open-picker="1">${OP_ICONS.plus} Add Custom Overlay</button>
+                        ${layoutLocked ? '' : `<button type="button" class="op-btn sm primary" data-ov-open-picker="1">${OP_ICONS.plus} Add Custom Overlay</button>`}
                     </div>
                 </div>
             `}
@@ -454,7 +474,17 @@ registerOperatorModule({
         domainContainer = container;
         container.hidden = false;
 
+        let draggedOvId = '';
         const onClick = async e => {
+            const colsBtn = e.target.closest('[data-ov-cols]');
+            if (colsBtn) {
+                const prof = getCurrentProfile();
+                const nextCols = setOverlayCols(prof?.id, Number(colsBtn.dataset.ovCols));
+                const grid = container.querySelector('[data-ov-card-list]');
+                if (grid) grid.style.setProperty('--op-board-cols', String(nextCols));
+                container.querySelectorAll('[data-ov-cols]').forEach(b => b.classList.toggle('active', b === colsBtn));
+                return;
+            }
             const colBtn = e.target.closest('[data-ov-collapse]');
             const collapsedTitle = !colBtn && e.target.closest('.op-overlay-card.is-collapsed .op-overlay-card-title');
             if (colBtn || (collapsedTitle && !e.target.closest('button, a'))) {
@@ -524,11 +554,60 @@ registerOperatorModule({
         };
         const onChange = e => handleOverlayChange(e, () => renderDomain(container, ctx));
         const onSubmit = e => handleOverlaySubmit(e, () => renderDomain(container, ctx));
+        const onDragStart = e => {
+            if (isLayoutLocked()) return;
+            const card = e.target.closest('[data-ov-panel]');
+            if (!card || e.target.closest('button, a, input, select, textarea, .op-overlay-card-body')) return;
+            draggedOvId = card.dataset.ovPanel || '';
+            card.classList.add('is-dragging');
+            e.dataTransfer?.setData('text/plain', draggedOvId);
+        };
+        const onDragOver = e => {
+            if (!draggedOvId || isLayoutLocked()) return;
+            const target = e.target.closest('[data-ov-panel]');
+            if (!target || target.dataset.ovPanel === draggedOvId) return;
+            e.preventDefault();
+            container.querySelectorAll('[data-ov-panel].is-drop-target').forEach(el => {
+                if (el !== target) el.classList.remove('is-drop-target');
+            });
+            target.classList.add('is-drop-target');
+        };
+        const onDrop = async e => {
+            if (!draggedOvId || isLayoutLocked()) return;
+            const target = e.target.closest('[data-ov-panel]');
+            if (!target) return;
+            e.preventDefault();
+            const srcId = draggedOvId;
+            const targetId = target.dataset.ovPanel || '';
+            draggedOvId = '';
+            container.querySelectorAll('[data-ov-panel]').forEach(el => el.classList.remove('is-dragging', 'is-drop-target'));
+            if (!srcId || !targetId || srcId === targetId) return;
+            const prof = getCurrentProfile();
+            if (!prof) return;
+            const list = [...(prof.overlays || [])];
+            const fromIdx = list.indexOf(srcId);
+            const toIdx = list.indexOf(targetId);
+            if (fromIdx === -1 || toIdx === -1) return;
+            const [moved] = list.splice(fromIdx, 1);
+            list.splice(toIdx, 0, moved);
+            try {
+                await saveProfileToServer({ ...prof, overlays: list });
+                renderDomain(container, ctx);
+            } catch (err) { toast(err.message, 'error'); }
+        };
+        const onDragEnd = () => {
+            draggedOvId = '';
+            container.querySelectorAll('[data-ov-panel]').forEach(el => el.classList.remove('is-dragging', 'is-drop-target'));
+        };
 
-        container._opListeners = { onClick, onChange, onSubmit };
+        container._opListeners = { onClick, onChange, onSubmit, onDragStart, onDragOver, onDrop, onDragEnd };
         container.addEventListener('click', onClick);
         container.addEventListener('change', onChange);
         container.addEventListener('submit', onSubmit);
+        container.addEventListener('dragstart', onDragStart);
+        container.addEventListener('dragover', onDragOver);
+        container.addEventListener('drop', onDrop);
+        container.addEventListener('dragend', onDragEnd);
 
         await loadAddedOverlays(getCurrentProfile());
         renderDomain(container, ctx);
@@ -536,10 +615,14 @@ registerOperatorModule({
     unmount(ctx) {
         domainMounted = false;
         if (domainContainer?._opListeners) {
-            const { onClick, onChange, onSubmit } = domainContainer._opListeners;
+            const { onClick, onChange, onSubmit, onDragStart, onDragOver, onDrop, onDragEnd } = domainContainer._opListeners;
             domainContainer.removeEventListener('click', onClick);
             domainContainer.removeEventListener('change', onChange);
             domainContainer.removeEventListener('submit', onSubmit);
+            domainContainer.removeEventListener('dragstart', onDragStart);
+            domainContainer.removeEventListener('dragover', onDragOver);
+            domainContainer.removeEventListener('drop', onDrop);
+            domainContainer.removeEventListener('dragend', onDragEnd);
             delete domainContainer._opListeners;
         }
         if (ctx?.container) ctx.container.hidden = true;

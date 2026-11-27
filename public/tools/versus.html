@@ -489,7 +489,18 @@
 
                         <!-- Competitor Cards Grid -->
                         <div class="card-section">
-                            <div class="micro-heading" style="margin-bottom: 0.6rem;">Competitors &amp; Live Scoring</div>
+                            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.6rem;">
+                                <div class="micro-heading" style="margin-bottom: 0;">Competitors &amp; Live Scoring</div>
+                                <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                    <label for="matchup-live-rounds-select" style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 0;">Rounds / Game</label>
+                                    <select id="matchup-live-rounds-select" class="form-control" style="font-size: 0.74rem; padding: 0.16rem 0.42rem; height: 26px; width: auto;" onchange="updateMatchupLiveRounds(this.value)">
+                                        <option value="0">Off (Games only)</option>
+                                        <option value="3">Best of 3 (First to 2)</option>
+                                        <option value="5">Best of 5 (First to 3)</option>
+                                        <option value="7">Best of 7 (First to 4)</option>
+                                    </select>
+                                </div>
+                            </div>
                             <div id="matchup-competitors-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;"></div>
                         </div>
 

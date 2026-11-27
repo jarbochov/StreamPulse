@@ -347,16 +347,13 @@ function renderColumnToolbar(setObj, viewCfg) {
     if (delBtn) delBtn.hidden = !activeLayoutName || !layouts.some(l => l.name === activeLayoutName);
     if (colsPop) {
         const defsMap = new Map(getAllColumnDefs(setObj).map(d => [d.key, d]));
-        const itemsHtml = viewCfg.order.map((key, idx) => {
+        const itemsHtml = viewCfg.order.map(key => {
             const def = defsMap.get(key);
             if (!def) return '';
             const checked = viewCfg.visible.includes(key);
-            return `<div class="op-col-item">
-                <label><input type="checkbox" data-op-col-toggle="${esc(key)}" ${checked ? 'checked' : ''}><span>${esc(def.label)}</span></label>
-                <span class="op-col-move">
-                    <button type="button" data-op-col-move="up" data-op-col-key="${esc(key)}" ${idx === 0 ? 'disabled' : ''} title="Move left / up" aria-label="Move ${esc(def.label)} earlier">&uarr;</button>
-                    <button type="button" data-op-col-move="down" data-op-col-key="${esc(key)}" ${idx === viewCfg.order.length - 1 ? 'disabled' : ''} title="Move right / down" aria-label="Move ${esc(def.label)} later">&darr;</button>
-                </span>
+            return `<div class="op-col-item" draggable="true" data-op-col-drag="${esc(key)}">
+                <span class="op-drag-grip" title="Drag to reorder column" style="display:inline-flex;align-items:center;cursor:grab;color:var(--text-muted);opacity:.7;margin-right:.2rem;"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.7"/><circle cx="15" cy="6" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/><circle cx="9" cy="18" r="1.7"/><circle cx="15" cy="18" r="1.7"/></svg></span>
+                <label style="flex:1;"><input type="checkbox" data-op-col-toggle="${esc(key)}" ${checked ? 'checked' : ''}><span>${esc(def.label)}</span></label>
             </div>`;
         }).join('');
         colsPop.innerHTML = `<div class="op-cols-head"><span>Columns &amp; Order</span><button type="button" class="op-btn sm" id="op-cols-reset">Reset</button></div><div class="op-cols-list">${itemsHtml}</div>`;
@@ -867,6 +864,7 @@ function bindEvents() {
         saveViewConfig(setObj, cfg, '');
         renderOperator();
     });
+    let draggedColKey = '';
     colsPop?.addEventListener('click', e => {
         const setObj = getActiveSet();
         if (!setObj) return;
@@ -874,20 +872,48 @@ function bindEvents() {
             const allKeys = getAllColumnDefs(setObj).map(d => d.key);
             saveViewConfig(setObj, { order: allKeys, visible: allKeys, sort: { key: '', dir: '' } }, '');
             renderOperator();
-            return;
         }
-        const mv = e.target.closest('[data-op-col-move]');
-        if (mv) {
-            const key = mv.dataset.opColKey;
-            const cfg = getViewConfig(setObj);
-            const idx = cfg.order.indexOf(key);
-            const swap = idx + (mv.dataset.opColMove === 'up' ? -1 : 1);
-            if (idx >= 0 && swap >= 0 && swap < cfg.order.length) {
-                [cfg.order[idx], cfg.order[swap]] = [cfg.order[swap], cfg.order[idx]];
-                saveViewConfig(setObj, cfg, '');
-                renderOperator();
-            }
+    });
+    colsPop?.addEventListener('dragstart', e => {
+        const row = e.target.closest('[data-op-col-drag]');
+        if (!row) return;
+        draggedColKey = row.dataset.opColDrag || '';
+        row.style.opacity = '.45';
+        e.dataTransfer?.setData('text/plain', draggedColKey);
+    });
+    colsPop?.addEventListener('dragover', e => {
+        if (!draggedColKey) return;
+        const row = e.target.closest('[data-op-col-drag]');
+        if (!row || row.dataset.opColDrag === draggedColKey) return;
+        e.preventDefault();
+        colsPop.querySelectorAll('[data-op-col-drag]').forEach(el => {
+            el.style.borderTop = el === row ? '2px solid var(--accent)' : '';
+        });
+    });
+    colsPop?.addEventListener('drop', e => {
+        if (!draggedColKey) return;
+        const row = e.target.closest('[data-op-col-drag]');
+        if (!row) return;
+        e.preventDefault();
+        const targetKey = row.dataset.opColDrag || '';
+        const srcKey = draggedColKey;
+        draggedColKey = '';
+        colsPop.querySelectorAll('[data-op-col-drag]').forEach(el => { el.style.opacity = ''; el.style.borderTop = ''; });
+        const setObj = getActiveSet();
+        if (!setObj || !srcKey || !targetKey || srcKey === targetKey) return;
+        const cfg = getViewConfig(setObj);
+        const fromIdx = cfg.order.indexOf(srcKey);
+        const toIdx = cfg.order.indexOf(targetKey);
+        if (fromIdx >= 0 && toIdx >= 0) {
+            const [moved] = cfg.order.splice(fromIdx, 1);
+            cfg.order.splice(toIdx, 0, moved);
+            saveViewConfig(setObj, cfg, '');
+            renderOperator();
         }
+    });
+    colsPop?.addEventListener('dragend', () => {
+        draggedColKey = '';
+        colsPop.querySelectorAll('[data-op-col-drag]').forEach(el => { el.style.opacity = ''; el.style.borderTop = ''; });
     });
 
     document.getElementById('op-layout-select')?.addEventListener('change', e => {

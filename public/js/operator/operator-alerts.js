@@ -183,22 +183,30 @@ async function handleAlertsClick(e, onUpdate) {
 
 function renderDomain(container) {
     const announcements = (rulesState.rules || []).filter(r => r.trigger === 'announcement' && r.enabled !== false);
+    const pending = Number(queueDetailState.pending ?? rulesState.pending) || 0;
     container.innerHTML = `
         <div class="op-domain-stack">
-            <section class="op-panel-card" aria-label="Alert Queue Controls">
-                <div class="op-panel-row">
-                    <h2 class="op-section-title">${OP_ICONS.alerts} Live Queue</h2>
-                    <div class="op-btn-row">
-                        <a class="op-btn sm" href="/alert-queue.html">Full Log</a>
-                        <a class="op-btn sm" href="/alerts.html">Alerts Studio</a>
-                    </div>
+            <section class="op-toolbar" aria-label="Alerts controls">
+                <div class="op-toolbar-left">
+                    <span style="display:inline-flex;align-items:center;gap:.4rem;font-weight:700;font-size:.88rem;">${OP_ICONS.alerts} Alerts</span>
+                    <span class="op-pill ${rulesState.paused ? '' : 'is-ok'}">${rulesState.paused ? 'Paused' : 'Active'}</span>
+                    <span class="op-pill">${pending} waiting</span>
                 </div>
-                ${renderQueueControlsHtml()}
+                <div class="op-toolbar-right">
+                    <a class="op-btn sm" href="/alert-queue.html">Full Log</a>
+                    <a class="op-btn sm" href="/alerts.html">Alerts Studio</a>
+                </div>
             </section>
-            <section class="op-panel-card" aria-label="Announcements">
-                <h2 class="op-section-title">${OP_ICONS.alerts} Announcements (${announcements.length})</h2>
-                ${renderQuickTriggerButtonsHtml()}
-            </section>
+            <div class="op-board-grid" style="--op-board-cols:2;">
+                <section class="op-panel-card" aria-label="Alert Queue Controls">
+                    <h2 class="op-section-title">${OP_ICONS.alerts} Live Queue</h2>
+                    ${renderQueueControlsHtml()}
+                </section>
+                <section class="op-panel-card" aria-label="Announcements">
+                    <h2 class="op-section-title">${OP_ICONS.alerts} Announcements (${announcements.length})</h2>
+                    ${renderQuickTriggerButtonsHtml()}
+                </section>
+            </div>
         </div>`;
 }
 

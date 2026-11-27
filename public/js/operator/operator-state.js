@@ -11,6 +11,7 @@ const COLLAPSED_PREFIX = 'streampulse_operator_collapsed_';
 
 const params = new URLSearchParams(location.search);
 const LOCKED_PROFILE_ID = (params.get('profile') || '').trim();
+const INITIAL_PRESET_ID = (params.get('preset') || '').trim();
 const DOCK_MODE = params.get('dock') === '1' || params.get('embed') === '1';
 const BARE_MODE = params.get('bare') === '1' || params.get('tabs') === '0';
 const URL_DENSE_PARAM = params.get('dense');
@@ -48,7 +49,9 @@ export const operatorState = {
     version: 1,
     activeProfileId: 'default',
     profiles: [],
+    runbooks: [],
     lockedProfileId: LOCKED_PROFILE_ID,
+    initialPresetId: INITIAL_PRESET_ID,
     dockMode: DOCK_MODE,
     bareMode: BARE_MODE,
     denseMode: INITIAL_DENSE,
@@ -174,13 +177,97 @@ export async function refreshStatus() {
     return operatorState.status;
 }
 
+export function syncPresetQueryParam(profileId) {
+    if (LOCKED_PROFILE_ID || !profileId) return;
+    try {
+        const url = new URL(location.href);
+        if (url.searchParams.get('preset') !== profileId) {
+            url.searchParams.set('preset', profileId);
+            history.replaceState(null, '', url);
+        }
+    } catch { /* ignore */ }
+}
+
+let appliedInitialPreset = false;
 export async function refreshOperatorProfiles() {
     const res = await api('/api/operator');
     operatorState.version = res.version || 1;
     operatorState.activeProfileId = res.activeProfileId || 'default';
     operatorState.profiles = Array.isArray(res.profiles) ? res.profiles : [];
+    operatorState.runbooks = Array.isArray(res.runbooks) ? res.runbooks : [];
+    if (!appliedInitialPreset && !LOCKED_PROFILE_ID && INITIAL_PRESET_ID) {
+        appliedInitialPreset = true;
+        const match = operatorState.profiles.find(p => p.id === INITIAL_PRESET_ID);
+        if (match) {
+            operatorState.activeProfileId = match.id;
+        }
+    }
+    syncPresetQueryParam(getCurrentProfileId());
     notify('profiles');
     return operatorState;
+}
+
+export async function refreshRunbooks() {
+    const res = await api('/api/operator/runbooks');
+    operatorState.runbooks = Array.isArray(res.runbooks) ? res.runbooks : [];
+    notify('runbooks');
+    return operatorState.runbooks;
+}
+
+export async function createRunbookOnServer(payload) {
+    const res = await api('/api/operator/runbooks', 'POST', payload);
+    if (Array.isArray(res.runbooks)) operatorState.runbooks = res.runbooks;
+    notify('runbooks');
+    return res.runbook;
+}
+
+export async function saveRunbookToServer(runbook) {
+    const res = await api(`/api/operator/runbooks/${encodeURIComponent(runbook.id)}`, 'PUT', runbook);
+    if (Array.isArray(res.runbooks)) operatorState.runbooks = res.runbooks;
+    notify('runbooks');
+    return res.runbook;
+}
+
+export async function deleteRunbookOnServer(id) {
+    const res = await api(`/api/operator/runbooks/${encodeURIComponent(id)}`, 'DELETE');
+    if (Array.isArray(res.runbooks)) operatorState.runbooks = res.runbooks;
+    notify('runbooks');
+    return res;
+}
+
+export async function duplicateRunbookOnServer(id) {
+    const res = await api(`/api/operator/runbooks/${encodeURIComponent(id)}/duplicate`, 'POST', {});
+    if (Array.isArray(res.runbooks)) operatorState.runbooks = res.runbooks;
+    notify('runbooks');
+    return res.runbook;
+}
+
+export async function toggleRunbookItemOnServer(id, payload) {
+    const res = await api(`/api/operator/runbooks/${encodeURIComponent(id)}/toggle`, 'POST', payload);
+    if (res.runbook) {
+        const idx = operatorState.runbooks.findIndex(r => r.id === res.runbook.id);
+        if (idx !== -1) operatorState.runbooks[idx] = res.runbook;
+    }
+    notify('runbooks');
+    return res.runbook;
+}
+
+export async function resetRunbookOnServer(id) {
+    const res = await api(`/api/operator/runbooks/${encodeURIComponent(id)}/reset`, 'POST', {});
+    if (res.runbook) {
+        const idx = operatorState.runbooks.findIndex(r => r.id === res.runbook.id);
+        if (idx !== -1) operatorState.runbooks[idx] = res.runbook;
+    }
+    notify('runbooks');
+    return res.runbook;
+}
+
+export function applyRemoteRunbooks(payload) {
+    if (!payload || !Array.isArray(payload.runbooks)) return false;
+    const prev = JSON.stringify(operatorState.runbooks);
+    operatorState.runbooks = payload.runbooks;
+    notify('remote-runbooks');
+    return prev !== JSON.stringify(operatorState.runbooks);
 }
 
 export async function saveProfileToServer(profile, { activate = false } = {}) {
@@ -229,6 +316,7 @@ export async function activateProfileOnServer(id) {
     }
     const res = await api(`/api/operator/profiles/${encodeURIComponent(id)}/activate`, 'POST', {});
     operatorState.activeProfileId = res.activeProfileId || id;
+    syncPresetQueryParam(operatorState.activeProfileId);
     notify('active-profile');
     return res.profile;
 }
@@ -247,17 +335,22 @@ export function applyRemoteOperatorState(snapshot) {
     if (!snapshot || typeof snapshot !== 'object') return false;
     const prevJson = JSON.stringify({
         activeProfileId: operatorState.activeProfileId,
-        profiles: operatorState.profiles
+        profiles: operatorState.profiles,
+        runbooks: operatorState.runbooks
     });
     if (Array.isArray(snapshot.profiles)) {
         operatorState.profiles = snapshot.profiles;
+    }
+    if (Array.isArray(snapshot.runbooks)) {
+        operatorState.runbooks = snapshot.runbooks;
     }
     if (!LOCKED_PROFILE_ID && snapshot.activeProfileId) {
         operatorState.activeProfileId = snapshot.activeProfileId;
     }
     const nextJson = JSON.stringify({
         activeProfileId: operatorState.activeProfileId,
-        profiles: operatorState.profiles
+        profiles: operatorState.profiles,
+        runbooks: operatorState.runbooks
     });
     notify('remote-profiles');
     return prevJson !== nextJson;
@@ -267,6 +360,7 @@ export function applyRemoteActiveProfile(payload) {
     if (LOCKED_PROFILE_ID) return false;
     if (payload?.activeProfileId) {
         operatorState.activeProfileId = payload.activeProfileId;
+        syncPresetQueryParam(operatorState.activeProfileId);
         notify('remote-active-profile');
         return true;
     }

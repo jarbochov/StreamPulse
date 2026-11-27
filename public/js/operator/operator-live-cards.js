@@ -3,16 +3,18 @@
 import { api, esc, toast } from '../shared/client-core.js';
 import { OP_ICONS } from './operator-icons.js';
 import { getCardType, registerCardType, registerOperatorModule } from './operator-registry.js';
-import { getCurrentProfile, isEditLocked } from './operator-state.js';
+import { isEditLocked } from './operator-state.js';
 
 let displaysCache = null;
 let varsCache = null;
 
-async function fetchDisplays(force = false) {
+export async function fetchDisplaysCatalog(force = false) {
     if (!force && displaysCache) return displaysCache;
     displaysCache = await api('/api/variable-displays');
     return displaysCache;
 }
+
+const fetchDisplays = fetchDisplaysCatalog;
 
 async function fetchVars(force = false) {
     if (!force && varsCache) return varsCache;
@@ -312,136 +314,203 @@ registerCardType({
 });
 
 // ============================================================
-// 4. Versus Match Quick Score Card
+// 4. Active Poll & Quick Poll Launcher Card
 // ============================================================
-async function renderVersusCard(el) {
-    const data = await api('/api/matchup');
-    const p1 = data.p1 || { name: 'Player 1', score: 0 };
-    const p2 = data.p2 || { name: 'Player 2', score: 0 };
-    const readOnly = isEditLocked();
-    el.innerHTML = `
-        <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:.5rem;align-items:center;text-align:center;">
-            <div style="display:grid;gap:.3rem;">
-                <strong style="font-size:.82rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(p1.name || 'Player 1')}</strong>
-                <div style="font-size:1.45rem;font-weight:800;font-variant-numeric:tabular-nums;">${Number(p1.score) || 0}</div>
-                ${readOnly ? '' : `<div class="op-btn-row" style="justify-content:center;">
-                    <button type="button" class="op-btn sm" data-vs-act="p1" data-delta="-1">-1</button>
-                    <button type="button" class="op-btn sm primary" data-vs-act="p1" data-delta="1">+1</button>
-                </div>`}
-            </div>
-            <div style="font-size:.72rem;font-weight:800;color:var(--text-muted);">VS</div>
-            <div style="display:grid;gap:.3rem;">
-                <strong style="font-size:.82rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(p2.name || 'Player 2')}</strong>
-                <div style="font-size:1.45rem;font-weight:800;font-variant-numeric:tabular-nums;">${Number(p2.score) || 0}</div>
-                ${readOnly ? '' : `<div class="op-btn-row" style="justify-content:center;">
-                    <button type="button" class="op-btn sm" data-vs-act="p2" data-delta="-1">-1</button>
-                    <button type="button" class="op-btn sm primary" data-vs-act="p2" data-delta="1">+1</button>
-                </div>`}
-            </div>
-        </div>
-        ${readOnly ? '' : `<div class="op-btn-row" style="justify-content:center;margin-top:.55rem;">
-            <button type="button" class="op-btn sm" data-vs-act="swap">Swap</button>
-            <button type="button" class="op-btn sm" data-vs-act="reset">Reset Scores</button>
-        </div>`}`;
+function formatPollRemaining(poll) {
+    if (!poll || poll.status !== 'ACTIVE' || !poll.duration || !poll.startedAt) return '';
+    const startedMs = Date.parse(poll.startedAt);
+    if (Number.isNaN(startedMs)) return '';
+    const elapsed = Math.floor((Date.now() - startedMs) / 1000);
+    const rem = Math.max(0, Number(poll.duration) - elapsed);
+    const m = Math.floor(rem / 60);
+    const s = rem % 60;
+    return m > 0 ? `${m}:${String(s).padStart(2, '0')}` : `${s}s`;
 }
 
-registerCardType({
-    type: 'versus-quick',
-    moduleId: 'versus',
-    label: 'Versus Match Score',
-    description: 'Live Player 1 / Player 2 score buttons, Swap, and Reset.',
-    iconSvg: OP_ICONS.board,
-    isEnabled: status => status?.modules?.matchup !== false,
-    mount(el) {
-        const refresh = () => renderVersusCard(el).catch(err => { el.textContent = err.message; });
-        const onClick = async e => {
-            if (isEditLocked()) return;
-            const btn = e.target.closest('[data-vs-act]');
-            if (!btn) return;
-            const act = btn.dataset.vsAct;
-            try {
-                if (act === 'p1' || act === 'p2') {
-                    const delta = Number(btn.dataset.delta) || 1;
-                    await api(`/api/matchup/score/${act}/${delta > 0 ? 'inc' : 'dec'}`, 'POST', {});
-                } else if (act === 'swap') {
-                    await api('/api/matchup/swap', 'POST', {});
-                } else if (act === 'reset') {
-                    const before = await api('/api/matchup');
-                    await api('/api/matchup/reset', 'POST', {});
-                    undoToast('Reset Versus scores', async () => {
-                        await api('/api/matchup', 'POST', { p1: { ...before.p1 }, p2: { ...before.p2 } });
-                        refresh();
-                    });
-                }
-                refresh();
-            } catch (err) { toast(err.message, 'error'); }
-        };
-        el.addEventListener('click', onClick);
-        el._opRefresh = refresh;
-        el._opCleanup = () => el.removeEventListener('click', onClick);
-        refresh();
-    },
-    onSocket(el, card, type) {
-        if (type === 'matchup' || type === 'matchup-update') el._opRefresh?.();
-    },
-    unmount(el) { el._opCleanup?.(); }
-});
+function renderPollComposerHtml(presets, openByDefault) {
+    const presetChips = presets.length
+        ? `<div style="display:grid;gap:.3rem;margin-bottom:.5rem;">
+            <span style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);">Quick Launch Preset</span>
+            <div class="op-btn-row" style="flex-wrap:wrap;">
+                ${presets.slice(0, 8).map((p, idx) => `<button type="button" class="op-btn sm" data-poll-launch-preset="${idx}" title="${esc(p.title || p.name || '')}">${esc(p.name || p.title || `Preset ${idx + 1}`)}</button>`).join('')}
+            </div>
+        </div>`
+        : '';
 
-// ============================================================
-// 5. Active Poll Quick Card
-// ============================================================
-async function renderPollCard(el) {
-    const data = await api('/api/polls/status');
-    const poll = data?.poll || data;
-    if (!poll || (!poll.active && !(poll.options || []).length)) {
-        el.innerHTML = '<div style="font-size:.8rem;color:var(--text-muted);">No active poll. Start one in <a href="/polls.html" style="color:var(--accent);">Polls Studio</a>.</div>';
-        return;
+    const formHtml = `
+        ${presetChips}
+        <form data-poll-create-form="1" style="display:grid;gap:.45rem;">
+            <input type="text" class="op-cell-input" name="title" placeholder="Poll question (e.g. What should we play next?)" required autocomplete="off">
+            <textarea class="op-cell-input" name="choices" rows="3" placeholder="Choices (one per line, 2–10 choices)" required style="resize:vertical;min-height:66px;font-family:inherit;"></textarea>
+            <div class="op-panel-row" style="flex-wrap:wrap;gap:.4rem;">
+                <div style="display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;">
+                    <label style="display:inline-flex;align-items:center;gap:.3rem;font-size:.75rem;color:var(--text-muted);">
+                        Duration
+                        <select name="duration" class="op-profile-select" style="min-width:86px;max-width:110px;">
+                            <option value="60" selected>60s</option>
+                            <option value="30">30s</option>
+                            <option value="120">2 min</option>
+                            <option value="300">5 min</option>
+                            <option value="0">Manual</option>
+                        </select>
+                    </label>
+                    <label style="display:inline-flex;align-items:center;gap:.3rem;font-size:.75rem;color:var(--text-muted);cursor:pointer;">
+                        <input type="checkbox" name="blind">
+                        <span>Blind</span>
+                    </label>
+                </div>
+                <button type="submit" class="op-btn sm primary">Start Poll</button>
+            </div>
+        </form>`;
+
+    if (openByDefault) {
+        return `<div style="display:grid;gap:.35rem;padding:.55rem;border:1px solid var(--border);border-radius:8px;background:var(--bg-inset);">
+            <strong style="font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);">Start New Poll</strong>
+            ${formHtml}
+        </div>`;
     }
-    const opts = poll.options || [];
-    const total = opts.reduce((s, o) => s + (Number(o.votes) || 0), 0);
-    const readOnly = isEditLocked();
-    el.innerHTML = `
-        <div class="op-panel-row" style="margin-bottom:.4rem;">
-            <strong style="font-size:.82rem;">${esc(poll.question || 'Active Poll')}</strong>
-            <span class="op-pill ${poll.active ? 'is-live' : ''}">${poll.active ? 'Live' : 'Ended'} · ${total}</span>
-        </div>
-        <div style="display:grid;gap:.3rem;margin-bottom:.45rem;">
-            ${opts.map(o => {
-                const votes = Number(o.votes) || 0;
-                const pct = total ? Math.round((votes / total) * 100) : 0;
-                return `<div style="font-size:.76rem;">
-                    <div style="display:flex;justify-content:space-between;"><span>${esc(o.label || o.text || '')}</span><span style="font-variant-numeric:tabular-nums;">${votes} (${pct}%)</span></div>
-                    <div style="height:5px;border-radius:999px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:2px;"><div style="height:100%;width:${pct}%;background:var(--accent);"></div></div>
-                </div>`;
-            }).join('')}
-        </div>
-        ${readOnly ? '' : `<div class="op-btn-row">
-            ${poll.active ? '<button type="button" class="op-btn sm" data-poll-act="end">End Poll</button>' : ''}
-            <button type="button" class="op-btn sm" data-poll-act="clear">Clear</button>
-        </div>`}`;
+    return `<details style="margin-top:.55rem;padding:.45rem .55rem;border:1px solid var(--border);border-radius:8px;background:var(--bg-inset);">
+        <summary style="cursor:pointer;font-size:.76rem;font-weight:700;color:var(--text-muted);">Start Another Poll / Presets</summary>
+        <div style="margin-top:.5rem;">${formHtml}</div>
+    </details>`;
 }
 
 registerCardType({
     type: 'poll-quick',
     moduleId: 'polls',
     label: 'Active Poll Controls',
-    description: 'Monitor live poll votes and End or Clear the active poll.',
-    iconSvg: OP_ICONS.board,
+    description: 'Start new polls or saved presets, monitor live votes, extend timer, toggle voting/blind mode, End, or Cancel.',
+    iconSvg: OP_ICONS.polls,
     isEnabled: status => status?.modules?.polls !== false,
     mount(el) {
-        const refresh = () => renderPollCard(el).catch(err => { el.textContent = err.message; });
+        let latestPoll = null;
+        let savedPresets = [];
+        let pollTimer = null;
+
+        const stopPollTimer = () => {
+            if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+        };
+
+        const syncPollTimer = () => {
+            if (!latestPoll || latestPoll.status !== 'ACTIVE' || !latestPoll.duration || !latestPoll.startedAt) {
+                stopPollTimer();
+                return;
+            }
+            if (!pollTimer) {
+                pollTimer = setInterval(() => {
+                    if (document.hidden) return;
+                    const pill = el.querySelector('[data-poll-remaining]');
+                    if (pill) pill.textContent = formatPollRemaining(latestPoll) || '0s';
+                }, 500);
+            }
+        };
+
+        const render = async () => {
+            const [latestRes, presetsRes] = await Promise.all([
+                api('/api/polls/latest').catch(() => ({ poll: null })),
+                api('/api/polls/presets').catch(() => ({ presets: [] }))
+            ]);
+            latestPoll = latestRes?.poll || null;
+            savedPresets = Array.isArray(presetsRes?.presets) ? presetsRes.presets : [];
+            const poll = latestPoll;
+            const choices = Array.isArray(poll?.choices) ? poll.choices : [];
+            const isActive = poll?.status === 'ACTIVE';
+            const total = Number(poll?.totalVotes) || choices.reduce((s, c) => s + (Number(c.votes) || 0), 0);
+            const readOnly = isEditLocked();
+            const remText = formatPollRemaining(poll);
+
+            const pollView = poll && choices.length ? `
+                <div style="display:grid;gap:.45rem;margin-bottom:${isActive ? '0' : '.6rem'};">
+                    <div class="op-panel-row" style="flex-wrap:wrap;gap:.35rem;">
+                        <strong style="font-size:.86rem;">${esc(poll.title || 'Poll')}</strong>
+                        <div style="display:flex;gap:.3rem;align-items:center;flex-wrap:wrap;">
+                            ${remText ? `<span class="op-pill is-live" data-poll-remaining="1" style="font-variant-numeric:tabular-nums;">${esc(remText)}</span>` : ''}
+                            ${poll.blind ? '<span class="op-pill">Blind</span>' : ''}
+                            ${poll.votingPaused ? '<span class="op-pill">Voting Paused</span>' : ''}
+                            <span class="op-pill ${isActive ? 'is-live' : ''}">${isActive ? 'Live' : esc(poll.status || 'Ended')} · ${total}</span>
+                        </div>
+                    </div>
+                    <div style="display:grid;gap:.35rem;">
+                        ${choices.map((c, idx) => {
+                            const votes = Number(c.votes) || 0;
+                            const pct = c.percent !== undefined ? Math.round(Number(c.percent) || 0) : (total ? Math.round((votes / total) * 100) : 0);
+                            return `<div style="font-size:.78rem;">
+                                <div style="display:flex;justify-content:space-between;gap:.4rem;"><span><strong>${idx + 1}.</strong> ${esc(c.title || c.label || '')}</span><span style="font-variant-numeric:tabular-nums;">${votes} (${pct}%)</span></div>
+                                <div style="height:6px;border-radius:999px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:2px;"><div style="height:100%;width:${pct}%;background:var(--accent);transition:width .2s ease;"></div></div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                    ${readOnly || !isActive ? '' : `<div class="op-btn-row" style="flex-wrap:wrap;">
+                        <button type="button" class="op-btn sm" data-poll-act="extend" data-seconds="30">+30s</button>
+                        <button type="button" class="op-btn sm ${poll.votingPaused ? 'active' : ''}" data-poll-act="toggle-voting">${poll.votingPaused ? 'Resume Voting' : 'Pause Voting'}</button>
+                        <button type="button" class="op-btn sm ${poll.blind ? 'active' : ''}" data-poll-act="toggle-blind">${poll.blind ? 'Show Results' : 'Blind Mode'}</button>
+                        <button type="button" class="op-btn sm primary" data-poll-act="end">End Poll</button>
+                        <button type="button" class="op-btn sm danger" data-poll-act="cancel">Cancel</button>
+                    </div>`}
+                </div>` : '<div style="font-size:.8rem;color:var(--text-muted);margin-bottom:.55rem;">No poll running right now. Launch one below or open <a href="/polls.html" style="color:var(--accent);">Polls Studio</a>.</div>';
+
+            el.innerHTML = pollView + (readOnly ? '' : renderPollComposerHtml(savedPresets, !isActive));
+            syncPollTimer();
+        };
+
+        const refresh = () => render().catch(err => { el.textContent = err.message; });
         const onClick = async e => {
             if (isEditLocked()) return;
+            const presetBtn = e.target.closest('[data-poll-launch-preset]');
+            if (presetBtn) {
+                const preset = savedPresets[Number(presetBtn.dataset.pollLaunchPreset)];
+                if (!preset) return;
+                try {
+                    await api('/api/polls/create', 'POST', {
+                        title: preset.title || preset.name,
+                        choices: preset.choices || [],
+                        duration: preset.duration ?? 60,
+                        blind: Boolean(preset.blind)
+                    });
+                    toast(`Started poll "${preset.title || preset.name}"`, 'success');
+                    refresh();
+                } catch (err) { toast(err.message, 'error'); }
+                return;
+            }
             const btn = e.target.closest('[data-poll-act]');
             if (!btn) return;
+            const act = btn.dataset.pollAct;
             try {
-                await api(`/api/polls/${btn.dataset.pollAct}`, 'POST', {});
+                const payload = act === 'extend' ? { seconds: Number(btn.dataset.seconds) || 30 } : {};
+                await api(`/api/polls/${act}`, 'POST', payload);
+                refresh();
+            } catch (err) { toast(err.message, 'error'); }
+        };
+        const onSubmit = async e => {
+            const form = e.target.closest('[data-poll-create-form]');
+            if (!form || isEditLocked()) return;
+            e.preventDefault();
+            const title = (form.elements.title?.value || '').trim();
+            const rawChoices = String(form.elements.choices?.value || '')
+                .split(/\r?\n/)
+                .map(s => s.trim())
+                .filter(Boolean);
+            const choices = rawChoices.length >= 2
+                ? rawChoices
+                : String(form.elements.choices?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+            const duration = Number(form.elements.duration?.value) || 0;
+            const blind = Boolean(form.elements.blind?.checked);
+            if (!title) { toast('Enter a poll question', 'error'); return; }
+            if (choices.length < 2) { toast('Enter at least 2 poll choices (one per line)', 'error'); return; }
+            try {
+                await api('/api/polls/create', 'POST', { title, choices, duration, blind });
+                toast(`Started poll "${title}"`, 'success');
                 refresh();
             } catch (err) { toast(err.message, 'error'); }
         };
         el.addEventListener('click', onClick);
+        el.addEventListener('submit', onSubmit);
         el._opRefresh = refresh;
-        el._opCleanup = () => el.removeEventListener('click', onClick);
+        el._opCleanup = () => {
+            stopPollTimer();
+            el.removeEventListener('click', onClick);
+            el.removeEventListener('submit', onSubmit);
+        };
         refresh();
     },
     onSocket(el, card, type) {
@@ -451,36 +520,165 @@ registerCardType({
 });
 
 // ============================================================
-// 6. Trivia Quick Control Card
+// 5. Trivia Quick Control Card (with Up-Next preview & live timer)
 // ============================================================
-async function renderTriviaCard(el) {
-    const data = await api('/api/trivia/status');
-    const readOnly = isEditLocked();
-    const stateLabel = data?.state || 'idle';
-    el.innerHTML = `
-        <div class="op-panel-row" style="margin-bottom:.35rem;">
-            <span class="op-pill ${stateLabel === 'question' ? 'is-live' : ''}">${esc(stateLabel)}</span>
-            <span class="op-pill">${Number(data?.voteCount || 0)} votes</span>
-        </div>
-        <div style="font-size:.82rem;font-weight:600;margin-bottom:.45rem;">${esc(data?.question || 'No active question.')}</div>
-        ${readOnly ? '' : `<div class="op-btn-row">
-            <button type="button" class="op-btn sm primary" data-triv-act="question/next">Next</button>
-            <button type="button" class="op-btn sm" data-triv-act="question/reveal">Reveal</button>
-            <button type="button" class="op-btn sm" data-triv-act="reset">Reset</button>
-        </div>`}`;
-}
-
 registerCardType({
     type: 'trivia-quick',
     moduleId: 'trivia',
     label: 'Trivia Controls',
-    description: 'Run Next Question, Reveal Answer, and Reset from the Live Board.',
-    iconSvg: OP_ICONS.board,
+    description: 'Preview up-next questions, jump to any question, run Start/Prev/Next/Reveal/Clear/Reset with live countdown and chat vote bars.',
+    iconSvg: OP_ICONS.trivia,
     isEnabled: status => status?.modules?.trivia !== false,
     mount(el) {
-        const refresh = () => renderTriviaCard(el).catch(err => { el.textContent = err.message; });
+        let triviaTimer = null;
+        let selectedStartIndex = 0;
+        let activeEndsAt = 0;
+        let activePhase = 'idle';
+
+        const stopTriviaTimer = () => {
+            if (triviaTimer) { clearInterval(triviaTimer); triviaTimer = null; }
+        };
+
+        const syncTriviaTimer = () => {
+            if (activePhase !== 'question' || !activeEndsAt) {
+                stopTriviaTimer();
+                return;
+            }
+            if (!triviaTimer) {
+                triviaTimer = setInterval(() => {
+                    if (document.hidden) return;
+                    const pill = el.querySelector('[data-triv-timer]');
+                    if (!pill) return;
+                    const rem = Math.max(0, Math.ceil((activeEndsAt - Date.now()) / 1000));
+                    pill.textContent = `${rem}s`;
+                    pill.classList.toggle('is-live', rem > 0);
+                }, 250);
+            }
+        };
+
+        const render = async () => {
+            // Prefer full admin state (gives questions bank + endsAt + correctIndex), fall back to /api/trivia/status
+            let data = await api('/api/trivia?includeAnswers=true').catch(() => null);
+            if (!data || !data.status) {
+                data = await api('/api/trivia/status');
+            }
+            const readOnly = isEditLocked();
+            const stateLabel = data?.status || 'idle';
+            activePhase = stateLabel;
+            const questions = Array.isArray(data?.questions) ? data.questions : [];
+            const totalQ = Number(data?.totalQuestions ?? questions.length) || 0;
+            const curIdx = Number(data?.currentIndex);
+            const activeQ = data?.activeQuestion || null;
+            const defaultDur = Number(data?.settings?.defaultDuration) || 20;
+
+            // Choose preview/upcoming question when idle so user immediately sees Q1 + timer
+            let upcomingIdx = 0;
+            if (questions.length) {
+                if (selectedStartIndex >= 0 && selectedStartIndex < questions.length) {
+                    upcomingIdx = selectedStartIndex;
+                } else {
+                    const firstUnplayed = questions.findIndex(q => !q.done && !q.played);
+                    upcomingIdx = firstUnplayed !== -1 ? firstUnplayed : 0;
+                    selectedStartIndex = upcomingIdx;
+                }
+            }
+            const upcomingQ = stateLabel === 'idle' && questions.length ? questions[upcomingIdx] : null;
+
+            const qNum = stateLabel === 'idle'
+                ? (upcomingQ ? upcomingIdx + 1 : 0)
+                : (Number.isInteger(curIdx) && curIdx >= 0 ? curIdx + 1 : 1);
+            const questionText = activeQ?.question || data?.activeQuestionText || upcomingQ?.question || '';
+            const category = activeQ?.category || data?.activeCategory || upcomingQ?.category || '';
+            const votes = Number(activeQ?.totalVotes ?? data?.totalVotes) || 0;
+
+            // Compute live timer readout
+            const endsAtMs = activeQ?.endsAt ? Number(activeQ.endsAt) : 0;
+            const rawRem = Number(activeQ?.remainingSeconds ?? data?.remainingSeconds) || 0;
+            activeEndsAt = stateLabel === 'question'
+                ? (endsAtMs || (rawRem > 0 ? Date.now() + rawRem * 1000 : 0))
+                : 0;
+            const timerSeconds = stateLabel === 'question'
+                ? (activeEndsAt ? Math.max(0, Math.ceil((activeEndsAt - Date.now()) / 1000)) : rawRem)
+                : (Number(activeQ?.duration || upcomingQ?.duration || defaultDur) || 0);
+
+            const choices = Array.isArray(activeQ?.choices)
+                ? activeQ.choices.map((c, idx) => ({
+                    letter: c.letter || c.label || String.fromCharCode(65 + idx),
+                    text: c.text || '',
+                    votes: Number(c.votes) || 0,
+                    percent: c.percent !== undefined ? Math.round(Number(c.percent) || 0) : (votes ? Math.round(((Number(c.votes) || 0) / votes) * 100) : 0),
+                    isCorrect: Boolean(c.isCorrect) || (activeQ.correctIndex !== null && activeQ.correctIndex !== undefined && Number(activeQ.correctIndex) === idx)
+                }))
+                : (upcomingQ && Array.isArray(upcomingQ.choices)
+                    ? upcomingQ.choices.map((txt, idx) => ({
+                        letter: String.fromCharCode(65 + idx),
+                        text: typeof txt === 'string' ? txt : (txt?.text || ''),
+                        votes: 0,
+                        percent: 0,
+                        isCorrect: upcomingQ.correctIndex !== undefined && Number(upcomingQ.correctIndex) === idx
+                    }))
+                    : []);
+
+            const statusBadgeText = stateLabel === 'idle'
+                ? (upcomingQ ? 'Up Next' : 'Idle')
+                : stateLabel === 'question'
+                    ? 'Live'
+                    : 'Revealed';
+
+            el.innerHTML = `
+                <div style="display:grid;gap:.45rem;">
+                    <div class="op-panel-row" style="flex-wrap:wrap;gap:.35rem;">
+                        <div style="display:flex;gap:.3rem;align-items:center;flex-wrap:wrap;">
+                            <span class="op-pill ${stateLabel === 'question' ? 'is-live' : (stateLabel === 'reveal' ? 'is-ok' : '')}">${esc(statusBadgeText)}</span>
+                            ${totalQ > 0 ? `<span class="op-pill">Q ${qNum || 1} / ${totalQ}</span>` : ''}
+                            ${category ? `<span class="op-pill">${esc(category)}</span>` : ''}
+                        </div>
+                        <div style="display:flex;gap:.3rem;align-items:center;">
+                            ${timerSeconds > 0 ? `<span class="op-pill ${stateLabel === 'question' ? 'is-live' : ''}" data-triv-timer="1" style="font-family:monospace;font-weight:700;font-variant-numeric:tabular-nums;">${timerSeconds}s</span>` : ''}
+                            ${stateLabel !== 'idle' ? `<span class="op-pill">${votes} vote${votes === 1 ? '' : 's'}</span>` : ''}
+                        </div>
+                    </div>
+                    ${questions.length > 1 && !readOnly ? `<select class="op-profile-select" style="max-width:100%;width:100%;" data-triv-pick="1" aria-label="Select trivia question">
+                        ${questions.map((q, idx) => `<option value="${idx}"${(stateLabel === 'idle' ? idx === upcomingIdx : idx === curIdx) ? ' selected' : ''}>Q${idx + 1}${q.done || q.played ? ' [Done]' : ''}: ${esc((q.question || '').slice(0, 72))}</option>`).join('')}
+                    </select>` : ''}
+                    <div style="font-size:.88rem;font-weight:600;line-height:1.35;">${questionText ? esc(questionText) : 'No trivia questions yet. Add questions in <a href="/trivia.html" style="color:var(--accent);">Trivia Studio</a>.'}</div>
+                    ${choices.length ? `<div style="display:grid;gap:.3rem;">
+                        ${choices.map(c => {
+                            const showCorrect = stateLabel === 'reveal' && c.isCorrect;
+                            const showHintCorrect = stateLabel !== 'reveal' && c.isCorrect;
+                            return `<div style="padding:.3rem .48rem;border:1px solid ${showCorrect ? 'rgba(34,197,94,.55)' : 'var(--border)'};border-radius:6px;background:${showCorrect ? 'rgba(34,197,94,.12)' : 'var(--bg-inset)'};font-size:.78rem;">
+                                <div style="display:flex;justify-content:space-between;gap:.4rem;align-items:center;">
+                                    <span><strong>${esc(c.letter)}.</strong> ${esc(c.text)}${showCorrect ? ' <span class="op-pill is-ok" style="margin-left:.25rem;font-size:.65rem;">Correct</span>' : (showHintCorrect ? ' <span class="op-pill" style="margin-left:.25rem;font-size:.63rem;opacity:.75;">Answer</span>' : '')}</span>
+                                    ${stateLabel !== 'idle' ? `<span style="font-variant-numeric:tabular-nums;color:var(--text-muted);">${c.votes} (${c.percent}%)</span>` : ''}
+                                </div>
+                                ${stateLabel !== 'idle' ? `<div style="height:4px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:3px;"><div style="height:100%;width:${c.percent}%;background:${showCorrect ? '#22c55e' : 'var(--accent)'};"></div></div>` : ''}
+                            </div>`;
+                        }).join('')}
+                    </div>` : ''}
+                    ${stateLabel === 'reveal' && activeQ?.funfact ? `<div style="font-size:.76rem;color:var(--text-muted);padding:.35rem .5rem;border-left:3px solid var(--accent);background:var(--bg-inset);border-radius:4px;">${esc(activeQ.funfact)}</div>` : ''}
+                    ${readOnly ? '' : `<div class="op-btn-row" style="flex-wrap:wrap;padding-top:.2rem;">
+                        ${stateLabel === 'idle' ? `<button type="button" class="op-btn sm primary" data-triv-start-idx="${upcomingIdx}" ${totalQ > 0 ? '' : 'disabled'}>Start Q${qNum || 1}</button>` : ''}
+                        <button type="button" class="op-btn sm" data-triv-act="question/prev" ${totalQ > 0 ? '' : 'disabled'}>Prev</button>
+                        <button type="button" class="op-btn sm ${stateLabel !== 'idle' ? 'primary' : ''}" data-triv-act="question/next" ${totalQ > 0 ? '' : 'disabled'}>Next</button>
+                        <button type="button" class="op-btn sm" data-triv-act="question/reveal" ${stateLabel === 'question' ? '' : 'disabled'}>Reveal</button>
+                        <button type="button" class="op-btn sm" data-triv-act="question/clear" ${stateLabel !== 'idle' ? '' : 'disabled'}>Clear</button>
+                        <button type="button" class="op-btn sm danger" data-triv-act="reset">Reset</button>
+                    </div>`}
+                </div>`;
+            syncTriviaTimer();
+        };
+
+        const refresh = () => render().catch(err => { el.textContent = err.message; });
         const onClick = async e => {
             if (isEditLocked()) return;
+            const startBtn = e.target.closest('[data-triv-start-idx]');
+            if (startBtn) {
+                try {
+                    await api('/api/trivia/question/start', 'POST', { index: Number(startBtn.dataset.trivStartIdx) || 0 });
+                    refresh();
+                } catch (err) { toast(err.message, 'error'); }
+                return;
+            }
             const btn = e.target.closest('[data-triv-act]');
             if (!btn) return;
             try {
@@ -488,110 +686,40 @@ registerCardType({
                 refresh();
             } catch (err) { toast(err.message, 'error'); }
         };
+        const onChange = async e => {
+            const pick = e.target.closest('[data-triv-pick]');
+            if (!pick || isEditLocked()) return;
+            const idx = Number(pick.value) || 0;
+            selectedStartIndex = idx;
+            if (activePhase === 'idle') {
+                refresh();
+            } else {
+                try {
+                    await api('/api/trivia/question/start', 'POST', { index: idx });
+                    refresh();
+                } catch (err) { toast(err.message, 'error'); }
+            }
+        };
         el.addEventListener('click', onClick);
+        el.addEventListener('change', onChange);
         el._opRefresh = refresh;
-        el._opCleanup = () => el.removeEventListener('click', onClick);
+        el._opCleanup = () => {
+            stopTriviaTimer();
+            el.removeEventListener('click', onClick);
+            el.removeEventListener('change', onChange);
+        };
         refresh();
     },
     onSocket(el, card, type) {
-        if (type === 'trivia' || type === 'trivia-update') el._opRefresh?.();
+        if (type === 'trivia' || type === 'trivia-update' || String(type || '').startsWith('trivia:')) {
+            el._opRefresh?.();
+        }
     },
     unmount(el) { el._opCleanup?.(); }
 });
 
 // ============================================================
-// 7. Session Runbook / Cue Checklist Card
-// ============================================================
-function runbookKey(cardId) { return `streampulse_op_runbook_${cardId}`; }
-
-function loadRunbook(cardId) {
-    try {
-        const parsed = JSON.parse(localStorage.getItem(runbookKey(cardId)) || 'null');
-        if (Array.isArray(parsed)) return parsed;
-    } catch { /* ignore */ }
-    return [
-        { text: 'Check mic levels & OBS recording', done: false },
-        { text: 'Verify overlays & scene audio', done: false },
-        { text: 'Start StreamPulse session', done: false }
-    ];
-}
-
-function saveRunbook(cardId, items) {
-    try { localStorage.setItem(runbookKey(cardId), JSON.stringify(items)); } catch { /* ignore */ }
-}
-
-registerCardType({
-    type: 'runbook-cue',
-    moduleId: 'runbook',
-    label: 'Session Runbook / Cues',
-    description: 'Pin a pre-show or live show checklist with one-click Reset for the next broadcast.',
-    iconSvg: OP_ICONS.board,
-    isEnabled: () => true,
-    mount(el, card) {
-        let items = loadRunbook(card.id);
-        const draw = () => {
-            const doneCount = items.filter(i => i.done).length;
-            const readOnly = isEditLocked();
-            el.innerHTML = `
-                <div class="op-panel-row" style="margin-bottom:.4rem;">
-                    <span class="op-pill ${doneCount === items.length && items.length ? 'is-ok' : ''}">${doneCount} / ${items.length} done</span>
-                    <button type="button" class="op-btn sm" data-rb-reset="1">Reset Checks</button>
-                </div>
-                <div style="display:grid;gap:.3rem;margin-bottom:.45rem;">
-                    ${items.map((item, idx) => `<div style="display:flex;align-items:center;justify-content:space-between;gap:.4rem;font-size:.8rem;">
-                        <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;flex:1;min-width:0;text-decoration:${item.done ? 'line-through' : 'none'};opacity:${item.done ? '.6' : '1'};">
-                            <input type="checkbox" data-rb-toggle="${idx}"${item.done ? ' checked' : ''}>
-                            <span style="overflow:hidden;text-overflow:ellipsis;">${esc(item.text)}</span>
-                        </label>
-                        ${readOnly ? '' : `<button type="button" class="op-icon-btn danger" data-rb-del="${idx}" aria-label="Remove cue">&times;</button>`}
-                    </div>`).join('')}
-                </div>
-                ${readOnly ? '' : `<form class="op-inline-group" data-rb-add="1">
-                    <input type="text" class="op-cell-input" data-rb-input placeholder="Add cue…" autocomplete="off">
-                    <button type="submit" class="op-btn sm primary">Add</button>
-                </form>`}`;
-        };
-        const onChange = e => {
-            const cb = e.target.closest('[data-rb-toggle]');
-            if (!cb) return;
-            const idx = Number(cb.dataset.rbToggle);
-            if (items[idx]) { items[idx].done = cb.checked; saveRunbook(card.id, items); draw(); }
-        };
-        const onClick = e => {
-            if (e.target.closest('[data-rb-reset]')) {
-                items = items.map(i => ({ ...i, done: false }));
-                saveRunbook(card.id, items);
-                draw();
-                return;
-            }
-            const del = e.target.closest('[data-rb-del]');
-            if (del && !isEditLocked()) {
-                items.splice(Number(del.dataset.rbDel), 1);
-                saveRunbook(card.id, items);
-                draw();
-            }
-        };
-        const onSubmit = e => {
-            if (!e.target.closest('[data-rb-add]') || isEditLocked()) return;
-            e.preventDefault();
-            const inp = el.querySelector('[data-rb-input]');
-            const txt = (inp?.value || '').trim();
-            if (!txt) return;
-            items.push({ text: txt, done: false });
-            saveRunbook(card.id, items);
-            draw();
-        };
-        el.addEventListener('change', onChange);
-        el.addEventListener('click', onClick);
-        el.addEventListener('submit', onSubmit);
-        el._opCleanup = () => { el.removeEventListener('change', onChange); el.removeEventListener('click', onClick); el.removeEventListener('submit', onSubmit); };
-        draw();
-    },
-    unmount(el) { el._opCleanup?.(); }
-});
-
-// ============================================================
-// 8. Collapsible Mini-Monitor (zero idle cost when collapsed)
+// 6. Collapsible Mini-Monitor (zero idle cost when collapsed)
 // ============================================================
 registerCardType({
     type: 'live-monitor',
@@ -726,172 +854,14 @@ function registerCardBackedDomain({ id, label, iconSvg, order, cardType, studioH
     });
 }
 
-// Displays Domain Tab (Bingo, Counters & Pips, Meters & Gauges, News Tickers, Mini-Monitors)
-(() => {
-    const KIND_TO_CARD = {
-        bingo: 'bingo-display',
-        counter: 'counter-display',
-        meter: 'meter-display',
-        ticker: 'ticker-display'
-    };
-    const KIND_LABELS = {
-        all: 'All',
-        bingo: 'Bingo',
-        counter: 'Counters',
-        meter: 'Meters',
-        ticker: 'Tickers',
-        monitor: 'Monitors'
-    };
-    let activeFilter = 'all';
-    let mountedEntries = [];
-    let hostContainer = null;
-    let hostCtx = null;
-    let onContainerClick = null;
-
-    const cleanupMounted = () => {
-        for (const entry of mountedEntries) {
-            try { entry.def?.unmount?.(entry.body); } catch { /* ignore */ }
-        }
-        mountedEntries = [];
-    };
-
-    const renderDisplaysDomain = async () => {
-        if (!hostContainer) return;
-        cleanupMounted();
-        const grid = hostContainer.querySelector('[data-displays-grid]');
-        const countEl = hostContainer.querySelector('[data-displays-count]');
-        if (!grid) return;
-        grid.innerHTML = '<div style="font-size:.82rem;color:var(--text-muted);">Loading Display Library…</div>';
-
-        let displays = [];
-        try {
-            const res = await fetchDisplays(true);
-            displays = res.displays || [];
-        } catch (err) {
-            grid.innerHTML = `<div style="color:#f87171;font-size:.82rem;">${esc(err.message)}</div>`;
-            return;
-        }
-
-        const items = activeFilter === 'monitor'
-            ? displays.map(d => ({ display: d, cardType: 'live-monitor', badge: 'Monitor' }))
-            : displays
-                .filter(d => KIND_TO_CARD[d.kind] && (activeFilter === 'all' || d.kind === activeFilter))
-                .map(d => ({ display: d, cardType: KIND_TO_CARD[d.kind], badge: d.kind }));
-
-        if (countEl) countEl.textContent = `${items.length} display${items.length === 1 ? '' : 's'}`;
-        if (!items.length) {
-            grid.innerHTML = `<div class="op-panel" style="padding:1rem;font-size:.84rem;color:var(--text-muted);">
-                No ${activeFilter === 'all' ? 'interactive ' : `${esc(KIND_LABELS[activeFilter] || activeFilter)} `}displays found yet. Create counters, meters, tickers, or bingo cards in <a href="/variable-displays.html">Display Library</a>.
-            </div>`;
-            return;
-        }
-
-        grid.innerHTML = '';
-        for (const item of items) {
-            const def = getCardType(item.cardType);
-            if (!def) continue;
-            const panel = document.createElement('section');
-            panel.className = 'op-panel';
-            panel.innerHTML = `
-                <div class="op-panel-head">
-                    <span class="op-panel-title">${esc(item.display.name)}</span>
-                    <span class="op-pill">${esc(item.badge)}</span>
-                </div>
-                <div class="op-panel-body"></div>`;
-            const body = panel.querySelector('.op-panel-body');
-            const card = {
-                id: `domain-disp-${item.cardType}-${item.display.id}`,
-                type: item.cardType,
-                title: item.display.name,
-                config: { displayId: item.display.id }
-            };
-            grid.appendChild(panel);
-            mountedEntries.push({ def, body, card });
-            Promise.resolve(def.mount(body, card, hostCtx)).catch(() => {});
-        }
-    };
-
-    registerOperatorModule({
-        id: 'displays',
-        label: 'Displays',
-        iconSvg: OP_ICONS.displays,
-        order: 25,
-        isEnabled: () => true,
-        async mount(container, ctx) {
-            if (hostContainer && onContainerClick) {
-                hostContainer.removeEventListener('click', onContainerClick);
-                onContainerClick = null;
-            }
-            cleanupMounted();
-            hostContainer = container;
-            hostCtx = ctx;
-            container.innerHTML = `
-                <div class="op-domain-stack">
-                    <section class="op-toolbar" aria-label="Displays controls">
-                        <div class="op-toolbar-left">
-                            <span style="display:inline-flex;align-items:center;gap:.45rem;font-weight:700;font-size:.9rem;">${OP_ICONS.displays} Displays</span>
-                            <span class="op-pill" data-displays-count>Loading…</span>
-                            <div class="op-filter-seg" role="group" aria-label="Filter display kind">
-                                ${Object.entries(KIND_LABELS).map(([k, lbl]) => `<button type="button" class="op-filter-btn ${activeFilter === k ? 'active' : ''}" data-disp-filter="${k}">${esc(lbl)}</button>`).join('')}
-                            </div>
-                        </div>
-                        <div class="op-toolbar-right">
-                            <a class="op-btn sm" href="/variable-displays.html">Display Library</a>
-                        </div>
-                    </section>
-                    <div class="op-board-grid" style="grid-template-columns:repeat(auto-fill,minmax(320px,1fr));" data-displays-grid="1"></div>
-                </div>`;
-            onContainerClick = e => {
-                const btn = e.target.closest('[data-disp-filter]');
-                if (!btn) return;
-                activeFilter = btn.dataset.dispFilter;
-                container.querySelectorAll('[data-disp-filter]').forEach(b => b.classList.toggle('active', b === btn));
-                renderDisplaysDomain();
-            };
-            container.addEventListener('click', onContainerClick);
-            await renderDisplaysDomain();
-        },
-        unmount() {
-            if (hostContainer && onContainerClick) {
-                hostContainer.removeEventListener('click', onContainerClick);
-                onContainerClick = null;
-            }
-            cleanupMounted();
-            hostContainer = null;
-            hostCtx = null;
-        },
-        onSocket(type, payload) {
-            if (['variables', 'variables-update', 'variable-displays', 'variable-displays-update'].includes(type)) {
-                displaysCache = null;
-                varsCache = null;
-            }
-            for (const entry of mountedEntries) {
-                entry.def?.onSocket?.(entry.body, entry.card, type, payload);
-            }
-        }
-    });
-})();
-
-registerCardBackedDomain({
-    id: 'versus',
-    label: 'Versus',
-    iconSvg: OP_ICONS.versus,
-    order: 60,
-    cardType: 'versus-quick',
-    studioHref: '/versus.html',
-    studioLabel: 'Open Versus Studio',
-    description: 'Live scoreboard controls & bracket scoring.',
-    isEnabled: status => status?.modules?.versus !== false
-});
-
 registerCardBackedDomain({
     id: 'polls',
     label: 'Polls',
     iconSvg: OP_ICONS.polls,
     order: 65,
     cardType: 'poll-quick',
-    studioHref: '/poll-manager.html',
-    studioLabel: 'Open Poll Manager',
+    studioHref: '/polls.html',
+    studioLabel: 'Open Polls Studio',
     description: 'Start, close, and monitor live polls.',
     isEnabled: status => status?.modules?.polls !== false
 });
@@ -906,15 +876,4 @@ registerCardBackedDomain({
     studioLabel: 'Open Trivia Studio',
     description: 'Advance questions, reveal answers, and control live trivia rounds.',
     isEnabled: status => status?.modules?.trivia !== false
-});
-
-registerCardBackedDomain({
-    id: 'runbook',
-    label: 'Runbook',
-    iconSvg: OP_ICONS.runbook,
-    order: 75,
-    cardType: 'runbook-cue',
-    description: 'Interactive pre-show & live show cue checklist.',
-    isEnabled: () => true,
-    getCardId: () => `domain-runbook-${getCurrentProfile()?.id || 'default'}`
 });

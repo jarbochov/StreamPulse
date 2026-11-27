@@ -115,14 +115,15 @@ export async function openPresetsModal(onChanged) {
                                         <strong>${esc(p.name)}</strong>
                                         ${isActive ? '<span class="op-pill is-ok">Active</span>' : ''}
                                     </div>
-                                    <span>${p.board?.cards?.length || 0} cards · ${p.overlays?.length || 0} overlays · ID: ${esc(p.id)}</span>
+                                    <span>${p.board?.cards?.length || 0} cards · ${p.overlays?.length || 0} overlays · ${p.displays?.length || 0} displays · ID: ${esc(p.id)}</span>
                                 </div>
                                 <div class="op-btn-row">
                                     ${isActive ? '' : `<button type="button" class="op-btn sm primary" data-pr-activate="${esc(p.id)}">Activate</button>`}
+                                    <button type="button" class="op-btn sm" data-pr-copy-link="${esc(p.id)}" title="Copy direct browser link to this preset">Copy Link</button>
                                     <button type="button" class="op-btn sm" data-pr-rename="${esc(p.id)}">Rename</button>
                                     ${profiles.length > 1
                                         ? `<button type="button" class="op-btn sm danger" data-pr-delete="${esc(p.id)}">Delete</button>`
-                                        : `<button type="button" class="op-btn sm danger" data-pr-reset="${esc(p.id)}" title="Clear cards and added overlays from this sole preset">Reset</button>`}
+                                        : `<button type="button" class="op-btn sm danger" data-pr-reset="${esc(p.id)}" title="Clear cards, overlays, and displays from this sole preset">Reset</button>`}
                                 </div>
                             </div>
                             <div class="op-preset-dock-row">
@@ -174,6 +175,19 @@ export async function openPresetsModal(onChanged) {
                     draw();
                     return;
                 }
+                const copyLink = e.target.closest('[data-pr-copy-link]');
+                if (copyLink) {
+                    const pid = copyLink.dataset.prCopyLink;
+                    const tab = operatorState.activeTab || 'board';
+                    const url = `${location.origin}/operator.html?preset=${encodeURIComponent(pid)}#tab=${encodeURIComponent(tab)}`;
+                    try {
+                        await navigator.clipboard.writeText(url);
+                        toast('Copied preset link', 'success');
+                    } catch {
+                        toast(url, 'info');
+                    }
+                    return;
+                }
                 const copyDock = e.target.closest('[data-pr-copy-dock]');
                 if (copyDock) {
                     const pid = copyDock.dataset.prCopyDock;
@@ -203,7 +217,7 @@ export async function openPresetsModal(onChanged) {
                 if (rst) {
                     const target = profiles.find(x => x.id === rst.dataset.prReset);
                     if (!target || !confirm(`Reset preset "${target.name}" to an empty board?`)) return;
-                    await saveProfileToServer({ ...target, board: { columns: target.board?.columns || 3, cards: [] }, overlays: [], tabs: { hidden: [] } });
+                    await saveProfileToServer({ ...target, board: { columns: target.board?.columns || 3, cards: [] }, overlays: [], displays: [], tabs: { hidden: [] } });
                     onChanged?.();
                     draw();
                     return;
@@ -225,6 +239,7 @@ export async function openPresetsModal(onChanged) {
                         name,
                         board: structuredClone(cur.board),
                         overlays: [...(cur.overlays || [])],
+                        displays: [...(cur.displays || [])],
                         tabs: structuredClone(cur.tabs || { hidden: [] })
                     }, { activate: true });
                     onChanged?.();
@@ -247,7 +262,7 @@ export async function openPresetsModal(onChanged) {
                     input?.focus();
                     return;
                 }
-                await createProfileOnServer({ name, board: { columns: 3, cards: [] }, overlays: [], tabs: { hidden: [] } }, { activate: true });
+                await createProfileOnServer({ name, board: { columns: 3, cards: [] }, overlays: [], displays: [], tabs: { hidden: [] } }, { activate: true });
                 onChanged?.();
                 draw();
             } catch (err) {

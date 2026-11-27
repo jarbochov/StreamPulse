@@ -8,6 +8,9 @@ const VALID_COLUMNS = new Set([1, 2, 3, 4]);
 const MAX_PROFILES = 50;
 const MAX_CARDS = 64;
 const MAX_OVERLAYS = 40;
+const MAX_DISPLAYS = 40;
+const MAX_RUNBOOKS = 50;
+const MAX_RUNBOOK_ITEMS = 200;
 
 const cloneJson = value => JSON.parse(JSON.stringify(value));
 
@@ -82,6 +85,15 @@ function normalizeProfile(raw, idx = 0) {
         overlays.push(cleanOv);
     }
 
+    const seenDisplays = new Set();
+    const displays = [];
+    for (const disp of (Array.isArray(raw.displays) ? raw.displays : []).slice(0, MAX_DISPLAYS)) {
+        const cleanDisp = String(disp || '').trim().slice(0, 120);
+        if (!cleanDisp || seenDisplays.has(cleanDisp)) continue;
+        seenDisplays.add(cleanDisp);
+        displays.push(cleanDisp);
+    }
+
     const rawTabs = raw.tabs && typeof raw.tabs === 'object' ? raw.tabs : {};
     const hiddenTabs = [...new Set(
         (Array.isArray(rawTabs.hidden) ? rawTabs.hidden : [])
@@ -96,8 +108,78 @@ function normalizeProfile(raw, idx = 0) {
         updatedAt: typeof raw.updatedAt === 'string' && raw.updatedAt ? raw.updatedAt : new Date().toISOString(),
         board: { columns, cards },
         overlays,
+        displays,
         tabs: { hidden: hiddenTabs }
     };
+}
+
+const VALID_RUNBOOK_KINDS = new Set(['task', 'note', 'section']);
+const VALID_RUNBOOK_COLS = new Set([1, 2, 3]);
+
+function normalizeRunbookItem(raw, idx = 0) {
+    if (typeof raw === 'string') {
+        const text = raw.trim().slice(0, 600);
+        if (!text) return null;
+        return { id: `cue-${idx + 1}`, kind: 'task', text, done: false, note: '' };
+    }
+    if (!raw || typeof raw !== 'object') return null;
+    const kind = VALID_RUNBOOK_KINDS.has(raw.kind) ? raw.kind : 'task';
+    const text = String(raw.text || '').trim().slice(0, kind === 'note' ? 4000 : 240);
+    if (!text) return null;
+    const id = slugifyProfileId(raw.id || `cue-${idx + 1}`, `cue-${idx + 1}`);
+    const note = String(raw.note || '').trim().slice(0, 400);
+    return { id, kind, text, done: kind === 'task' ? Boolean(raw.done) : false, note };
+}
+
+function normalizeRunbook(raw, idx = 0) {
+    if (!raw || typeof raw !== 'object') {
+        throw operatorError('Runbook payload must be an object', 400);
+    }
+    const name = String(raw.name || '').trim().slice(0, 80);
+    if (!name && !raw.id) {
+        throw operatorError('Runbook name is required', 400);
+    }
+    const id = slugifyProfileId(raw.id || name, `runbook-${idx + 1}`);
+    const finalName = name || id;
+    const description = String(raw.description || '').trim().slice(0, 240);
+    const colNum = Number(raw.columns);
+    const columns = VALID_RUNBOOK_COLS.has(colNum) ? colNum : 1;
+    const seenItemIds = new Set();
+    const items = [];
+    for (const [itemIdx, rawItem] of (Array.isArray(raw.items) ? raw.items : []).slice(0, MAX_RUNBOOK_ITEMS).entries()) {
+        const item = normalizeRunbookItem(rawItem, itemIdx);
+        if (!item) continue;
+        let uniqueId = item.id;
+        let suffix = 2;
+        while (seenItemIds.has(uniqueId)) uniqueId = `${item.id}-${suffix++}`;
+        seenItemIds.add(uniqueId);
+        items.push({ ...item, id: uniqueId });
+    }
+    return {
+        id,
+        name: finalName,
+        description,
+        columns,
+        updatedAt: typeof raw.updatedAt === 'string' && raw.updatedAt ? raw.updatedAt : new Date().toISOString(),
+        items
+    };
+}
+
+function buildDefaultRunbooks() {
+    return [
+        {
+            id: 'pre-show',
+            name: 'Pre-Show Checklist',
+            description: 'Standard broadcast launch checklist',
+            columns: 1,
+            updatedAt: new Date().toISOString(),
+            items: [
+                { id: 'cue-1', kind: 'task', text: 'Check mic levels & OBS recording', done: false, note: '' },
+                { id: 'cue-2', kind: 'task', text: 'Verify overlays & scene audio', done: false, note: '' },
+                { id: 'cue-3', kind: 'task', text: 'Start StreamPulse session', done: false, note: '' }
+            ]
+        }
+    ];
 }
 
 function buildDefaultState() {
@@ -118,9 +200,11 @@ function buildDefaultState() {
                     ]
                 },
                 overlays: [],
+                displays: [],
                 tabs: { hidden: [] }
             }
-        ]
+        ],
+        runbooks: buildDefaultRunbooks()
     };
 }
 
@@ -153,10 +237,30 @@ function createOperatorService({
         if (!profiles.length) return buildDefaultState();
         const requestedActive = String(raw.activeProfileId || '').trim();
         const activeProfileId = profiles.some(p => p.id === requestedActive) ? requestedActive : profiles[0].id;
+        let runbooks;
+        if (Array.isArray(raw.runbooks)) {
+            const seenRb = new Set();
+            runbooks = [];
+            for (const [idx, item] of raw.runbooks.slice(0, MAX_RUNBOOKS).entries()) {
+                try {
+                    const rb = normalizeRunbook(item, idx);
+                    let id = rb.id;
+                    let n = 2;
+                    while (seenRb.has(id)) id = `${rb.id}-${n++}`;
+                    seenRb.add(id);
+                    runbooks.push({ ...rb, id });
+                } catch {
+                    // Skip malformed runbooks
+                }
+            }
+        } else {
+            runbooks = buildDefaultRunbooks();
+        }
         return {
             version: 1,
             activeProfileId,
-            profiles
+            profiles,
+            runbooks
         };
     }
 
@@ -205,8 +309,104 @@ function createOperatorService({
             activeProfileName: active ? active.name : '',
             profileCount: state.profiles.length,
             cardCount: active ? active.board.cards.length : 0,
-            overlayCount: active ? active.overlays.length : 0
+            overlayCount: active ? active.overlays.length : 0,
+            displayCount: active ? (active.displays || []).length : 0,
+            runbookCount: (state.runbooks || []).length
         };
+    }
+
+    function listRunbooks() {
+        return (state.runbooks || []).map(rb => cloneJson(rb));
+    }
+
+    function getRunbook(id) {
+        const cleanId = String(id || '').trim();
+        const found = (state.runbooks || []).find(rb => rb.id === cleanId)
+            || (state.runbooks || []).find(rb => rb.name.toLowerCase() === cleanId.toLowerCase());
+        return found ? cloneJson(found) : null;
+    }
+
+    function upsertRunbook(payload) {
+        const list = Array.isArray(state.runbooks) ? state.runbooks : (state.runbooks = []);
+        const normalized = normalizeRunbook({ ...payload, updatedAt: new Date().toISOString() }, list.length);
+        const existingIdx = list.findIndex(rb => rb.id === normalized.id);
+        if (existingIdx === -1 && list.length >= MAX_RUNBOOKS) {
+            throw operatorError(`Maximum of ${MAX_RUNBOOKS} runbooks reached`, 400);
+        }
+        if (existingIdx !== -1) {
+            list[existingIdx] = normalized;
+        } else {
+            list.push(normalized);
+        }
+        save();
+        emitUpdate('operator-runbooks-update', { runbooks: listRunbooks(), runbook: cloneJson(normalized) });
+        return cloneJson(normalized);
+    }
+
+    function deleteRunbook(id) {
+        const list = Array.isArray(state.runbooks) ? state.runbooks : (state.runbooks = []);
+        const cleanId = String(id || '').trim();
+        const idx = list.findIndex(rb => rb.id === cleanId);
+        if (idx === -1) throw operatorError('Runbook not found', 404);
+        const [removed] = list.splice(idx, 1);
+        save();
+        emitUpdate('operator-runbooks-update', { runbooks: listRunbooks(), deleted: removed.id });
+        return { deleted: removed.id, runbooks: listRunbooks() };
+    }
+
+    function duplicateRunbook(id) {
+        const source = getRunbook(id);
+        if (!source) throw operatorError('Runbook not found', 404);
+        const list = Array.isArray(state.runbooks) ? state.runbooks : (state.runbooks = []);
+        if (list.length >= MAX_RUNBOOKS) throw operatorError(`Maximum of ${MAX_RUNBOOKS} runbooks reached`, 400);
+        const existingIds = new Set(list.map(rb => rb.id));
+        const baseId = slugifyProfileId(`${source.id}-copy`, 'runbook-copy');
+        let nextId = baseId;
+        let suffix = 2;
+        while (existingIds.has(nextId)) nextId = `${baseId}-${suffix++}`;
+        const copy = normalizeRunbook({
+            ...source,
+            id: nextId,
+            name: `${source.name} (Copy)`.slice(0, 80),
+            updatedAt: new Date().toISOString()
+        }, list.length);
+        list.push(copy);
+        save();
+        emitUpdate('operator-runbooks-update', { runbooks: listRunbooks(), runbook: cloneJson(copy) });
+        return cloneJson(copy);
+    }
+
+    function toggleRunbookItem(id, { index, itemId, done } = {}) {
+        const list = Array.isArray(state.runbooks) ? state.runbooks : (state.runbooks = []);
+        const cleanId = String(id || '').trim();
+        const rb = list.find(r => r.id === cleanId) || list.find(r => r.name.toLowerCase() === cleanId.toLowerCase());
+        if (!rb) throw operatorError('Runbook not found', 404);
+        let item = null;
+        if (itemId) item = rb.items.find(it => it.id === String(itemId).trim());
+        if (!item && index !== undefined && index !== null && index !== '') {
+            const idx = Number(index);
+            if (Number.isInteger(idx) && idx >= 0 && idx < rb.items.length) item = rb.items[idx];
+        }
+        if (!item) throw operatorError('Runbook cue item not found', 404);
+        if (done === true || done === '1' || done === 'true') item.done = true;
+        else if (done === false || done === '0' || done === 'false') item.done = false;
+        else item.done = !item.done;
+        rb.updatedAt = new Date().toISOString();
+        save();
+        emitUpdate('operator-runbooks-update', { runbooks: listRunbooks(), runbook: cloneJson(rb) });
+        return cloneJson(rb);
+    }
+
+    function resetRunbook(id) {
+        const list = Array.isArray(state.runbooks) ? state.runbooks : (state.runbooks = []);
+        const cleanId = String(id || '').trim();
+        const rb = list.find(r => r.id === cleanId) || list.find(r => r.name.toLowerCase() === cleanId.toLowerCase());
+        if (!rb) throw operatorError('Runbook not found', 404);
+        rb.items = rb.items.map(it => ({ ...it, done: false }));
+        rb.updatedAt = new Date().toISOString();
+        save();
+        emitUpdate('operator-runbooks-update', { runbooks: listRunbooks(), runbook: cloneJson(rb) });
+        return cloneJson(rb);
     }
 
     function emitUpdate(extraType = null, extraPayload = null) {
@@ -299,7 +499,8 @@ function createOperatorService({
             version: 1,
             exportedAt: new Date().toISOString(),
             activeProfileId: state.activeProfileId,
-            profiles: listProfiles()
+            profiles: listProfiles(),
+            runbooks: listRunbooks()
         };
     }
 
@@ -329,10 +530,14 @@ function createOperatorService({
                 nextProfiles.push({ ...p, id });
             }
             const reqActive = String(payload.activeProfileId || '').trim();
+            const nextRunbooks = Array.isArray(payload.runbooks)
+                ? payload.runbooks.slice(0, MAX_RUNBOOKS).map((rb, idx) => normalizeRunbook({ ...rb, updatedAt: new Date().toISOString() }, idx))
+                : (state.runbooks || buildDefaultRunbooks());
             state = {
                 version: 1,
                 activeProfileId: nextProfiles.some(p => p.id === reqActive) ? reqActive : nextProfiles[0].id,
-                profiles: nextProfiles
+                profiles: nextProfiles,
+                runbooks: nextRunbooks
             };
         } else {
             const map = new Map(state.profiles.map(p => [p.id, p]));
@@ -345,6 +550,17 @@ function createOperatorService({
             state.profiles = [...map.values()];
             if (!state.profiles.some(p => p.id === state.activeProfileId)) {
                 state.activeProfileId = state.profiles[0].id;
+            }
+            if (Array.isArray(payload.runbooks)) {
+                const rbMap = new Map((state.runbooks || []).map(rb => [rb.id, rb]));
+                for (const [idx, rawRb] of payload.runbooks.slice(0, MAX_RUNBOOKS).entries()) {
+                    try {
+                        const rb = normalizeRunbook({ ...rawRb, updatedAt: new Date().toISOString() }, idx);
+                        if (!rbMap.has(rb.id) && rbMap.size >= MAX_RUNBOOKS) break;
+                        rbMap.set(rb.id, rb);
+                    } catch { /* skip invalid */ }
+                }
+                state.runbooks = [...rbMap.values()];
             }
         }
         save();
@@ -372,6 +588,13 @@ function createOperatorService({
         upsertProfile,
         deleteProfile,
         setActiveProfile,
+        listRunbooks,
+        getRunbook,
+        upsertRunbook,
+        deleteRunbook,
+        duplicateRunbook,
+        toggleRunbookItem,
+        resetRunbook,
         exportState,
         importState
     };

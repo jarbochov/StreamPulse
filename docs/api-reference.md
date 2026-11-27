@@ -1166,14 +1166,19 @@ Saved Operator Mode presets live in `data/operator-profiles.json` (included in f
 
 | Endpoint | Methods | Description |
 | --- | --- | --- |
-| `/api/operator` | `GET` | Return full Operator state (`{ version, activeProfileId, profiles }`) |
-| `/api/operator/status` | `GET` | Lightweight status summary for Companion polling (`activeProfileId`, `activeProfileName`, `profileCount`, `cardCount`, `overlayCount`) |
+| `/api/operator` | `GET` | Return full Operator state (`{ version, activeProfileId, profiles, runbooks }`) |
+| `/api/operator/status` | `GET` | Lightweight status summary for Companion polling (`activeProfileId`, `activeProfileName`, `profileCount`, `cardCount`, `overlayCount`, `displayCount`, `runbookCount`) |
 | `/api/operator/profiles` | `GET`, `POST` | List presets, or upsert a preset (`?select=1` or `{ activate: true }` activates it immediately) |
 | `/api/operator/profiles/:id` | `GET`, `PUT`, `DELETE` | Fetch, save, or delete a specific preset (cannot delete the last remaining preset) |
 | `/api/operator/profiles/:id/activate` | `GET`, `POST` | Activate preset by ID and broadcast `operator-active-profile` over WebSocket |
 | `/api/operator/profile/select` | `GET`, `POST` | Companion trigger accepting `?id=<id>` or `?name=<name>` |
-| `/api/operator/export` | `GET` | Export preset JSON (`?id=<id>` for single preset, `?download=1` for attachment) |
-| `/api/operator/import` | `POST` | Import JSON presets (`?mode=merge` default or `?mode=replace`) |
+| `/api/operator/runbooks` | `GET`, `POST` | List all server-saved Runbooks or create/update a Runbook (`{ id?, name, description?, items }`) |
+| `/api/operator/runbooks/:id` | `GET`, `PUT`, `DELETE` | Fetch, update, or delete a specific Runbook (broadcasts `operator-runbooks-update`) |
+| `/api/operator/runbooks/:id/toggle` | `GET`, `POST` | Companion trigger to toggle or set a Runbook cue (`?index=0` or `?itemId=<id>`, optional `?done=0|1`) |
+| `/api/operator/runbooks/:id/reset` | `GET`, `POST` | Companion trigger to uncheck all cues in a Runbook for a new broadcast |
+| `/api/operator/runbooks/:id/duplicate` | `POST` | Duplicate an existing Runbook with a new slug ID |
+| `/api/operator/export` | `GET` | Export preset & runbook JSON (`?id=<id>` for single preset, `?download=1` for attachment) |
+| `/api/operator/import` | `POST` | Import JSON presets & runbooks (`?mode=merge` default or `?mode=replace`) |
 
 WebSocket broadcasts: `operator-active-profile` updates normal `/operator.html` tabs live while keeping URL-pinned `?profile=<id>` docks locked; `operator-update` broadcasts preset additions, edits, deletions, and restores. See [Operator Mode Guide](operator-guide.md).
 

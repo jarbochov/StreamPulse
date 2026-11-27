@@ -208,6 +208,7 @@ function renderDomain(container, status) {
         <div class="op-domain-stack">
             <div class="op-toolbar">
                 <div class="op-toolbar-left">
+                    <span style="display:inline-flex;align-items:center;gap:.4rem;font-weight:700;font-size:.88rem;">${OP_ICONS.timers} Timers</span>
                     <span class="op-pill">${timers.length} timer${timers.length === 1 ? '' : 's'}</span>
                     <span class="op-pill">${timers.filter(t => t.state === 'running').length} running</span>
                 </div>

@@ -784,6 +784,7 @@ export function renderMatchupStudio(m) {
     const tourneyRoundsBestOf = (tourneyActive ? (activeMatch?.roundsBestOf ?? activeTourneyData?.roundsBestOf ?? 0) : null);
     const effectiveRoundsBestOf = (tourneyRoundsBestOf !== null && tourneyRoundsBestOf !== undefined) ? tourneyRoundsBestOf : (m.roundsBestOf || 0);
     if ($('matchup-rounds')) $('matchup-rounds').value = String(effectiveRoundsBestOf || 0);
+    if ($('matchup-live-rounds-select')) $('matchup-live-rounds-select').value = String(effectiveRoundsBestOf || 0);
     const fmtSelect = $('matchup-format');
     const targetRow = $('matchup-custom-target-row');
     if (fmtSelect) {
@@ -1263,6 +1264,13 @@ export async function changeMatchupFormat(fmtVal) {
     } catch {
         toast('Error updating format');
     }
+}
+
+export async function updateMatchupLiveRounds(val) {
+    const clean = String(Math.max(0, parseInt(val, 10) || 0));
+    if ($('matchup-rounds')) $('matchup-rounds').value = clean;
+    if ($('matchup-live-rounds-select')) $('matchup-live-rounds-select').value = clean;
+    await saveMatchupSettings();
 }
 
 export async function saveMatchupSettings() {

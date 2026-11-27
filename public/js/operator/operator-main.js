@@ -8,6 +8,7 @@ import {
     activateProfileOnServer,
     applyRemoteActiveProfile,
     applyRemoteOperatorState,
+    applyRemoteRunbooks,
     getCurrentProfile,
     getLockMode,
     isDenseMode,
@@ -31,6 +32,9 @@ import './operator-timers.js';
 import './operator-alerts.js';
 import './operator-music.js';
 import './operator-live-cards.js';
+import './operator-displays.js';
+import './operator-versus.js';
+import './operator-runbooks.js';
 
 const TOUCH_KEY = 'streampulse_op_touch_mode';
 const activityLog = [];
@@ -84,7 +88,12 @@ let currentMountedId = '';
 function parseInitialTabFromHash() {
     const raw = (location.hash || '').replace(/^#/, '').trim();
     if (!raw) return '';
-    if (raw.startsWith('tab=')) return decodeURIComponent(raw.slice(4)).toLowerCase();
+    if (raw.startsWith('display=') || /(?:^|&)display=/i.test(raw)) return 'displays';
+    if (raw.startsWith('runbook=') || /(?:^|&)runbook=/i.test(raw)) return 'runbook';
+    if (raw.startsWith('tab=')) {
+        const first = raw.split('&')[0];
+        return decodeURIComponent(first.slice(4)).toLowerCase();
+    }
     const lower = raw.toLowerCase();
     if (getOperatorModule(lower)) return lower;
     if (raw.startsWith('var=') || raw.startsWith('group=') || raw.startsWith('set=') || raw.endsWith('/matrix')) {
@@ -140,15 +149,6 @@ function renderTopControls() {
         document.documentElement.dataset.opTouch = touch ? '1' : '0';
         touchBtn.classList.toggle('active', touch);
         touchBtn.setAttribute('aria-pressed', String(touch));
-    }
-    const presetBar = $('op-preset-pills');
-    if (presetBar) {
-        const profiles = operatorState.profiles || [];
-        const showPills = profiles.length > 1 && !isProfileLocked();
-        presetBar.hidden = !showPills;
-        if (showPills) {
-            presetBar.innerHTML = profiles.map((p, idx) => `<button type="button" class="op-preset-pill${p.id === prof?.id ? ' active' : ''}" data-quick-preset="${esc(p.id)}" title="Switch to ${esc(p.name)}${idx < 9 ? ` (Hotkey ${idx + 1})` : ''}">${idx < 9 ? `<kbd>${idx + 1}</kbd>` : ''}<span>${esc(p.name)}</span></button>`).join('');
-        }
     }
     if (focusBtn) {
         const focus = isFocusPanelMode();
@@ -293,16 +293,6 @@ function bindShellEvents() {
         if (list) list.innerHTML = '<div style="font-size:.78rem;color:var(--text-muted);">Log cleared.</div>';
     });
 
-    $('op-preset-pills')?.addEventListener('click', async e => {
-        const btn = e.target.closest('[data-quick-preset]');
-        if (!btn || isProfileLocked()) return;
-        try {
-            await activateProfileOnServer(btn.dataset.quickPreset);
-            renderTopControls();
-            await remountActive();
-        } catch (err) { toast(err.message, 'error'); }
-    });
-
     $('op-focus-btn')?.addEventListener('click', async () => {
         const next = setFocusPanelMode(!isFocusPanelMode());
         renderTopControls();
@@ -355,6 +345,8 @@ function bindShellEvents() {
         const hashTab = parseInitialTabFromHash();
         if (hashTab && hashTab !== operatorState.activeTab) {
             switchTab(hashTab, { updateHash: false });
+        } else if (hashTab === 'displays' || hashTab === 'runbook') {
+            remountActive();
         }
     });
 
@@ -402,14 +394,21 @@ async function init() {
                 }
                 return;
             }
+            if (msg.type === 'operator-runbooks-update') {
+                if (applyRemoteRunbooks(msg.data)) {
+                    const activeMod = getOperatorModule(currentMountedId);
+                    activeMod?.onSocket?.(msg.type, msg.data, makeCtx(getDomainContainer(currentMountedId)));
+                }
+                return;
+            }
             if (msg.type === 'operator-update') {
-                if (applyRemoteOperatorState(msg.data) && (currentMountedId === 'board' || currentMountedId === 'overlays')) {
+                if (applyRemoteOperatorState(msg.data) && ['board', 'overlays', 'displays', 'runbook'].includes(currentMountedId)) {
                     await remountActive();
                 }
                 return;
             }
-            if (['variables-update', 'variable-displays-update', 'matchup-update', 'poll-update', 'trivia-update', 'alerts-update'].includes(msg.type)) {
-                logActivity(msg.type.replace(/-update$/, '').replace(/-/g, ' '), 'Live state updated');
+            if (['variables-update', 'variable-displays-update', 'matchup-update', 'tournament-update', 'poll-update', 'trivia-update', 'alerts-update'].includes(msg.type) || String(msg.type).startsWith('trivia:')) {
+                logActivity(String(msg.type).replace(/-update$/, '').replace(/[:_-]/g, ' '), 'Live state updated');
             }
             const activeMod = getOperatorModule(currentMountedId);
             activeMod?.onSocket?.(msg.type, msg.data, makeCtx(getDomainContainer(currentMountedId)));

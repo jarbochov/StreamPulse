@@ -66,14 +66,15 @@ function renderDomain(container) {
         <div class="op-domain-stack">
             <div class="op-toolbar">
                 <div class="op-toolbar-left">
-                    <span class="op-pill">${esc(nowPlaying.state || 'stopped')}</span>
+                    <span style="display:inline-flex;align-items:center;gap:.4rem;font-weight:700;font-size:.88rem;">${OP_ICONS.music} Music</span>
+                    <span class="op-pill ${nowPlaying.state === 'playing' ? 'is-ok' : ''}">${esc(nowPlaying.state || 'stopped')}</span>
                 </div>
                 <div class="op-toolbar-right">
                     <a class="op-btn sm" href="/music-editor.html">Music Settings</a>
                 </div>
             </div>
-            <section class="op-panel-card" aria-label="Now Playing and Overlay Visibility">
-                <h2 class="op-section-title">${OP_ICONS.music} Music Now Playing</h2>
+            <section class="op-panel-card" aria-label="Now Playing and Overlay Visibility" style="max-width:760px;">
+                <h2 class="op-section-title">${OP_ICONS.music} Now Playing</h2>
                 ${renderMusicBodyHtml()}
             </section>
         </div>`;

@@ -57,6 +57,7 @@ This document provides project architecture context, mandatory UI/UX design rule
 ### Density & Clutter Control
 - Keep controls visually calm and spacious. Avoid overwhelming walls of buttons or unorganized option lists.
 - When options expand (such as 7+ custom game collections or extensive choices), collapse them gracefully into overflow menus, chips, or searchable multi-select pickers rather than cluttering the primary toolbar.
+- **Drag-and-Drop Reordering Only (Never Up/Down Arrows)**: Always use drag-and-drop with a crisp grip handle SVG for reordering lists, cues, cards, rows, or layers — **never** render up/down arrow buttons (`↑`/`↓`) for item reordering.
 
 ### Primary & Secondary Navigation Patterns
 - **Primary Segmented Navigation (`.tabs-nav`, `.tab-btn`)**:

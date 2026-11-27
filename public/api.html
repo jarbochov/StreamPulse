@@ -2553,7 +2553,34 @@
                     params: [
                         { name: 'mode', desc: 'Merge into existing presets or replace all', values: 'merge, replace', default: 'merge' }
                     ],
-                    details: 'Validates profiles and merges into or replaces existing server presets.'
+                    details: 'Validates profiles and runbooks and merges into or replaces existing server state.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/operator/runbooks',
+                    desc: 'List all saved Runbooks or create/update a Runbook',
+                    body: '{ "name": "Pre-Show Checklist", "description": "", "items": [{ "text": "Check mic", "done": false }] }',
+                    details: 'Runbooks are persisted globally in data/operator-profiles.json and live-synced over WebSocket (operator-runbooks-update). Dedicated link: /operator.html#runbook=<id>.'
+                },
+                {
+                    method: 'GET / PUT / DELETE', path: '/api/operator/runbooks/:id',
+                    desc: 'Fetch, update, or delete a specific Runbook'
+                },
+                {
+                    method: 'GET / POST', path: '/api/operator/runbooks/:id/toggle',
+                    desc: 'Toggle or set a specific cue checkbox (Companion-friendly)',
+                    params: [
+                        { name: 'index', desc: '0-based cue index', values: 'number', default: '—' },
+                        { name: 'itemId', desc: 'Cue item ID', values: 'string', default: '—' },
+                        { name: 'done', desc: 'Explicit checked state (omitted = toggle)', values: '0, 1, true, false', default: 'toggle' }
+                    ]
+                },
+                {
+                    method: 'GET / POST', path: '/api/operator/runbooks/:id/reset',
+                    desc: 'Uncheck all cues in a Runbook for the next broadcast (Companion-friendly)'
+                },
+                {
+                    method: 'POST', path: '/api/operator/runbooks/:id/duplicate',
+                    desc: 'Duplicate a Runbook into a new copy'
                 }
             ]
         },
