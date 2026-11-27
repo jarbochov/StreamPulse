@@ -51,9 +51,18 @@
                 <label for="mpb-active-pack" style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Active Pack</label>
                 <select id="mpb-active-pack" class="input" style="min-width:210px;"></select>
                 <span class="pill" id="mpb-pack-meta">5×5 · Lockout</span>
+                <div class="mpb-share-host" id="mpb-share-host-wrap" hidden></div>
             </div>
             <div class="mpb-toolbar-group">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-toggle-caller">Host Caller</button>
+                <button type="button" class="btn btn-secondary btn-sm mpb-btn-icon" id="btn-toggle-caller">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                    <span>Host Caller</span>
+                    <span class="mpb-pending-count-badge" id="mpb-caller-pending-badge" hidden>0</span>
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm mpb-btn-icon" id="btn-toggle-four-corners" aria-pressed="false" title="Allow all 4 corners to count as a winning Bingo">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="6" height="6" rx="1" fill="currentColor" fill-opacity="0.35"/><rect x="15" y="3" width="6" height="6" rx="1" fill="currentColor" fill-opacity="0.35"/><rect x="3" y="15" width="6" height="6" rx="1" fill="currentColor" fill-opacity="0.35"/><rect x="15" y="15" width="6" height="6" rx="1" fill="currentColor" fill-opacity="0.35"/></svg>
+                    <span>Four Corners</span>
+                </button>
                 <button type="button" class="btn btn-secondary btn-sm" id="btn-toggle-hidden">Hide Cards</button>
                 <button type="button" class="btn btn-secondary btn-sm" id="btn-toggle-locked">Lock Board</button>
                 <button type="button" class="btn btn-secondary btn-sm" id="btn-shuffle-all">Shuffle All</button>
@@ -68,8 +77,15 @@
                     <strong style="font-size:13px;">Host Caller — Mark Across All Player Cards</strong>
                     <div id="mpb-caller-hint" style="font-size:12px;color:var(--text-muted);margin-top:2px;">Click any prompt below to automatically stamp or unstamp it on every player card that has it.</div>
                 </div>
-                <span class="pill" id="mpb-caller-count">0 called</span>
+                <div class="mpb-caller-head-actions">
+                    <button type="button" class="btn btn-secondary btn-sm mpb-btn-icon" id="btn-toggle-confirm-calls" aria-pressed="false" title="Require host confirmation before player taps stamp their card">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+                        <span>Confirm Calls</span>
+                    </button>
+                    <span class="pill" id="mpb-caller-count">0 called</span>
+                </div>
             </div>
+            <div class="mpb-pending-panel" id="mpb-pending-panel" hidden></div>
             <div class="mpb-caller-grid" id="mpb-caller-grid"></div>
         </div>
 

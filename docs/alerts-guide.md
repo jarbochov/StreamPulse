@@ -106,7 +106,7 @@ Alert rules can trigger external automation via HTTP POST or GET webhooks:
 - **Chat Message Action**: Sends an automatic chat reply through SocialStream when a rule fires.
 - **Companion Button Action**: Presses a configured Stream Deck button page/row/column on your local Bitfocus Companion server.
 
-*(For HTTP automation endpoints like mute, manual triggers, or replay webhooks, see the [API Reference](api-reference.md) under **The Project → Technical**.)*
+*(For HTTP automation endpoints like mute, manual triggers, or replay webhooks, open **API Reference** from the StreamPulse app navigation.)*
 
 ## Editing rules
 

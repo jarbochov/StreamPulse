@@ -32,7 +32,7 @@ Operator Mode brings two complementary views together:
    - **Trivia**: Preview the next queued question and duration timer while idle, jump to any question, and run Start / Prev / Next / Reveal / Clear / Reset with a live countdown timer and chat vote bars (auto-hidden if disabled in System Config).
    - **Runbook**: Global server-saved library of multiple named runbooks supporting checkable **Tasks**, **Markdown Notes** (non-task callouts supporting bold, italic, lists, links, tables, and code blocks), and **Section** headings laid out across `1–3` columns with drag-and-drop reordering, task-only progress bars, reset checks, Live Board pinning, and dedicated direct/dock links (`/operator.html?preset=<preset>#runbook=<id>` or `?profile=<preset>&dock=1&bare=1#runbook=<id>`).
 
-> **Focused Creation Studios Stay Separate**: Multi-step setup studios (**Polls**, **Trivia**, **Versus**, and **Tier Lists**) stay on their dedicated pages so Operator Mode remains fast and focused during live shows.
+> **Creation & Setup Studios Stay Dedicated**: Multi-step creation and initial setup studios (**Polls**, **Trivia**, **Versus**, **Tier Lists**, **Display Library**, and **Custom Overlay Studio**) stay on their dedicated pages, while fast live-show controls (including Versus, Polls, Trivia, Displays, Overlays, Timers, Alerts, Music, Variables, and Runbooks) are built directly into Operator Mode.
 
 ---
 
@@ -58,4 +58,4 @@ Save multiple board setups as named **Presets** so you can switch layouts for di
 
 ## Automation & Companion
 
-Need Stream Deck triggers or HTTP control to switch Operator presets automatically? See the **[API Reference](api-reference.md)** and **[Bitfocus Companion Guide](companion.md)** under **The Project → Technical**.
+Need Stream Deck triggers or HTTP control to switch Operator presets or toggle Runbook cues automatically? See the **[Bitfocus Companion Guide](companion.md)** or open **API Reference** from the StreamPulse app navigation.

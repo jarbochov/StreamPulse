@@ -91,6 +91,11 @@ html, body {
     font-weight: 600;
     text-align: center;
 }
+.status-banner.info {
+    background: rgba(59, 130, 246, 0.12);
+    border-color: rgba(59, 130, 246, 0.35);
+    color: #bfdbfe;
+}
 .grid {
     display: grid;
     gap: 8px;
@@ -123,6 +128,11 @@ html, body {
     border-color: var(--player);
     background: color-mix(in srgb, var(--player) 26%, var(--cell));
 }
+.cell.is-pending {
+    border-style: dashed;
+    border-color: var(--player);
+    background: color-mix(in srgb, var(--player) 12%, var(--cell));
+}
 .cell.is-winning {
     border-color: var(--win);
     box-shadow: inset 0 0 0 1.5px var(--win), 0 0 12px rgba(34, 197, 94, 0.32);
@@ -154,6 +164,19 @@ html, body {
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.pending-tag {
+    margin-top: 5px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    color: var(--text);
+    background: color-mix(in srgb, var(--player) 24%, rgba(15, 23, 42, 0.85));
+    border: 1px dashed var(--player);
+    max-width: 100%;
     white-space: nowrap;
 }
 .empty-state {
@@ -209,7 +232,7 @@ html, body {
         setTimeout(() => el.remove(), 2600);
     }
 
-    function detectLines(size, set) {
+    function detectLines(size, set, { fourCorners = false } = {}) {
         const lines = [];
         for (let r = 0; r < size; r++) {
             const row = [];
@@ -225,6 +248,10 @@ html, body {
         for (let i = 0; i < size; i++) { d1.push(i * size + i); d2.push(i * size + (size - 1 - i)); }
         if (d1.every(i => set.has(i))) lines.push(d1);
         if (d2.every(i => set.has(i))) lines.push(d2);
+        if (fourCorners && size >= 2) {
+            const corners = [0, size - 1, size * (size - 1), size * size - 1];
+            if (corners.every(i => set.has(i))) lines.push(corners);
+        }
         return lines;
     }
 
@@ -267,6 +294,8 @@ html, body {
         const prompts = Array.isArray(pack.prompts) ? pack.prompts : [];
         const order = Array.isArray(card.order) ? card.order : [];
         const claims = session.claims || {};
+        const pendingCalls = Array.isArray(session.pendingCalls) ? session.pendingCalls : [];
+        const pendingCellSet = new Set(pendingCalls.filter(p => p.cardId === card.id).map(p => Number(p.cell)));
         const stampedSet = new Set(Array.isArray(card.stamped) ? card.stamped : []);
         if (hasFree) stampedSet.add(centerIdx);
 
@@ -274,7 +303,7 @@ html, body {
         let cursor = 0;
         for (let i = 0; i < total; i++) {
             if (hasFree && i === centerIdx) {
-                cells.push({ index: i, label: pack.freeSpaceLabel || 'FREE', isFree: true, stamped: true, lockedByOther: false, owner: null });
+                cells.push({ index: i, label: pack.freeSpaceLabel || 'FREE', isFree: true, stamped: true, pending: false, lockedByOther: false, owner: null });
                 continue;
             }
             const promptIdx = order[cursor] !== undefined ? Number(order[cursor]) : cursor;
@@ -295,12 +324,18 @@ html, body {
                     stampedSet.delete(i);
                 }
             }
-            cells.push({ index: i, label, isFree: false, stamped, lockedByOther, owner });
+            const pending = !stamped && !lockedByOther && pendingCellSet.has(i);
+            cells.push({ index: i, label, isFree: false, stamped, pending, lockedByOther, owner });
         }
 
-        const lines = detectLines(size, stampedSet);
+        const lines = detectLines(size, stampedSet, { fourCorners: Boolean(session.fourCorners) });
         const winSet = new Set(lines.flat());
         const stampedCount = cells.filter(c => c.stamped).length;
+        const bannerHtml = session.locked
+            ? '<div class="status-banner">Board is locked by the host — view only</div>'
+            : session.confirmCalls
+                ? '<div class="status-banner info">Confirm Mode active — taps wait for host confirmation</div>'
+                : '';
 
         app.innerHTML = `
             <div class="topbar">
@@ -308,19 +343,20 @@ html, body {
                     <span class="player-dot"></span>
                     <div>
                         <div class="player-name">${esc(card.name)}</div>
-                        <div class="board-sub">${esc(pack.name || 'Bingo')} · ${isLockout ? 'Lockout' : 'Independent'}</div>
+                        <div class="board-sub">${esc(pack.name || 'Bingo')} · ${isLockout ? 'Lockout' : 'Independent'}${session.fourCorners ? ' · Four Corners' : ''}</div>
                     </div>
                 </div>
                 <span class="pill ${lines.length ? 'win' : session.locked ? 'locked' : ''}">
                     ${lines.length ? `BINGO ×${lines.length}` : session.locked ? 'Locked' : `${stampedCount}/${total}`}
                 </span>
             </div>
-            ${session.locked ? '<div class="status-banner">Board is locked by the host — view only</div>' : ''}
+            ${bannerHtml}
             <div class="grid" style="grid-template-columns:repeat(${size}, minmax(0, 1fr));">
                 ${cells.map(c => {
                     const cls = [
                         'cell',
                         c.stamped ? 'is-stamped' : '',
+                        c.pending ? 'is-pending' : '',
                         winSet.has(c.index) ? 'is-winning' : '',
                         c.lockedByOther ? 'is-locked-other' : '',
                         c.isFree ? 'is-free' : ''
@@ -328,7 +364,9 @@ html, body {
                     const disabled = c.isFree || session.locked || c.lockedByOther ? 'disabled' : '';
                     const badge = c.lockedByOther && c.owner
                         ? `<span class="claim-tag" style="background:${esc(c.owner.color)};">${esc(c.owner.name)}</span>`
-                        : '';
+                        : c.pending
+                            ? '<span class="pending-tag">Pending</span>'
+                            : '';
                     return `<button type="button" class="${cls}" data-cell="${c.index}" ${disabled}><span class="cell-label">${esc(c.label)}</span>${badge}</button>`;
                 }).join('')}
             </div>`;

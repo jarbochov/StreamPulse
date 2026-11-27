@@ -46,4 +46,12 @@ When you want a multi-round event, create a tournament bracket and let matches b
 
 Keep a bracket ready for another night with reusable templates, or save a checkpoint to return to its progress later. Blind votes save the surprise for the end of a match, double elimination supports full Grand Finals resets, and round-robin standings adjust cleanly when match results are updated.
 
+### Versus Studio Highlights
+
+**Versus Studio** (`/versus.html`) is built for fast live-event operation alongside zero-reload overlay customization:
+
+- **Broadcast Themes & Saved Looks**: Switch between built-in broadcast looks — including **Broadcast Sports Ticker**, **Retro Arcade**, and **Minimal Transparent HUD** — with visual theme swatches, **Event Theme Sync** to keep tournament and matchup overlays aligned, and **Saved Looks** to recall recurring show styles in one click.
+- **Fast Live Control & Safety**: Drive scores and split race clocks with Match & Race keyboard shortcuts and a **20-step Undo** stack, drag-and-drop Fight Card queues, recent player roster autocomplete, and actionable Win Target Met controls.
+- **Bracket Setup & Promo Handoff**: Import tournament rosters from **CSV or JSON**, preview live seeding and BYEs, shuffle seeds before starting, and hand off active matchups directly into **[Promo Creator](promo-creator.md)** with one click when the Promo Creator module is enabled.
+
 Find more [StreamPulse features](features.md) or [get started](quickstart.md). Already installed? Open **Docs** and **API Reference** from the app navigation.

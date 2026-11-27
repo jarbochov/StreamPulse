@@ -243,7 +243,7 @@ html.sp-fx-paused .mp-bingo-banner {
         return 'inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 8px 22px rgba(0, 0, 0, 0.32)';
     }
 
-    function detectLines(size, stampedSet) {
+    function detectLines(size, stampedSet, { fourCorners = false } = {}) {
         const lines = [];
         for (let r = 0; r < size; r++) {
             const row = [];
@@ -259,10 +259,14 @@ html.sp-fx-paused .mp-bingo-banner {
         for (let i = 0; i < size; i++) { d1.push(i * size + i); d2.push(i * size + (size - 1 - i)); }
         if (d1.every(i => stampedSet.has(i))) lines.push(d1);
         if (d2.every(i => stampedSet.has(i))) lines.push(d2);
+        if (fourCorners && size >= 2) {
+            const corners = [0, size - 1, size * (size - 1), size * size - 1];
+            if (corners.every(i => stampedSet.has(i))) lines.push(corners);
+        }
         return lines;
     }
 
-    function resolveCard(pack, card, claims) {
+    function resolveCard(pack, card, claims, { fourCorners = false } = {}) {
         const size = pack.size || 5;
         const total = size * size;
         const centerIdx = size % 2 === 1 ? Math.floor(total / 2) : -1;
@@ -296,7 +300,7 @@ html.sp-fx-paused .mp-bingo-banner {
             }
             cells.push({ index: i, label, isFree: false, stamped, lockedByOther, winning: false });
         }
-        const lines = detectLines(size, stampedSet);
+        const lines = detectLines(size, stampedSet, { fourCorners });
         const winSet = new Set(lines.flat());
         for (const c of cells) c.winning = winSet.has(c.index);
         return { ...card, size, total, cells, stampedCount: cells.filter(c => c.stamped).length, bingoCount: lines.length };
@@ -380,7 +384,8 @@ html.sp-fx-paused .mp-bingo-banner {
         const cards = Array.isArray(session.cards) ? session.cards : [];
         const claims = session.claims || {};
         const cardsById = Object.fromEntries(cards.map(c => [c.id, c]));
-        const resolvedCards = cards.map(c => resolveCard(pack, c, claims));
+        const fourCorners = Boolean(session.fourCorners);
+        const resolvedCards = cards.map(c => resolveCard(pack, c, claims, { fourCorners }));
 
         root.className = `mp-theme-${theme}${app.animate ? '' : ' mp-no-anim'}`;
         root.dataset.bingoView = view;

@@ -5,6 +5,7 @@
   const pages = [
     '/', '/features', '/showcase', '/support', '/quickstart', '/socialstream-setup', '/companion',
     '/operator-guide', '/custom-overlays', '/overlay-wizards', '/variables-guide', '/variable-displays',
+    '/variable-operations', '/obs-studios', '/multiplayer-bingo',
     '/credits-guide', '/randomizer-guide', '/game-plan-guide', '/tier-list-guide', '/community-guide',
     '/alerts-guide', '/chatbot-guide', '/clips-beta', '/polls-guide', '/trivia-guide', '/promo-creator',
     '/sessions-hashtags', '/desktop-app', '/streamer-guide', '/troubleshooting', '/changelog'

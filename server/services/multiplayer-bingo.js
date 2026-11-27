@@ -33,13 +33,25 @@ function defaultState() {
         session: {
             hidden: false,
             locked: false,
+            fourCorners: false,
+            confirmCalls: false,
             focusedCardId: '',
             cards: [],
             claims: {},
-            calledPrompts: []
+            calledPrompts: [],
+            pendingCalls: []
         },
         appearance: defaultAppearance()
     };
+}
+
+function cellToPromptIndex(pack, card, cell) {
+    const size = pack.size;
+    const total = size * size;
+    const centerIdx = size % 2 === 1 ? Math.floor(total / 2) : -1;
+    const hasFree = pack.freeSpace && centerIdx >= 0;
+    const poolOffset = hasFree && cell > centerIdx ? cell - 1 : cell;
+    return Array.isArray(card.order) && card.order[poolOffset] !== undefined ? Number(card.order[poolOffset]) : poolOffset;
 }
 
 function sanitizeCard(card) {
@@ -83,16 +95,41 @@ module.exports = function createMultiplayerBingoService({ dataDir, onChange = ()
             }))
             : [];
         const focusedCardId = cards.some(c => c.id === rawSession.focusedCardId) ? String(rawSession.focusedCardId) : '';
+        const cardIds = new Set(cards.map(c => c.id));
+        const pendingSeen = new Set();
+        const pendingCalls = [];
+        if (Array.isArray(rawSession.pendingCalls)) {
+            for (const p of rawSession.pendingCalls) {
+                if (!p || typeof p !== 'object') continue;
+                const cardId = String(p.cardId || '');
+                const cell = Number(p.cell);
+                const promptIndex = Number(p.promptIndex);
+                if (!cardIds.has(cardId) || !Number.isInteger(cell) || cell < 0 || !Number.isInteger(promptIndex) || promptIndex < 0) continue;
+                const dedupKey = `${cardId}:${cell}`;
+                if (pendingSeen.has(dedupKey)) continue;
+                pendingSeen.add(dedupKey);
+                pendingCalls.push({
+                    id: String(p.id || `pc-${crypto.randomBytes(4).toString('hex')}`),
+                    cardId,
+                    cell,
+                    promptIndex,
+                    requestedAt: Number.isFinite(Number(p.requestedAt)) ? Number(p.requestedAt) : Date.now()
+                });
+            }
+        }
         return {
             activePackId,
             packs: uniquePacks,
             session: {
                 hidden: Boolean(rawSession.hidden),
                 locked: Boolean(rawSession.locked),
+                fourCorners: Boolean(rawSession.fourCorners),
+                confirmCalls: Boolean(rawSession.confirmCalls),
                 focusedCardId,
                 cards,
                 claims: rawSession.claims && typeof rawSession.claims === 'object' ? { ...rawSession.claims } : {},
-                calledPrompts: Array.isArray(rawSession.calledPrompts) ? [...new Set(rawSession.calledPrompts.map(Number).filter(Number.isInteger))] : []
+                calledPrompts: Array.isArray(rawSession.calledPrompts) ? [...new Set(rawSession.calledPrompts.map(Number).filter(Number.isInteger))] : [],
+                pendingCalls
             },
             appearance: normalizeAppearance(raw.appearance)
         };
@@ -123,10 +160,13 @@ module.exports = function createMultiplayerBingoService({ dataDir, onChange = ()
             session: {
                 hidden: state.session.hidden,
                 locked: state.session.locked,
+                fourCorners: state.session.fourCorners,
+                confirmCalls: state.session.confirmCalls,
                 focusedCardId: state.session.focusedCardId,
                 cards: state.session.cards.map(sanitizeCard),
                 claims: copy(state.session.claims),
-                calledPrompts: [...(state.session.calledPrompts || [])]
+                calledPrompts: [...(state.session.calledPrompts || [])],
+                pendingCalls: copy(state.session.pendingCalls || [])
             },
             appearance: copy(state.appearance),
             revision
@@ -151,7 +191,9 @@ module.exports = function createMultiplayerBingoService({ dataDir, onChange = ()
         getSanitizedState,
         getPublicStatus() {
             const pack = getActivePack();
-            const standings = resolveStandings(pack, state.session.cards, state.session.claims);
+            const standings = resolveStandings(pack, state.session.cards, state.session.claims, {
+                fourCorners: Boolean(state.session.fourCorners)
+            });
             const focused = state.session.cards.find(c => c.id === state.session.focusedCardId);
             const leader = standings[0] || null;
             return {
@@ -162,6 +204,9 @@ module.exports = function createMultiplayerBingoService({ dataDir, onChange = ()
                 playerCount: state.session.cards.length,
                 hidden: state.session.hidden,
                 locked: state.session.locked,
+                fourCorners: state.session.fourCorners,
+                confirmCalls: state.session.confirmCalls,
+                pendingCount: (state.session.pendingCalls || []).length,
                 focusedPlayer: focused ? focused.name : '',
                 leader: leader ? leader.name : '',
                 leaderScore: leader ? leader.stampedCount : 0,
@@ -229,6 +274,7 @@ module.exports = function createMultiplayerBingoService({ dataDir, onChange = ()
                     ...state.session,
                     claims: {},
                     calledPrompts: [],
+                    pendingCalls: [],
                     cards: nextCards
                 }
             });
@@ -274,12 +320,14 @@ module.exports = function createMultiplayerBingoService({ dataDir, onChange = ()
                 if (v && v.cardId !== cardId) nextClaims[k] = v;
             }
             const focusedCardId = state.session.focusedCardId === cardId ? '' : state.session.focusedCardId;
+            const nextPending = (state.session.pendingCalls || []).filter(p => p.cardId !== cardId);
             persist({
                 ...state,
                 session: {
                     ...state.session,
                     cards: nextCards,
                     claims: nextClaims,
+                    pendingCalls: nextPending,
                     focusedCardId
                 }
             });
@@ -304,6 +352,8 @@ module.exports = function createMultiplayerBingoService({ dataDir, onChange = ()
             const nextSession = { ...state.session };
             if (patch.hidden !== undefined) nextSession.hidden = Boolean(patch.hidden);
             if (patch.locked !== undefined) nextSession.locked = Boolean(patch.locked);
+            if (patch.fourCorners !== undefined) nextSession.fourCorners = Boolean(patch.fourCorners);
+            if (patch.confirmCalls !== undefined) nextSession.confirmCalls = Boolean(patch.confirmCalls);
             if (patch.focusedCardId !== undefined) {
                 const id = String(patch.focusedCardId || '');
                 nextSession.focusedCardId = id && state.session.cards.some(c => c.id === id) ? id : '';
@@ -344,11 +394,60 @@ module.exports = function createMultiplayerBingoService({ dataDir, onChange = ()
             const nextCards = state.session.cards.map(c => ({ ...c, stamped: [...c.stamped] }));
             const card = nextCards[cardIdx];
             const nextClaims = { ...state.session.claims };
+            let nextPending = Array.isArray(state.session.pendingCalls) ? state.session.pendingCalls.map(p => ({ ...p })) : [];
+            const promptIndex = cellToPromptIndex(pack, card, cell);
+            const key = String(promptIndex);
+
+            if (!isHost && state.session.confirmCalls) {
+                if (pack.claimMode === 'lockout') {
+                    const existing = nextClaims[key];
+                    if (existing && existing.cardId !== card.id) {
+                        const err = new Error('Already claimed by another player');
+                        err.statusCode = 409;
+                        throw err;
+                    }
+                    if (existing && existing.cardId === card.id) {
+                        const err = new Error('Confirmed squares can only be unstamped by the host');
+                        err.statusCode = 403;
+                        throw err;
+                    }
+                } else if (card.stamped.includes(cell)) {
+                    card.stamped = card.stamped.filter(c => c !== cell);
+                    persist({
+                        ...state,
+                        session: {
+                            ...state.session,
+                            cards: nextCards,
+                            claims: nextClaims,
+                            pendingCalls: nextPending
+                        }
+                    });
+                    return this.getState();
+                }
+
+                const pendingIdx = nextPending.findIndex(p => p.cardId === card.id && p.cell === cell);
+                if (pendingIdx >= 0) {
+                    nextPending.splice(pendingIdx, 1);
+                } else {
+                    nextPending.push({
+                        id: `pc-${crypto.randomBytes(4).toString('hex')}`,
+                        cardId: card.id,
+                        cell,
+                        promptIndex,
+                        requestedAt: Date.now()
+                    });
+                }
+                persist({
+                    ...state,
+                    session: {
+                        ...state.session,
+                        pendingCalls: nextPending
+                    }
+                });
+                return this.getState();
+            }
 
             if (pack.claimMode === 'lockout') {
-                const poolOffset = hasFree && cell > centerIdx ? cell - 1 : cell;
-                const promptIndex = Array.isArray(card.order) && card.order[poolOffset] !== undefined ? card.order[poolOffset] : poolOffset;
-                const key = String(promptIndex);
                 const existing = nextClaims[key];
                 if (existing && existing.cardId !== card.id) {
                     if (!isHost) {
@@ -363,12 +462,18 @@ module.exports = function createMultiplayerBingoService({ dataDir, onChange = ()
                 } else if (forceState !== false) {
                     nextClaims[key] = { cardId: card.id, at: Date.now() };
                 }
+                if (nextClaims[key]) {
+                    nextPending = nextPending.filter(p => p.promptIndex !== promptIndex);
+                }
             } else {
                 const set = new Set(card.stamped);
                 const nextOn = forceState !== undefined ? Boolean(forceState) : !set.has(cell);
                 if (nextOn) set.add(cell);
                 else set.delete(cell);
                 card.stamped = [...set].sort((a, b) => a - b);
+                if (set.has(cell)) {
+                    nextPending = nextPending.filter(p => !(p.cardId === card.id && p.cell === cell));
+                }
             }
 
             persist({
@@ -376,10 +481,114 @@ module.exports = function createMultiplayerBingoService({ dataDir, onChange = ()
                 session: {
                     ...state.session,
                     cards: nextCards,
-                    claims: nextClaims
+                    claims: nextClaims,
+                    pendingCalls: nextPending
                 }
             });
             return this.getState();
+        },
+        confirmPendingCalls({ id = '', prompt = undefined, card = '', all = false } = {}) {
+            const matchAll = Boolean(all);
+            const cleanId = String(id || '').trim();
+            const hasPrompt = prompt !== undefined && prompt !== '' && prompt !== null && Number.isInteger(Number(prompt));
+            const targetPrompt = hasPrompt ? Number(prompt) : -1;
+            const targetCard = String(card || '').trim();
+            if (!matchAll && !cleanId && !hasPrompt) {
+                const err = new Error('Specify id, prompt, or all=1');
+                err.statusCode = 400;
+                throw err;
+            }
+            const pending = Array.isArray(state.session.pendingCalls) ? state.session.pendingCalls : [];
+            const matches = p => {
+                if (matchAll) return true;
+                if (cleanId) return p.id === cleanId;
+                if (p.promptIndex !== targetPrompt) return false;
+                return targetCard ? p.cardId === targetCard : true;
+            };
+            const matched = pending.filter(matches);
+            if (!matched.length) return { confirmed: 0, state: this.getState() };
+
+            const pack = getActivePack();
+            const size = pack.size;
+            const total = size * size;
+            const centerIdx = size % 2 === 1 ? Math.floor(total / 2) : -1;
+            const hasFree = pack.freeSpace && centerIdx >= 0;
+            const nextCards = state.session.cards.map(c => ({ ...c, stamped: [...c.stamped] }));
+            const cardsById = Object.fromEntries(nextCards.map(c => [c.id, c]));
+            const nextClaims = { ...state.session.claims };
+            const matchedIds = new Set(matched.map(p => p.id));
+            const lockedOutPrompts = new Set();
+            let confirmed = 0;
+
+            for (const p of matched) {
+                const cardObj = cardsById[p.cardId];
+                if (!cardObj) continue;
+                if (!Number.isInteger(p.cell) || p.cell < 0 || p.cell >= total) continue;
+                if (hasFree && p.cell === centerIdx) continue;
+                if (pack.claimMode === 'lockout') {
+                    const key = String(p.promptIndex);
+                    if (!nextClaims[key]) {
+                        nextClaims[key] = { cardId: cardObj.id, at: Date.now() };
+                        lockedOutPrompts.add(p.promptIndex);
+                        confirmed++;
+                    } else {
+                        lockedOutPrompts.add(p.promptIndex);
+                    }
+                } else {
+                    const set = new Set(cardObj.stamped);
+                    set.add(p.cell);
+                    cardObj.stamped = [...set].sort((a, b) => a - b);
+                    confirmed++;
+                }
+            }
+
+            const remaining = pending.filter(p => {
+                if (matchedIds.has(p.id)) return false;
+                if (pack.claimMode === 'lockout' && (lockedOutPrompts.has(p.promptIndex) || nextClaims[String(p.promptIndex)])) return false;
+                return true;
+            });
+
+            persist({
+                ...state,
+                session: {
+                    ...state.session,
+                    cards: nextCards,
+                    claims: nextClaims,
+                    pendingCalls: remaining
+                }
+            });
+            return { confirmed, state: this.getState() };
+        },
+        dismissPendingCalls({ id = '', prompt = undefined, card = '', all = false } = {}) {
+            const matchAll = Boolean(all);
+            const cleanId = String(id || '').trim();
+            const hasPrompt = prompt !== undefined && prompt !== '' && prompt !== null && Number.isInteger(Number(prompt));
+            const targetPrompt = hasPrompt ? Number(prompt) : -1;
+            const targetCard = String(card || '').trim();
+            if (!matchAll && !cleanId && !hasPrompt) {
+                const err = new Error('Specify id, prompt, or all=1');
+                err.statusCode = 400;
+                throw err;
+            }
+            const pending = Array.isArray(state.session.pendingCalls) ? state.session.pendingCalls : [];
+            const matches = p => {
+                if (matchAll) return true;
+                if (cleanId) return p.id === cleanId;
+                if (p.promptIndex !== targetPrompt) return false;
+                return targetCard ? p.cardId === targetCard : true;
+            };
+            const remaining = pending.filter(p => !matches(p));
+            const dismissed = pending.length - remaining.length;
+            if (dismissed > 0) {
+                persist({
+                    ...state,
+                    session: {
+                        ...state.session,
+                        pendingCalls: remaining
+                    }
+                });
+            }
+            return { dismissed, state: this.getState() };
         },
         shuffleAll() {
             const pack = getActivePack();
@@ -395,6 +604,7 @@ module.exports = function createMultiplayerBingoService({ dataDir, onChange = ()
                     ...state.session,
                     claims: {},
                     calledPrompts: [],
+                    pendingCalls: [],
                     cards: nextCards
                 }
             });
@@ -408,6 +618,7 @@ module.exports = function createMultiplayerBingoService({ dataDir, onChange = ()
                     ...state.session,
                     claims: {},
                     calledPrompts: [],
+                    pendingCalls: [],
                     cards: nextCards
                 }
             });
@@ -447,6 +658,9 @@ module.exports = function createMultiplayerBingoService({ dataDir, onChange = ()
             if (!nextCalled && pack.claimMode === 'lockout') {
                 delete nextClaims[String(idx)];
             }
+            const nextPending = nextCalled
+                ? (state.session.pendingCalls || []).filter(p => p.promptIndex !== idx)
+                : copy(state.session.pendingCalls || []);
 
             persist({
                 ...state,
@@ -454,7 +668,8 @@ module.exports = function createMultiplayerBingoService({ dataDir, onChange = ()
                     ...state.session,
                     calledPrompts: [...calledSet].sort((a, b) => a - b),
                     cards: nextCards,
-                    claims: nextClaims
+                    claims: nextClaims,
+                    pendingCalls: nextPending
                 }
             });
             return this.getState();
@@ -468,8 +683,11 @@ module.exports = function createMultiplayerBingoService({ dataDir, onChange = ()
             const safeSession = {
                 hidden: state.session.hidden,
                 locked: state.session.locked,
+                fourCorners: state.session.fourCorners,
+                confirmCalls: state.session.confirmCalls,
                 focusedCardId: state.session.focusedCardId,
                 claims: copy(state.session.claims),
+                pendingCalls: copy((state.session.pendingCalls || []).filter(p => p.cardId === card.id)),
                 cards: state.session.cards.map(c => ({
                     id: c.id,
                     name: c.name,

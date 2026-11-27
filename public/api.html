@@ -221,7 +221,8 @@
                 },
                 {
                     method: 'POST', path: '/api/twitch/auth/disconnect',
-                    desc: 'Remove the stored Twitch token'
+                    desc: 'Remove the stored Twitch token',
+                    details: 'Clears the saved Twitch OAuth access and refresh tokens from disk and disconnects Twitch EventSub/API polling until you re-authenticate.'
                 },
                 {
                     method: 'GET', path: '/auth/twitch',
@@ -359,6 +360,12 @@
                     details: 'Returns the normalized saved goal settings, computed live progress for every goal, summary counts, and the current metrics used to calculate progress. Includes persistent/session metrics and viewer stats.'
                 },
                 {
+                    method: 'GET', path: '/api/goals/status',
+                    desc: 'Lightweight goals status summary for Companion polling',
+                    companion: true,
+                    details: 'Returns a compact summary of enabled goals, active/completed counts, and current progress percentages suitable for Bitfocus Companion polling and status widgets.'
+                },
+                {
                     method: 'GET', path: '/api/goals/config',
                     desc: 'Goal and viewer settings',
                     details: 'Returns the editable viewer_tracking and goals config sections exactly as the Goals Manager uses them.'
@@ -377,7 +384,18 @@
                 {
                     method: 'POST', path: '/api/goals/{id}/toggle',
                     desc: 'Toggle a goal',
-                    details: 'Toggles a goal enabled/disabled. You can also call /api/goals/{id}/enable or /api/goals/{id}/disable.'
+                    companion: true,
+                    details: 'Toggles a goal enabled/disabled. Supports both POST and Companion GET triggers. You can also call /api/goals/{id}/enable or /api/goals/{id}/disable.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/goals/{id}/add',
+                    desc: 'Adjust a goal\'s progress amount (Companion-friendly)',
+                    companion: true,
+                    details: 'Increments or adjusts a goal\'s progress by the supplied numeric amount (also accepts /api/goals/{id}/increment and /api/goals/{id}/adjust). Accepts query params (?amount=1, ?delta=-1, or ?value=5) or JSON body { "amount": 1 }. Returns { ok, amount, goal, goals } and broadcasts live updates to overlays.',
+                    params: [
+                        { name: 'amount', desc: 'Numeric delta to add (negative subtracts); aliases: delta, value', values: 'number', default: '1' }
+                    ],
+                    body: '{ "amount": 1 }'
                 }
             ]
         },
@@ -596,6 +614,77 @@
             ]
         },
         {
+            section: 'Subathon Automation',
+            items: [
+                {
+                    method: 'GET', path: '/api/subathon',
+                    desc: 'Get Subathon automation config, live stats, and active rules summary',
+                    details: 'Requires subathon_enabled: true in System Config (returns HTTP 404 when disabled). Returns { ok, config, state, rulesSummary } including target timer ID, per-event conversion rates (subs, gift subs, bits, donations, follows, raids), cap settings, active boost multiplier, and cumulative added time.'
+                },
+                {
+                    method: 'PUT / POST', path: '/api/subathon',
+                    desc: 'Update Subathon conversion rates, target timer, caps, and rules overlay appearance',
+                    body: '{ "enabled": true, "targetTimerId": "subathon", "rates": { "sub_t1": 120, "bits_per_100": 30, "donation_per_dollar": 60 } }',
+                    details: 'Validates and persists Subathon automation settings to data/subathon.json, hot-reloads the live engine, and broadcasts updated rules to /overlays/subathon-rules.html.'
+                },
+                {
+                    method: 'GET', path: '/api/subathon/rules',
+                    desc: 'Fetch formatted Subathon rules summary for overlays and dashboards',
+                    details: 'Returns { ok, rules } with active rates, current multiplier/boost state, total time added, and human-readable rule lines consumed by /overlays/subathon-rules.html.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/subathon/toggle',
+                    desc: 'Enable, disable, or toggle live Subathon time additions (Companion-friendly)',
+                    companion: true,
+                    params: [
+                        { name: 'mode', desc: 'Explicit state or omit to toggle (alias: action)', values: 'on | off | true | false', default: 'toggle' }
+                    ],
+                    details: 'Toggles live event-to-timer automation without clearing stats or disabling the module. Returns { ok, enabled }.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/subathon/multiplier',
+                    desc: 'Activate a timed Subathon boost / Happy Hour multiplier (alias: /api/subathon/boost)',
+                    companion: true,
+                    params: [
+                        { name: 'factor', desc: 'Multiplier factor (alias: multiplier)', values: 'number (e.g. 2, 3)', default: '2' },
+                        { name: 'minutes', desc: 'Boost duration in minutes (alias: duration)', values: 'number', default: '60' }
+                    ],
+                    body: '{ "factor": 2, "minutes": 60 }',
+                    details: 'Temporarily multiplies all incoming Subathon time additions (e.g. 2x Happy Hour for 60 minutes). Also reachable at /api/subathon/boost. Returns { ok, multiplier, rulesSummary }.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/subathon/clear_multiplier',
+                    desc: 'End an active Subathon boost / multiplier immediately (alias: /api/subathon/clear_boost)',
+                    companion: true,
+                    details: 'Resets the multiplier back to 1x immediately and updates the Subathon Rules overlay. Also reachable at /api/subathon/clear_boost.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/subathon/undo',
+                    desc: 'Undo the most recent automated Subathon time addition (Companion-friendly)',
+                    companion: true,
+                    details: 'Reverts the last automated time addition from the target countdown timer and adjusts session Subathon stats accordingly.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/subathon/reset_stats',
+                    desc: 'Reset cumulative Subathon session statistics (Companion-friendly)',
+                    companion: true,
+                    details: 'Zeroes totalTimeAddedSeconds, subs, bits, donations, follows, and raids tracked by the Subathon engine without altering configured rates or timer value.'
+                },
+                {
+                    method: 'POST', path: '/api/subathon/test',
+                    desc: 'Simulate an incoming stream event through the Subathon engine',
+                    body: '{ "type": "sub", "tier": "1000", "user": "FictionalViewer", "amount": 1 }',
+                    details: 'Runs a synthetic event payload (sub, giftsub, bits, donation, follow, raid) through live rate/multiplier calculation and returns { ok, result }.'
+                },
+                {
+                    method: 'GET', path: '/api/subathon/field/:field',
+                    desc: 'Plain-text Subathon status field for Stream Deck / Companion button titles',
+                    companion: true,
+                    details: 'Returns a single plain-text value for hardware decks without JSON parsing. Supported fields: status, enabled, target_timer, multiplier, boost, boost_active, is_boost, happy_hour, total_added_seconds, total_added, subs_count, bits_total, donations_total, follows_total, raids_total, summary.'
+                }
+            ]
+        },
+        {
             section: 'Analytics & Subscribers',
             items: [
                 {
@@ -654,14 +743,174 @@
                     details: 'Full-definition shape: {id:"hosts",name:"Host cards",kind:"badge",catalogId:"people",badge:{width:800,height:240,imageGroup:{enabled:true,layout:"row",imageField:"avatar",labelPosition:"right",fields:[{key:"name",slot:"main",fontSize:24}]},style:{fontFamily:"sans-serif",fontSize:24,color:"#ffffff"}}}. Field slot supports main, header, footer, trailing, avatar-top, avatar-bottom, avatar-tl/tr/bl/br and corner-tl/tr/bl/br. Main fields follow labelPosition: above/below/left/right, inside-top/inside-bottom or split. Without an avatar, its top/bottom slots become card header/footer and its corner slots become card corners. The library edits intrinsic member card/avatar/field styling, while overall placement effects stay in Custom Overlay Editor. Existing Image Group layers and source queries convert to saved badge definitions and canonical data-display bindings using setId, selector, path, fields, tracker, rows and showMode. There is no separate Group Strip editor or hidden badgeSource runtime configuration. Full backup is required for transferring dependencies.' },
                 { method: 'POST / PUT', path: '/api/variable-displays/:id', desc: 'Define a reusable counter & pips display',
                     details: 'Full-definition shape: {id:"boss_hearts",name:"Boss Hearts",kind:"counter",counter:{sourceMode:"variables",variables:[{name:"lives",label:"Lives",cap:null}],theme:"cozy",style:"hearts",capMode:"auto",customCap:5,overflowMode:"plus",perRow:10,readout:"fraction",readoutPosition:"right",labelPosition:"left",filledColor:"#f43f5e",emptyColor:"#ffffff1f",outlineColor:"#ffffff66",animate:"pop"}}. Supported themes: modern, esports, sports, arcade, minimal, cozy, chalkboard. Supported styles: pips, hearts (filled + outlined), stars, diamonds, squares, bars, tally (5-count with diagonal slash), tally-chalk, number. sourceMode:"variables" binds up to 16 Counter/Number variables without requiring catalogId; sourceMode:"set" binds catalogId + valueField + labelField + rowScope (all, active, slots, group, group-slots), inheriting any min/max/step configured on the Variable Set field. capMode: auto (uses variable/field max when set, otherwise grows dynamically), custom (uses customCap 1-100), or none (always grows). overflowMode: plus (+N badge), overflow (extra overflow-colored markers), clamp. Overlay placements can optionally set display.variableName to override the tracked variable per placement.' },
-                { method: 'GET / POST', path: '/api/multiplayer-bingo/*', desc: 'Standalone Multiplayer Bingo (LAN) Studio & Companion API',
-                    details: 'Dedicated Multiplayer Bingo service (data/multiplayer-bingo.json, Studio at /tools/bingo.html, OBS overlay at /overlays/multiplayer-bingo.html?view=multi|lockout|standings|single). Endpoints: GET /api/multiplayer-bingo (admin state), GET /api/multiplayer-bingo/overlay (sanitized, no tokens), GET /api/multiplayer-bingo/status (Companion summary), POST /packs, PUT/DELETE /packs/:id, GET/POST /packs/select?id=..., POST /appearance, GET/POST /players/add?name=Nova&color=%23ef4444, /players/remove?card=..., /players/regen?card=..., /players/toggle?card=...&cell=0 (host override), /call?prompt=0&called=1 (Host Caller auto-marks a prompt across all player cards), /flags?hidden=1&locked=0, /focus?card=...&toggle=1 (live zoom), /shuffle, and /reset.' },
-                { method: 'GET / POST', path: '/api/bingo/play/:token', desc: 'Scoped LAN Multiplayer Bingo player card (opt-in)',
-                    details: 'Requires multiplayer_bingo_enabled=true in System Config (returns HTTP 403 when disabled). GET /api/bingo/play/:token returns { pack, cardId, session, appearance } with sanitized cards (never exposing secret tokens). POST /api/bingo/play/:token/toggle with { cell } toggles a square on the player\'s own card, enforcing hidden/locked guards (HTTP 403) and Lockout claim conflicts (HTTP 409). Companion player UI: /bingo-play.html?t=<token>.' },
                 { method: 'PUT', path: '/api/custom-overlays/:id', desc: 'Place saved designs in an overlay',
                     details: 'Existing overlay-save API accepts elements such as { id:"p1-inventory",type:"data-display",x:40,y:80,width:600,height:400,display:{displayId:"adventure",setId:"schedule",selector:"active",path:["player_1"],tracker:"gear",showMode:"dim"} }. selector: active (Slot1 on slotted sets, otherwise activeEntry), slot:N (one-based), entry:ID. path follows up to4 single Linked entry/ref field keys to the owner; tracker must be a checklist targeting the design catalog. showMode:dim or active (earned only). Empty setId shows Whole catalog. Build Equipment and People Tracker sets, optionally assign Schedule roles, save an Inventory in /variable-displays.html, then add Saved Display twice and choose Player1/Player2. Use Operator or existing GET/POST /api/variables/sets/:setId/checklist/set|toggle|step|reset to operate independent progress. Missing/empty/incompatible sources hide production output and never mutate live slots.' },
                 { method: 'PUT', path: '/api/custom-overlays/:id', desc: 'Select rows for table and badge placements',
                     details: 'Save a complete overlay as usual. Example element: {id:"lineup",type:"data-display",width:1000,height:400,display:{displayId:"schedule",rows:"all"}}. rows supports all (enabled roster), active (selected entry), slots (occupied slots in slot order; activeEntry on slotless sets), group (In Group), group-slots (In Group live slots), ordered (only IDs in table.rowOrder, tables only). Empty setId uses the design catalog. For a curated linked list: display:{displayId:"schedule",setId:"show",selector:"active",path:[],fields:["events"]}. fields selects one or several ref/ref_list roles targeting the catalog on the selected source entry, deduplicating in role/list order. path traverses up to4 single ref fields before resolving fields, tracker or a single catalog entry. Badge tracker bindings use the same tracker/showMode controls as Inventory. Invalid links and missing selections produce no rows; source resolution never mutates slots. Disabled entries are excluded from Inventory, Table and Badge. Manual rowOrder orders the full roster with new rows appended; rows:ordered restricts to that list. sortKey sorting applies afterward, then maxRows. Editor-only source summaries explain resolved owners, paths and empty selections.' }
+            ]
+        },
+        {
+            section: 'Multiplayer Bingo (LAN)',
+            items: [
+                {
+                    method: 'GET', path: '/api/multiplayer-bingo',
+                    desc: 'Full Multiplayer Bingo admin state, player tokens, and LAN network info',
+                    details: 'Returns the complete Multiplayer Bingo state from data/multiplayer-bingo.json including activePackId, activePack, packs, session (cards with private player tokens, claims, calledPrompts, pendingCalls, flags), appearance, revision, enabled, and network ({ lanOrigin, lanIps }) so the Host Studio can generate ready-to-share LAN player URLs (http://<lan-ip>:<port>/bingo-play.html?t=<token>).'
+                },
+                {
+                    method: 'GET', path: '/api/multiplayer-bingo/overlay',
+                    desc: 'Sanitized Multiplayer Bingo state for OBS overlays (no player tokens)',
+                    details: 'Returns activePackId, activePack, packs summary, sanitized session cards (private tokens stripped), claims, calledPrompts, appearance, and revision for /overlays/multiplayer-bingo.html?view=multi|lockout|standings|single.'
+                },
+                {
+                    method: 'GET', path: '/api/multiplayer-bingo/status',
+                    desc: 'Lightweight Companion polling summary for Multiplayer Bingo',
+                    companion: true,
+                    details: 'Returns { enabled, packId, packName, size, claimMode, playerCount, hidden, locked, fourCorners, confirmCalls, pendingCount, focusedPlayer, leader, leaderScore, leaderBingos, standings }.'
+                },
+                {
+                    method: 'POST', path: '/api/multiplayer-bingo/packs',
+                    desc: 'Create a new Bingo Prompt Pack (and PUT / DELETE /api/multiplayer-bingo/packs/:id)',
+                    body: '{ "name": "Stream Night Race", "size": 5, "freeSpace": true, "claimMode": "lockout", "prompts": ["First Try Clear", "Secret Room Found", "..."] }',
+                    details: 'Creates a reusable Prompt Pack (up to 100 packs, 3×3 / 4×4 / 5×5 grids, independent or lockout claim mode). Update an existing pack with PUT/POST /api/multiplayer-bingo/packs/:id or delete with DELETE /api/multiplayer-bingo/packs/:id (at least one pack must remain).'
+                },
+                {
+                    method: 'GET / POST', path: '/api/multiplayer-bingo/packs/select',
+                    desc: 'Switch the active Prompt Pack (Companion-friendly)',
+                    companion: true,
+                    params: [
+                        { name: 'id', desc: 'Prompt pack ID to activate (body alias: packId)', values: 'string', default: '—' }
+                    ],
+                    details: 'Switches the active prompt pack and broadcasts multiplayer-bingo-update over WebSocket.'
+                },
+                {
+                    method: 'POST / PUT', path: '/api/multiplayer-bingo/appearance',
+                    desc: 'Update Multiplayer Bingo overlay theme, stamp style, typography, and colors',
+                    body: '{ "theme": "esports", "stampStyle": "dauber", "defaultView": "multi", "bingoColor": "#22c55e" }',
+                    details: 'Persists overlay appearance settings (themes: modern, esports, sports, arcade, minimal, cozy, synthwave; stamp styles: dauber, check, x, star, fill) and live-updates connected OBS overlays.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/multiplayer-bingo/players/add',
+                    desc: 'Add a LAN player card and generate a private share token',
+                    companion: true,
+                    params: [
+                        { name: 'name', desc: 'Player display name', values: 'string', default: 'Player N' },
+                        { name: 'color', desc: 'Player accent hex color', values: 'hex color', default: 'auto' }
+                    ],
+                    details: 'Adds a new player card (up to 24 players) with a shuffled board and unique LAN player token. Companion player URL: /bingo-play.html?t=<token>.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/multiplayer-bingo/players/remove',
+                    desc: 'Remove a player card from the current Bingo session',
+                    companion: true,
+                    params: [
+                        { name: 'card', desc: 'Player card ID to remove (body alias: cardId)', values: 'string', default: '—' }
+                    ],
+                    details: 'Removes the player card and clears any lockout claims owned by that player.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/multiplayer-bingo/players/regen',
+                    desc: 'Regenerate a player\'s private LAN share token',
+                    companion: true,
+                    params: [
+                        { name: 'card', desc: 'Player card ID (body alias: cardId)', values: 'string', default: '—' }
+                    ],
+                    details: 'Invalidates the previous /bingo-play.html?t=... link for that player and issues a fresh secret token.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/multiplayer-bingo/players/toggle',
+                    desc: 'Host override to toggle or force-stamp a specific cell on a player\'s card',
+                    companion: true,
+                    params: [
+                        { name: 'card', desc: 'Player card ID (body alias: cardId)', values: 'string', default: '—' },
+                        { name: 'cell', desc: '0-based cell index on the card', values: 'number', default: '—' },
+                        { name: 'stamped', desc: 'Optional explicit state (omitted = toggle)', values: '0 | 1 | true | false', default: 'toggle' }
+                    ],
+                    details: 'Allows the host (or Companion) to stamp or unstamp any cell directly, bypassing player lock/hidden guards.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/multiplayer-bingo/flags',
+                    desc: 'Update session rules and overlay visibility flags (Companion-friendly)',
+                    companion: true,
+                    params: [
+                        { name: 'hidden', desc: 'Hide boards on OBS overlay and player screens', values: '0 | 1 | true | false', default: '—' },
+                        { name: 'locked', desc: 'Lock player self-tapping on LAN cards', values: '0 | 1 | true | false', default: '—' },
+                        { name: 'focusedCardId', desc: 'Card ID to spotlight (empty clears)', values: 'string', default: '—' },
+                        { name: 'fourCorners', desc: 'Count all four outer corners as a valid Bingo', values: '0 | 1 | true | false', default: '—' },
+                        { name: 'confirmCalls', desc: 'Require host approval before player calls stamp', values: '0 | 1 | true | false', default: '—' }
+                    ],
+                    body: '{ "hidden": false, "locked": false, "fourCorners": true, "confirmCalls": false }',
+                    details: 'Updates one or more session flags (`hidden`, `locked`, `focusedCardId`, `fourCorners`, `confirmCalls`) and pushes updates live to the Studio, OBS overlay, and LAN player clients.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/multiplayer-bingo/focus',
+                    desc: 'Spotlight/zoom a single player card on the live overlay',
+                    companion: true,
+                    params: [
+                        { name: 'card', desc: 'Player card ID (empty clears focus)', values: 'string', default: '""' },
+                        { name: 'toggle', desc: 'Clear focus if the same card is already focused', values: '0 | 1', default: '0' }
+                    ],
+                    details: 'Focuses a player\'s board for dramatic close-ups on /overlays/multiplayer-bingo.html without reloading the browser source.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/multiplayer-bingo/shuffle',
+                    desc: 'Re-shuffle prompt layouts across all player cards (Companion-friendly)',
+                    companion: true,
+                    details: 'Generates fresh randomized cell arrangements for all active player cards from the active Prompt Pack and clears existing stamps/claims.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/multiplayer-bingo/reset',
+                    desc: 'Reset stamps, claims, called prompts, and pending calls while keeping layouts',
+                    companion: true,
+                    details: 'Clears all stamped squares, lockout claims, host-called prompts, and pending call requests while keeping current players and card layouts intact.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/multiplayer-bingo/call',
+                    desc: 'Host Caller — call or uncall a prompt across all player boards',
+                    companion: true,
+                    params: [
+                        { name: 'prompt', desc: '0-based prompt index in the active pack', values: 'number', default: '—' },
+                        { name: 'called', desc: 'Explicit called state (omitted = toggle)', values: '0 | 1 | true | false', default: 'toggle' }
+                    ],
+                    details: 'Auto-stamps (or un-stamps) the matching square across every player board that contains that prompt and records the prompt in session.calledPrompts.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/multiplayer-bingo/confirm',
+                    desc: 'Approve pending player call(s) when Confirm Mode is enabled',
+                    companion: true,
+                    params: [
+                        { name: 'id', desc: 'Specific pending call ID', values: 'string', default: '—' },
+                        { name: 'prompt', desc: '0-based prompt index to confirm', values: 'number', default: '—' },
+                        { name: 'card', desc: 'Player card ID filter (body alias: cardId)', values: 'string', default: '—' },
+                        { name: 'all', desc: 'Confirm every pending call in the queue', values: '0 | 1 | true | false', default: 'false' }
+                    ],
+                    body: '{ "prompt": 4, "card": "card-1" }',
+                    details: 'Approves one or more pending player calls in Confirm Mode (`confirmCalls: true`) by `id`, `prompt`, `card`, or `all: true`, stamping the matching squares (and claiming prompts in Lockout mode) and removing them from the pending queue.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/multiplayer-bingo/dismiss',
+                    desc: 'Dismiss pending player call(s) when Confirm Mode is enabled',
+                    companion: true,
+                    params: [
+                        { name: 'id', desc: 'Specific pending call ID', values: 'string', default: '—' },
+                        { name: 'prompt', desc: '0-based prompt index to dismiss', values: 'number', default: '—' },
+                        { name: 'card', desc: 'Player card ID filter (body alias: cardId)', values: 'string', default: '—' },
+                        { name: 'all', desc: 'Dismiss every pending call in the queue', values: '0 | 1 | true | false', default: 'false' }
+                    ],
+                    body: '{ "prompt": 4, "card": "card-1" }',
+                    details: 'Rejects one or more pending player calls by `id`, `prompt`, `card`, or `all: true` without stamping them and clears them from the host confirmation queue.'
+                },
+                {
+                    method: 'GET', path: '/api/bingo/play/:token',
+                    desc: 'Fetch a single player\'s scoped LAN Bingo card (opt-in)',
+                    details: 'Requires multiplayer_bingo_enabled: true in System Config (returns HTTP 403 when disabled). Returns { pack, cardId, session, appearance } with sanitized cards (never exposing other players\' secret tokens). Companion mobile/desktop player UI: /bingo-play.html?t=<token>.'
+                },
+                {
+                    method: 'POST', path: '/api/bingo/play/:token/toggle',
+                    desc: 'Toggle or request a square on a LAN player\'s own Bingo card',
+                    body: '{ "cell": 0 }',
+                    details: 'Requires multiplayer_bingo_enabled: true. Toggles a square on the player\'s own card (or submits a pending call for host approval when Confirm Mode is active), enforcing hidden/locked guards (HTTP 403) and Lockout claim conflicts (HTTP 409).'
+                }
             ]
         },
         {
@@ -671,7 +920,7 @@
                     method: 'GET', path: '/api/variables',
                     desc: 'List all custom variables and counters',
                     companion: true,
-                    details: 'Returns {variables,groups,sets,values,variableSetsEnabled,variableSettingsEnabled}. Records include name (stable API/storage identity), key (derived placeholder path), group?, type, value, updatedAt and type options. values is a pre-resolved key-to-value lookup map (including expanded template variables and active-slot Variable Set fields) used by URL Wizards and parameterized overlays to resolve var:<key>|<fallback> settings on load/refresh. Example: {name:"accent",key:"theme.accent",group:"Theme",type:"color",value:"#38bdf8"}. Grouped tokens use {{var.theme.accent}} (or var:theme.accent in URL parameters). Types: number, counter, text, list, image, icon, toggle, color, template, font, date, time, datetime, duration. Temporal values stay local strings; Number values stay numeric. Pickers and bindings use key, but API actions use name. No query parameters. Companion labels show key; IDs remain var_accent.'
+                    details: 'Returns {variables,groups,sets,values,variableSetsEnabled,variableSettingsEnabled}. Records include name (stable API/storage identity), key (derived placeholder path), group?, type, value, updatedAt and type options. values is a pre-resolved key-to-value lookup map (including expanded template variables and active-slot Variable Set fields) used by URL Wizards and parameterized overlays to resolve var:<key>|<fallback> settings on load/refresh. Example: {name:"accent",key:"theme.accent",group:"Theme",type:"color",value:"#38bdf8"}. Grouped tokens use {{var.theme.accent}} (or var:theme.accent in URL parameters). Types: number, counter, text, list, select, tags, image, icon, toggle, color, template, font, date, time, datetime, duration. Temporal values stay local strings; Number values stay numeric. Variable Sets also support lazy Direct Item Placeholders: {{var.<set>.1.<field>}} (1-based enabled entry), {{var.<set>.all.1.<field>}} (includes disabled entries), {{var.<set>.<slug>.<field>}} (by entry ID/slug), plus {{var.<set>.count}} (enabled) and {{var.<set>.total}} (all). Pickers and bindings use key, but API actions use name. No query parameters. Companion labels show key; IDs remain var_accent.'
                 },
                 {
                     method: 'GET', path: '/api/variables/values',
@@ -688,7 +937,7 @@
                     method: 'PUT', path: '/api/variables/:name',
                     desc: 'Create or update a variable or counter',
                     companion: true,
-                    details: 'PUT or POST sets value and optional properties: type (number|text|list|image|toggle|color|template|font; legacy counter accepted), value, items, mode, group. Numbers have resetValue (default 0), optional min/max/precision (0–12; null clears), and step (positive; default 1; at least 10^-precision when precision is set). Values and reset values clamp to bounds and round to precision. Bounds must contain a representable value. Invalid options reject the change. Partial updates retain numeric options, group membership and bindings. Font values are CSS font families.',
+                    details: 'PUT or POST sets value and optional properties: type (number|text|list|select|tags|image|icon|toggle|color|template|font|date|time|datetime|duration; legacy counter accepted), value, items, options, mode, group. Numbers have resetValue (default 0), optional min/max/precision (0–12; null clears), and step (positive; default 1; at least 10^-precision when precision is set). Values and reset values clamp to bounds and round to precision. Bounds must contain a representable value. Invalid options reject the change. Partial updates retain numeric options, group membership and bindings. Font values are CSS font families.',
                     body: '{ "value": "New value" }'
                 },
                 {
@@ -727,10 +976,28 @@
                     details: 'POST or GET picks the next sequential item or a new random item for a list variable.'
                 },
                 {
-                    method: 'POST', path: '/api/variables/:name/toggle',
-                    desc: 'Flip a toggle variable',
+                    method: 'GET / POST', path: '/api/variables/:name/toggle',
+                    desc: 'Flip a toggle variable or toggle a tag membership',
                     companion: true,
-                    details: 'POST or GET flips a toggle variable between true and false, or sets an explicit value (?value=true|false).'
+                    details: 'POST or GET flips a toggle variable between true and false (or sets ?value=true|false). For a tags variable, passing ?value=<tag> toggles that tag on or off.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/variables/:name/next',
+                    desc: 'Advance a select variable to the next option (Companion-friendly)',
+                    companion: true,
+                    details: 'POST or GET cycles a select variable forward to its next configured option (wrapping around to the first option) and broadcasts variables-update.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/variables/:name/prev',
+                    desc: 'Step a select variable to the previous option (Companion-friendly)',
+                    companion: true,
+                    details: 'POST or GET cycles a select variable backward to its previous configured option (wrapping around to the last option) and broadcasts variables-update.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/variables/:name/clear',
+                    desc: 'Clear all active tags on a tags variable (Companion-friendly)',
+                    companion: true,
+                    details: 'POST or GET clears every active tag from a tags variable, returning the updated variable and broadcasting variables-update.'
                 },
                 {
                     method: 'POST', path: '/api/variables/import',
@@ -747,7 +1014,7 @@
                     method: 'GET', path: '/api/variables/sets/:setId',
                     desc: 'Inspect, create/update, or delete a Variable Set',
                     companion: true,
-                    details: 'GET returns the full set object (including slots[0] for Slot 1, activeEntry, slotNames, slotQueues, roster, and rotation). PUT/POST accepts JSON and creates/updates it; DELETE removes an unreferenced set. Linked field definitions: { key: "host", label: "Host", type: "ref", targetSet: "people" }, type "ref_list" for ordered entry lists, or { key: "gear", type: "checklist", targetSet: "equipment", maxTier: 1 } for per-owner tracking. Entry API values remain IDs/arrays/maps: { host: "alex", guests: ["sam"], gear: { sword: 2 } }. Item entries optionally define tiers: [{ level: 1, label: "Wood", image: "/assets/wood.png", description: "Starter" }] (up to 20, saved consecutively from 1). Explicit levels determine each item maximum; maxTier (1–100) applies only without custom levels. Zero-level items are omitted. Links do not change target slots. Broadcast placeholders resolve linked names, not JSON: {{var.schedule_1_host.field.name}} follows a field; repeat .field.KEY up to4 reference hops. {{var.people_2_items}} shows names; .count counts linked entries. Tracker .started counts positive levels; .completed counts items at their maximum tier; .total counts enabled catalog items; .progress shows completed/total, e.g.2/8. Lists accept |lines or |sep: formatting and retain explicit order. Missing/disabled/unassigned links are empty. Slot aliases remain supported but the picker lists each canonical path once. Dependency protection covers set/entry deletion, roster replacements/imports and schema field removal/type/target changes: HTTP409 {error,code:"dependencies",dependencies:[{kind,id,label}]} names uses to remove first.'
+                    details: 'GET returns the full set object (including slots[0] for Slot 1, activeEntry, slotNames, slotQueues, roster, and rotation). PUT/POST accepts JSON and creates/updates it; DELETE removes an unreferenced set. Linked field definitions: { key: "host", label: "Host", type: "ref", targetSet: "people" }, type "ref_list" for ordered entry lists, or { key: "gear", type: "checklist", targetSet: "equipment", maxTier: 1 } for per-owner tracking. Entry API values remain IDs/arrays/maps: { host: "alex", guests: ["sam"], gear: { sword: 2 } }. Item entries optionally define tiers: [{ level: 1, label: "Wood", image: "/assets/wood.png", description: "Starter" }] (up to 20, saved consecutively from 1). Explicit levels determine each item maximum; maxTier (1–100) applies only without custom levels. Zero-level items are omitted. Links do not change target slots. Broadcast placeholders resolve linked names, not JSON: {{var.schedule_1_host.field.name}} follows a field; repeat .field.KEY up to4 reference hops. Direct Item Placeholders resolve roster rows lazily without occupying a slot: {{var.<set>.1.<field>}} (1st enabled entry), {{var.<set>.all.1.<field>}} (1st entry including disabled), {{var.<set>.<slug>.<field>}} (by entry ID/slug), {{var.<set>.count}} (enabled count), and {{var.<set>.total}} (all entries). {{var.people_2_items}} shows names; .count counts linked entries. Tracker .started counts positive levels; .completed counts items at their maximum tier; .total counts enabled catalog items; .progress shows completed/total, e.g.2/8. Lists accept |lines or |sep: formatting and retain explicit order. Missing/disabled/unassigned links are empty. Slot aliases remain supported but the picker lists each canonical path once. Dependency protection covers set/entry deletion, roster replacements/imports and schema field removal/type/target changes: HTTP409 {error,code:"dependencies",dependencies:[{kind,id,label}]} names uses to remove first.'
                 },
                 {
                     method: 'GET', path: '/api/variables/sets/:setId/dependencies',
@@ -977,6 +1244,18 @@
                     details: 'Sends a chat message via GET request (?text=Hello+chat!).'
                 },
                 {
+                    method: 'POST', path: '/api/chatbot/test-trigger',
+                    desc: 'Test sample chat text against configured keyword/regex triggers',
+                    body: '{ "text": "what song is this?", "user": "FictionalViewer", "mod": false, "sub": true, "send": false }',
+                    details: 'Evaluates sample chat text against all enabled word/regex triggers without waiting for live chat. Set send: true to also dispatch a matched non-silent reply to chat. Returns { matched, trigger, silent, hasHttpAction, text }.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/chatbot/messages/:id/run',
+                    desc: 'Fire a specific timed message immediately (Companion-friendly)',
+                    companion: true,
+                    details: 'Expands placeholders for the timed message matching :id and immediately sends it to live chat via SocialStream Ninja. Returns { sent: true, id, name, text } or HTTP 404 if the message ID is not found.'
+                },
+                {
                     method: 'POST', path: '/api/chatbot/preview',
                     desc: 'Preview placeholder expansion in message text',
                     details: 'Expands {{user}}, {{now}}, and any custom variables in the given text.',
@@ -1084,9 +1363,52 @@
                     details: 'When enabled, saving a border profile or changing assignments automatically reads each matched OBS scene item transform (including groups, alignment anchors, rotation, and bounding boxes) and applies the exact compensating SetSceneItemTransform so outer border edges ("outer-border") or the inner video content box ("content") stay locked in place.'
                 },
                 {
-                    method: 'GET / POST', path: '/api/obs-layout/*',
-                    desc: 'Standalone OBS Layout & Aspect Studio API (opt-in via obs_layout_enabled)',
-                    details: 'Endpoints: GET /api/obs-layout, GET /api/obs-layout/status, GET /api/obs-layout/lua?download=1, GET /api/obs-layout/scenes, GET /api/obs-layout/scene?name=..., GET /api/obs-layout/screenshot?scene=..., POST /api/obs-layout/transform (live sync), POST /api/obs-layout/aspect/attach, GET/POST /api/obs-layout/aspect?source=Facecam&ratio=4:3&resizeMode=lock-width&anchor=tr&durationMs=400 (or action=cycle), POST /api/obs-layout/layouts, DELETE /api/obs-layout/layouts/:id, and GET/POST /api/obs-layout/layouts/apply?id=... (smoothly morphs all items in a saved scene layout).'
+                    method: 'GET / POST', path: '/api/obs-borders/standby',
+                    desc: 'Toggle or set Standby background fill on a border profile (Companion-friendly)',
+                    companion: true,
+                    params: [
+                        { name: 'profile', desc: 'Target border profile ID (defaults to active profile)', values: 'string', default: 'active' },
+                        { name: 'enabled', desc: 'Standby fill state', values: '1 | 0 | toggle', default: 'toggle' }
+                    ],
+                    body: '{ "profileId": "neon-rotator", "enabled": "toggle" }',
+                    details: 'Switches a border profile\'s background standby fill on or off (useful for covering a muted/offline camera feed inside its frame) and immediately pushes sync updates to OBS sources.'
+                },
+                {
+                    method: 'POST', path: '/api/obs-borders/assign',
+                    desc: 'Assign a border profile to an OBS source or scene+source override',
+                    body: '{ "sourceName": "Webcam", "sceneName": "", "profileId": "neon-rotator" }',
+                    details: 'Binds a default border profile (when sceneName is empty) or per-scene override to a source, auto-attaches the StreamPulse Border filter when OBS is connected, and applies compensated transforms if Transform Auto-Align is enabled.'
+                },
+                {
+                    method: 'POST', path: '/api/obs-borders/profile/:id/duplicate',
+                    desc: 'Duplicate an existing OBS border profile',
+                    details: 'Clones the specified border profile under a new ID and returns { status: "duplicated", profile, state }.'
+                },
+                {
+                    method: 'DELETE', path: '/api/obs-borders/profile/:id',
+                    desc: 'Delete an OBS border profile by ID',
+                    details: 'Removes the specified border profile, updates manifest.json, and pushes refreshed assignments to connected OBS sources.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/obs-borders/reset-defaults',
+                    desc: 'Reset OBS Border Studio profiles back to built-in defaults',
+                    details: 'Restores the factory built-in border profiles and updates manifest.json and live OBS sources.'
+                },
+                {
+                    method: 'GET', path: '/api/obs-borders/obs-status',
+                    desc: 'Get live OBS WebSocket bridge connection status for Border Studio',
+                    details: 'Returns the current OBS WebSocket status ({ enabled, connected, host, port, obsVersion, currentProgramScene, lastError }).'
+                },
+                {
+                    method: 'POST', path: '/api/obs-borders/obs-sync',
+                    desc: 'Discover live OBS scenes, visual sources, and border filter states via WebSocket',
+                    details: 'Queries OBS WebSocket for all scenes and visual sources, probes each source for the StreamPulse Border filter and legacy shader filters, and updates knownScenes/knownSources. Returns HTTP 503 if OBS is not connected.'
+                },
+                {
+                    method: 'POST', path: '/api/obs-borders/obs-apply',
+                    desc: 'Attach, update, or remove the StreamPulse Border filter on OBS sources (loopback only)',
+                    body: '{ "action": "apply", "targets": ["Webcam"], "profileId": "auto", "disableLegacyShaders": false }',
+                    details: 'Loopback only; requires OBS WebSocket connected and streampulse-borders.lua loaded in OBS. Action "apply" creates or refreshes the StreamPulse Border filter on each target (optionally disabling legacy shader_filter filters); action "remove" detaches the filter and clears assignments.'
                 },
                 {
                     method: 'POST', path: '/api/obs-borders/import-scenes',
@@ -1108,6 +1430,16 @@
                     method: 'GET', path: '/api/obs-patterns/status',
                     desc: 'Companion-friendly status summary for OBS Pattern Studio',
                     details: 'Returns { revision, activeProfileId, activeProfileName, profilesCount, assignmentsCount, knownScenesCount, knownPatternSourcesCount }.'
+                },
+                {
+                    method: 'GET', path: '/api/obs-patterns/manifest',
+                    desc: 'Fetch the resolved manifest.json consumed by streampulse-patterns.lua',
+                    details: 'Re-evaluates Variable Settings tokens into concrete colors/numbers and returns the resolved pattern manifest consumed by OBS.'
+                },
+                {
+                    method: 'GET', path: '/api/obs-patterns/stamps/:file',
+                    desc: 'Fetch a saved pattern stamp or tile atlas PNG by filename',
+                    details: 'Streams the stored PNG stamp asset from data/obs-patterns/stamps/ (HTTP 404 if not found).'
                 },
                 {
                     method: 'GET', path: '/api/obs-patterns/lua?download=1',
@@ -1143,10 +1475,159 @@
                     details: 'Stores PNGs up to 6 MB in data/obs-patterns/stamps/ and returns { stampFile, stampPath, url }.'
                 },
                 {
+                    method: 'POST', path: '/api/obs-patterns/assign',
+                    desc: 'Assign a pattern profile to an OBS pattern source or scene override',
+                    body: '{ "sourceName": "StreamPulse Background", "sceneName": "", "profileId": "cyber-hex-grid" }',
+                    details: 'Maps a default or scene-specific pattern profile to an OBS StreamPulse Pattern Background input and pushes a live sync_revision update.'
+                },
+                {
+                    method: 'POST', path: '/api/obs-patterns/profile/:id/duplicate',
+                    desc: 'Duplicate an existing OBS pattern profile',
+                    details: 'Clones the specified pattern profile under a new ID and returns { status: "duplicated", profile, state }.'
+                },
+                {
+                    method: 'DELETE', path: '/api/obs-patterns/profile/:id',
+                    desc: 'Delete an OBS pattern profile by ID',
+                    details: 'Removes the pattern profile, rebuilds manifest.json, and pushes a live sync update to OBS pattern sources.'
+                },
+                {
+                    method: 'POST', path: '/api/obs-patterns/reset-defaults',
+                    desc: 'Reset OBS Pattern Studio profiles back to built-in defaults',
+                    details: 'Restores factory built-in procedural and tile pattern profiles and syncs OBS pattern sources.'
+                },
+                {
+                    method: 'GET', path: '/api/obs-patterns/obs-status',
+                    desc: 'Get live OBS WebSocket connection status for Pattern Studio',
+                    details: 'Returns the current OBS WebSocket bridge status ({ enabled, connected, host, port, obsVersion, currentProgramScene, lastError }).'
+                },
+                {
+                    method: 'POST', path: '/api/obs-patterns/obs-sync',
+                    desc: 'Discover live OBS scenes and StreamPulse Pattern Background sources',
+                    details: 'Queries OBS WebSocket for scenes and pattern inputs, updates knownScenes/knownPatternSources, and pushes live sync updates. Returns HTTP 503 if OBS is not connected.'
+                },
+                {
                     method: 'POST', path: '/api/obs-patterns/obs-create',
                     desc: 'Create or update a native StreamPulse Pattern Background source inside an OBS scene',
                     body: '{ "sceneName": "Main Scene", "sourceName": "StreamPulse Background", "profileId": "cyber-hex-grid", "width": 1920, "height": 1080 }',
                     details: 'Requires OBS WebSocket connection and streampulse-patterns.lua loaded in OBS. Existing pattern inputs are added to the requested scene if needed. A name already used by another input kind returns HTTP 409 without changing that input. Managed sources use Auto so source and scene assignments take precedence over the active profile.'
+                }
+            ]
+        },
+        {
+            section: 'OBS Layout & Aspect Studio',
+            items: [
+                {
+                    method: 'GET', path: '/api/obs-layout',
+                    desc: 'Get OBS Layout & Aspect Studio state, configured source aspects, and saved layouts',
+                    details: 'Returns { sources, layouts, itemTransitions, revision, enabled, obsConnected }. Opt-in module controlled by obs_layout_enabled in System Config (interactive/mutation endpoints return HTTP 403 while disabled).'
+                },
+                {
+                    method: 'GET', path: '/api/obs-layout/status',
+                    desc: 'Companion-friendly status summary for OBS Layout & Aspect Studio',
+                    companion: true,
+                    details: 'Returns { enabled, obsConnected, configuredSources, layoutsCount, revision }.'
+                },
+                {
+                    method: 'GET', path: '/api/obs-layout/lua?download=1',
+                    desc: 'Download or view streampulse-aspect.lua for GPU aspect ratio morphing in OBS',
+                    details: 'Regenerates the Metal-safe streampulse-aspect.lua OBS effect filter script pre-configured with your local manifest path. Pass ?download=1 for file download.'
+                },
+                {
+                    method: 'GET', path: '/api/obs-layout/scenes',
+                    desc: 'List live OBS scenes and base canvas dimensions',
+                    details: 'Queries OBS WebSocket for all scenes, currentProgramScene, baseWidth, and baseHeight. Returns HTTP 503 if OBS is disconnected or HTTP 403 if obs_layout_enabled is false.'
+                },
+                {
+                    method: 'GET', path: '/api/obs-layout/scene',
+                    desc: 'Inspect all scene item transforms, screen rects, border padding, and aspect settings',
+                    params: [
+                        { name: 'name', desc: 'OBS scene name to inspect', values: 'string', default: 'required' }
+                    ],
+                    details: 'Returns { sceneName, baseWidth, baseHeight, items: [...] } with live transform geometry, StreamPulse Border / Aspect filter flags, border outer/content rects, saved aspect config, and per-item Show/Hide transitions.'
+                },
+                {
+                    method: 'GET', path: '/api/obs-layout/screenshot',
+                    desc: 'Capture an on-demand 960×540 JPEG backdrop snapshot of an OBS scene or source',
+                    params: [
+                        { name: 'scene', desc: 'OBS scene or source name (alias: source)', values: 'string', default: 'required' }
+                    ],
+                    details: 'Requests a single on-demand screenshot from OBS WebSocket and returns { imageData } (base64 data URI) for the Layout Studio canvas backdrop without continuous polling.'
+                },
+                {
+                    method: 'POST', path: '/api/obs-layout/transform',
+                    desc: 'Live-sync a scene item transform, visibility, lock state, or layer order to OBS (loopback only)',
+                    body: '{ "sceneName": "Main", "sceneItemId": 12, "sourceName": "Webcam", "transform": { "positionX": 120, "positionY": 80, "boundsWidth": 640, "boundsHeight": 360 }, "visible": true, "locked": false }',
+                    details: 'Loopback only. Applies live transform edits, visibility toggles, lock states, or z-order sceneItemIndex changes directly to OBS.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/obs-layout/aspect',
+                    desc: 'Set or cycle a source\'s aspect ratio and smoothly animate anchored OBS transforms (Companion-friendly)',
+                    companion: true,
+                    params: [
+                        { name: 'source', desc: 'OBS source name (body alias: sourceName)', values: 'string', default: 'required' },
+                        { name: 'ratio', desc: 'Target aspect ratio', values: 'native | 16:9 | 4:3 | 1:1 | 9:16 | custom', default: 'current' },
+                        { name: 'action', desc: 'Set ratio or cycle through native → 16:9 → 4:3 → 1:1 → 9:16', values: 'set | cycle', default: 'set' },
+                        { name: 'resizeMode', desc: 'How the source scales during morph', values: 'lock-width | lock-height | fit-slot', default: 'saved' },
+                        { name: 'anchor', desc: '9-point pin anchor during resize', values: 'tl | tc | tr | ml | mc | mr | bl | bc | br', default: 'saved' },
+                        { name: 'panX', desc: 'Horizontal crop pan (-1..1)', values: 'number', default: '0' },
+                        { name: 'panY', desc: 'Vertical crop pan (-1..1)', values: 'number', default: '0' },
+                        { name: 'zoom', desc: 'Crop zoom factor', values: 'number', default: '1' },
+                        { name: 'durationMs', desc: 'Animation duration in milliseconds (0–3000)', values: 'number', default: 'saved' },
+                        { name: 'scene', desc: 'Optional scene name filter', values: 'string', default: 'all scenes' }
+                    ],
+                    body: '{ "sourceName": "Facecam", "ratio": "4:3", "resizeMode": "lock-width", "anchor": "tr", "durationMs": 400 }',
+                    details: 'Saves the source aspect config, automatically uses GPU cropping when StreamPulse Aspect filter is attached (or falls back to native OBS crop), preserves StreamPulse Border padding, and animates anchored scene item transforms smoothly.'
+                },
+                {
+                    method: 'POST', path: '/api/obs-layout/aspect/attach',
+                    desc: 'Attach the StreamPulse Aspect GPU filter upstream of StreamPulse Border (loopback only)',
+                    body: '{ "sourceName": "Facecam" }',
+                    details: 'Loopback only. Attaches streampulse_aspect_filter to the source and places it above any StreamPulse Border filter so borders always wrap the cropped aspect shape cleanly.'
+                },
+                {
+                    method: 'GET', path: '/api/obs-layout/transition-kinds',
+                    desc: 'List available native OBS Show/Hide transition kinds',
+                    details: 'Returns { kinds: [...], fromObs: boolean } listing installed OBS transition kinds (e.g. fade_transition, slide_transition, swipe_transition, wipe_transition, cut_transition).'
+                },
+                {
+                    method: 'GET / POST', path: '/api/obs-layout/item-transition',
+                    desc: 'Configure native OBS Show/Hide transition metadata for a scene item',
+                    params: [
+                        { name: 'scene', desc: 'OBS scene name (body alias: sceneName)', values: 'string', default: 'required' },
+                        { name: 'source', desc: 'OBS source name (body alias: sourceName)', values: 'string', default: 'required' },
+                        { name: 'showKind', desc: 'OBS show transition kind', values: 'string', default: '—' },
+                        { name: 'showDurationMs', desc: 'Show duration in ms', values: 'number', default: '—' },
+                        { name: 'hideKind', desc: 'OBS hide transition kind', values: 'string', default: '—' },
+                        { name: 'hideDurationMs', desc: 'Hide duration in ms', values: 'number', default: '—' }
+                    ],
+                    body: '{ "sceneName": "Main", "sourceName": "Facecam", "scope": "layout", "showKind": "slide_transition", "showDurationMs": 350, "hideKind": "fade_transition", "hideDurationMs": 250 }',
+                    details: 'Saves per-item show/hide transition settings in data/obs-layout.json.'
+                },
+                {
+                    method: 'POST', path: '/api/obs-layout/layouts',
+                    desc: 'Save a multi-element Scene Layout Preset (with optional motion paths & waypoints)',
+                    body: '{ "id": "talking-focus", "name": "Talking Focus", "sceneName": "Main", "durationMs": 450, "transitionType": "move", "pathType": "arc", "easing": "ease-in-out", "items": [] }',
+                    details: 'Persists a reusable multi-source scene layout preset (transforms, visibility, aspect ratios, per-item motion paths/waypoints/delays) to data/obs-layout.json.'
+                },
+                {
+                    method: 'DELETE', path: '/api/obs-layout/layouts/:id',
+                    desc: 'Delete a saved Scene Layout Preset by ID',
+                    details: 'Removes the layout preset from data/obs-layout.json and returns { ok: true, state }.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/obs-layout/layouts/apply',
+                    desc: 'Smoothly morph all sources in a scene to a saved Layout Preset (Companion-friendly)',
+                    companion: true,
+                    params: [
+                        { name: 'id', desc: 'Saved layout preset ID', values: 'string', default: 'required' },
+                        { name: 'durationMs', desc: 'Override animation duration (0–3000 ms)', values: 'number', default: 'preset' },
+                        { name: 'transitionType', desc: 'Override transition style', values: 'move | fade | move-fade | cut', default: 'preset' },
+                        { name: 'pathType', desc: 'Override motion path geometry', values: 'direct | arc | elbow-hv | elbow-vh', default: 'preset' },
+                        { name: 'easing', desc: 'Override easing curve', values: 'linear | ease-in | ease-out | ease-in-out | back', default: 'preset' },
+                        { name: 'reverseReturn', desc: 'Reverse previous layout\'s custom path when returning (0 disables)', values: '1 | 0', default: '1' }
+                    ],
+                    body: '{ "id": "talking-focus", "durationMs": 450 }',
+                    details: 'Animates every source captured in the layout preset (position, scale, bounds, crop, aspect ratio, visibility fades, and multi-waypoint motion paths) cleanly via OBS WebSocket. Returns { ok, applied, itemsAnimated, transitionType, pathType, durationMs }.'
                 }
             ]
         },
@@ -1165,7 +1646,8 @@
                 },
                 {
                     method: 'GET', path: '/api/palettes/:id',
-                    desc: 'Fetch a single built-in or custom palette by ID'
+                    desc: 'Fetch a single built-in or custom palette by ID',
+                    details: 'Returns { palette: { id, name, colors, angle, builtin } } for the requested palette ID, or HTTP 404 if not found.'
                 },
                 {
                     method: 'POST', path: '/api/palettes',
@@ -1182,11 +1664,13 @@
                 {
                     method: 'POST', path: '/api/palettes/:id/duplicate',
                     desc: 'Duplicate any built-in or custom palette into a new editable custom palette',
-                    body: '{ "name": "My Neon Copy" }'
+                    body: '{ "name": "My Neon Copy" }',
+                    details: 'Clones an existing built-in or custom palette into a new editable custom palette in data/palettes.json (also accepts GET query ?name=...). Returns HTTP 201 with { ok, palette, builtin, custom, palettes }.'
                 },
                 {
                     method: 'DELETE', path: '/api/palettes/:id',
-                    desc: 'Delete a saved custom palette by ID'
+                    desc: 'Delete a saved custom palette by ID',
+                    details: 'Deletes a user-created custom palette from data/palettes.json and broadcasts palettes-update. Built-in palettes cannot be deleted.'
                 }
             ]
         },
@@ -1309,17 +1793,20 @@
                 {
                     method: 'POST', path: '/api/asset-tags',
                     desc: 'Add, remove or set tags on assets',
-                    body: '{ "names": ["asset"], "add": ["tag"], "remove": ["tag"], "set": ["tag"] }'
+                    body: '{ "names": ["asset"], "add": ["tag"], "remove": ["tag"], "set": ["tag"] }',
+                    details: 'Updates tag lists on one or more uploaded Asset Library files. Supply set to replace all tags, or add/remove arrays for incremental edits. Returns { ok: true, updated }.'
                 },
                 {
                     method: 'POST', path: '/api/asset-tags/manage',
                     desc: 'Rename, merge or delete a tag everywhere',
-                    body: '{ "action": "rename" | "delete", "tag": "name", "to": "new name (rename; existing name merges)" }'
+                    body: '{ "action": "rename" | "delete", "tag": "name", "to": "new name (rename; existing name merges)" }',
+                    details: 'Renames (or merges into an existing tag) or deletes a tag globally across every Asset Library item and updates any Slideshow overlay element tag filters referencing it. Returns { ok: true, assets, overlays }.'
                 },
                 {
                     method: 'POST', path: '/api/asset-captions',
                     desc: 'Set an asset caption',
-                    body: '{ "name": "asset", "caption": "text (empty clears)" }'
+                    body: '{ "name": "asset", "caption": "text (empty clears)" }',
+                    details: 'Sets or clears the searchable caption metadata (up to 300 characters) displayed in Asset Library pickers and slideshow caption overlays. Returns { ok: true }.'
                 },
                 {
                     method: 'GET', path: '/api/alerts',
@@ -1505,6 +1992,22 @@
                     method: 'DELETE', path: '/api/overlay-presets/:id',
                     desc: 'Delete an element preset',
                     details: 'Returns { ok: true }, or 404 with { ok: false } when the id does not exist.'
+                },
+                {
+                    method: 'GET', path: '/api/custom-overlays/style-presets',
+                    desc: 'List reusable Element Style Presets',
+                    details: 'Returns all saved Element Style Presets from data/style-presets.json (reusable typography, surface, border, glow, and effect style bundles applied across overlay elements).'
+                },
+                {
+                    method: 'POST', path: '/api/custom-overlays/style-presets',
+                    desc: 'Create or update an Element Style Preset',
+                    body: '{ "id": "neon-card", "name": "Neon Card", "style": { "background": "#0f172acc", "borderColor": "#38bdf8", "borderRadius": 12 } }',
+                    details: 'Normalizes and saves an Element Style Preset (up to 100 presets, replacing by id if it already exists) to data/style-presets.json and returns the saved preset.'
+                },
+                {
+                    method: 'DELETE', path: '/api/custom-overlays/style-presets/:id',
+                    desc: 'Delete an Element Style Preset by ID',
+                    details: 'Removes the matching Element Style Preset from data/style-presets.json and returns { ok: true }, or HTTP 404 if not found.'
                 },
                 {
                     method: 'GET', path: '/api/share/items',
@@ -1735,17 +2238,38 @@
             section: 'Randomizer & Wheel',
             items: [
                 {
+                    method: 'GET', path: '/api/randomizer/status',
+                    desc: 'Lightweight Randomizer status summary for Companion polling',
+                    companion: true,
+                    details: 'Returns { lastMode, lastDuration, lastWinner, lastPreset, remaining, removed, elimination, at, presetCount, hasStudioState, studioPreset } for Bitfocus Companion feedback and dynamic variables.'
+                },
+                {
                     method: 'GET', path: '/api/randomizer/spin',
                     desc: 'Spin wheel, roller, or card deck via Bitfocus Companion or HTTP GET',
                     companion: true,
-                    details: 'Triggers a spin across all connected OBS overlays. Perfect for Bitfocus Companion Stream Deck buttons (Generic HTTP GET). Accepts optional query parameters: ?preset=jackbox (or decision / punishments), ?mode=roller (or wheel, deck), ?suspense=normal (or tricky), ?duration=6, ?winner=OverrideName. Returns { ok: true, winner, preset, mode, payload }.'
+                    details: 'Triggers a spin across all connected OBS overlays. Perfect for Bitfocus Companion Stream Deck buttons (Generic HTTP GET). Accepts optional query parameters: ?preset=jackbox (or decision / punishments / chatters), ?mode=roller (or wheel, deck), ?suspense=normal (or tricky), ?duration=6, ?elimination=1, ?inheritStudioSettings=1, ?winner=OverrideName. Returns { ok: true, winner, preset, mode, payload }.'
                 },
                 {
                     method: 'POST', path: '/api/randomizer/spin',
                     desc: 'Trigger a spin with custom choices and announcement payload',
                     companion: true,
-                    details: 'Broadcasts a spin with custom choices list, winner, mode (roller, wheel, deck), and overlay styling to all OBS overlays.',
+                    details: 'Broadcasts a spin with custom choices list, winner, mode (roller, wheel, deck), weightMode, eliminationMode, and overlay styling to all OBS overlays.',
                     body: '{ "preset": "jackbox", "mode": "deck", "suspense": "normal" }'
+                },
+                {
+                    method: 'GET / POST', path: '/api/randomizer/trigger',
+                    desc: 'Alias of /api/randomizer/spin for triggering a spin via Companion or webhooks',
+                    companion: true,
+                    params: [
+                        { name: 'preset', desc: 'Preset ID or "chatters"', values: 'string', default: 'first preset' },
+                        { name: 'mode', desc: 'Display mode', values: 'roller | wheel | deck', default: 'roller' },
+                        { name: 'suspense', desc: 'Suspense pacing', values: 'normal | tricky', default: 'normal' },
+                        { name: 'duration', desc: 'Spin duration in seconds', values: 'number', default: '6' },
+                        { name: 'elimination', desc: 'Eliminate winning choice after spin', values: '0 | 1 | true | false', default: 'preset' },
+                        { name: 'inheritStudioSettings', desc: 'Reuse last Randomizer Studio settings when preset is omitted', values: '0 | 1 | true | false', default: 'false' }
+                    ],
+                    body: '{ "preset": "jackbox", "mode": "wheel", "duration": 6 }',
+                    details: 'Identical behavior and payload support as /api/randomizer/spin, provided for consistent Companion trigger naming.'
                 },
                 {
                     method: 'GET', path: '/api/randomizer/presets',
@@ -2499,17 +3023,232 @@
             ]
         },
         {
+            section: 'Interactive Trivia',
+            items: [
+                {
+                    method: 'GET', path: '/api/trivia',
+                    desc: 'Get current Trivia question bank, active question, settings, and themes',
+                    params: [
+                        { name: 'includeAnswers', desc: 'Include correct answer indices (admin view; alias: admin=true)', values: 'true | false', default: 'false' }
+                    ],
+                    details: 'Requires trivia_enabled: true in System Config (returns HTTP 403 when disabled). Returns full public trivia state including status, activeQuestion, currentIndex, questions, settings, theme, leaderboardTheme, and presets.'
+                },
+                {
+                    method: 'GET', path: '/api/trivia/status',
+                    desc: 'Lightweight Trivia status summary for Companion polling',
+                    companion: true,
+                    details: 'Always accessible (even when trivia_enabled is false). Returns status, activeQuestionText, activeCategory, totalVotes, remainingSeconds, currentIndex, and totalQuestions. Individual plain-text fields are also available via /api/status/field/trivia_<state|question|category|votes|time|index|total>.'
+                },
+                {
+                    method: 'PUT', path: '/api/trivia',
+                    desc: 'Update Trivia settings, question overlay theme, or leaderboard theme',
+                    body: '{ "settings": { "defaultDuration": 30, "autoReveal": true }, "theme": { "style": "modern" }, "leaderboardTheme": { "style": "modern" } }',
+                    details: 'Persists updated settings, question overlay theme, and/or leaderboardTheme and broadcasts live updates to /overlays/trivia.html and /overlays/trivia-leaderboard.html.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/trivia/question/start',
+                    desc: 'Start a Trivia question round and open chat voting (alias: /api/trivia/start)',
+                    companion: true,
+                    params: [
+                        { name: 'id', desc: 'Specific question ID to start', values: 'string', default: 'current' },
+                        { name: 'index', desc: '0-based question index to start', values: 'number', default: 'current' },
+                        { name: 'duration', desc: 'Override countdown duration in seconds', values: 'number', default: 'setting' },
+                        { name: 'autoReveal', desc: 'Automatically reveal answer when timer expires', values: '0 | 1 | true | false', default: 'setting' },
+                        { name: 'manualTransition', desc: 'Wait for manual host advance after reveal', values: '0 | 1 | true | false', default: 'setting' }
+                    ],
+                    body: '{ "index": 0, "duration": 30, "autoReveal": true }',
+                    details: 'Launches live chat voting (!a–!d / !1–!4 / true/false) on the target or current question and pushes it live to /overlays/trivia.html.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/trivia/question/reveal',
+                    desc: 'Reveal the correct answer and award points (alias: /api/trivia/reveal)',
+                    companion: true,
+                    details: 'Closes voting on the active question, highlights the correct answer, updates session and season leaderboard points/streaks, and broadcasts the reveal.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/trivia/question/next',
+                    desc: 'Advance to the next Trivia question (alias: /api/trivia/next)',
+                    companion: true,
+                    details: 'Moves the active pointer to the next question in the bank.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/trivia/question/prev',
+                    desc: 'Step back to the previous Trivia question (alias: /api/trivia/prev)',
+                    companion: true,
+                    details: 'Moves the active pointer to the previous question in the bank.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/trivia/question/clear',
+                    desc: 'Clear the active question off screen (Companion-friendly)',
+                    companion: true,
+                    details: 'Hides the current question card on /overlays/trivia.html and returns Trivia to idle state without erasing the question bank or leaderboard.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/trivia/reset',
+                    desc: 'Reset active Trivia round state (Companion-friendly)',
+                    companion: true,
+                    details: 'Resets active votes, timers, and round index back to the start of the quiz.'
+                },
+                {
+                    method: 'POST', path: '/api/trivia/vote',
+                    desc: 'Cast a manual or API Trivia answer vote',
+                    body: '{ "user": "FictionalViewer", "choice": "a", "isSub": false }',
+                    details: 'Submits a vote during an active question. Accepts choiceIndex/index (0-based) or choice ("a"–"f", "1"–"6", "true"/"false"). Returns { success: boolean }.'
+                },
+                {
+                    method: 'POST', path: '/api/trivia/question',
+                    desc: 'Add a new question to the Trivia bank',
+                    body: '{ "category": "Gaming", "question": "Which console launched in 1996?", "choices": ["SNES", "Nintendo 64", "GameCube", "Dreamcast"], "correctIndex": 1, "hint": "64-bit", "points": 100 }',
+                    details: 'Creates and appends a new question to the active Trivia question bank (HTTP 201).'
+                },
+                {
+                    method: 'PUT / DELETE', path: '/api/trivia/question/:id',
+                    desc: 'Update or delete a specific Trivia question by ID',
+                    body: '{ "question": "Updated prompt", "correctIndex": 0 }',
+                    details: 'PUT merges edits into the specified question; DELETE removes the question from the bank.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/trivia/question/toggle-done',
+                    desc: 'Toggle or set a question\'s played/done status (also /:id/toggle-done, /:id/done, /:id/move)',
+                    companion: true,
+                    params: [
+                        { name: 'id', desc: 'Question ID (defaults to active/current question)', values: 'string', default: 'current' }
+                    ],
+                    details: 'Marks a question as played or unplayed. Per-ID variants also exist at POST /api/trivia/question/:id/toggle-done, POST /api/trivia/question/:id/done ({ "done": true }), and POST /api/trivia/question/:id/move ({ "direction": -1 | 1 }).'
+                },
+                {
+                    method: 'GET / POST', path: '/api/trivia/questions/shuffle',
+                    desc: 'Shuffle the order of questions in the bank (alias: /api/trivia/shuffle)',
+                    companion: true,
+                    details: 'Randomizes question bank order and returns { success: true, count }.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/trivia/questions/reset-done',
+                    desc: 'Clear played/done flags on all questions (alias: /api/trivia/reset-done)',
+                    companion: true,
+                    details: 'Marks every question in the bank as unplayed for a fresh quiz run.'
+                },
+                {
+                    method: 'POST', path: '/api/trivia/questions/reorder',
+                    desc: 'Reorder questions in the bank by ID array',
+                    body: '{ "ids": ["q1", "q2", "q3"] }',
+                    details: 'Reorders the question bank to match the supplied ordered IDs array.'
+                },
+                {
+                    method: 'GET', path: '/api/trivia/questions/export',
+                    desc: 'Export the Trivia question bank as JSON or CSV (alias: /api/trivia/export)',
+                    params: [
+                        { name: 'format', desc: 'Download format', values: 'json | csv', default: 'json' }
+                    ],
+                    details: 'Downloads the full question bank as trivia-questions.json or trivia-questions.csv.'
+                },
+                {
+                    method: 'POST', path: '/api/trivia/questions/import',
+                    desc: 'Import questions from JSON or CSV (alias: /api/trivia/import)',
+                    params: [
+                        { name: 'replace', desc: 'Replace existing bank instead of appending', values: 'true | false | 1', default: 'false' }
+                    ],
+                    body: '{ "replace": false, "questions": [{ "question": "...", "choices": ["A", "B"], "correctIndex": 0 }] }',
+                    details: 'Accepts JSON array, { questions, replace }, { csv, replace }, or raw text/csv body. Returns HTTP 201 with { success: true, count }.'
+                },
+                {
+                    method: 'POST', path: '/api/trivia/questions/clear',
+                    desc: 'Remove all questions from the active Trivia bank',
+                    details: 'Empties the current question bank and returns { success: true, count: 0 }.'
+                },
+                {
+                    method: 'GET', path: '/api/trivia/leaderboard',
+                    desc: 'Fetch ranked Trivia player standings (session or season)',
+                    params: [
+                        { name: 'scope', desc: 'Leaderboard scope', values: 'session | season', default: 'season' },
+                        { name: 'sort', desc: 'Sort metric (alias: sortBy)', values: 'points | correct | streak | accuracy', default: 'points' },
+                        { name: 'limit', desc: 'Max players to return', values: 'number', default: 'all' }
+                    ],
+                    details: 'Returns ranked player standings for the Trivia Leaderboard overlay (/overlays/trivia-leaderboard.html) and studio table.'
+                },
+                {
+                    method: 'GET', path: '/api/trivia/leaderboard/player',
+                    desc: 'Look up individual Trivia player statistics',
+                    params: [
+                        { name: 'user', desc: 'Chatter username (alias: name)', values: 'string', default: 'required' }
+                    ],
+                    details: 'Returns { found: true, ...stats } with session and season points, correct answers, attempts, and streaks, or { found: false }.'
+                },
+                {
+                    method: 'GET / POST', path: '/api/trivia/leaderboard/reset',
+                    desc: 'Reset session, season, or all Trivia leaderboard stats (Companion-friendly)',
+                    companion: true,
+                    params: [
+                        { name: 'scope', desc: 'Which standings to clear', values: 'session | season | all', default: 'session' }
+                    ],
+                    body: '{ "scope": "session" }',
+                    details: 'Clears the chosen leaderboard scope and broadcasts refreshed standings.'
+                },
+                {
+                    method: 'GET', path: '/api/trivia/leaderboard/export',
+                    desc: 'Export Trivia leaderboard standings as JSON or CSV',
+                    params: [
+                        { name: 'scope', desc: 'Leaderboard scope', values: 'session | season', default: 'season' },
+                        { name: 'format', desc: 'Export format', values: 'json | csv', default: 'json' }
+                    ],
+                    details: 'Downloads trivia-leaderboard-<scope>.json or .csv.'
+                },
+                {
+                    method: 'POST', path: '/api/trivia/leaderboard/import',
+                    desc: 'Import Trivia leaderboard standings JSON',
+                    params: [
+                        { name: 'scope', desc: 'Target scope', values: 'session | season', default: 'season' },
+                        { name: 'replace', desc: 'Replace existing standings instead of merging', values: 'true | false', default: 'false' }
+                    ],
+                    details: 'Restores or merges exported player standings (HTTP 201).'
+                },
+                {
+                    method: 'PUT / POST', path: '/api/trivia/leaderboard/theme',
+                    desc: 'Update Trivia Leaderboard overlay appearance theme',
+                    body: '{ "style": "modern", "accentColor": "#38bdf8" }',
+                    details: 'Saves leaderboard overlay theme settings and pushes live updates to /overlays/trivia-leaderboard.html.'
+                },
+                {
+                    method: 'GET', path: '/api/trivia/presets',
+                    desc: 'List built-in and saved Trivia quiz packs/presets',
+                    details: 'Returns all available quiz pack presets.'
+                },
+                {
+                    method: 'POST', path: '/api/trivia/presets/save',
+                    desc: 'Save the current question bank as a reusable Trivia quiz pack preset',
+                    body: '{ "name": "Retro Gaming Night", "description": "90s console classics" }',
+                    details: 'Stores the active bank as a named preset (HTTP 201).'
+                },
+                {
+                    method: 'GET / POST', path: '/api/trivia/presets/:id/load',
+                    desc: 'Load a Trivia quiz pack preset by ID (alias: /api/trivia/preset/load?id=...)',
+                    companion: true,
+                    details: 'Loads the preset\'s questions into the active bank and broadcasts the updated state. Also supports /api/trivia/preset/load?id=<presetId> for Companion.'
+                },
+                {
+                    method: 'DELETE', path: '/api/trivia/presets/:id',
+                    desc: 'Delete a saved Trivia preset by ID',
+                    details: 'Removes a custom quiz pack preset and returns { success }.'
+                },
+                {
+                    method: 'POST', path: '/api/trivia/presets/reset',
+                    desc: 'Restore built-in Trivia quiz pack presets',
+                    details: 'Re-seeds the factory built-in quiz packs.'
+                }
+            ]
+        },
+        {
             section: 'Operator Mode',
             items: [
                 {
                     method: 'GET', path: '/api/operator',
-                    desc: 'Full Operator Mode preset state and active profile ID',
-                    details: 'Returns { ok: true, version: 1, activeProfileId, profiles: [...] }. Saved in data/operator-profiles.json and covered by Backup & Restore.'
+                    desc: 'Full Operator Mode preset state, active profile ID, and global Runbooks',
+                    details: 'Returns { ok: true, version: 1, activeProfileId, profiles: [...], runbooks: [...] }. Saved in data/operator-profiles.json and covered by Backup & Restore.'
                 },
                 {
                     method: 'GET', path: '/api/operator/status',
                     desc: 'Lightweight Operator status summary for Companion polling',
-                    details: 'Returns { ok: true, activeProfileId, activeProfileName, profileCount, cardCount, overlayCount }.'
+                    details: 'Returns { ok: true, activeProfileId, activeProfileName, profileCount, cardCount, overlayCount, displayCount, runbookCount }.'
                 },
                 {
                     method: 'POST', path: '/api/operator/profiles',
@@ -2563,24 +3302,30 @@
                 },
                 {
                     method: 'GET / PUT / DELETE', path: '/api/operator/runbooks/:id',
-                    desc: 'Fetch, update, or delete a specific Runbook'
+                    desc: 'Fetch, update, or delete a specific Runbook',
+                    details: 'GET returns { ok: true, runbook } (HTTP 404 if missing); PUT/POST replaces the Runbook\'s title, description, tasks, Markdown notes, and section headers; DELETE removes the Runbook and broadcasts operator-runbooks-update.'
                 },
                 {
                     method: 'GET / POST', path: '/api/operator/runbooks/:id/toggle',
                     desc: 'Toggle or set a specific cue checkbox (Companion-friendly)',
+                    companion: true,
                     params: [
                         { name: 'index', desc: '0-based cue index', values: 'number', default: '—' },
                         { name: 'itemId', desc: 'Cue item ID', values: 'string', default: '—' },
                         { name: 'done', desc: 'Explicit checked state (omitted = toggle)', values: '0, 1, true, false', default: 'toggle' }
-                    ]
+                    ],
+                    details: 'Checks, unchecks, or toggles a single task cue inside a Runbook by index or itemId, persists the change, and live-syncs all connected Operator Mode tabs.'
                 },
                 {
                     method: 'GET / POST', path: '/api/operator/runbooks/:id/reset',
-                    desc: 'Uncheck all cues in a Runbook for the next broadcast (Companion-friendly)'
+                    desc: 'Uncheck all cues in a Runbook for the next broadcast (Companion-friendly)',
+                    companion: true,
+                    details: 'Resets every task item in the specified Runbook back to done: false while preserving task labels, Markdown notes, and section structure.'
                 },
                 {
                     method: 'POST', path: '/api/operator/runbooks/:id/duplicate',
-                    desc: 'Duplicate a Runbook into a new copy'
+                    desc: 'Duplicate a Runbook into a new copy',
+                    details: 'Clones the specified Runbook (including all tasks, Markdown notes, and section dividers) into a new independent Runbook and returns HTTP 201 with { ok: true, runbook, runbooks }.'
                 }
             ]
         },
@@ -2619,8 +3364,10 @@
                         <svg class="endpoint-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
                     </div>
                     <div class="endpoint-body">
+                        ${ep.details ? `
                         <div class="detail-label">Description</div>
                         <div class="detail-text">${ep.details}</div>
+                        ` : ''}
 
                         ${ep.companion ? `
                         <div class="detail-label">Bitfocus Companion URL</div>

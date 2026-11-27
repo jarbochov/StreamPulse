@@ -19,7 +19,7 @@ Custom Variables let you create live, shared broadcast tokens (`{{var.name}}`) t
 
 ## 1. Global Custom Variables
 
-Manage global variables in **Admin -> Variables** (or open the Variables drawer inside the **Custom Overlay Editor**).
+Manage global variables in **Tools → Data & Social → Placeholders & Variables** (or open the Variables drawer inside the **Custom Overlay Editor**).
 
 ### Variable Types
 
@@ -29,6 +29,8 @@ Manage global variables in **Admin -> Variables** (or open the Variables drawer 
 | **number** | Numeric value supporting decimals (`precision`) and bounds | Scores, speedrun splits, K/D ratios |
 | **text** | Free-form single-line or short string | Current game, stream topic, guest name |
 | **list** | Ordered array of choices that can be cycled or rolled | Map pool, challenge wheel, trivia topics |
+| **select** | Preset single-choice dropdown with optional color and Font Awesome icon per option; auto-exposes `_color`, `_icon`, and `_value` tokens (`{{var.status_color}}`, `{{var.status_icon}}`, `{{var.status_value}}`) | Match status, difficulty tier, active mood, bracket phase |
+| **tags** | Multi-select color/icon chip set with automatic `_count` token (`{{var.modifiers_count}}`) and formatting filters (`\|bullets`, `\|lines`) | Active challenge modifiers, player roles, content tags |
 | **image** | Image URL or uploaded asset path | Sponsor logo, team crest, active emote |
 | **toggle** | Boolean (`true` / `false`) that flips via API or Companion | Co-op mode, mic status, sub-only flag |
 | **color** | Hex / Hex-Alpha color (`#RRGGBB` or `#RRGGBBAA`) | Team color, theme accent, alert border tint |
@@ -60,12 +62,13 @@ Provide a default fallback with `|` in case a variable is empty or not yet initi
 
 #### Dynamic Actions
 
-Counter, number, list, and toggle variables support instant live mutations from the Admin UI, Companion buttons, or HTTP endpoints:
+Counter, number, list, select, tags, and toggle variables support instant live mutations from the Variables Studio, Operator Mode, Companion buttons, or HTTP endpoints:
 
 - **Increment / Decrement**: Adds or subtracts `step` (respecting `min` / `max` bounds).
 - **Reset**: Restores `resetValue` (or `initial`).
 - **Roll**: Picks a random item from a `list` variable.
-- **Toggle**: Flips a `toggle` variable between `true` and `false`.
+- **Next / Prev**: Cycles a `select` variable forward (`/next`) or backward (`/prev`) through its preset options.
+- **Toggle / Clear**: Flips a `toggle` variable between `true` and `false` (`/toggle`), toggles a specific option on or off in a `tags` variable (`/toggle?value=...`), or clears all active chips in a `tags` variable (`/clear`).
 
 ---
 
@@ -73,7 +76,7 @@ Counter, number, list, and toggle variables support instant live mutations from 
 
 When tracking people, teams, or sponsors with multiple attributes (name, avatar, role, social handle, accent color, badge icon), use a **Variable Set** instead of juggling dozens of separate global variables.
 
-Enable the module in **Settings -> Feature Modules** (`variable_sets_enabled`), then open **Admin -> Variables -> Variable Sets**.
+Enable the module in **System → Config → Modules & Services** (`variable_sets_enabled`), then open **Tools → Data & Social → Placeholders & Variables → Sets**.
 
 You can import and export Variable Set entries via **CSV** directly from the Variable Sets panel.
 
@@ -136,7 +139,7 @@ Variable Sets include a built-in **Timed Rotation** controller (`intervalSeconds
 
 ## 3. Saved Badges, Strips & Linked Sources
 
-Create a **Badge** in **Library → Display Library**, choose its Variable Set, and design the member cards/strip there. Add a **Saved Display** in Custom Overlay Editor and select that design plus its live source. Existing Image Group layers migrate to saved designs; badge design is no longer an overlay dialog.
+Create a **Badge** in **Overlays → Display Library**, choose its Variable Set, and design the member cards/strip there. Add a **Saved Display** in Custom Overlay Editor and select that design plus its live source. Existing Image Group layers migrate to saved designs; badge design is no longer an overlay dialog.
 
 ![Member Badge Builder Studio](images/badge-builder-studio.png)
 
@@ -258,4 +261,4 @@ Attach a Font Awesome icon (such as `fa-brands fa-twitch` or `fa-brands fa-youtu
 
 ## 7. Bitfocus Companion & Technical Automation
 
-Stream Deck buttons and HTTP triggers can update counters, switch slots, step trackers, and read live values automatically. See **[Bitfocus Companion](companion.md)**, **[Variable Operations](variable-operations.md)**, and the **[API Reference](api-reference.md#variables-amp-variable-sets-api)** under **The Project → Technical**.
+Stream Deck buttons and HTTP triggers can update counters, cycle selects, toggle tags, switch slots, step trackers, and read live values automatically. See **[Bitfocus Companion](companion.md)**, **[Variable Operations](variable-operations.md)**, or open **API Reference** from the StreamPulse app navigation.

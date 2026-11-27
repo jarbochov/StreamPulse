@@ -201,7 +201,7 @@ function normalizeAppearance(input = {}) {
     };
 }
 
-function detectBingoLines(size, stampedSet) {
+function detectBingoLines(size, stampedSet, { fourCorners = false } = {}) {
     const lines = [];
     for (let r = 0; r < size; r++) {
         const row = [];
@@ -221,10 +221,14 @@ function detectBingoLines(size, stampedSet) {
     }
     if (d1.every(i => stampedSet.has(i))) lines.push(d1);
     if (d2.every(i => stampedSet.has(i))) lines.push(d2);
+    if (fourCorners && size >= 2) {
+        const corners = [0, size - 1, size * (size - 1), size * size - 1];
+        if (corners.every(i => stampedSet.has(i))) lines.push(corners);
+    }
     return lines;
 }
 
-function resolvePlayerCard(packInput, card, claims = {}, cardsById = {}) {
+function resolvePlayerCard(packInput, card, claims = {}, cardsById = {}, { fourCorners = false } = {}) {
     const pack = normalizePack(packInput);
     const size = pack.size;
     const total = size * size;
@@ -284,7 +288,7 @@ function resolvePlayerCard(packInput, card, claims = {}, cardsById = {}) {
         });
     }
 
-    const winningLines = detectBingoLines(size, stampedSet);
+    const winningLines = detectBingoLines(size, stampedSet, { fourCorners });
     const winningCells = new Set(winningLines.flat());
     for (const c of cells) c.winning = winningCells.has(c.index);
 
@@ -320,12 +324,12 @@ function resolveLockoutBoard(packInput, cards = [], claims = {}) {
     return { size, total, cells };
 }
 
-function resolveStandings(packInput, cards = [], claims = {}) {
+function resolveStandings(packInput, cards = [], claims = {}, { fourCorners = false } = {}) {
     const pack = normalizePack(packInput);
     const cardsById = Object.fromEntries(cards.map(c => [c.id, c]));
     return cards
         .map(card => {
-            const resolved = resolvePlayerCard(pack, card, claims, cardsById);
+            const resolved = resolvePlayerCard(pack, card, claims, cardsById, { fourCorners });
             return {
                 id: card.id,
                 name: card.name,

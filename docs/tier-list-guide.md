@@ -157,4 +157,4 @@ Open the **Overlay & Theming** tab inside Tier List Maker to configure your cust
 - **Single Permanent OBS URL**: Point your OBS Browser Source at `/overlays/tier-list.html` (1920&times;1080 for Board, or 440&times;1080 for Sidebar). Saved settings sync automatically over WebSocket without requiring URL changes in OBS.
 - **Per-Scene URL Overrides**: Expand **Scene-Specific URL Overrides (Optional)** in the studio (or append query params such as `?layout=sidebar&theme=transparent&autoFit=1&captions=0&fitCaptions=1`) whenever a secondary scene needs its own fixed presentation.
 
-Need Stream Deck buttons or HTTP endpoints to automate Tier List votes? See the **[API Reference](api-reference.md)** and **[Bitfocus Companion Guide](companion.md)** under **The Project → Technical**.
+Need Stream Deck buttons or HTTP endpoints to automate Tier List votes? See the **[Bitfocus Companion Guide](companion.md)** or open **API Reference** from the StreamPulse app navigation.

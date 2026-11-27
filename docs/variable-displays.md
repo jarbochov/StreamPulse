@@ -1,6 +1,6 @@
-# Reusable inventories, tables, badges, counters, meters and tickers
+# Reusable inventories, tables, badges, counters, meters, tickers and bingo
 
-Build a display once in **Library → Display Library**, then place it in any Custom Overlay. Choose **Inventory**, **Table**, **Badge**, **Counter & Pips**, **Meter & Gauge**, or **News Ticker**. Each placement can follow different live data while sharing the same arrangement and appearance.
+Build a display once in **Overlays → Display Library**, then place it in any Custom Overlay. Choose **Inventory**, **Table**, **Badge**, **Counter & Pips**, **Meter & Gauge**, **News Ticker**, or **Bingo Card**. Each placement can follow different live data while sharing the same arrangement and appearance.
 
 <div class="doc-gallery doc-gallery--2">
   <figure>
@@ -74,7 +74,7 @@ Deleting a display first checks saved overlays and presets and names the placeme
 
 Saved displays, placements, and uploaded artwork are all included together when you create a **full backup** in **System → Backups**. (Standalone overlay export bundles cannot include external Saved Display references; use a full backup when transferring linked displays between setups.)
 
-For developer details and dependency-check contracts, see [Variable Operations](variable-operations.md) and the [API Reference](api-reference.md) under **The Project → Technical**.
+For developer details and dependency-check contracts, see [Variable Operations](variable-operations.md) or open **API Reference** in the StreamPulse app navigation.
 
 
 ## Counter & Pips displays
@@ -98,3 +98,27 @@ Switch to the **Appearance** tab to pick from 7 built-in broadcast themes (**Mod
 ### Operating live counters
 
 Pin any saved Counter & Pips display directly onto an **Operator Mode** Live Board using the **Counter & Pips Display** card type for one-click `-1` / `+1` / `Reset` controls with a live mini pip/heart/tally preview (supporting both standalone variables and Variable Set roster fields), or drive them from Bitfocus Companion and Chat Bot commands.
+
+## Meter & Gauge displays
+
+Use **Meter & Gauge** to turn live `counter` / `number` variables or Variable Set numeric fields into animated broadcast meters:
+
+- **Styles**: **HP / Progress Bar** (with optional delayed white/tinted damage-drain trail when values drop), **Segmented Bar** (discrete ticks), **Radial Ring Gauge**, or **Vertical Bar**.
+- **Readouts & Thresholds**: Display fractions (`75 / 100`), percentages (`75%`), both, raw values, or clean label-only bars. Enable **Color Thresholds** to automatically shift fill colors across healthy, mid-warning, and low-danger zones.
+- **Themes & Uniform Layout**: Pick from 6 built-in themes (**Modern Glass**, **Esports Broadcast**, **Broadcast Sports**, **Retro Arcade**, **Minimal HUD**, and **Cozy**) with non-clipping CSS Grid layouts, per-player `@color` bindings, and live **Meter & Gauge Controls** cards in **Operator Mode**.
+
+## News Ticker displays
+
+Use **News Ticker** to create GPU-composited, infinitely scrolling broadcast ribbons powered by either a **List** variable or any **Variable Set** roster:
+
+- **Live Sources**: Stream headline items from a `list` variable or from Variable Set entries (all enabled, active entry, live slots, or In Group entries), with optional primary label, subtitle field, and thumbnail/icon field.
+- **Styling & Themes**: Choose from 5 built-in themes (**Esports Broadcast**, **Broadcast Sports**, **Modern Glass**, **Retro Arcade**, and **Minimal HUD**), configurable scroll speed, item separators (`dot`, `diamond`, `slash`, `bar`, or `none`), and an optional pinned headline badge.
+- **Operator Control**: Pin a **News Ticker Feed** card in **Operator Mode** to review or edit live headlines mid-stream without opening the Display Library.
+
+## Bingo Card displays
+
+Use **Bingo Card** to build interactive **3×3**, **4×4**, or **5×5** Stream Bingo boards that can be placed straight into any Custom Overlay:
+
+- **Prompt Sources**: Enter custom prompts line-by-line, bind to a **List** variable, or draw from a **Variable Set** (with optional item artwork on each square).
+- **Gameplay & Stamp Styling**: Configure the optional center **Free Space** label, top header text, **BINGO!** win banner, 5 stamp styles (`dauber`, `check`, `x`, `star`, `fill`), and 7 themes (**Modern**, **Esports**, **Sports**, **Arcade**, **Minimal**, **Cozy**, **Chalkboard**). Completed rows, columns, and diagonals highlight automatically.
+- **Live Stamping & Companion**: Stamp squares, shuffle prompts, or reset the card from a **Bingo Stamp Card** widget in **Operator Mode** or via Bitfocus Companion (`/api/variable-displays/:id/bingo/toggle`, `/shuffle`, `/reset`). For multi-player co-op or Lockout bingo races over your local network, see [Multiplayer Bingo (LAN)](multiplayer-bingo.md).

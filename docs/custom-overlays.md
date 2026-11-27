@@ -22,7 +22,7 @@ Magnetic snapping guides include group bounding boxes and centers alongside indi
 
 Keep a coordinated look without crowding the editor: organize reusable colors and fonts into Variable Groups, then choose font variables from the existing typography dropdowns. Group Strip fields retain their individual overrides while inheriting shared role and base fonts. Text-only stacks need no primary image; image controls appear only when that image is enabled.
 
-Badge and strip design now lives in **Library → Display Library → Badge**, including fields, images, typography, spacing and overall arrangement. Use **+ Add → Saved Display** to place a finished design; Badge Designer is not a separate Add element option. Existing badge/strip layers migrate to Saved Displays. The overlay inspector chooses the design and live source instead of opening a second designer. Library previews preserve the design dimensions and update without reloading an iframe.
+Badge and strip design now lives in **Overlays → Display Library → Badge**, including fields, images, typography, spacing and overall arrangement. Use **+ Add → Saved Display** to place a finished design; Badge Designer is not a separate Add element option. Existing badge/strip layers migrate to Saved Displays. The overlay inspector chooses the design and live source instead of opening a second designer. Library previews preserve the design dimensions and update without reloading an iframe.
 
 Number variables can coordinate font sizes, borders, opacity and spacing as well as display scores in Text layers. The Variables Studio combines compact editable rows, group navigation and a single settings inspector, with a wider laptop-friendly workspace and consistent controls. The inspector only takes space when a variable is selected. Existing typography, animation and font bindings remain available; Style Presets stays last in each applicable Style panel.
 
@@ -56,7 +56,7 @@ Custom Overlay Studio organizes its specialized layer types into six sections ac
 ### 4. Graphics & Patterns
 - **Icon**: Scalable vector iconography from built-in FontAwesome libraries and custom SVGs.
 - **Pattern Tile**: Seamless repeating wallpaper grids and motion-graphic mosaics built from **1 to 4 images or icons**, with Grid/Brick/Stagger/Checkerboard layouts, 4-Way Mirror & Radial Kaleidoscope symmetry, color/hue waves, organic scatter, and 10 motion styles.
-- **Background Pattern**: 28 procedural, geometric, particle, and seasonal animated backgrounds (leaves, pumpkins, snowflakes, hearts, stars, fireworks) with 22 palettes, vignette, grain, and automatic pausing in hidden browser tabs.
+- **Background Pattern**: 31 procedural, geometric, particle, and seasonal animated backgrounds (leaves, pumpkins, snowflakes, hearts, stars, fireworks, honeycomb, evergreens, football field, and more) with 22 curated palettes plus Shared Color Palettes, vignette, grain, and automatic pausing in hidden browser tabs.
 
 ### 5. Stream Widgets
 - **Saved Display**: Reusable inventories, ordered data tables, or member badge cards built in **Display Library**. Each placement follows its own live set, slot, linked role, or tracker while sharing one central design. See [Display Library](variable-displays.md).
@@ -134,7 +134,7 @@ Explore the [StreamPulse features](features.md) or [get started](quickstart.md).
 
 ## Asset Library & In-Editor Image Cropper
 
-StreamPulse provides built-in media and artwork management through the Asset Library (`Overlays > Asset Library` at `/assets.html`) and inside Custom Overlay Studio:
+StreamPulse provides built-in media and artwork management through the Asset Library (**Library → Asset Library** at `/assets.html`) and inside Custom Overlay Studio:
 - **Consistent pickers**: Library selectors for images, overlay media/text, slideshows, Alerts, timer sounds, Game Plan covers, Tier List items, display badges, promos and uploaded Poll/Versus fonts include search, tag filtering, and **Recent first**, **Oldest first** or **Name A-Z** sorting. Search matches every space-separated term across names, filenames, font families, tags and captions, ignoring case. Tags include **All tags** and **Untagged**; manage tags and captions in the Asset Library. Recent sorts by the file's last modification time, including uploads and overwrites, not when it was last selected. Search, tag and sort choices are remembered per picker in this browser. Filtering never removes existing selections; Tier List's **Select shown** adds only visible matches.
 
 To find a tagged logo, add a `brand` tag to it in the Asset Library, open an image field's **Library** chooser, select `brand`, and search part of its name or caption. Clear the search and select **All tags** to see everything again. Choose **Recent first** to find the image you just uploaded or cropped; selecting it retains the existing asset URL and overlay/OBS workflow. OS-native file dialogs and external IGDB search remain separate from library browsing.
@@ -154,7 +154,7 @@ To find a tagged logo, add a `brand` tag to it in the Asset Library, open an ima
 
 **Variable Sets is an opt-in Advanced module.** Enable or disable it in **System → Config → Modules & Services → Variable Sets**. When turned off, Variable Sets tabs and pickers stay tucked away so your workspace stays streamlined, while keeping any previously saved rosters intact on disk.
 
-See the **[Custom Variables & Variable Sets Guide](variables-guide.md)** for full setup walkthroughs, Member Badges, and Group Rosters. *(Developers and Bitfocus Companion power users can find HTTP triggers and schema contracts in the [API Reference](api-reference.md) under **The Project → Technical**.)*
+See the **[Custom Variables & Variable Sets Guide](variables-guide.md)** for full setup walkthroughs, Member Badges, and Group Rosters. *(Developers and Bitfocus Companion power users can open **API Reference** from the app navigation for HTTP triggers and schema contracts.)*
 
 ## Element Style Presets, Extended Borders & Text Animations
 
@@ -166,4 +166,4 @@ The **Style** tab in Custom Overlay Studio places each layer's element-specific 
 
 ## Embedded Host & Developer Tools
 
-Running StreamPulse inside an embedded host bundle or automating layers via HTTP? See **[Technical Reference](technical-reference.md)** and **[API Reference](api-reference.md)** under **The Project → Technical**.
+Running StreamPulse inside an embedded host bundle or automating layers via HTTP? Open **Docs** and **API Reference** from the StreamPulse app navigation, or view the [Technical Reference](technical-reference.md).

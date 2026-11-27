@@ -98,7 +98,7 @@ Write requests accept a JSON design (maximum 256 KiB). Shared fields are `name`,
 
 `layouts.square`, `layouts.landscape`, and `layouts.portrait` each contain a `template` (`editorial`, `spotlight`, or `minimal`), back-to-front `order`, and `blocks` keyed by `photo`, `artwork`, `badge`, `title`, `subtitle`, `url`, and `qr`. Blocks use percentage `x/y/w/h`, `enabled`, pixel `fontSize`, optional hex `color`, `fit` (`cover`, `contain`, or `contain-blur` with `blurFill`: `{ blur, dim, zoom, shadow }`), percentage `focusX/focusY`, image `shape` (`rectangle`, `rounded`, or `circle`), and pixel `radius`. Image elements also accept `mediaFilter` (`{ brightness, contrast, saturate, grayscale, blur, tint, duotone, grain }`).
 
-Each layout also has `cornerRadius` (pixels) and `background`: `{ mode, theme, color, endColor, midColor, gradientType, angle, speed, pattern, motion, scale, palette, accent, secondary, fillMode, fillOpacity, lineWidth, density, spacing, sizeVariance, scatter, rotationVariance, colorMode, colorAnim, colorSpeed, inPlace, inPlaceSpeed, spin, spinSpeed, panDirection, snowflakeStyle, bar, barColor, barEndColor, vignette, image, fit, focusX, focusY, shade, mediaFilter }`. Modes are `theme` (default for older designs), `solid`, `gradient`, `transparent`, `image`, and `pattern`. All **31 patterns** use the shared procedural pattern engine supporting `fillMode` (`tinted`, `solid`, `outline`), `fillOpacity` (0–100), `palette` (`dual` or 21 curated palettes), `lineWidth` (0–20 px), `spacing` (50–300%), `density`, `sizeVariance`, `scatter`, `colorMode`/`colorAnim`, `inPlace`, `spin`, `motion`, and `mediaFilter` (`brightness`, `contrast`, `saturate`, `grayscale`, `blur`, `tint`, `duotone`, `grain`); `vignette` and `shade` are 0–100; gradient angle is 0–360; crop focus values are 0–100. Background images must be local asset URLs. The background's `theme` selects its built-in artwork independently of other ratios, defaulting to the shared promo theme when migrating older designs. Choosing a custom background does not require a named theme. New promos start with a subtle vignette; missing vignette values on saved layouts normalize to zero.
+Each layout also has `cornerRadius` (pixels) and `background`: `{ mode, theme, color, endColor, midColor, gradientType, angle, speed, pattern, motion, scale, palette, accent, secondary, fillMode, fillOpacity, lineWidth, density, spacing, sizeVariance, scatter, rotationVariance, colorMode, colorAnim, colorSpeed, inPlace, inPlaceSpeed, spin, spinSpeed, panDirection, snowflakeStyle, bar, barColor, barEndColor, vignette, image, fit, focusX, focusY, shade, mediaFilter }`. Modes are `theme` (default for older designs), `solid`, `gradient`, `transparent`, `image`, and `pattern`. All **31 patterns** use the shared procedural pattern engine supporting `fillMode` (`tinted`, `solid`, `outline`), `fillOpacity` (0–100), `palette` (`dual` or 22 curated palettes), `lineWidth` (0–20 px), `spacing` (50–300%), `density`, `sizeVariance`, `scatter`, `colorMode`/`colorAnim`, `inPlace`, `spin`, `motion`, and `mediaFilter` (`brightness`, `contrast`, `saturate`, `grayscale`, `blur`, `tint`, `duotone`, `grain`); `vignette` and `shade` are 0–100; gradient angle is 0–360; crop focus values are 0–100. Background images must be local asset URLs. The background's `theme` selects its built-in artwork independently of other ratios, defaulting to the shared promo theme when migrating older designs. Choosing a custom background does not require a named theme. New promos start with a subtle vignette; missing vignette values on saved layouts normalize to zero.
 
 Custom themes store a required name plus normalized palette/font/background settings, not content or layouts. Applying a theme in the browser copies its palette/font across the promo and its background into the current ratio. Theme changes are not live references.
 
@@ -224,6 +224,12 @@ Inspect the resulting giver, recipient, remaining source days and target count. 
 - `GET /api/update/check?mode=release` checks GitHub's latest stable release. Desktop results have `canApply: false`, `releaseUrl`, and an `installers` array of `{ name, url }`; they do not advertise a source ZIP as an installer. An empty installer list can mean the release build is still running.
 - `GET /api/update/check?mode=nightly` is supported only for Git checkouts.
 - `POST /api/update/apply` with `{ "mode": "release" }` or `{ "mode": "nightly" }` applies source-installation updates. Packaged desktop apps reject both modes with HTTP `409` before any backup, download, command execution, or file replacement. Use the desktop installer instead.
+
+### Native File Chooser (macOS Local Only)
+
+- **Endpoint**: `POST /api/system/choose-file`
+- **Access**: Local loopback connections only (`403` from remote hosts); macOS only (`501` on other platforms).
+- **Body**: `{ "kind": "text" | "media" }` (defaults to `"text"`). Opens the native macOS file picker for text/Markdown files or image/video files and returns `{ "path": "/absolute/path/to/file" }` or `{ "cancelled": true }`.
 
 ---
 
@@ -571,8 +577,9 @@ Control also accepts direct REST triggers like `POST`/`GET /api/timers/:id/toggl
 
 ### Companion & Remote Goal Actions
 - **Endpoint**: `POST /api/goals/:id/:action` or `GET /api/goals/:id/:action`
+- **Add / Adjust Progress**: `GET /api/goals/:id/add?amount=5` or `POST /api/goals/:id/add` with `{ "amount": 5 }` (also accepts `increment` / `adjust` actions and `delta` / `value` parameter aliases; defaults to `1`, negative values subtract). Returns `{ ok, amount, goal, goals }`.
 - **Supported `:action` values**:
-  - `add` (or `increment` / `adjust`): Adjusts manual progress offset on the goal via `?amount=5` (or `delta` / `value`) or JSON `{ "amount": 5 }` (defaults to `1`; negative values subtract).
+  - `add` (or `increment` / `adjust`): Adjusts manual progress offset on the goal via `?amount=5` (or `delta` / `value`) or JSON `{ "amount": 5 }`.
   - `reset`: Resets a persistent goal's baseline (and clears its manual offset) to `0`.
   - `toggle`, `enable`, `disable`: Toggles or explicitly sets the goal's active visibility state.
 
@@ -937,6 +944,8 @@ Deletes a custom user preset pack.
 
 **Prime subscription routing:** `channel.chat.notification` uses existing `user:read:chat` authorization and supplies `sub.is_prime` / `resub.is_prime`, cumulative/streak months and viewer text. SSN's explicit Prime subscription metadata/system text is also accepted. Basic `channel.subscribe` / `channel.subscription.message` tier `1000` is ambiguous and does not select an alert while native chat announcements are registered or SSN is connected. These basic events still update counts/goals immediately. The first announcement selects one Prime/paid alert; later same-viewer deliveries within 120 seconds enrich metadata without another alert or count. Silent renewals do not alert while an announcement source is available. If neither source is available, basic events remain a fallback without inferring Prime from `1000`. Existing rules use `conditions.tiers:["prime"]` versus `["1000"]`, and existing test/simulator `tier:"prime"` overrides remain unchanged.
 
+- **Mute / Unmute Alerts**: `POST /api/alerts/mute` (also supports `GET /api/alerts/mute?muted=1|0`) with `{ "muted": true | false }` mutes or unmutes alert playback and returns `{ ok, muted, queue }`.
+- **Queue Control**: `POST /api/alerts/queue/:action` (also supports `GET`) where `:action` is `pause`, `resume`, `clear`, or `skip`.
 - **Replay Recent Alerts**: `POST /api/alerts/replay` or `GET /api/alerts/replay?count=3` replays the last `N` shown alerts from history in chronological order (defaults to `count=1` when omitted; capped at `50`). You can also pass `{ "alertId": "..." }` to re-queue an exact alert from history or `{ "eventId": "..." }` to re-evaluate a stored event through current rules.
 
 History is not rewritten by ingestion fixes. Exact-alert replay reproduces the original recorded content; event replay re-evaluates the recorded event, not a newly fetched Twitch event.
@@ -1096,7 +1105,7 @@ A standalone 60fps overlay that reflects configured rates in real time and can b
 
 ## Variables & Variable Sets API
 
-Manage global Custom Variables (`counter`, `number`, `text`, `list`, `image`, `toggle`, `color`, `template`, `font`) and multi-field Variable Sets (`text`, `image`, `color`, `toggle`).
+Manage global Custom Variables (`counter`, `number`, `text`, `list`, `select`, `tags`, `image`, `toggle`, `color`, `template`, `font`, `date`, `time`, `datetime`, `duration`) and multi-field Variable Sets (`text`, `number`, `counter`, `select`, `tags`, `image`, `color`, `toggle`, `date`, `time`, `datetime`, `duration`, `ref`, `ref_list`, `checklist`).
 
 ### Global Variables
 
@@ -1119,14 +1128,18 @@ Group management is **POST only**, body `{"name":"Theme","variables":["accent"],
 
 | Endpoint | Methods | Description |
 | --- | --- | --- |
-| `/api/variables` | `GET` | Return `{ variables, groups, sets, variableSetsEnabled }` |
+| `/api/variables` | `GET` | Return `{ variables, groups, sets, values, variableSetsEnabled, variableSettingsEnabled }` |
+| `/api/variables/values` | `GET` | Return flattened map of resolved variable values |
 | `/api/variables/:name` | `GET`, `PUT`, `POST`, `DELETE` | Read, create/update, or delete a variable (`GET ?raw=1`, `?plain=1`, or `?format=text` returns plain text for Companion) |
 | `/api/variables/:name/increment` | `GET`, `POST` | Increment a `counter` or `number` variable by `step` (or `?amount=` / `{ amount }`) |
 | `/api/variables/:name/decrement` | `GET`, `POST` | Decrement a `counter` or `number` variable by `step` (or `?amount=` / `{ amount }`) |
 | `/api/variables/:name/reset` | `GET`, `POST` | Reset variable to `resetValue` (or `initial`) |
 | `/api/variables/:name/set` | `GET`, `POST` | Set variable `value` via `?value=` or `{ value }` |
 | `/api/variables/:name/roll` | `GET`, `POST` | Pick a random item from a `list` variable |
-| `/api/variables/:name/toggle` | `GET`, `POST` | Flip a `toggle` variable between `true` and `false` |
+| `/api/variables/:name/toggle` | `GET`, `POST` | Flip a `toggle` variable between `true` and `false`, or toggle a single option (`?value=` / `{ value }`) on a `tags` variable |
+| `/api/variables/:name/next` | `GET`, `POST` | Cycle a `select` variable forward to its next preset option |
+| `/api/variables/:name/prev` | `GET`, `POST` | Cycle a `select` variable backward to its previous preset option |
+| `/api/variables/:name/clear` | `GET`, `POST` | Clear all active chips on a `tags` variable |
 | `/api/variables/groups/manage` | `POST` | Create, rename, or update variable groups (`name`, `variables`, `createOnly`, `originalName`) |
 | `/api/variables/import` | `POST` | Import a JSON bundle of variables and Variable Sets |
 
@@ -1136,6 +1149,7 @@ Group management is **POST only**, body `{"name":"Theme","variables":["accent"],
 | --- | --- | --- |
 | `/api/variables/sets` | `GET` | List all configured Variable Sets (`{ sets }`) |
 | `/api/variables/sets/:setId` | `GET`, `PUT`, `POST`, `DELETE` | Inspect, create/update, or delete a Variable Set |
+| `/api/variables/sets/:setId/dependencies` | `GET` | Inspect referencing sets, trackers, and Saved Displays (`?entry=&field=`) before deleting |
 | `/api/variables/sets/:setId/export` | `GET` | Export Variable Set entries as downloadable `text/csv` |
 | `/api/variables/sets/:setId/import` | `POST` | Import CSV entries (`text/csv` body or JSON `{ csv, replace }`, optional `?replace=1`) |
 | `/api/variables/sets/:setId/group` | `GET`, `POST`, `PUT` | Inspect or update Group Roster formatting (`separator`, `lastSeparator`, `itemTemplate`) |
@@ -1154,6 +1168,15 @@ Group management is **POST only**, body `{"name":"Theme","variables":["accent"],
 | `/api/variables/sets/:setId/rewind` | `GET`, `POST` | Cascade/shift slots backward (`?mode=shift`) |
 | `/api/variables/sets/:setId/entry/toggle` | `GET`, `POST` | Enable/disable an entry (`?entry=...&enabled=0\|1`) |
 | `/api/variables/sets/:setId/entry/group-toggle` | `GET`, `POST` | Toggle an entry's `inGroup` roster membership (`?entry=...&inGroup=0\|1`) |
+| `/api/variables/sets/:setId/entry/set` | `GET`, `POST`, `PATCH` | Set a single field on an entry (`?entry=...&field=...&value=...`, supports guarded `expected` checks) |
+| `/api/variables/sets/:setId/entry/step` | `GET`, `POST`, `PATCH` | Step a `counter` or `number` field on an entry (`?entry=...&field=...&delta=1`) |
+| `/api/variables/sets/:setId/entry/add` | `GET`, `POST`, `PATCH` | Add a new roster entry (`{ label, fields, ... }`) |
+| `/api/variables/sets/:setId/entry/update` | `GET`, `POST`, `PATCH` | Patch multiple fields/flags on an entry (`{ entry, patch }`) |
+| `/api/variables/sets/:setId/entry/remove` | `GET`, `POST`, `PATCH`, `DELETE` | Remove an entry (returns `409` with `dependencies` if referenced) |
+| `/api/variables/sets/:setId/checklist/set` | `GET`, `POST` | Set a Tracker item's exact tier/level (`?entry=...&field=...&target=...&value=2`, or `?slot=1`) |
+| `/api/variables/sets/:setId/checklist/toggle` | `GET`, `POST` | Cycle or toggle a Tracker item's tier (`?entry=...&field=...&target=...`) |
+| `/api/variables/sets/:setId/checklist/step` | `GET`, `POST` | Increment or decrement a Tracker item's tier (`?entry=...&field=...&target=...&delta=1`) |
+| `/api/variables/sets/:setId/checklist/reset` | `GET`, `POST` | Reset a Tracker for one owner (`?entry=...&field=...`) or all owners (`?field=...&all=1`) |
 | `/api/variables/sets/:setId/queue/add` | `GET`, `POST` | Add an entry to the rotation queue (`?entry=...`) |
 | `/api/variables/sets/:setId/queue/remove` | `GET`, `POST` | Remove an entry from the rotation queue (`?entry=...`) |
 | `/api/variables/sets/:setId/queue/clear` | `GET`, `POST` | Clear the rotation queue |
@@ -1201,3 +1224,154 @@ Centralized custom multi-stop color palettes (2–8 stops, supporting hex, RGBA/
 | `/api/palettes/:id` | `DELETE` | Delete a custom palette (built-in palettes are protected) |
 
 WebSocket broadcasts: `palettes-update` notifies open studios and editors immediately whenever custom palettes are added, edited, duplicated, or deleted.
+
+---
+
+## Element Style Presets (`/api/custom-overlays/style-presets`)
+
+Saved custom layer styles for Custom Overlay Studio, persisted in `data/style-presets.json` (up to 100 saved presets) and included in full backups.
+
+| Endpoint | Methods | Description |
+| --- | --- | --- |
+| `/api/custom-overlays/style-presets` | `GET` | List all saved Element Style Presets |
+| `/api/custom-overlays/style-presets` | `POST` | Create or update a saved Style Preset (upserts by `id`, requires a valid `name`) |
+| `/api/custom-overlays/style-presets/:id` | `DELETE` | Delete a saved Style Preset by ID (`404` if not found) |
+
+---
+
+## Saved Displays & Bingo (`/api/variable-displays`)
+
+Reusable **Display Library** designs (**Inventory**, **Table**, **Badge**, **Counter & Pips**, **Meter & Gauge**, **News Ticker**, and **Bingo Card**), persisted in `data/variable-displays.json`.
+
+| Endpoint | Methods | Description |
+| --- | --- | --- |
+| `/api/variable-displays` | `GET` | Return full display state (`{ displays, usageCounts, ... }`) including placement usage counts |
+| `/api/variable-displays/:id` | `GET` | Fetch a single Saved Display design (`404` if not found) |
+| `/api/variable-displays/:id/dependencies` | `GET` | List saved overlays and presets referencing this display (`{ dependencies }`) |
+| `/api/variable-displays` | `POST`, `PUT` | Create a new Saved Display design |
+| `/api/variable-displays/:id` | `POST`, `PUT` | Update an existing Saved Display design by ID |
+| `/api/variable-displays/:id` | `DELETE` | Delete a Saved Display (returns `409` with `{ error, dependencies }` if still placed in overlays/presets) |
+| `/api/variable-displays/:id/bingo` | `GET` | Read persisted Bingo Card board state (`{ id, state }`) |
+| `/api/variable-displays/:id/bingo/toggle` | `GET`, `POST` | Stamp or unstamp a square (`?cell=0`, optional `?stamped=0\|1` or JSON `{ cell, stamped }`) |
+| `/api/variable-displays/:id/bingo/shuffle` | `GET`, `POST` | Shuffle prompt order (`?count=25` or `{ count }`) and clear stamps |
+| `/api/variable-displays/:id/bingo/reset` | `GET`, `POST` | Clear all stamps on the Bingo Card without reshuffling |
+
+See [Display Library](variable-displays.md) for layout behavior and Operator Mode integration.
+
+---
+
+## Multiplayer Bingo (LAN) (`/api/multiplayer-bingo`)
+
+Opt-in LAN multiplayer Bingo studio (`multiplayer_bingo_enabled`, persisted in `data/multiplayer-bingo.json`) with Prompt Packs, Independent & Lockout claim modes, Host LAN IP share links, Four Corners wins, Host Caller, and Confirm Mode.
+
+### Host & Companion Endpoints
+
+| Endpoint | Methods | Description |
+| --- | --- | --- |
+| `/api/multiplayer-bingo` | `GET` | Full host state including player tokens, `enabled`, and auto-detected `network: { lanIp, lanIps, port, lanOrigin }` |
+| `/api/multiplayer-bingo/overlay` | `GET` | Sanitized broadcast state (tokens stripped) for `/overlays/multiplayer-bingo.html` |
+| `/api/multiplayer-bingo/status` | `GET` | Companion-friendly summary (`enabled`, active pack, player counts, winners, pending calls) |
+| `/api/multiplayer-bingo/packs` | `POST` | Create a new Prompt Pack (`{ name, size, freeSpace, freeSpaceLabel, claimMode, headerText, prompts }`) |
+| `/api/multiplayer-bingo/packs/:id` | `PUT`, `POST`, `DELETE` | Update or delete a saved Prompt Pack |
+| `/api/multiplayer-bingo/packs/select` | `GET`, `POST` | Switch the active Prompt Pack (`?id=<packId>` or `{ id }` / `{ packId }`) |
+| `/api/multiplayer-bingo/appearance` | `POST`, `PUT` | Update broadcast overlay theme, stamp style, and visual settings |
+| `/api/multiplayer-bingo/players/add` | `GET`, `POST` | Add a player (`?name=Alex&color=#3b82f6` or JSON body) and generate a LAN join token |
+| `/api/multiplayer-bingo/players/remove` | `GET`, `POST` | Remove a player card (`?card=<cardId>` or `{ card }`) |
+| `/api/multiplayer-bingo/players/regen` | `GET`, `POST` | Regenerate a player's join token (`?card=<cardId>`) to invalidate old links |
+| `/api/multiplayer-bingo/players/toggle` | `GET`, `POST` | Host override to toggle/set a square on a player card (`?card=<cardId>&cell=0&stamped=1`) |
+| `/api/multiplayer-bingo/flags` | `GET`, `POST` | Update live session flags: `hidden`, `locked`, `fourCorners`, `confirmCalls`, and `focusedCardId` (`0\|1` or booleans) |
+| `/api/multiplayer-bingo/focus` | `GET`, `POST` | Focus/zoom a player card on the overlay (`?card=<cardId>&toggle=1`, omit `card` to clear) |
+| `/api/multiplayer-bingo/call` | `GET`, `POST` | Host Caller trigger to mark or unmark a prompt index across cards (`?prompt=0`, optional `?called=0\|1`) |
+| `/api/multiplayer-bingo/confirm` | `GET`, `POST` | Confirm pending player calls in Confirm Mode (`?id=<callId>`, `?prompt=0`, `?card=<cardId>`, or `?all=1`) |
+| `/api/multiplayer-bingo/dismiss` | `GET`, `POST` | Dismiss pending player calls in Confirm Mode (`?id=<callId>`, `?prompt=0`, `?card=<cardId>`, or `?all=1`) |
+| `/api/multiplayer-bingo/shuffle` | `GET`, `POST` | Shuffle all player cards cleanly for a new round |
+| `/api/multiplayer-bingo/reset` | `GET`, `POST` | Clear stamps, claims, called prompts, and pending calls while keeping current card layouts |
+
+### Scoped LAN Player Endpoints (`/api/bingo/play/:token`)
+
+Token-scoped endpoints used by `/bingo-play.html?t=<token>` (return `403` when `multiplayer_bingo_enabled` is off, `404` for invalid/regenerated tokens):
+
+| Endpoint | Methods | Description |
+| --- | --- | --- |
+| `/api/bingo/play/:token` | `GET` | Fetch only the matching player's card, prompts, claims, and session status |
+| `/api/bingo/play/:token/toggle` | `POST` | Stamp/claim a cell (`{ "cell": 0 }`) as that player (or queue a pending call when `confirmCalls` is enabled) |
+
+See [Multiplayer Bingo (LAN)](multiplayer-bingo.md) for host setup and OBS overlay views.
+
+---
+
+## OBS Border Studio (`/api/obs-borders`)
+
+Metal/OpenGL-compatible OBS Lua border filter manager (`obs_borders_enabled`, stored under `data/obs-borders/`).
+
+| Endpoint | Methods | Description |
+| --- | --- | --- |
+| `/api/obs-borders` | `GET` | Return full studio state (profiles, assignments, transformLock, known scenes/sources) plus `palettes` |
+| `/api/obs-borders/status` | `GET` | Companion status summary (`activeProfileId`, `activeProfileName`, `profilesCount`, `sourcesCount`, `scenesCount`, `revision`) |
+| `/api/obs-borders/manifest` | `GET` | Return the resolved `manifest.json` read by `streampulse-borders.lua` |
+| `/api/obs-borders/lua` | `GET` | View or download (`?download=1`) the generated `streampulse-borders.lua` script |
+| `/api/obs-borders/profile` | `POST`, `PUT` | Create or update a border profile (`{ profile, setActive? }`) and push live sync to OBS |
+| `/api/obs-borders/profile/:id/duplicate` | `POST` | Duplicate an existing border profile |
+| `/api/obs-borders/profile/:id` | `DELETE` | Delete a border profile |
+| `/api/obs-borders/activate` | `GET`, `POST` | Companion trigger to activate a global profile (`?profile=<id>`) or assign it to a source/scene (`?profile=<id>&target=<source>&scene=<optionalScene>`) |
+| `/api/obs-borders/assign` | `POST` | Assign a profile per source or per scene+source (`{ sourceName, sceneName?, profileId }`) |
+| `/api/obs-borders/standby` | `GET`, `POST` | Toggle or set a profile's Standby Fill mode (`?profile=<id>&enabled=1\|0\|toggle`) |
+| `/api/obs-borders/settings` | `POST`, `PUT` | Update studio-wide settings such as `transformLock` (`{ enabled, mode: "outer-border" \| "inner-content" }`) |
+| `/api/obs-borders/icon-atlas` | `POST` | Save rasterized Icon Border PNG atlas (`{ profileId, pngBase64 \| dataUrl }`) |
+| `/api/obs-borders/atlases/:file` | `GET` | Serve a saved Icon Border PNG atlas |
+| `/api/obs-borders/import-scenes` | `POST` | Import offline OBS Scene Collection JSON (`{ jsonData }` or loopback-only `{ filePath }`) |
+| `/api/obs-borders/obs-status` | `GET` | Return live OBS WebSocket connection status |
+| `/api/obs-borders/obs-sync` | `POST` | Discover live OBS scenes, visual sources, and existing `StreamPulse Border` filter status |
+| `/api/obs-borders/obs-apply` | `POST` | Loopback-only: attach, update, or remove (`action: "remove"`) the `StreamPulse Border` filter on OBS sources via WebSocket |
+| `/api/obs-borders/reset-defaults` | `GET`, `POST` | Reset built-in border profiles to factory defaults |
+
+---
+
+## OBS Pattern Studio (`/api/obs-patterns`)
+
+Native OBS Lua GPU pattern background source manager (`obs_patterns_enabled`, stored under `data/obs-patterns/`).
+
+| Endpoint | Methods | Description |
+| --- | --- | --- |
+| `/api/obs-patterns` | `GET` | Return full OBS Pattern Studio state |
+| `/api/obs-patterns/status` | `GET` | Companion status summary (`revision`, `activeProfileId`, `activeProfileName`, `profilesCount`, `assignmentsCount`, `knownScenesCount`, `knownPatternSourcesCount`) |
+| `/api/obs-patterns/manifest` | `GET` | Return the resolved manifest read by `streampulse-patterns.lua` |
+| `/api/obs-patterns/lua` | `GET` | View or download (`?download=1`) the generated `streampulse-patterns.lua` script |
+| `/api/obs-patterns/profile` | `POST` | Create or update a pattern profile (`{ profile, setActive? }`) and live-sync OBS sources |
+| `/api/obs-patterns/profile/:id/duplicate` | `POST` | Duplicate a pattern profile |
+| `/api/obs-patterns/profile/:id` | `DELETE` | Delete a pattern profile |
+| `/api/obs-patterns/activate` | `GET`, `POST` | Companion trigger to activate a profile (`?profile=<id>`) or assign it to a source/scene (`?profile=<id>&target=<source>&scene=<optionalScene>`) |
+| `/api/obs-patterns/assign` | `POST` | Assign a pattern profile to a source/scene (`{ sourceName, sceneName?, profileId }`) |
+| `/api/obs-patterns/palette` | `POST` | Upsert a studio custom palette (`{ palette }`) |
+| `/api/obs-patterns/palette/:id` | `DELETE` | Delete a studio custom palette |
+| `/api/obs-patterns/stamp` | `POST` | Save a rasterized Pattern Tile PNG stamp (`{ id, dataUrl }`) |
+| `/api/obs-patterns/stamps/:file` | `GET` | Serve a saved Pattern Tile PNG stamp |
+| `/api/obs-patterns/obs-status` | `GET` | Return live OBS WebSocket connection status |
+| `/api/obs-patterns/obs-sync` | `POST` | Discover live OBS scenes and `StreamPulse Pattern Background` inputs |
+| `/api/obs-patterns/obs-create` | `POST` | Loopback-only: create or update a `streampulse_pattern_source` input directly in an OBS scene (`{ sourceName, sceneName?, profileId?, width?, height? }`) |
+| `/api/obs-patterns/reset-defaults` | `POST` | Reset built-in pattern profiles to defaults |
+
+---
+
+## OBS Layout & Aspect Studio (`/api/obs-layout`)
+
+Opt-in visual OBS bounding-box editor and GPU aspect ratio morphing studio (`obs_layout_enabled`, persisted in `data/obs-layout.json`). Interactive and mutation routes return `403` while the module is disabled and `503` when OBS WebSocket is disconnected.
+
+| Endpoint | Methods | Description |
+| --- | --- | --- |
+| `/api/obs-layout` | `GET` | Return saved layout state plus `enabled` and `obsConnected` flags |
+| `/api/obs-layout/status` | `GET` | Companion status summary (`enabled`, `obsConnected`, `configuredSources`, `layoutsCount`, `revision`) |
+| `/api/obs-layout/lua` | `GET` | View or download (`?download=1`) the generated `streampulse-aspect.lua` filter script |
+| `/api/obs-layout/scenes` | `GET` | List live OBS scenes, `currentProgramScene`, and canvas `baseWidth` / `baseHeight` |
+| `/api/obs-layout/scene` | `GET` | Inspect all items, transforms, border reach guides, aspect configs, and item transitions in a scene (`?name=<sceneName>`) |
+| `/api/obs-layout/screenshot` | `GET` | Capture a single on-demand `960×540` JPEG backdrop snapshot (`?scene=<sceneName>`) |
+| `/api/obs-layout/transform` | `POST` | Loopback-only: live-update an item's `transform`, `visible`, `locked`, or `sceneItemIndex` in OBS |
+| `/api/obs-layout/aspect/attach` | `POST` | Loopback-only: attach `StreamPulse Aspect` (`streampulse_aspect_filter`) upstream of `StreamPulse Border` on `{ sourceName }` |
+| `/api/obs-layout/aspect` | `GET`, `POST` | Companion trigger to set or cycle (`?action=cycle`) a source's aspect ratio (`?source=<name>&ratio=1:1&panX=0&panY=0&zoom=1&resizeMode=lock-width&anchor=center&durationMs=350`, plus optional `scene`, `transitionType`, `pathType`, `easing`); uses GPU filter when attached or falls back to native OBS crop |
+| `/api/obs-layout/transition-kinds` | `GET` | List installed OBS transition kinds (`fade_transition`, `slide_transition`, `swipe_transition`, `wipe_transition`, `fade_to_color_transition`, `cut_transition`, etc.) |
+| `/api/obs-layout/item-transition` | `GET`, `POST` | Configure native OBS Show/Hide transitions for a scene layer (`scene`, `source`, `scope`, `showKind`, `showDurationMs`, `showDir`, `hideKind`, `hideDurationMs`, `hideDir`) |
+| `/api/obs-layout/layouts` | `POST` | Save a multi-element Scene Layout Preset (`{ id?, name, sceneName, durationMs, transitionType, pathType, pathCurve, easing, items }`) |
+| `/api/obs-layout/layouts/:id` | `DELETE` | Delete a saved Scene Layout Preset |
+| `/api/obs-layout/layouts/apply` | `GET`, `POST` | Companion trigger to smoothly morph all items in a saved layout (`?id=<layoutId>`, optional overrides `durationMs`, `transitionType`, `pathType`, `pathCurve`, `easing`, `reverseReturn=0\|1`) |
+
+See [OBS Studios](obs-studios.md) for setup instructions and studio workflows.

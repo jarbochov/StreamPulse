@@ -267,7 +267,7 @@
                 {
                     name: 'countdown.html / stopwatch.html — Timer Overlays',
                     items: [
-                        { param: 'timer', type: 'string', default: '—', desc: 'Named timer slug managed by Timer Manager. Recommended for production use.', example: '?timer=starting-soon' },
+                        { param: 'timer', type: 'string', default: '—', desc: 'Named timer slug managed by Timers Studio. Recommended for production use.', example: '?timer=starting-soon' },
                         { param: 'display', type: 'string', default: 'standard', desc: 'Layout: "standard", "compact", "stacked", "ring" (circular progress), "flip" (flip clock) or "banner" (full-width bar).', example: '?display=ring' },
                         { param: 'gradient', type: 'string', default: '—', desc: 'Animated gradient for the timer box: comma-separated hex colors (no #).', example: '?gradient=ff6a00,ee0979,6a11cb' },
                         { param: 'gradientspeed', type: 'number', default: '8', desc: 'Seconds per gradient animation cycle.', example: '?gradient=ff6a00,ee0979&gradientspeed=5' },
@@ -350,15 +350,39 @@
             ]
         },
         {
+            id: 'operator-mode',
+            group: 'Overlays & Features',
+            title: 'Operator Mode',
+            custom: true
+        },
+        {
             id: 'polls',
             group: 'Overlays & Features',
             title: 'Poll Manager & Audience Voting',
             custom: true
         },
         {
+            id: 'trivia',
+            group: 'Overlays & Features',
+            title: 'Interactive Trivia',
+            custom: true
+        },
+        {
+            id: 'tier-list',
+            group: 'Overlays & Features',
+            title: 'Tier List Maker',
+            custom: true
+        },
+        {
             id: 'competitions',
             group: 'Overlays & Features',
             title: 'Versus & Matchups',
+            custom: true
+        },
+        {
+            id: 'multiplayer-bingo',
+            group: 'Overlays & Features',
+            title: 'Multiplayer Bingo (LAN)',
             custom: true
         },
         {
@@ -376,7 +400,7 @@
         {
             id: 'timers',
             group: 'Overlays & Features',
-            title: 'Named Timers',
+            title: 'Named Timers & Subathon',
             custom: true
         },
         {
@@ -395,6 +419,18 @@
             id: 'custom-overlays',
             group: 'Overlays & Features',
             title: 'Custom Overlays & Assets',
+            custom: true
+        },
+        {
+            id: 'obs-studios',
+            group: 'Overlays & Features',
+            title: 'OBS Studios (Border, Pattern & Layout)',
+            custom: true
+        },
+        {
+            id: 'color-palettes',
+            group: 'Overlays & Features',
+            title: 'Shared Color Palettes',
             custom: true
         },
         {
@@ -454,7 +490,25 @@
                         { param: 'twitch.client_secret', type: 'string', default: '—', desc: 'Optional. Only needed with your own Twitch app. Leave blank to use the shared app and device-code sign-in.', restart: true },
                         { param: 'ssn.session_id', type: 'string', default: '""', desc: 'Your actual SocialStream Ninja session ID. Blank or example IDs disable collection; restart after changing.', restart: true },
                         { param: 'ssn.server', type: 'string', default: 'wss://io.socialstream.ninja', desc: 'SSN WebSocket server URL. Rarely needs changing.', restart: true },
-                        { param: 'twitch_refresh_minutes', type: 'number', default: '10', desc: 'Auto-refresh interval for Twitch API data (subs, followers, bits).', restart: true }
+                        { param: 'twitch_refresh_minutes', type: 'number', default: '10', desc: 'Auto-refresh interval for Twitch API data (subs, followers, bits).', restart: true },
+                        { param: 'twitch_stream_info_seconds', type: 'number', default: '60', desc: 'Polling interval in seconds for live stream title, category, and broadcast status.', hot: true }
+                    ]
+                },
+                {
+                    name: 'OBS WebSocket Bridge & OBS Studios',
+                    note: 'Configure once under System Config → Connection & Security → OBS Connection.',
+                    items: [
+                        { param: 'obs.enabled', type: 'boolean', default: 'false', desc: 'Enable the global OBS WebSocket v5 connection shared across Scene Sync, Speaker Badges, and OBS Studios.', hot: true },
+                        { param: 'obs.host', type: 'string', default: '"127.0.0.1"', desc: 'OBS WebSocket host address.', hot: true },
+                        { param: 'obs.port', type: 'number', default: '4455', desc: 'OBS WebSocket v5 port.', hot: true },
+                        { param: 'obs.password', type: 'string', default: '""', desc: 'OBS WebSocket password (write-only in API responses).', hot: true },
+                        { param: 'obs.motionEngine', type: 'string', default: '"auto"', desc: 'OBS transition engine: auto (frame-sync), frame-sync, move-plugin, websocket, or cut.', hot: true },
+                        { param: 'obs.syncOnSave', type: 'boolean', default: 'true', desc: 'Automatically sync linked OBS sources when saving or switching overlay Scene States.', hot: true },
+                        { param: 'obs_scene_sync_enabled', type: 'boolean', default: 'true', desc: 'Enable OBS Source Frames and Scene State source motion in Custom Overlay Editor.', hot: true },
+                        { param: 'obs_borders_enabled', type: 'boolean', default: 'true', desc: 'Enable OBS Border Studio (/tools/obs-borders.html).', hot: true },
+                        { param: 'obs_patterns_enabled', type: 'boolean', default: 'true', desc: 'Enable OBS Pattern Studio (/tools/obs-patterns.html).', hot: true },
+                        { param: 'obs_layout_enabled', type: 'boolean', default: 'false', desc: 'Opt-in: enable OBS Layout & Aspect Studio (/tools/obs-layout.html) for live canvas transforms, aspect morphing, and Saved Layouts.', hot: true },
+                        { param: 'speaker_badges_enabled', type: 'boolean', default: 'false', desc: 'Opt-in: enable voice-reactive Speaker Badges using live OBS InputVolumeMeters.', hot: true }
                     ]
                 },
                 {
@@ -493,14 +547,22 @@
                     ]
                 },
                 {
-                    name: 'Chat, Backups & Limits',
+                    name: 'Modules, Chat, Backups & Limits',
                     items: [
                         { param: 'chatbot_enabled', type: 'boolean', default: 'true', desc: 'Master toggle for chat bot commands, quotes, and timed messages. When false, the bot stops listening and the feature is dynamically hidden from navigation.', hot: true },
-                        { param: 'variable_sets_enabled', type: 'boolean', default: 'true', desc: 'Advanced: enable multi-field Variable Sets, slot assignments, queues, and saved data displays.', hot: true },
+                        { param: 'polls_enabled', type: 'boolean', default: 'true', desc: 'Enable Poll Manager, live chat voting, and Poll Tournaments.', hot: true },
+                        { param: 'versus_enabled', type: 'boolean', default: 'true', desc: 'Enable Versus Studio, matchup scoreboards, speedrun races, and esports tournament brackets.', hot: true },
+                        { param: 'trivia_enabled', type: 'boolean', default: 'false', desc: 'Opt-in: enable Interactive Trivia Studio (/tools/trivia.html), chat voting, and Trivia overlays.', hot: true },
+                        { param: 'subathon_enabled', type: 'boolean', default: 'false', desc: 'Opt-in: enable Subathon Automation in Timers Studio (/timers-editor.html#subathon) and the Subathon Rules overlay.', hot: true },
+                        { param: 'multiplayer_bingo_enabled', type: 'boolean', default: 'false', desc: 'Opt-in: enable Multiplayer Bingo (LAN) Studio (/tools/bingo.html) and scoped LAN player card URLs.', hot: true },
+                        { param: 'promo_creator_enabled', type: 'boolean', default: 'false', desc: 'Opt-in (Production & Exports): enable Promo Creator Studio (/promo-creator.html) and Versus Create Promo handoff.', hot: true },
+                        { param: 'variable_sets_enabled', type: 'boolean', default: 'false', desc: 'Opt-in / Advanced: enable multi-field Variable Sets, slot assignments, queues, and saved data displays.', hot: true },
                         { param: 'variable_settings_enabled', type: 'boolean', default: 'true', desc: 'Advanced: allow Custom Overlay controls, URL Wizards, and Studio Theming Builders to bind settings (spacing, sizes, scales, radiuses, blurs, opacity, fonts, colors, titles) to variables (e.g. var:<key>|<fallback>). When false, {} variable bind buttons are hidden across editors and wizards.', hot: true },
                         { param: 'clip_candidates.enabled', type: 'boolean', default: 'true', desc: 'Enable automated clip candidate detection from chat spikes and notable events.', hot: true },
                         { param: 'hashtags_enabled', type: 'boolean', default: 'true', desc: 'Track hashtags from chat.', hot: true },
+                        { param: 'hashtag_max_length', type: 'number', default: '50', desc: 'Maximum character length for tracked hashtags (10–100).', hot: true },
                         { param: 'chat_log_enabled', type: 'boolean', default: 'true', desc: 'Keep the per-session chat log.', hot: true },
+                        { param: 'community_insights_enabled', type: 'boolean', default: 'false', desc: 'Opt-in: index retained chat logs for Community CRM dossiers, hashtag originators, streaks, and Community Bot milestone messages.', hot: true },
                         { param: 'banned_users', type: 'array', default: '[]', desc: 'Manual bans: block new chat and hide stored community output without deleting history.', hot: true },
                         { param: 'twitch_ban_sync.enabled', type: 'boolean', default: 'false', desc: 'Sync permanent Twitch bans separately from manual bans; timeouts ignored.', hot: true },
                         { param: 'message_deletion_sync.enabled', type: 'boolean', default: 'true', desc: 'Sync delivered Twitch/SSN message deletions and chat clears; keeps raw history and previously hidden messages. Twitch needs user:read:chat.', hot: true },
@@ -863,11 +925,11 @@
             </div>
             <div class="card open">
                 <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
-                    <strong style="font-size:0.9rem;">Twitch Application</strong>
+                    <strong style="font-size:0.9rem;">Twitch Application &amp; Config Editor</strong>
                     <span class="chevron">▶</span>
                 </div>
                 <div class="card-body">
-                    <div class="detail-text"><strong>Easiest:</strong> leave the <code>twitch</code> fields in <code>config.json</code> blank, start StreamPulse and open <a href="/twitch-connect.html" style="color:var(--accent);">Connect Twitch</a>. Click <em>Connect with Twitch</em>, enter the code shown on twitch.tv and approve. Your Twitch ID and username are filled in automatically.<br><br>Connect Twitch already covers subscribers, followers, bits and clips, so most people never need their own app.<br><br><strong>Optional (your own app):</strong> only if you want your own app name, rate limits or a custom redirect.<br><br>1. Create an app at <a href="https://dev.twitch.tv/console/apps" style="color:var(--accent);">dev.twitch.tv/console/apps</a><br>2. Set the <strong>OAuth Redirect URL</strong> to <code>http://localhost:3000/auth/callback</code><br>3. Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> into <code>config.json</code><br><br>If StreamPulse is hosted somewhere else, set <code>twitch.redirect_uri</code> to the exact URL registered in Twitch.<br><br><strong>Clips (Beta):</strong> live clips need <code>clips:edit</code>; VOD clips need <code>channel:manage:clips</code> (or <code>editor:manage:clips</code>). If you authorized before VOD clipping existed, visit <code>/auth/twitch</code> again to refresh the token.</div>
+                    <div class="detail-text"><strong>Easiest:</strong> leave the <code>twitch</code> fields in <code>config.json</code> blank, start StreamPulse, and open <strong>System → Config → Connection &amp; Security</strong> (<a href="/config-editor.html#connection" style="color:var(--accent);">Config Editor</a>). Use the consolidated <strong>Twitch Connection</strong> card to sign in via 1-click device code (standalone <em>Twitch Connect</em> was removed from the System menu; <a href="/twitch-connect.html" style="color:var(--accent);"><code>/twitch-connect.html</code></a> remains available as the direct device-code page). Enter the code on twitch.tv and approve—your Twitch ID and username are filled in automatically.<br><br>Connect Twitch already covers subscribers, followers, bits, channel point rewards, polls, moderation sync, and clips, so most people never need their own app.<br><br><strong>Optional (your own app):</strong> only if you want your own app name, rate limits or a custom redirect.<br><br>1. Create an app at <a href="https://dev.twitch.tv/console/apps" style="color:var(--accent);">dev.twitch.tv/console/apps</a><br>2. Set the <strong>OAuth Redirect URL</strong> to <code>http://localhost:3000/auth/callback</code><br>3. Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> into <code>config.json</code><br><br>If StreamPulse is hosted somewhere else, set <code>twitch.redirect_uri</code> to the exact URL registered in Twitch.<br><br><strong>Clips (Beta):</strong> live clips need <code>clips:edit</code>; VOD clips need <code>channel:manage:clips</code> (or <code>editor:manage:clips</code>). If you authorized before VOD clipping existed, visit <code>/auth/twitch</code> again to refresh the token.<br><br><strong>Config Editor Highlights:</strong><br>• <strong>Modules &amp; Services Live Search:</strong> Filter all module toggles instantaneously by keyword in <a href="/config-editor.html#modules" style="color:var(--accent);">Config Editor → Modules &amp; Services</a>.<br>• <strong>Production &amp; Exports:</strong> Opt-in section housing Promo Creator (<code>promo_creator_enabled</code>) and related export workflows.<br>• <strong>Konami Dev Mode:</strong> Press <code>↑ ↑ ↓ ↓ ← → ← → B A</code> on any StreamPulse page to toggle Developer Mode in the top navigation bar (adds a quick server restart button and developer diagnostics shortcuts, persisted in browser storage).</div>
                 </div>
             </div>`;
 
@@ -887,7 +949,7 @@
                     <span class="chevron">▶</span>
                 </div>
                 <div class="card-body">
-                    <div class="detail-text">• <strong>Credits Roll</strong> — scrolling credits with subs, followers, chatters, emotes, hashtags, raids, gifters and cheerers, plus fade-style text sections<br>• <strong>Custom Overlays</strong> — visual canvas editor with transparent webcam cutouts, WebGL shaders, live placeholders, QR codes and assets<br>• <strong>Choice Randomizer</strong> — interactive slot roller, spinning wheel, and card deck with elimination mode, dynamic odds, and chatter pool<br>• <strong>Poll Manager &amp; Audience Voting</strong> — multi-platform chat voting, blind mode, subscriber vote multiplier, confetti celebration, and winner fanfare<br>• <strong>Versus &amp; Matchups</strong> — esports tournament brackets (single/double elim, round robin, non-power-of-2 BYEs), versus scoreboards (1v1 to 4P), side swapping, Fight Card queue, and self-sizing overlays<br>• <strong>Promo Creator</strong> — multi-format announcements (1:1, 16:9, 9:16) with 23 animated procedural patterns, IGDB artwork, and seamless MP4/PNG export<br>• <strong>Music Overlay</strong> — Apple Music, Spotify and VLC now-playing<br>• <strong>Named Timers</strong> — countdowns and stopwatches with pause/resume and Companion endpoints<br>• <strong>Goals + Viewer Tracking</strong> — single and rotating goal overlays<br>• <strong>Game Plan</strong> — Scheduled/Backlog/Played and custom lists with IGDB art<br>• <strong>Sessions &amp; Highlights</strong> — searchable chat logs (<code>AND</code>, <code>OR</code>, <code>"exact phrase"</code>, <code>user:name</code>), pins, TSV/TXT/PDF exports<br>• <strong>Clip Candidates (Beta)</strong> — notable events and chat spikes with Twitch clip links<br>• <strong>Hashtag Tracking</strong> — live overlays plus moderation<br>• <strong>Backup &amp; Restore</strong> — ZIP backups including the live session, custom overlays and Game Plan<br>• <strong>Updater</strong> — check for and install the latest stable release from the Manage menu (Git checkout with Git and npm required; data is backed up first)<br><br><em>Hashtags tip:</em> they suit smaller streams. For larger communities use the ban/purge moderation tools or disable hashtags.</div>
+                    <div class="detail-text">• <strong>Operator Mode</strong> — customizable live show-control board with domain tabs (Variables, Displays, Overlays, Timers, Alerts, Music, Versus, Polls, Trivia, and Runbooks), saved presets, and compact OBS Dock mode<br>• <strong>Credits Roll</strong> — scrolling credits with subs, followers, chatters, emotes, hashtags, raids, gifters and cheerers, plus fade-style text sections<br>• <strong>Custom Overlays</strong> — visual canvas editor with transparent webcam cutouts, WebGL shaders, live placeholders, QR codes, voice-reactive Speaker Badges, and Shared Color Palettes<br>• <strong>OBS Studios</strong> — native GPU Border Studio (31 styles + Icon Borders), Pattern Studio (31 procedural patterns + Pattern Tiles), and Layout &amp; Aspect Studio (aspect morphing &amp; motion paths)<br>• <strong>Interactive Trivia &amp; Tier List Maker</strong> — chat-voted quiz packs with session/season leaderboards, plus drag-and-drop consensus tier lists<br>• <strong>Multiplayer Bingo (LAN)</strong> — opt-in LAN player cards, Host Caller with Confirm Mode, Lockout/Independent modes, Four Corners toggle, and multi-view OBS overlays<br>• <strong>Choice Randomizer</strong> — interactive slot roller, spinning wheel, and card deck with elimination mode, dynamic odds, and chatter pool<br>• <strong>Poll Manager &amp; Audience Voting</strong> — multi-platform chat voting, blind mode, subscriber vote multiplier, confetti celebration, and winner fanfare<br>• <strong>Versus &amp; Matchups</strong> — esports tournament brackets (single/double elim, round robin, non-power-of-2 BYEs), versus scoreboards (1v1 to 4P), side swapping, Fight Card queue, broadcast themes, and self-sizing overlays<br>• <strong>Promo Creator</strong> — opt-in multi-format announcements (1:1, 16:9, 9:16) with 31 animated procedural patterns, IGDB artwork, and seamless MP4/PNG export<br>• <strong>Music Overlay</strong> — Apple Music and VLC now-playing<br>• <strong>Named Timers &amp; Subathon Automation</strong> — countdowns and stopwatches with pause/resume, Companion endpoints, and automated subathon time additions<br>• <strong>Goals + Viewer Tracking</strong> — single and rotating goal overlays<br>• <strong>Game Plan</strong> — Scheduled/Backlog/Played and custom lists with IGDB art<br>• <strong>Sessions &amp; Highlights</strong> — searchable chat logs (<code>AND</code>, <code>OR</code>, <code>"exact phrase"</code>, <code>user:name</code>), pins, TSV/TXT/PDF exports<br>• <strong>Clip Candidates (Beta)</strong> — notable events and chat spikes with Twitch clip links<br>• <strong>Hashtag Tracking</strong> — live overlays plus moderation<br>• <strong>Backup &amp; Restore</strong> — ZIP backups including the live session, custom overlays, displays, operator profiles, palettes, and Game Plan<br>• <strong>Updater</strong> — check for and install the latest stable release from <strong>System → System Update</strong> (Git checkout with Git and npm required; data is backed up first)<br><br><em>Hashtags tip:</em> they suit smaller streams. For larger communities use the ban/purge moderation tools or disable hashtags.</div>
                 </div>
             </div>`;
 
@@ -1102,6 +1164,25 @@
                             <tr><td><code>data/stats.json</code></td><td>Persistent</td><td>Cumulative stats with daily buckets. Survives restarts.</td></tr>
                             <tr><td><code>data/alerts.json</code></td><td>Persistent</td><td>Alert rules, variants, conditions and actions.</td></tr>
                             <tr><td><code>data/timers.json</code></td><td>Persistent</td><td>Named countdowns, stopwatches, visibility, timer state, global sound settings, and per-timer outgoing HTTP action settings.</td></tr>
+                            <tr><td><code>data/subathon.json</code></td><td>Persistent</td><td>Subathon automation rates, safety caps, boost state, cumulative stats, and rules overlay appearance.</td></tr>
+                            <tr><td><code>data/custom-overlays.json</code></td><td>Persistent</td><td>Custom Overlay definitions, pages/Scene States, OBS Source Frame links, and speaker badges.</td></tr>
+                            <tr><td><code>data/style-presets.json</code></td><td>Persistent</td><td>Reusable Element Style Presets for Custom Overlay Editor.</td></tr>
+                            <tr><td><code>data/palettes.json</code></td><td>Persistent</td><td>Shared 2–8 stop custom color palettes used across Custom Overlay Editor, OBS Border Studio, and OBS Pattern Studio.</td></tr>
+                            <tr><td><code>data/variables.json</code></td><td>Persistent</td><td>Custom global variables, counters, select/tags variables, and Variable Sets with rosters and slot assignments.</td></tr>
+                            <tr><td><code>data/variable-groups.json</code></td><td>Persistent</td><td>Named Variable Group namespaces and ordering.</td></tr>
+                            <tr><td><code>data/variable-displays.json</code></td><td>Persistent</td><td>Display Library definitions (inventories, tables, badges, counters, meters, tickers, bingo cards) and runtime state.</td></tr>
+                            <tr><td><code>data/operator-profiles.json</code></td><td>Persistent</td><td>Operator Mode presets, Live Board layouts, and global Runbooks.</td></tr>
+                            <tr><td><code>data/multiplayer-bingo.json</code></td><td>Persistent</td><td>Multiplayer Bingo (LAN) prompt packs, active session cards, tokens, claims, and overlay theme.</td></tr>
+                            <tr><td><code>data/promos.json</code></td><td>Persistent</td><td>Saved Promo Creator multi-format designs.</td></tr>
+                            <tr><td><code>data/promo-themes.json</code></td><td>Persistent</td><td>Reusable custom Promo Creator color/background themes.</td></tr>
+                            <tr><td><code>data/trivia*.json</code></td><td>Persistent</td><td>Interactive Trivia question bank, saved quiz pack presets, overlay themes, and session/season leaderboards.</td></tr>
+                            <tr><td><code>data/tier-list*.json</code></td><td>Persistent</td><td>Tier List Maker boards, tiers, items, presets, and overlay styling.</td></tr>
+                            <tr><td><code>data/polls.json</code></td><td>Persistent</td><td>Live Poll state, saved poll presets, poll history, and Poll Tournament bracket state.</td></tr>
+                            <tr><td><code>data/matchup.json</code></td><td>Persistent</td><td>Versus Studio matchup state, Fight Card queue, presets, Saved Looks, and esports tournament state.</td></tr>
+                            <tr><td><code>data/chatbot.json</code></td><td>Persistent</td><td>Chat Bot settings, custom commands, timed messages, word triggers, and Community Messages config.</td></tr>
+                            <tr><td><code>data/obs-borders/</code></td><td>Persistent</td><td>OBS Border Studio profiles, resolved <code>manifest.json</code>, generated <code>streampulse-borders.lua</code>, and baked icon atlases.</td></tr>
+                            <tr><td><code>data/obs-patterns/</code></td><td>Persistent</td><td>OBS Pattern Studio profiles, resolved <code>manifest.json</code>, generated <code>streampulse-patterns.lua</code>, and PNG stamps.</td></tr>
+                            <tr><td><code>data/obs-layout.json</code></td><td>Persistent</td><td>OBS Layout &amp; Aspect Studio per-source aspect configs, item transitions, and Saved Layout presets.</td></tr>
                             <tr><td><code>data/.stats-backup-{1,2,3}.json</code></td><td>Rotating</td><td>3 most recent stats backups. Auto-restored if stats.json is corrupt.</td></tr>
                             <tr><td><code>data/highlights.json</code></td><td>Persistent</td><td>Pinned chat messages.</td></tr>
                             <tr><td><code>data/clip-candidates.json</code></td><td>Persistent</td><td>Beta clip candidates and Twitch clip links.</td></tr>
@@ -1208,7 +1289,7 @@
                 </tr>
                 <tr>
                     <td><code>procedural-pattern</code><br><strong>Background Pattern</strong></td>
-                    <td>28 geometric, organic, particle, and seasonal canvas patterns with curated palettes, color placement/waves, stroke width, fill opacity, zoom, density, and independent canvas/in-place/spin motion. Browser sprite caches honor stroke changes; dense views use bounded detail rendering. Starfields and sparkles skip off-screen particles without lowering density or animation speed. Grain and suitably sized radial borders animate cached surfaces; hidden tabs pause effects. Reload open browser sources after updating. Full-screen animations, filters and duplicate preview tabs still add graphics load; compare the pattern, grain and frame animations separately when diagnosing high CPU. Seasonal Promo exports close their six-second animation loops.</td>
+                    <td>31 geometric, organic, particle, and seasonal canvas patterns with 22 curated palettes (plus Shared Color Palettes), color placement/waves, stroke width, fill opacity, zoom, density, and independent canvas/in-place/spin motion. Browser sprite caches honor stroke changes; dense views use bounded detail rendering. Starfields and sparkles skip off-screen particles without lowering density or animation speed. Grain and suitably sized radial borders animate cached surfaces; hidden tabs pause effects. Reload open browser sources after updating. Full-screen animations, filters and duplicate preview tabs still add graphics load; compare the pattern, grain and frame animations separately when diagnosing high CPU. Seasonal Promo exports close their six-second animation loops.</td>
                 </tr>
                 <tr>
                     <td rowspan="5"><strong>Stream Widgets</strong></td>
@@ -1258,7 +1339,7 @@
                 <strong>Modular &amp; Zero Background Overhead:</strong> Speaker badges are opt-in and disabled by default (<code>"speaker_badges_enabled": false</code> in System Config &gt; Modules &amp; Services). When disabled, OBS volume meter subscriptions are omitted and the element is hidden from the studio toolbar. When enabled, StreamPulse subscribes to OBS volume meters (<code>InputVolumeMeters</code>) throttled at ~20Hz.<br><br>
                 <strong>Clean 3-Tab Inspector Organization:</strong>
                 <ul class="checklist">
-                    <li><strong>Content:</strong> Identity metadata (Display Name, Handle/Subtitle, Pronouns, Avatar Image Asset with Library/Upload support, visibility toggles), Call-In status text and caller location, and OBS Audio Input selection with live connection feedback (<code>● OBS Connected</code> vs <code>⚠ OBS Disconnected</code>), sensitivity gate threshold (dB), release hold time (ms), and a <strong>Simulate Speaking</strong> test toggle.</li>
+                    <li><strong>Content:</strong> Identity metadata (Display Name, Handle/Subtitle, Pronouns, Avatar Image Asset with Library/Upload support, visibility toggles), Call-In status text and caller location, and OBS Audio Input selection with live connection feedback (<code>OBS Connected</code> vs <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg><code>OBS Disconnected</code>), sensitivity gate threshold (dB), release hold time (ms), and a <strong>Simulate Speaking</strong> test toggle.</li>
                     <li><strong>Layout:</strong> 5 layout presets (Horizontal Lower-Third, Broadcast Call-In C-SPAN Banner, Compact Pill, Vertical Sidebar Card, and Avatar Only Floating Halo). Element dimensions auto-adapt to recommended bounds on preset changes with an optional <strong>Apply Recommended Size</strong> button.</li>
                     <li><strong>Style:</strong> Visual appearance (Avatar shape: Circle, Squircle, Square; Call-In tag color), Audio Visualizers (EQ bars, avatar pulse halo ring, or both), speaking reactions (active border color, glow spread, scale pop, idle dimming opacity), proportional typography scaling, background fills (including true transparency, solid colors, and animated linear/radial gradients), borders, and box shadows.</li>
                 </ul><br>
@@ -1335,6 +1416,14 @@
                 <tr><td>Game plan</td><td><code>plan.now</code> <code>plan.scheduled</code> <code>plan.backlog</code> <code>plan.next</code> <code>plan.scheduled.count</code> <code>plan.backlog.count</code> and <code>plan.list.&lt;id&gt;</code> for custom lists<br>List tokens (<code>plan.scheduled</code>, <code>plan.backlog</code>, <code>plan.list.*</code>, <code>game.genres</code>, <code>game.platforms</code>) are comma separated by default. Change that with a format: <code>{{plan.backlog|lines}}</code> (one per line), <code>|bullets</code>, <code>|numbered</code>, <code>|3</code> (first 3), <code>|3:\n</code> (first 3, one per line) or any separator such as <code>{{plan.backlog|sep: / }}</code> (use <code>\s</code> for a space at the ends, <code>\n</code> for a line break).</td></tr>
                 <tr><td>Music</td><td><code>music.title</code> <code>music.artist</code> <code>music.album</code> <code>music.cover</code> <code>music.state</code> <code>music.position</code> <code>music.duration</code> <code>music.remaining</code> <code>music.percent</code></td></tr>
                 <tr><td>Weather</td><td>Needs <code>weather.enabled</code> in <code>config.json</code>. <code>weather.temp</code> <code>weather.temp_full</code> <code>weather.unit</code> <code>weather.feels_like</code> <code>weather.condition</code> <code>weather.icon</code> <code>weather.icon.url</code> <code>weather.humidity</code> <code>weather.wind</code> <code>weather.wind.speed</code> <code>weather.wind.dir</code> <code>weather.high</code> <code>weather.low</code> <code>weather.precip_chance</code> <code>weather.city</code> <code>weather.location</code> <code>weather.gusts</code> <code>weather.cloud_cover</code> <code>weather.pressure</code> <code>weather.pressure.unit</code> <code>weather.uv</code> <code>weather.sunrise</code> <code>weather.sunset</code>. Hourly: <code>weather.h1.time</code> <code>.temp</code> <code>.icon</code> <code>.icon.url</code> <code>.condition</code> <code>.precip</code> (h1 to h6). Daily: <code>weather.d1.day</code> <code>.high</code> <code>.low</code> <code>.icon</code> <code>.icon.url</code> <code>.condition</code> <code>.precip</code> (d1 = tomorrow, to d5). Extra cities use <code>weather.&lt;city&gt;.temp</code> and so on.</td></tr>
+                <tr><td>Variables &amp; Sets</td><td><code>var.&lt;name&gt;</code> <code>var.&lt;group&gt;.&lt;name&gt;</code> (number, text, list, select, tags, image, icon, toggle, color, template, font, date/time/duration). Variable Sets: slot tokens <code>var.&lt;set&gt;_1_&lt;field&gt;</code>, linked hops <code>.field.&lt;key&gt;</code>, and Direct Item Placeholders <code>var.&lt;set&gt;.1.&lt;field&gt;</code> (1st enabled), <code>var.&lt;set&gt;.all.1.&lt;field&gt;</code> (all rows), <code>var.&lt;set&gt;.&lt;slug&gt;.&lt;field&gt;</code> (by ID), <code>var.&lt;set&gt;.count</code>, <code>var.&lt;set&gt;.total</code>.</td></tr>
+                <tr><td>Trivia</td><td><code>trivia.question</code> <code>trivia.category</code> <code>trivia.phase</code> <code>trivia.number</code> <code>trivia.total</code> <code>trivia.answer</code> <code>trivia.funfact</code> <code>trivia.timer</code> <code>trivia.votes</code> <code>trivia.choice.1</code>–<code>6</code> (plus <code>.votes</code>, <code>.percent</code>) <code>trivia.leader.name</code> <code>trivia.leader.points</code> <code>trivia.leader.correct</code> <code>trivia.leader.accuracy</code> <code>trivia.leader.top3</code></td></tr>
+                <tr><td>Tier List</td><td><code>tier_list.title</code> <code>tier_list.item</code> <code>tier_list.item_image</code> <code>tier_list.vote_status</code> <code>tier_list.vote_timer</code> <code>tier_list.consensus_tier</code> <code>tier_list.consensus_percent</code> <code>tier_list.total_votes</code></td></tr>
+                <tr><td>Matchup</td><td><code>matchup.title</code> <code>matchup.phase</code> <code>matchup.format</code> <code>matchup.status</code> <code>matchup.winner</code> <code>matchup.clock</code> <code>matchup.player1.name</code> <code>.score</code> <code>.tag</code> <code>.color</code> <code>matchup.player2.name</code> <code>.score</code> <code>.tag</code> <code>.color</code></td></tr>
+                <tr><td>Tournament</td><td><code>tournament.title</code> <code>tournament.format</code> <code>tournament.status</code> <code>tournament.champion</code> <code>tournament.round</code> <code>tournament.match.current</code> <code>tournament.match.entrant1</code> <code>.score</code> <code>tournament.match.entrant2</code> <code>.score</code></td></tr>
+                <tr><td>Milestones</td><td><code>milestone.stream_number</code> <code>milestone.total_hours</code> <code>milestone.total_time</code> <code>milestone.streak_days</code> <code>milestone.streak_weeks</code> <code>milestone.lifetime_chatters</code> <code>milestone.lifetime_messages</code> <code>milestone.next_stream_goal</code> <code>milestone.streams_remaining</code> <code>milestone.stream_goal_percent</code> <code>milestone.next_hours_goal</code> <code>milestone.hours_remaining</code> <code>milestone.hours_goal_percent</code></td></tr>
+                <tr><td>Subathon</td><td><code>subathon.total_added</code> <code>subathon.multiplier</code> <code>subathon.boost_active</code> <code>subathon.subs</code> <code>subathon.bits</code> <code>subathon.donations</code></td></tr>
+                <tr><td>External / Rep</td><td><code>rep.&lt;key&gt;</code> and nested <code>rep.&lt;key&gt;.&lt;path&gt;</code> — flattened keys from external JSON data sources exposed via <code>/api/external-data</code>.</td></tr>
             </table>
             <div class="detail-label">Date and time formats</div>
             <div class="detail-text">
@@ -1352,7 +1441,7 @@
         </div>
         <div class="card-body">
             <div class="detail-text">
-                The <a href="/assets.html" style="color:var(--accent);">Asset Library</a> (Overlays &gt; Asset Library) is one shared store for overlay images, videos, fonts and timer sounds. Browse as a grid or list with an adjustable thumbnail size, search, filter by type or used/unused, and sort. Upload by button, drag-and-drop or paste; audio and video preview in place. Crop, rotate, flip and resize images directly in the browser. Renaming an asset rewrites every overlay and timer that uses it; deleting an in-use asset requires confirmation. Files are stored in <code>data/custom-overlay-assets/</code> (100&nbsp;MB max each) and included in backups.
+                The <a href="/assets.html" style="color:var(--accent);">Asset Library</a> (Library &gt; Asset Library) is one shared store for overlay images, videos, fonts and timer sounds. Browse as a grid or list with an adjustable thumbnail size, search, filter by type or used/unused, and sort. Upload by button, drag-and-drop or paste; audio and video preview in place. Crop, rotate, flip and resize images directly in the browser. Renaming an asset rewrites every overlay and timer that uses it; deleting an in-use asset requires confirmation. Files are stored in <code>data/custom-overlay-assets/</code> (100&nbsp;MB max each) and included in backups.
                 <p>Every library chooser includes <strong>search, tag filtering and sorting</strong>: image fields, overlay media/text and slideshows, Alerts, timer sounds, Game Plan covers, Tier List items, display badges, promos, and uploaded Poll/Versus fonts. Search matches all space-separated terms across names, filenames, font families, captions and tags, ignoring case. Choose a tag, <strong>All tags</strong> or <strong>Untagged</strong>; edit tags/captions in the Asset Library. <strong>Recent first</strong> (default) and <strong>Oldest first</strong> use file modification time, including new uploads and overwrites, not last use; <strong>Name A-Z</strong> sorts naturally. Each picker remembers your choices in this browser. Filtering preserves selections; Tier List's <strong>Select shown</strong> adds only visible matches.</p>
                 <p>Example: tag your logo <code>brand</code>, open an image field's <strong>Library</strong> chooser, select that tag, then search its name or caption. Clear search and select <strong>All tags</strong> to restore the full list. OS-native file dialogs and external IGDB search are separate.</p>
             </div></div>
@@ -1565,7 +1654,10 @@
                         • <strong>Double Elimination:</strong> Supports 2 to 16 entrants, including BYEs, with Winners and Losers progression. A losers-side Grand Finals victory creates a reset match rather than eliminating the undefeated finalist after one loss.<br>
                         • <strong>Round Robin (All vs All):</strong> Ideal for 3 to 8 players. Every competitor plays every other competitor; the studio and overlay provide an auto-updating Standings Table with Played, W-L records, and points.<br>
                         • <strong>Series Scoring &amp; Advancement:</strong> Configure Free Points, Best of 1, Best of 3, Best of 5, or Best of 7. Bounded series identify a winner when the target is met; advancement follows the selected progression mode. Free Points has no score ceiling: confirm the winner manually. A per-match <code>roundsBestOf: 0</code> disables rounds; missing or null values inherit the tournament setting.<br>
-                        • <strong>Correcting Results:</strong> Reset or roll back a match to correct a result. Downstream bracket slots and round-robin standings update to match; poll and versus histories remain separate.
+                        • <strong>CSV / JSON Bracket Import:</strong> Import seeded entrant rosters and match schedules directly from CSV or JSON files.<br>
+                        • <strong>Correcting Results &amp; 20-Step Undo:</strong> Reset or roll back a match to correct a result, or press <code>Ctrl/⌘+Z</code> (up to 20 undo steps) alongside fast scoring keyboard shortcuts. Downstream bracket slots and round-robin standings update to match; poll and versus histories remain separate.<br>
+                        • <strong>Broadcast Themes, Event Theme Sync &amp; Saved Looks:</strong> Switch between 3 dedicated broadcast themes, sync theme styling across scoreboard and bracket views with Event Theme Sync, and save/reload reusable Saved Looks.<br>
+                        • <strong>Create Promo Handoff:</strong> When <code>promo_creator_enabled</code> is turned on in System Config, launch Promo Creator directly from a match or tournament with names, titles, and colors pre-populated.
                     </div>
                 </div>
             </div>
@@ -1682,7 +1774,7 @@
                         <br><br>
                         • <strong>Multi-Format Canvases:</strong> Design once for <strong>Square (1:1, 1080×1080)</strong> for Instagram/Bluesky, <strong>Landscape (16:9, 1920×1080)</strong> for Twitter/X and OBS slides, and <strong>Portrait (9:16, 1080×1920)</strong> for TikTok and Instagram Stories.<br>
                         • <strong>Shared Content Architecture:</strong> Text, Image, and QR elements share headlines and messaging across formats while allowing independent per-format positioning, scaling, and typography.<br>
-                        • <strong>28 Animated Procedural Patterns:</strong> Geometric grids, waves, circuits, and seasonal motifs with configurable loop duration, speed, direction, opacity, and palette.<br>
+                        • <strong>31 Animated Procedural Patterns:</strong> Geometric grids, waves, circuits, and seasonal motifs with 22 curated palettes (plus Shared Color Palettes) and configurable loop duration, speed, direction, opacity, and motion.<br>
                         • <strong>IGDB Artwork Search:</strong> Instant game artwork lookup: insert official high-res game covers and concept art directly onto your promotional banners.<br>
                         • <strong>Export Engine:</strong> Download single high-res PNGs, export an all-format ZIP bundle, or render six-second looping MP4 videos directly in the browser. Supported browsers encode each frame without dropping frames on slower computers; other browsers use real-time recording, so keep the tab visible until export finishes.<br>
                         • <strong>Scene Bundle Sharing:</strong> Import and export complete design templates with all embedded assets for quick reuse.
@@ -1701,7 +1793,7 @@
         <div class="card-body">
             <div class="detail-text">
                 StreamPulse timers are shared, named overlay objects stored in <code>data/timers.json</code>. A single timer like <code>starting-soon</code> can power multiple differently styled OBS browser sources at once.<br><br>
-                Use <a href="/timers-editor.html" style="color:var(--accent);">Timer Manager</a> to create and control timers, then use the <a href="/timer-url-wizard.html" style="color:var(--accent);">Timer URL Wizard</a> to generate styled overlay URLs and Companion-ready API examples.
+                Use <a href="/timers-editor.html" style="color:var(--accent);">Timers Studio</a> to create and control timers, then use the <a href="/timer-url-wizard.html" style="color:var(--accent);">Timer URL Wizard</a> to generate styled overlay URLs and Companion-ready API examples.
             </div>
         </div>
     </div>
@@ -1712,7 +1804,7 @@
         </div>
         <div class="card-body">
             <ul class="checklist">
-                <li>Create a named timer in <strong>Timer Manager</strong></li>
+                <li>Create a named timer in <strong>Timers Studio</strong></li>
                 <li>Open the <strong>Timer URL Wizard</strong> and copy a generated overlay URL</li>
                 <li>Add an OBS <strong>Browser</strong> source for countdown or stopwatch</li>
                 <li>Recommended: disable "Refresh browser when scene becomes active" so the overlay stays attached to the shared state cleanly</li>
@@ -1730,7 +1822,7 @@
         </div>
         <div class="card-body">
             <div class="detail-text">
-                Incoming controls use HTTP endpoints, so Bitfocus Companion or OBS macros can start, pause, resume, reset, add time, subtract time, or toggle visibility. Countdown timers can use either a fixed duration or a fixed target date/time from Timer Manager. Pausing freezes the remaining time, including date countdowns; refreshing or reconnecting does not consume paused time. Resume continues from that frozen remainder. Optional per-timer outgoing HTTP calls can fire on <code>countdown_started</code>, <code>countdown_complete</code>, <code>stopwatch_started</code>, and <code>stopwatch_paused</code>.
+                Incoming controls use HTTP endpoints, so Bitfocus Companion or OBS macros can start, pause, resume, reset, add time, subtract time, or toggle visibility. Countdown timers can use either a fixed duration or a fixed target date/time from Timers Studio. Pausing freezes the remaining time, including date countdowns; refreshing or reconnecting does not consume paused time. Resume continues from that frozen remainder. Optional per-timer outgoing HTTP calls can fire on <code>countdown_started</code>, <code>countdown_complete</code>, <code>stopwatch_started</code>, and <code>stopwatch_paused</code>.
             </div>
             <div class="detail-label">Sample Control URLs</div>
             <div class="url-box"><code>${BASE}/api/timers/starting-soon/control?action=start</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/timers/starting-soon/control?action=start')">Copy</button></div>
@@ -1739,6 +1831,23 @@
             <div class="url-box"><code>${BASE}/api/timers/starting-soon/control?action=add_time&seconds=30</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/timers/starting-soon/control?action=add_time&seconds=30')">Copy</button></div>
             <div class="url-box"><code>${BASE}/api/timers/starting-soon/control?action=subtract_time&seconds=30</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/timers/starting-soon/control?action=subtract_time&seconds=30')">Copy</button></div>
             <div class="url-box"><code>${BASE}/api/timers/run-clock/field/elapsed</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/timers/run-clock/field/elapsed')">Copy</button></div>
+        </div>
+    </div>
+    <div class="card open">
+        <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+            <strong style="font-size:0.9rem;">Subathon Automation</strong>
+            <span class="chevron">▶</span>
+        </div>
+        <div class="card-body">
+            <div class="detail-text">
+                Enable <strong>Subathon Automation</strong> (<code>subathon_enabled: true</code>) under <a href="/config-editor.html#modules" style="color:var(--accent);">System Config → Modules &amp; Services</a> to automatically add time to a target countdown timer whenever viewers subscribe, gift subs, cheer bits, donate, follow, or raid.<br><br>
+                • <strong>Automation &amp; Rates (<a href="/timers-editor.html#subathon" style="color:var(--accent);">Timers Studio → Subathon</a>):</strong> Configure per-tier sub rates, bit/tip conversions, safety caps, timed <strong>Boost / Happy Hour multipliers</strong>, 1-click <strong>Undo Last</strong>, and event simulators.<br>
+                • <strong>Rules Overlay &amp; Appearance Studio:</strong> Customize typography, layout, and colors for the live rules card and add <code>/overlays/subathon-rules.html</code> as an OBS Browser Source.<br>
+                • <strong>Companion Controls:</strong> Trigger <code>/api/subathon/toggle</code>, <code>/api/subathon/boost?factor=2&amp;minutes=60</code>, <code>/api/subathon/clear_boost</code>, <code>/api/subathon/undo</code>, and poll plain-text fields via <code>/api/subathon/field/:field</code>.
+            </div>
+            <div class="detail-label">Subathon Studio &amp; Rules Overlay URLs</div>
+            <div class="url-box"><code>${BASE}/timers-editor.html#subathon</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/timers-editor.html#subathon')">Copy</button></div>
+            <div class="url-box"><code>${BASE}/overlays/subathon-rules.html</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/overlays/subathon-rules.html')">Copy</button></div>
         </div>
     </div>`;
 
@@ -1966,7 +2075,6 @@
             <div class="card open">
                 <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
                     <strong style="font-size:0.9rem;">Chat Bot Overview</strong>
-                    <span class="badge hot">Beta</span>
                     <span class="chevron">▶</span>
                 </div>
                 <div class="card-body">
@@ -2027,8 +2135,9 @@
                 </div>
                 <div class="card-body">
                     <div class="detail-text">
-                        <strong>Variables Studio</strong> (<a href="/placeholders.html#variables" style="color:var(--accent);">Placeholders &amp; Variables</a>) manages typed global values: counter/number, text, list, image, toggle, color, template, font, date, time, local date/time and duration. Click any scalar value to edit inline (Enter/blur saves, Escape cancels, Shift+Enter inserts a text newline) or select a variable row for type-specific settings in the shared inspector.<br><br>
-                        • <strong>Number Variables &amp; Formatting:</strong> <code>number</code> variables support optional <code>min</code>/<code>max</code> bounds, decimal precision (0–12), a counter step (default 1), and an explicit reset value (default 0). Row counter controls act immediately; <strong>Save changes</strong> updates only changed settings so editing a step never overwrites a newer live value. Insert a Number via the Text placeholder picker and expand <strong>Number formatting</strong> for separators, decimal places, and affixes—for example, <code>{{var.score|number:2:comma:%24:%20points}}</code> displays <code>$1,234.50 points</code> from <code>1234.5</code>.<br><br>
+                        <strong>Variables Studio</strong> (<a href="/placeholders.html#variables" style="color:var(--accent);">Placeholders &amp; Variables</a>) manages typed global values: counter/number, text, list, select, tags, image, icon, toggle, color, template, font, date, time, local date/time and duration. Click any scalar value to edit inline (Enter/blur saves, Escape cancels, Shift+Enter inserts a text newline) or select a variable row for type-specific settings in the shared inspector.<br><br>
+                        • <strong>Number Variables, Caps &amp; Formatting:</strong> <code>number</code> variables (and numeric Variable Set fields) support optional <code>min</code>/<code>max</code> caps, decimal precision (0–12), a counter <code>step</code> (default 1), and an explicit reset value (default 0). Row counter controls act immediately; <strong>Save changes</strong> updates only changed settings so editing a step never overwrites a newer live value. Insert a Number via the Text placeholder picker and expand <strong>Number formatting</strong> for separators, decimal places, and affixes—for example, <code>{{var.score|number:2:comma:%24:%20points}}</code> displays <code>$1,234.50 points</code> from <code>1234.5</code>.<br><br>
+                        • <strong>Select &amp; Tags Variables:</strong> <code>select</code> variables hold an ordered list of named choices you can cycle live via Operator Mode or Companion (<code>/api/variables/:name/next</code> &amp; <code>/prev</code>). <code>tags</code> variables hold multi-select status chips you can toggle individually (<code>/toggle?value=...</code>) or clear in one click (<code>/clear</code>).<br><br>
                         • <strong>Font Variables:</strong> Reference system, Google, or uploaded font families with a safe <code>sans-serif</code> fallback in overlay font pickers.<br><br>
                         • <strong>Variable Groups:</strong> Organize ordinary variables independently of Variable Sets. Click <strong>+ New</strong> beside Groups, drag a variable's name onto a group in the navigation rail (or onto <strong>Ungrouped</strong>), or use <strong>Manage members</strong> for bulk editing and renaming. Group headings are bookmarkable (<code>/placeholders.html#variables#theme</code>; <code>#variables#ungrouped</code> for ungrouped). Export all variables/sets or a single group as JSON; import merges by variable name and confirms updates to existing names. Membership is saved in <code>variables.json</code> and group names in <code>variable-groups.json</code> (both included in backups; uploaded font/image binaries are not bundled in JSON).<br><br>
                         • <strong>Grouped placeholder paths:</strong> <code>accent</code> in Theme uses <code>{{var.theme.accent}}</code>; Broadcast Theme uses <code>broadcast_theme</code>. Namespaces are lowercase, common accents removed, spaces/punctuation changed to underscores, edge underscores trimmed, and limited to 60 characters. Empty/duplicate namespaces and collisions with ungrouped or set-generated roots are rejected. Names remain globally unique. Pickers search group/name and insert the full path for text, images, colors, fonts and templates; Number bindings store <code>theme.size</code>. List/icon suffixes follow the path, e.g. <code>{{var.theme.topic.random}}</code> and <code>{{var.theme.accent.icon}}</code>.<br><br>
@@ -2040,18 +2149,21 @@
             </div>
             <div class="card open">
                 <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
-                    <strong style="font-size:0.9rem;">Display Library: inventories, tables and badges</strong>
+                    <strong style="font-size:0.9rem;">Display Library: inventories, tables, badges, counters, meters, tickers &amp; bingo</strong>
                     <span class="chevron">▶</span>
                 </div>
                 <div class="card-body"><div class="detail-text">
-                    Build inventories in <a href="/variable-displays.html">Library → Display Library</a>, not inside the overlay inspector. Variable Sets own reusable item definitions and per-person progress; a saved display owns item inclusion, ordering, named sections, columns and item-specific appearance. The overlay placement owns its source, geometry and overall styling: use Custom Overlay Editor for outer borders, shadows, opacity and placement effects.<br><br>
-                    <strong>Setup:</strong> Create Equipment entries with Name/Image and optional explicit upgrade levels. Add an Equipment Tracker on People targeting that catalog. Optionally create Schedule with Player 1/Player 2 Linked entry fields targeting People, and assign an event to Slot 1. In Display Library create an Inventory, choose the catalog, add and reorder items, create sections, and choose Auto Grid or Fixed Slots. Save.<br><br>
+                    Build reusable data visuals in <a href="/variable-displays.html" style="color:var(--accent);">Overlays → Display Library</a>, not inside the overlay inspector. Variable Sets and global variables own live data; a saved display owns layout, inclusion, ordering, and element appearance. The overlay placement owns its source, geometry and overall styling: use Custom Overlay Editor for outer borders, shadows, opacity and placement effects.<br><br>
+                    <strong>Inventories:</strong> Create Equipment entries with Name/Image and optional explicit upgrade levels. Add an Equipment Tracker on People targeting that catalog. Optionally create Schedule with Player 1/Player 2 Linked entry fields targeting People, and assign an event to Slot 1. In Display Library create an Inventory, choose the catalog, add and reorder items, create sections, and choose Auto Grid or Fixed Slots. Save.<br><br>
                     In Custom Overlay Editor choose <strong>+ Add → Saved Display</strong>, select the design, then Schedule → Active entry → Player 1 → Equipment tracker. Duplicate the placement and follow Player 2. Resize either placement; typography, borders and artwork scale together. Save the overlay and use its browser URL in OBS. Follow a fixed Person or Person slot instead when no Schedule is needed.<br><br>
-                    Use Variable Set Operator's Tracker controls or Companion's existing Tracker set/step/toggle/reset actions to update progress. Saving a shared design updates every placement without resetting players or changing another set's live slots. An empty role, missing design/catalog or incompatible tracker hides the production display. Whole catalog mode displays the arrangement without an owner.<br><br>
-                    Earned-only Auto Grid closes gaps; Fixed Slots preserves them. Fixed cell numbers are zero-based within each section and wrap onto new rows when columns change. Preview owner/backdrop are local preferences. Colors accept #RRGGBB and #RRGGBBAA.<br><br>
+                    Use Operator Mode's Tracker controls or Companion's Tracker set/step/toggle/reset actions to update progress. Saving a shared design updates every placement without resetting players or changing another set's live slots. An empty role, missing design/catalog or incompatible tracker hides the production display. Whole catalog mode displays the arrangement without an owner. Earned-only Auto Grid closes gaps; Fixed Slots preserves them.<br><br>
                     <strong>Tables:</strong> Create a Table and choose a set such as Schedule. Add/reorder columns for Start, Event, Duration and linked Player names. Adjust column labels, proportional widths, alignment and text/image/color/toggle presentation. Reorder rows or choose a sort field/direction. Place the design and select all entries, active entry, occupied slots, In Group or explicitly ordered rows; a linked-entry list can supply a curated lineup. Empty/unassigned linked sources render nothing, not another set's rows. Disabled entries are excluded.<br><br>
-                    <strong>Badges:</strong> Create or open a Badge in Display Library to edit presets, member fields, zones, images, typography and styling. Existing Image Group badges/strips migrate to saved designs without moving their live source or geometry into the shared design. In the overlay use Saved Display and its Edit display link. Badge editing is no longer a separate overlay dialog.<br><br>
-                    Full backups include <code>data/variable-displays.json</code>, Variable Sets, overlays and assets. Selective overlay/preset share ZIPs containing Saved Displays are rejected with instructions to use a full backup, avoiding dangling dependencies. See <a href="/api.html">Saved Display API</a> for definitions, placement JSON, validation limits and live events.
+                    <strong>Badges:</strong> Create or open a Badge in Display Library to edit presets, member fields, zones, images, typography and styling. Existing Image Group badges/strips migrate to saved designs without moving their live source or geometry into the shared design. In the overlay use Saved Display and its Edit display link.<br><br>
+                    <strong>Counter &amp; Pips:</strong> Bind global Counter/Number variables or numeric Variable Set fields (inheriting configured <code>min</code>/<code>max</code>/<code>step</code> caps) to visual hearts, stars, pips, diamonds, bars, tally marks, chalk tallies, or styled numbers with overflow badges and pop animations.<br><br>
+                    <strong>Meter &amp; Gauge:</strong> Render horizontal/vertical fill bars, segmented gauges, or radial arc meters driven by numeric variables or Variable Set fields with threshold color stops and animated transitions.<br><br>
+                    <strong>News Ticker:</strong> Build scrolling broadcast chyron/ticker ribbons fed by Variable Set rosters, linked lists, or manual headlines with configurable speed, separators, and badges.<br><br>
+                    <strong>Bingo Card:</strong> Create single-card interactive stream Bingo boards directly in Display Library (with live cell toggling, shuffling, and reset in Operator Mode and via <code>/api/variable-displays/:id/bingo/*</code>). For multi-player LAN races with private player links, use <a href="#multiplayer-bingo" style="color:var(--accent);">Multiplayer Bingo (LAN)</a>.<br><br>
+                    Full backups include <code>data/variable-displays.json</code>, Variable Sets, overlays and assets. Selective overlay/preset share ZIPs containing Saved Displays are rejected with instructions to use a full backup, avoiding dangling dependencies. See <a href="/api.html" style="color:var(--accent);">Saved Display API</a> for definitions, placement JSON, validation limits and live events.
                 </div></div>
             </div>
             <div class="card open">
@@ -2074,7 +2186,8 @@
                         &nbsp;&nbsp;– <strong>Slot 1 Shorthand:</strong> <code>{{var.squad_name}}</code>, <code>{{var.squad_avatar}}</code> (mirrors Slot 1)<br>
                         &nbsp;&nbsp;– <strong>Named Slot Aliases:</strong> <code>{{var.squad_guest_name}}</code> (when a slot is named <code>Guest</code>)<br>
                         &nbsp;&nbsp;– <strong>Linked fields:</strong> <code>{{var.squad_1_partner.field.name}}</code>; repeat <code>.field.KEY</code> for nested links. Pick by readable role and field names rather than memorizing tokens.<br>
-                        &nbsp;&nbsp;– <strong>Group Summary Tokens:</strong> <code>{{var.squad_group}}</code> (formatted list of <strong>In Group</strong> entries), <code>{{var.squad_group_count}}</code>, <code>{{var.squad_group_members}}</code>, and <code>{{var.squad_group_&lt;field&gt;}}</code><br><br>
+                        &nbsp;&nbsp;– <strong>Group Summary Tokens:</strong> <code>{{var.squad_group}}</code> (formatted list of <strong>In Group</strong> entries), <code>{{var.squad_group_count}}</code>, <code>{{var.squad_group_members}}</code>, and <code>{{var.squad_group_&lt;field&gt;}}</code><br>
+                        &nbsp;&nbsp;– <strong>Direct Item Placeholders (Lazy Roster Addressing):</strong> Reference any roster entry directly without occupying a slot: <code>{{var.&lt;set&gt;.1.&lt;field&gt;}}</code> (1-based enabled entry), <code>{{var.&lt;set&gt;.all.1.&lt;field&gt;}}</code> (includes disabled entries), <code>{{var.&lt;set&gt;.&lt;slug&gt;.&lt;field&gt;}}</code> (by entry ID/slug), plus <code>{{var.&lt;set&gt;.count}}</code> (enabled entries) and <code>{{var.&lt;set&gt;.total}}</code> (all entries).<br><br>
                         • <strong>Timed Rotation &amp; Queues:</strong> Cycle through enabled entries or a dedicated queue on an interval (<code>intervalSeconds</code>), or trigger <code>advance?mode=shift</code> / <code>rewind?mode=shift</code> from Companion or the HTTP API to cascade slots. In Custom Overlay Editor, enable <strong>Studio Sets Follow</strong> so spotlight elements track the active rotating slot automatically.
                     </div>
                 </div>
@@ -2086,7 +2199,7 @@
                 </div>
                 <div class="card-body">
                     <div class="detail-text">
-                        Create a <strong>Badge</strong> in <a href="/variable-displays.html">Display Library</a>, then add it using <strong>Saved Display</strong> in the <a href="/overlay-editor.html" style="color:var(--accent);">Custom Overlay Editor</a>. Badge/strip design now lives in the library; the overlay owns source and placement. Existing Image Group layers migrate to saved designs.<br><br>
+                        Create a <strong>Badge</strong> in <a href="/variable-displays.html" style="color:var(--accent);">Display Library</a>, then add it using <strong>Saved Display</strong> in the <a href="/custom-overlay-editor.html" style="color:var(--accent);">Custom Overlay Editor</a>. Badge/strip design now lives in the library; the overlay owns source and placement. Existing Image Group layers migrate to saved designs.<br><br>
                         • <strong>Design controls:</strong> Edit member fields, placement zones, images, card dimensions and internal spacing in the library. The <strong>Card Zone Blueprint</strong> follows the selected layout and avatar visibility: choose an editing field or its pill, then click a zone to move it. Laptop layouts prioritize wider blueprint and live-preview columns around a compact field inspector; narrower screens stack the panels. <strong>Strip</strong> controls arrangement, wrapping, columns, alignment and gaps between badges. Primary images are optional for text-only stacks. The overlay inspector selects the saved design, its live source and placement-wide styling.<br><br>
                         • <strong>Sources:</strong> Choose All enabled entries, Active entry, Live slots, In Group entries or In Group live slots. Select <strong>Linked members</strong> to read one or several linked-entry/list fields from the source entry; explicit list order is retained and repeated members appear once. <strong>Progress tracker</strong> follows per-owner progress using dimmed inactive or active-only items. Linked roles can follow up to four levels without changing target slots. Source controls show a readable path, resolved owner and enabled row/item count; empty selections explain what to assign in Operator. Diagnostics never appear in production overlays. Disabled entries are excluded consistently from Inventory, Table and Badge.<br><br>
                         • <strong>One editor workflow:</strong> There is no separate Group Strip element or inspector. Previous source settings convert to the same Saved Display controls used by new placements. Set data, live selection/progress, shared design and overlay placement remain independent. Design deletion names dependent saved overlay/preset placements and is blocked until those placements are removed or replaced.<br><br>
@@ -2201,6 +2314,164 @@
                         • <strong>Manage Hashtags (<a href="/manage-hashtags.html" style="color:var(--accent);">Hashtag Tools</a>):</strong> Merge duplicate or misspelled tags, rename tags while preserving counts, ban spam tags, or purge unwanted entries from stats and overlays.<br>
                         • <strong>Hashtags Overlay (<a href="/hashtags.html" style="color:var(--accent);">hashtags.html</a>):</strong> Display trending chat hashtags live in OBS with customizable layout, count limits, and sorting.
                     </div>
+                </div>
+            </div>`;
+
+            case 'operator-mode': return `
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Operator Mode — Unified Live Show Control</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        <a href="/operator.html" style="color:var(--accent);">Operator Mode</a> consolidates every live broadcast control into one fast, zero-lag control deck designed for single-monitor producers, secondary tablets, or embedded OBS Studio docks.<br><br>
+                        • <strong>Live Board &amp; Customizable Domain Tabs:</strong> Pin the exact cards you need onto the <strong>Live Board</strong> (1–4 columns) or switch across focused domain tabs: <strong>Variables</strong> (scalars, sets, slots, queues, and trackers), <strong>Displays</strong> (1–4 column live grids with direct <code>#display=&lt;id&gt;</code> links), <strong>Overlays</strong> (page/state switching, slideshows, videos, cutouts, speakers), <strong>Timers</strong>, <strong>Alerts</strong>, <strong>Music</strong>, <strong>Versus</strong>, <strong>Polls</strong>, <strong>Trivia</strong>, and <strong>Runbooks</strong>.<br>
+                        • <strong>Runbooks (Tasks, Markdown Notes &amp; Sections):</strong> Create reusable pre-show checklists, sponsor read scripts, and segment rundowns with checkable cue tasks, rich Markdown notes, and collapsible section headers. Share or bookmark any runbook directly with <code>/operator.html#runbook=&lt;id&gt;</code>, and toggle/reset cues from Companion via <code>/api/operator/runbooks/:id/toggle</code> and <code>/reset</code>.<br>
+                        • <strong>Presets &amp; Show-Specific Boards:</strong> Save multiple named presets (e.g. Talk Show, Tournament Night, Speedrun Race) in <code>data/operator-profiles.json</code>. Open a pinned preset with <code>?preset=&lt;id&gt;</code> (or <code>?profile=&lt;id&gt;</code>), or switch the active preset globally via Companion (<code>/api/operator/profile/select?id=...</code>).<br>
+                        • <strong>Lock Layout &amp; Show Mode:</strong> Lock card ordering/editing during a live broadcast to prevent accidental clicks, and toggle <strong>Show Mode</strong> for a distraction-free high-contrast control surface.<br>
+                        • <strong>OBS Custom Browser Dock:</strong> Add Operator Mode directly inside OBS Studio using <code>?profile=&lt;id&gt;&amp;dock=1&amp;bare=1</code> for a compact chrome-free dock panel.
+                    </div>
+                    <div class="detail-label">Operator Mode &amp; OBS Dock URLs</div>
+                    <div class="url-box"><code>${BASE}/operator.html</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/operator.html')">Copy</button></div>
+                    <div class="url-box"><code>${BASE}/operator.html?profile=default&amp;dock=1&amp;bare=1</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/operator.html?profile=default&amp;dock=1&amp;bare=1')">Copy</button></div>
+                </div>
+            </div>`;
+
+            case 'trivia': return `
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Interactive Trivia Studio</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        <a href="/tools/trivia.html" style="color:var(--accent);">Interactive Trivia</a> is an opt-in audience quiz module (enable <code>trivia_enabled: true</code> in <a href="/config-editor.html#modules" style="color:var(--accent);">System Config → Modules &amp; Services</a>).<br><br>
+                        • <strong>Quiz Packs &amp; Question Bank:</strong> Build multiple-choice or True/False questions with categories, hints, fun facts, point values, and custom timers. Save/load reusable quiz pack presets and import or export full banks as JSON or CSV.<br>
+                        • <strong>Live Chat Voting:</strong> Viewers vote directly in chat using <code>!a</code>–<code>!d</code> (or <code>!1</code>–<code>!4</code>, <code>!true</code>/<code>!false</code>). Configure countdown duration, auto-reveal, subscriber multipliers, and streak bonuses.<br>
+                        • <strong>Session &amp; Season Standings:</strong> Track live session scores alongside cumulative season leaderboards with accuracy, correct counts, and streaks—exportable/importable as JSON or CSV.<br>
+                        • <strong>Parameterized Question &amp; Leaderboard Overlays:</strong> Customize themes, layouts (<code>full</code>, <code>compact</code>, <code>hud</code>), visibility toggles, and labels for both the live question card and the standings board.<br>
+                        • <strong>Companion &amp; Operator Integration:</strong> Trigger <code>/api/trivia/question/start</code>, <code>/reveal</code>, <code>/next</code>, <code>/prev</code>, <code>/clear</code>, and <code>/reset</code> from Companion or directly from the Trivia tab in Operator Mode.
+                    </div>
+                    <div class="detail-label">Studio &amp; OBS Overlay URLs</div>
+                    <div class="url-box"><code>${BASE}/tools/trivia.html</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/tools/trivia.html')">Copy</button></div>
+                    <div class="url-box"><code>${BASE}/overlays/trivia.html</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/overlays/trivia.html')">Copy</button></div>
+                    <div class="url-box"><code>${BASE}/overlays/trivia-leaderboard.html</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/overlays/trivia-leaderboard.html')">Copy</button></div>
+                </div>
+            </div>`;
+
+            case 'tier-list': return `
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Tier List Maker &amp; Audience Consensus Voting</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        <a href="/tools/tier-list.html" style="color:var(--accent);">Tier List Maker</a> lets you rank games, characters, or topics live on stream with drag-and-drop control and optional audience chat voting.<br><br>
+                        • <strong>Drag-and-Drop Tiers &amp; Asset Integration:</strong> Drag items between customizable S–F (or custom) tier rows, import artwork directly from the Asset Library or IGDB, and attach optional per-tier placement sound effects.<br>
+                        • <strong>Live Chat Voting &amp; Consensus Locking:</strong> Start a timed or open chat vote (<code>!tier S</code>, <code>!tier A</code>, etc.) on any unranked item, monitor real-time weighted-mean/median/plurality consensus, and lock in the winning tier with one click (or disable chat voting entirely for solo host rankings).<br>
+                        • <strong>Spotlight Focus &amp; Follow Zoom:</strong> Focus an item on screen without starting a vote (<code>/api/tier-list/focus</code>), optionally enlarging artwork and smoothly following placements into their target row.<br>
+                        • <strong>Presets, Themes &amp; Companion Controls:</strong> Save reusable tier board presets, customize board/sidebar themes and header banners, and drive voting, focus, and resets from Bitfocus Companion (<code>/api/tier-list/vote/start</code>, <code>/end</code>, <code>/cancel</code>, <code>/reset</code>).
+                    </div>
+                    <div class="detail-label">Studio &amp; OBS Overlay URLs</div>
+                    <div class="url-box"><code>${BASE}/tools/tier-list.html</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/tools/tier-list.html')">Copy</button></div>
+                    <div class="url-box"><code>${BASE}/overlays/tier-list.html</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/overlays/tier-list.html')">Copy</button></div>
+                </div>
+            </div>`;
+
+            case 'obs-studios': return `
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">OBS Border Studio</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        <a href="/tools/obs-borders.html" style="color:var(--accent);">OBS Border Studio</a> (<code>obs_borders_enabled</code>) generates a Metal-safe native OBS Lua GPU effect filter (<code>streampulse-borders.lua</code>) that wraps webcams, gameplay captures, and nested scenes with zero browser-source compositing overhead.<br><br>
+                        • <strong>31 Border Styles &amp; 17 GPU Animations:</strong> Dual inner/outer strokes, multi-stop gradients (with Shared Color Palettes and Variable Settings bindings), glows, rounded corners, standby fills, and 17 universal GPU animations.<br>
+                        • <strong>Icon Borders:</strong> Decorate perimeters or pinned corners/edges with Font Awesome icons or Asset Library graphics baked into a GPU sprite atlas—complete with per-asset Mono/Contrast controls, independent palettes, 7 blend modes, and Icon Motion.<br>
+                        • <strong>4-Mode Drop Shadow:</strong> Choose <code>soft</code>, <code>hard</code>, <code>layered</code>, or <code>inset</code> GPU drop shadows with offset, blur, spread, and multiply blending.<br>
+                        • <strong>Transform Auto-Align:</strong> Automatically reads OBS scene item transforms (including groups, anchors, rotation, and bounding boxes) and applies compensating transforms so either outer border edges or the inner video content box stay perfectly pinned when border widths change.
+                    </div>
+                    <div class="detail-label">Studio &amp; Lua Script URLs</div>
+                    <div class="url-box"><code>${BASE}/tools/obs-borders.html</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/tools/obs-borders.html')">Copy</button></div>
+                    <div class="url-box"><code>${BASE}/api/obs-borders/lua?download=1</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/obs-borders/lua?download=1')">Copy</button></div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">OBS Pattern Studio</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        <a href="/tools/obs-patterns.html" style="color:var(--accent);">OBS Pattern Studio</a> (<code>obs_patterns_enabled</code>) registers a native GPU video source (<code>streampulse-patterns.lua</code>) inside OBS Studio for animated stream backdrops.<br><br>
+                        • <strong>31 Procedural Patterns &amp; 22 Curated Palettes:</strong> Geometric grids, waves, organic particles, and seasonal motifs powered by the shared pattern engine, plus full integration with Shared Color Palettes and custom 2–7 stop palettes.<br>
+                        • <strong>Pattern Tiles:</strong> Combine up to 4 icons or uploaded images into repeating mosaics with grid layouts, kaleidoscope symmetry, hue/palette recoloring, scatter, and independent grid/tile motion.<br>
+                        • <strong>Single-Pass GPU Filters:</strong> Apply brightness, contrast, saturation, grayscale, hue rotation, blur, duotone, tint, and film grain natively inside the OBS shader without stacking extra OBS filter passes.
+                    </div>
+                    <div class="detail-label">Studio &amp; Lua Script URLs</div>
+                    <div class="url-box"><code>${BASE}/tools/obs-patterns.html</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/tools/obs-patterns.html')">Copy</button></div>
+                    <div class="url-box"><code>${BASE}/api/obs-patterns/lua?download=1</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/obs-patterns/lua?download=1')">Copy</button></div>
+                </div>
+            </div>
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">OBS Layout &amp; Aspect Studio</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        <a href="/tools/obs-layout.html" style="color:var(--accent);">OBS Layout &amp; Aspect Studio</a> is an opt-in module (enable <code>obs_layout_enabled: true</code> under <a href="/config-editor.html#modules" style="color:var(--accent);">System Config → Modules &amp; Services</a>) for interactive OBS scene composition, live aspect ratio morphing, and animated layout switching.<br><br>
+                        • <strong>Interactive Bounding-Box Editor:</strong> Inspect live OBS scenes over an on-demand scene screenshot backdrop, drag/resize source bounding boxes, toggle visibility/lock states, and see exact StreamPulse Border outer/content padding.<br>
+                        • <strong>GPU Aspect Ratio Morphing &amp; 9-Point Anchor Pinning:</strong> Morph any source smoothly between <code>native</code>, <code>16:9</code>, <code>4:3</code>, <code>1:1</code>, <code>9:16</code>, or custom ratios using the upstream <code>streampulse-aspect.lua</code> GPU filter (with automatic native OBS crop fallback). Pin any of the 9 anchor points (<code>tl</code>–<code>br</code>) with <code>lock-width</code>, <code>lock-height</code>, or <code>fit-slot</code> resize modes.<br>
+                        • <strong>Multi-Waypoint Motion Paths &amp; Saved Layouts:</strong> Capture multi-source <strong>Saved Layouts</strong> with per-item easing, delays, Show/Hide transitions, and direct, arc, elbow, or custom multi-waypoint motion paths (with automatic reverse-path return). Trigger any saved layout live from Companion via <code>/api/obs-layout/layouts/apply?id=...</code>.
+                    </div>
+                    <div class="detail-label">Studio &amp; Aspect Lua Script URLs</div>
+                    <div class="url-box"><code>${BASE}/tools/obs-layout.html</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/tools/obs-layout.html')">Copy</button></div>
+                    <div class="url-box"><code>${BASE}/api/obs-layout/lua?download=1</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/obs-layout/lua?download=1')">Copy</button></div>
+                </div>
+            </div>`;
+
+            case 'multiplayer-bingo': return `
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Multiplayer Bingo (LAN) Studio</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        <a href="/tools/bingo.html" style="color:var(--accent);">Multiplayer Bingo (LAN)</a> is an opt-in live game-night studio (enable <code>multiplayer_bingo_enabled: true</code> in <a href="/config-editor.html#modules" style="color:var(--accent);">System Config → Modules &amp; Services</a>).<br><br>
+                        • <strong>LAN Host IP Share URLs:</strong> Add up to 24 players and copy each player's private scoped LAN link (<code>http://&lt;lan-ip&gt;:&lt;port&gt;/bingo-play.html?t=&lt;token&gt;</code>) directly from the Host Studio—players tap squares from phones, tablets, or laptops on your local network without ever exposing admin controls or other players' tokens.<br>
+                        • <strong>Prompt Packs &amp; Claim Modes:</strong> Create reusable 3×3, 4×4, or 5×5 Prompt Packs with optional Free Space. Run <strong>Independent</strong> mode (everyone can stamp any square on their board) or <strong>Lockout</strong> mode (first player to claim a prompt locks it out for all other players).<br>
+                        • <strong>Four Corners Bingo Toggle:</strong> Enable the <strong>Four Corners</strong> rule flag (<code>fourCorners</code>) so stamping all four outer corner cells counts as a valid Bingo alongside rows, columns, and diagonals.<br>
+                        • <strong>Host Caller &amp; Confirm Mode:</strong> Use the <strong>Host Caller</strong> panel to call prompts across every board at once and see which players have called each prompt. Enable <strong>Confirm Mode</strong> (<code>confirmCalls</code>) to queue player taps for host approval (<code>/confirm</code>) or dismissal (<code>/dismiss</code>) before they stamp on screen.<br>
+                        • <strong>4 OBS Overlay Views:</strong> Add <code>/overlays/multiplayer-bingo.html</code> with <code>?view=multi</code> (side-by-side cards), <code>?view=lockout</code> (shared claim board), <code>?view=standings</code> (live leaderboard), or <code>?view=single</code> (focused/spotlight card).
+                    </div>
+                    <div class="detail-label">Host Studio &amp; OBS Overlay URLs</div>
+                    <div class="url-box"><code>${BASE}/tools/bingo.html</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/tools/bingo.html')">Copy</button></div>
+                    <div class="url-box"><code>${BASE}/overlays/multiplayer-bingo.html?view=multi</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/overlays/multiplayer-bingo.html?view=multi')">Copy</button></div>
+                    <div class="url-box"><code>${BASE}/overlays/multiplayer-bingo.html?view=lockout</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/overlays/multiplayer-bingo.html?view=lockout')">Copy</button></div>
+                    <div class="url-box"><code>${BASE}/overlays/multiplayer-bingo.html?view=standings</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/overlays/multiplayer-bingo.html?view=standings')">Copy</button></div>
+                </div>
+            </div>`;
+
+            case 'color-palettes': return `
+            <div class="card open">
+                <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                    <strong style="font-size:0.9rem;">Shared Color Palettes Library</strong>
+                    <span class="chevron">▶</span>
+                </div>
+                <div class="card-body">
+                    <div class="detail-text">
+                        The <strong>Shared Color Palettes Library</strong> (<code>/api/palettes</code>, stored in <code>data/palettes.json</code>) lets you define reusable 2–8 stop color palettes once and apply them consistently across your entire broadcast.<br><br>
+                        • <strong>Cross-Studio Reuse:</strong> Custom palettes appear automatically inside <strong>Custom Overlay Editor</strong> (shapes, text gradients, and procedural backgrounds), <strong>OBS Border Studio</strong> (inner/outer border gradients and Icon Borders), and <strong>OBS Pattern Studio</strong> (procedural patterns and Pattern Tiles).<br>
+                        • <strong>2–8 Stops, Opacity &amp; Variable Tokens:</strong> Each stop supports 6/8-digit hex, <code>rgba()</code>/<code>hsla()</code>, hard-stepped or custom-width stops, optional gradient angle, and live variable color tokens (<code>{{var.theme.accent}}</code>).<br>
+                        • <strong>Duplicate Built-In Presets:</strong> Clone any built-in curated palette into an editable custom copy and live-sync updates across open studios over WebSocket (<code>palettes-update</code>). Included automatically in Backup &amp; Restore.
+                    </div>
+                    <div class="detail-label">Palettes API Endpoint</div>
+                    <div class="url-box"><code>${BASE}/api/palettes</code><button class="copy-btn" onclick="copyUrl(this,'${BASE}/api/palettes')">Copy</button></div>
                 </div>
             </div>`;
 

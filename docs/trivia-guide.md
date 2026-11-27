@@ -101,7 +101,7 @@ Automatic announcements require active Trivia chat voting as well as the Chat Bo
 
 The official [companion-module-streampulse](https://github.com/jarbochov/companion-module-streampulse) includes dedicated Trivia actions, feedbacks, and dynamic variables (`Start`, `Reveal`, `Clear`, `Next`, `Previous`, `Reset`, `Toggle Done`, `Load Preset`).
 
-For Companion button setup or full HTTP endpoints, see **[Bitfocus Companion](companion.md)** and the **[API Reference](api-reference.md)** under **The Project → Technical**.
+For Companion button setup or full HTTP endpoints, see **[Bitfocus Companion](companion.md)** or open **API Reference** from the StreamPulse app navigation.
 
 ---
 

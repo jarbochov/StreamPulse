@@ -1,8 +1,10 @@
 const TAB_STORAGE_KEY = 'sp_mp_bingo_tab';
+const LAN_IP_STORAGE_KEY = 'sp_mp_bingo_lan_ip';
 const PLAYER_COLORS = ['#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#a855f7', '#06b6d4', '#ec4899', '#84cc16'];
 
 let state = null;
 let selectedPackId = '';
+let selectedLanIp = (() => { try { return localStorage.getItem(LAN_IP_STORAGE_KEY) || ''; } catch { return ''; } })();
 let previewView = 'multi';
 let previewRes = { w: 1920, h: 1080 };
 let previewObserver = null;
@@ -11,6 +13,15 @@ let dismissedBingoSig = '';
 let hasInitialLoaded = false;
 const prevBingoCounts = new Map();
 const expandedOverrides = new Set();
+
+function applyStateUpdate(nextState) {
+    if (!nextState) return;
+    state = {
+        ...nextState,
+        enabled: nextState.enabled !== undefined ? nextState.enabled : state?.enabled,
+        network: nextState.network !== undefined ? nextState.network : state?.network
+    };
+}
 
 function playBingoChime() {
     try {
@@ -36,7 +47,7 @@ function playBingoChime() {
     } catch { /* autoplay or unsupported */ }
 }
 
-function detectLines(size, stampedSet) {
+function detectLines(size, stampedSet, { fourCorners = false } = {}) {
     const lines = [];
     for (let r = 0; r < size; r++) {
         const row = [];
@@ -56,6 +67,10 @@ function detectLines(size, stampedSet) {
     }
     if (d1.every(i => stampedSet.has(i))) lines.push(d1);
     if (d2.every(i => stampedSet.has(i))) lines.push(d2);
+    if (fourCorners && size >= 2) {
+        const corners = [0, size - 1, size * (size - 1), size * size - 1];
+        if (corners.every(i => stampedSet.has(i))) lines.push(corners);
+    }
     return lines;
 }
 
@@ -108,8 +123,61 @@ function switchTab(tabName) {
     }
 }
 
+function isLoopbackHost(hostname) {
+    const h = String(hostname || '').toLowerCase();
+    return h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '[::1]';
+}
+
+function originForIp(ip, port) {
+    const p = Number(port) || 0;
+    return `http://${ip}${p && p !== 80 ? `:${p}` : ''}`;
+}
+
+function getShareOrigin() {
+    const net = state?.network || {};
+    const lanIps = Array.isArray(net.lanIps) ? net.lanIps : [];
+    const port = Number(net.port) || (location.port ? Number(location.port) : 0);
+    if (selectedLanIp && lanIps.includes(selectedLanIp)) {
+        return originForIp(selectedLanIp, port);
+    }
+    if (isLoopbackHost(location.hostname)) {
+        if (net.lanOrigin) return net.lanOrigin;
+        if (lanIps.length) return originForIp(lanIps[0], port);
+    }
+    return location.origin;
+}
+
+function renderShareHostControl() {
+    const wrap = $('mpb-share-host-wrap');
+    if (!wrap) return;
+    const net = state?.network || {};
+    const lanIps = Array.isArray(net.lanIps) ? net.lanIps : [];
+    const port = Number(net.port) || (location.port ? Number(location.port) : 0);
+    const activeOrigin = getShareOrigin();
+    const activeHost = activeOrigin.replace(/^https?:\/\//i, '');
+    const icon = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
+    wrap.hidden = false;
+    if (lanIps.length > 1) {
+        const currentNonLoopback = !isLoopbackHost(location.hostname) && !lanIps.includes(location.hostname);
+        const activeVal = selectedLanIp && lanIps.includes(selectedLanIp)
+            ? selectedLanIp
+            : (isLoopbackHost(location.hostname) ? (net.lanIp || lanIps[0]) : (lanIps.includes(location.hostname) ? location.hostname : '__current__'));
+        const options = [
+            ...(currentNonLoopback ? [`<option value="__current__" ${activeVal === '__current__' ? 'selected' : ''}>${esc(location.host)}</option>`] : []),
+            ...lanIps.map(ip => {
+                const label = `${ip}${port && port !== 80 ? `:${port}` : ''}`;
+                return `<option value="${esc(ip)}" ${activeVal === ip ? 'selected' : ''}>${esc(label)}</option>`;
+            })
+        ].join('');
+        wrap.innerHTML = `${icon}<span class="mpb-share-host-label">LAN Host</span><select id="mpb-lan-ip-select" aria-label="Select LAN Host IP">${options}</select>`;
+    } else {
+        const lbl = lanIps.length ? 'LAN' : 'Host';
+        wrap.innerHTML = `${icon}<span class="mpb-share-host-label">${lbl}</span><code title="${esc(activeOrigin)}">${esc(activeHost)}</code>`;
+    }
+}
+
 function playerUrl(token) {
-    return `${location.origin}/bingo-play.html?t=${encodeURIComponent(token)}`;
+    return `${getShareOrigin()}/bingo-play.html?t=${encodeURIComponent(token)}`;
 }
 
 function obsUrl() {
@@ -126,7 +194,7 @@ function obsUrl() {
     return `${location.origin}/overlays/multiplayer-bingo.html?${params.toString()}`;
 }
 
-function computeCardCells(pack, card, claims) {
+function computeCardCells(pack, card, claims, { fourCorners = false } = {}) {
     const size = pack.size || 5;
     const total = size * size;
     const centerIdx = size % 2 === 1 ? Math.floor(total / 2) : -1;
@@ -159,7 +227,7 @@ function computeCardCells(pack, card, claims) {
         cells.push({ index: i, label, stamped, lockedByOther, winning: false });
     }
     const finalStamped = new Set(cells.filter(c => c.stamped).map(c => c.index));
-    const lines = detectLines(size, finalStamped);
+    const lines = detectLines(size, finalStamped, { fourCorners });
     const winSet = new Set(lines.flat());
     for (const c of cells) c.winning = winSet.has(c.index);
     return { cells, bingoCount: lines.length };
@@ -168,6 +236,7 @@ function computeCardCells(pack, card, claims) {
 function renderLiveTab() {
     if (!state) return;
     $('mpb-disabled-banner').hidden = state.enabled === true;
+    renderShareHostControl();
 
     const packSelect = $('mpb-active-pack');
     packSelect.innerHTML = (state.packs || []).map(p =>
@@ -175,8 +244,20 @@ function renderLiveTab() {
     ).join('');
 
     const pack = state.activePack || state.packs[0];
-    const session = state.session || { cards: [], claims: {} };
-    $('mpb-pack-meta').textContent = `${pack.size}×${pack.size} · ${pack.claimMode === 'lockout' ? 'Lockout' : 'Independent'} · ${session.cards.length} player${session.cards.length === 1 ? '' : 's'}`;
+    const session = state.session || { cards: [], claims: {}, pendingCalls: [] };
+    const fourCorners = Boolean(session.fourCorners);
+    const confirmCalls = Boolean(session.confirmCalls);
+    const pendingCalls = Array.isArray(session.pendingCalls) ? session.pendingCalls : [];
+    const cardsById = Object.fromEntries(session.cards.map(c => [c.id, c]));
+
+    $('mpb-pack-meta').textContent = `${pack.size}×${pack.size} · ${pack.claimMode === 'lockout' ? 'Lockout' : 'Independent'}${fourCorners ? ' · Four Corners' : ''} · ${session.cards.length} player${session.cards.length === 1 ? '' : 's'}`;
+
+    const fourCornersBtn = $('btn-toggle-four-corners');
+    if (fourCornersBtn) {
+        fourCornersBtn.classList.toggle('btn-primary', fourCorners);
+        fourCornersBtn.classList.toggle('btn-secondary', !fourCorners);
+        fourCornersBtn.setAttribute('aria-pressed', String(fourCorners));
+    }
 
     const hiddenBtn = $('btn-toggle-hidden');
     hiddenBtn.textContent = session.hidden ? 'Reveal Cards' : 'Hide Cards';
@@ -190,27 +271,122 @@ function renderLiveTab() {
 
     $('btn-clear-zoom').hidden = !session.focusedCardId;
 
-    // Host Caller Board (mark/unmark a prompt across all player cards)
+    // Host Caller Board (mark/unmark a prompt across all player cards + show player calls & pending confirmations)
     const callerBtn = $('btn-toggle-caller');
     callerBtn.classList.toggle('btn-primary', showCallerPanel);
     callerBtn.classList.toggle('btn-secondary', !showCallerPanel);
+    const pendingBadge = $('mpb-caller-pending-badge');
+    if (pendingBadge) {
+        pendingBadge.hidden = pendingCalls.length === 0;
+        pendingBadge.textContent = String(pendingCalls.length);
+    }
+
     const callerPanel = $('mpb-caller-panel');
     callerPanel.hidden = !showCallerPanel;
     if (showCallerPanel) {
         const calledSet = new Set(Array.isArray(session.calledPrompts) ? session.calledPrompts : []);
         const isLockout = pack.claimMode === 'lockout';
-        $('mpb-caller-hint').textContent = isLockout
-            ? 'Pack is in Lockout mode (one owner per square). Switch pack to Independent mode to auto-mark all players at once, or click a called prompt to clear it.'
-            : 'Click any prompt below to automatically stamp or unstamp it on every player card that has it.';
+        const confirmBtn = $('btn-toggle-confirm-calls');
+        if (confirmBtn) {
+            confirmBtn.classList.toggle('btn-primary', confirmCalls);
+            confirmBtn.classList.toggle('btn-secondary', !confirmCalls);
+            confirmBtn.setAttribute('aria-pressed', String(confirmCalls));
+            const lblSpan = confirmBtn.querySelector('span');
+            if (lblSpan) lblSpan.textContent = confirmCalls ? 'Confirm Calls: On' : 'Confirm Calls';
+        }
+        $('mpb-caller-hint').textContent = confirmCalls
+            ? 'Confirm Mode is active — player taps queue below for host approval before stamping.'
+            : isLockout
+                ? 'Pack is in Lockout mode (one owner per square). Player claims appear on each prompt tile; click a called prompt to clear it.'
+                : 'Click any prompt below to automatically stamp or unstamp it on every player card that has it.';
         $('mpb-caller-count').textContent = `${calledSet.size} / ${(pack.prompts || []).length} called`;
+
+        // Dedicated Pending Player Calls review panel
+        const pendingPanel = $('mpb-pending-panel');
+        if (pendingPanel) {
+            if (!pendingCalls.length) {
+                pendingPanel.hidden = true;
+                pendingPanel.innerHTML = '';
+            } else {
+                pendingPanel.hidden = false;
+                const bulkActions = pendingCalls.length >= 2
+                    ? `<div class="mpb-pending-actions">
+                        <button type="button" class="btn btn-primary btn-sm" data-pending-act="confirm-all">Confirm All</button>
+                        <button type="button" class="btn btn-secondary btn-sm" data-pending-act="dismiss-all">Dismiss All</button>
+                    </div>`
+                    : '';
+                pendingPanel.innerHTML = `
+                    <div class="mpb-pending-head">
+                        <span class="mpb-pending-title">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            Pending Player Calls (${pendingCalls.length})
+                        </span>
+                        ${bulkActions}
+                    </div>
+                    <div class="mpb-pending-list">
+                        ${pendingCalls.map(p => {
+                            const player = cardsById[p.cardId] || { name: 'Player', color: '#94a3b8' };
+                            const promptLabel = (pack.prompts && pack.prompts[p.promptIndex]) || `Square ${p.cell + 1}`;
+                            return `<div class="mpb-pending-item">
+                                <div class="mpb-pending-who">
+                                    <span class="mpb-dot" style="width:10px;height:10px;background:${esc(player.color)};"></span>
+                                    <span class="mpb-pending-player">${esc(player.name)}</span>
+                                    <span class="mpb-pending-sep" aria-hidden="true">/</span>
+                                    <span class="mpb-pending-prompt" title="${esc(promptLabel)}">${esc(promptLabel)}</span>
+                                </div>
+                                <div class="mpb-pending-actions">
+                                    <button type="button" class="btn btn-primary btn-sm" data-pending-act="confirm" data-pending-id="${esc(p.id)}">Confirm</button>
+                                    <button type="button" class="btn btn-secondary btn-sm" data-pending-act="dismiss" data-pending-id="${esc(p.id)}">Dismiss</button>
+                                </div>
+                            </div>`;
+                        }).join('')}
+                    </div>`;
+            }
+        }
+
         const size = pack.size || 5;
-        const playableSlots = pack.freeSpace !== false && size % 2 === 1 ? size * size - 1 : size * size;
+        const total = size * size;
+        const centerIdx = size % 2 === 1 ? Math.floor(total / 2) : -1;
+        const hasFree = pack.freeSpace !== false && centerIdx >= 0;
+        const playableSlots = hasFree ? total - 1 : total;
+
+        const pendingByPrompt = new Map();
+        for (const p of pendingCalls) {
+            const player = cardsById[p.cardId];
+            if (!player) continue;
+            if (!pendingByPrompt.has(p.promptIndex)) pendingByPrompt.set(p.promptIndex, []);
+            const list = pendingByPrompt.get(p.promptIndex);
+            if (!list.some(item => item.id === player.id)) list.push(player);
+        }
+
         $('mpb-caller-grid').innerHTML = (pack.prompts || []).map((label, idx) => {
             const isCalled = calledSet.has(idx);
             const onCards = session.cards.filter(c => (c.order || []).slice(0, playableSlots).includes(idx)).length;
-            return `<button type="button" class="mpb-caller-btn${isCalled ? ' is-called' : ''}" data-call-prompt="${idx}">
-                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(label)}">${esc(label)}</span>
-                <span class="mpb-caller-badge">${isCalled ? 'Called' : `${onCards}p`}</span>
+            const stampedPlayers = [];
+            if (isLockout) {
+                const cl = session.claims && session.claims[String(idx)];
+                if (cl && cardsById[cl.cardId]) stampedPlayers.push(cardsById[cl.cardId]);
+            } else {
+                for (const c of session.cards) {
+                    const pos = (c.order || []).slice(0, playableSlots).indexOf(idx);
+                    if (pos < 0) continue;
+                    const cellIdx = hasFree && pos >= centerIdx ? pos + 1 : pos;
+                    if ((c.stamped || []).includes(cellIdx)) stampedPlayers.push(c);
+                }
+            }
+            const pendingPlayers = pendingByPrompt.get(idx) || [];
+            const chipsHtml = (stampedPlayers.length || pendingPlayers.length)
+                ? `<span class="mpb-caller-players">
+                    ${stampedPlayers.map(p => `<span class="mpb-caller-chip is-stamped" title="${esc(p.name)} — Stamped"><span class="mpb-caller-chip-dot" style="background:${esc(p.color)};"></span><span class="mpb-caller-chip-name">${esc(p.name)}</span></span>`).join('')}
+                    ${pendingPlayers.map(p => `<span class="mpb-caller-chip is-pending" title="${esc(p.name)} — Pending confirmation"><span class="mpb-caller-chip-dot" style="background:${esc(p.color)};"></span><span class="mpb-caller-chip-name">${esc(p.name)}</span><span class="mpb-caller-chip-tag">Pending</span></span>`).join('')}
+                </span>`
+                : '';
+            return `<button type="button" class="mpb-caller-btn${isCalled ? ' is-called' : ''}${pendingPlayers.length ? ' has-pending' : ''}" data-call-prompt="${idx}">
+                <span class="mpb-caller-btn-top">
+                    <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(label)}">${esc(label)}</span>
+                    <span class="mpb-caller-badge">${isCalled ? 'Called' : `${onCards}p`}</span>
+                </span>
+                ${chipsHtml}
             </button>`;
         }).join('');
     }
@@ -222,7 +398,7 @@ function renderLiveTab() {
     // Compute winners across all cards & notify host when someone hits BINGO
     const cardSummaries = session.cards.map(card => ({
         card,
-        ...computeCardCells(pack, card, session.claims)
+        ...computeCardCells(pack, card, session.claims, { fourCorners })
     }));
     const winners = cardSummaries.filter(s => s.bingoCount > 0);
     const newlyWon = [];
@@ -272,11 +448,18 @@ function renderLiveTab() {
         return;
     }
 
+    const pendingByCard = new Map();
+    for (const p of pendingCalls) {
+        if (!pendingByCard.has(p.cardId)) pendingByCard.set(p.cardId, new Set());
+        pendingByCard.get(p.cardId).add(Number(p.cell));
+    }
+
     container.innerHTML = `<div class="mpb-players-grid">${cardSummaries.map(({ card, cells, bingoCount }) => {
         const isFocused = session.focusedCardId === card.id;
         const stampedCount = cells.filter(c => c.stamped).length;
         const url = playerUrl(card.token);
         const isOpen = expandedOverrides.has(card.id);
+        const cardPendingCells = pendingByCard.get(card.id);
         return `
         <div class="mpb-player-card${isFocused ? ' is-focused' : ''}${bingoCount > 0 ? ' is-winner' : ''}" data-card-id="${esc(card.id)}">
             <div class="mpb-player-head">
@@ -299,12 +482,14 @@ function renderLiveTab() {
             </div>
             ${isOpen ? `
             <div class="mpb-override-grid" style="grid-template-columns:repeat(${pack.size}, minmax(0, 1fr));">
-                ${cells.map(c => `
-                    <button type="button" class="mpb-override-cell${c.stamped ? ' is-stamped' : ''}${c.winning ? ' is-winning' : ''}${c.lockedByOther ? ' is-locked-other' : ''}"
-                        data-act="toggle-cell" data-card="${esc(card.id)}" data-cell="${c.index}" title="${esc(c.label)}">
+                ${cells.map(c => {
+                    const isPending = Boolean(cardPendingCells && !c.stamped && !c.lockedByOther && cardPendingCells.has(c.index));
+                    return `
+                    <button type="button" class="mpb-override-cell${c.stamped ? ' is-stamped' : ''}${isPending ? ' is-pending' : ''}${c.winning ? ' is-winning' : ''}${c.lockedByOther ? ' is-locked-other' : ''}"
+                        data-act="toggle-cell" data-card="${esc(card.id)}" data-cell="${c.index}" title="${esc(c.label)}${isPending ? ' (Pending confirmation)' : ''}">
                         ${esc(c.label)}
-                    </button>
-                `).join('')}
+                    </button>`;
+                }).join('')}
             </div>` : ''}
         </div>`;
     }).join('')}</div>`;
@@ -527,16 +712,95 @@ function bindEvents() {
             method: 'POST',
             body: JSON.stringify({ id: e.target.value })
         });
-        state = { ...res.state, enabled: state.enabled };
+        applyStateUpdate(res.state);
         renderLiveTab();
         renderPacksTab();
         syncPreview();
         showNotice('Switched active prompt pack & shuffled cards');
     });
 
+    $('mpb-share-host-wrap').addEventListener('change', e => {
+        const sel = e.target.closest('#mpb-lan-ip-select');
+        if (!sel) return;
+        selectedLanIp = sel.value === '__current__' ? '' : sel.value;
+        try {
+            if (selectedLanIp) localStorage.setItem(LAN_IP_STORAGE_KEY, selectedLanIp);
+            else localStorage.removeItem(LAN_IP_STORAGE_KEY);
+        } catch { /* ignore */ }
+        renderLiveTab();
+        showNotice(`Player share links now use ${getShareOrigin().replace(/^https?:\/\//i, '')}`);
+    });
+
     $('btn-toggle-caller').addEventListener('click', () => {
         showCallerPanel = !showCallerPanel;
         renderLiveTab();
+    });
+
+    $('btn-toggle-four-corners').addEventListener('click', async () => {
+        const nextVal = !state.session.fourCorners;
+        const res = await api('/api/multiplayer-bingo/flags', {
+            method: 'POST',
+            body: JSON.stringify({ fourCorners: nextVal })
+        });
+        applyStateUpdate(res.state);
+        renderLiveTab();
+        syncPreview();
+        showNotice(nextVal ? 'Four Corners Bingo enabled' : 'Four Corners Bingo disabled');
+    });
+
+    $('btn-toggle-confirm-calls').addEventListener('click', async () => {
+        const nextVal = !state.session.confirmCalls;
+        const res = await api('/api/multiplayer-bingo/flags', {
+            method: 'POST',
+            body: JSON.stringify({ confirmCalls: nextVal })
+        });
+        applyStateUpdate(res.state);
+        renderLiveTab();
+        syncPreview();
+        showNotice(nextVal ? 'Confirm Mode enabled — player calls wait for approval' : 'Confirm Mode disabled');
+    });
+
+    $('mpb-pending-panel').addEventListener('click', async e => {
+        const btn = e.target.closest('[data-pending-act]');
+        if (!btn) return;
+        const act = btn.dataset.pendingAct;
+        if (act === 'confirm') {
+            const res = await api('/api/multiplayer-bingo/confirm', {
+                method: 'POST',
+                body: JSON.stringify({ id: btn.dataset.pendingId })
+            });
+            applyStateUpdate(res.state);
+            renderLiveTab();
+            syncPreview();
+            showNotice('Confirmed player call');
+        } else if (act === 'dismiss') {
+            const res = await api('/api/multiplayer-bingo/dismiss', {
+                method: 'POST',
+                body: JSON.stringify({ id: btn.dataset.pendingId })
+            });
+            applyStateUpdate(res.state);
+            renderLiveTab();
+            syncPreview();
+            showNotice('Dismissed player call');
+        } else if (act === 'confirm-all') {
+            const res = await api('/api/multiplayer-bingo/confirm', {
+                method: 'POST',
+                body: JSON.stringify({ all: true })
+            });
+            applyStateUpdate(res.state);
+            renderLiveTab();
+            syncPreview();
+            showNotice(`Confirmed ${res.confirmed || 0} pending call${res.confirmed === 1 ? '' : 's'}`);
+        } else if (act === 'dismiss-all') {
+            const res = await api('/api/multiplayer-bingo/dismiss', {
+                method: 'POST',
+                body: JSON.stringify({ all: true })
+            });
+            applyStateUpdate(res.state);
+            renderLiveTab();
+            syncPreview();
+            showNotice('Dismissed all pending calls');
+        }
     });
 
     $('mpb-bingo-alert-actions').addEventListener('click', async e => {
@@ -548,7 +812,7 @@ function bindEvents() {
                 method: 'POST',
                 body: JSON.stringify({ card: btn.dataset.card })
             });
-            state = { ...res.state, enabled: state.enabled };
+            applyStateUpdate(res.state);
             renderLiveTab();
             syncPreview();
         } else if (act === 'lock') {
@@ -556,14 +820,14 @@ function bindEvents() {
                 method: 'POST',
                 body: JSON.stringify({ locked: true })
             });
-            state = { ...res.state, enabled: state.enabled };
+            applyStateUpdate(res.state);
             renderLiveTab();
             syncPreview();
         } else if (act === 'dismiss') {
             const pack = state.activePack || state.packs[0];
             const session = state.session || { cards: [], claims: {} };
             dismissedBingoSig = session.cards
-                .map(c => ({ id: c.id, n: computeCardCells(pack, c, session.claims).bingoCount }))
+                .map(c => ({ id: c.id, n: computeCardCells(pack, c, session.claims, { fourCorners: Boolean(session.fourCorners) }).bingoCount }))
                 .filter(w => w.n > 0)
                 .map(w => `${w.id}:${w.n}`)
                 .join('|');
@@ -579,7 +843,7 @@ function bindEvents() {
             method: 'POST',
             body: JSON.stringify({ prompt: promptIndex })
         });
-        state = { ...res.state, enabled: state.enabled };
+        applyStateUpdate(res.state);
         renderLiveTab();
         syncPreview();
     });
@@ -589,7 +853,7 @@ function bindEvents() {
             method: 'POST',
             body: JSON.stringify({ hidden: !state.session.hidden })
         });
-        state = { ...res.state, enabled: state.enabled };
+        applyStateUpdate(res.state);
         renderLiveTab();
         syncPreview();
     });
@@ -599,14 +863,14 @@ function bindEvents() {
             method: 'POST',
             body: JSON.stringify({ locked: !state.session.locked })
         });
-        state = { ...res.state, enabled: state.enabled };
+        applyStateUpdate(res.state);
         renderLiveTab();
         syncPreview();
     });
 
     $('btn-shuffle-all').addEventListener('click', async () => {
         const res = await api('/api/multiplayer-bingo/shuffle', { method: 'POST', body: '{}' });
-        state = { ...res.state, enabled: state.enabled };
+        applyStateUpdate(res.state);
         renderLiveTab();
         syncPreview();
         showNotice('Shuffled all player cards');
@@ -614,7 +878,7 @@ function bindEvents() {
 
     $('btn-reset-board').addEventListener('click', async () => {
         const res = await api('/api/multiplayer-bingo/reset', { method: 'POST', body: '{}' });
-        state = { ...res.state, enabled: state.enabled };
+        applyStateUpdate(res.state);
         renderLiveTab();
         syncPreview();
         showNotice('Cleared all stamps');
@@ -622,7 +886,7 @@ function bindEvents() {
 
     $('btn-clear-zoom').addEventListener('click', async () => {
         const res = await api('/api/multiplayer-bingo/focus', { method: 'POST', body: JSON.stringify({ card: '' }) });
-        state = { ...res.state, enabled: state.enabled };
+        applyStateUpdate(res.state);
         renderLiveTab();
         syncPreview();
     });
@@ -637,7 +901,7 @@ function bindEvents() {
             body: JSON.stringify({ name, color })
         });
         $('mpb-player-name').value = '';
-        state = { ...res.state, enabled: state.enabled };
+        applyStateUpdate(res.state);
         renderLiveTab();
         syncPreview();
         showNotice(`Added ${res.card.name}`);
@@ -656,7 +920,7 @@ function bindEvents() {
                 method: 'POST',
                 body: JSON.stringify({ card: cardId, toggle: true })
             });
-            state = { ...res.state, enabled: state.enabled };
+            applyStateUpdate(res.state);
             renderLiveTab();
             syncPreview();
         } else if (act === 'override') {
@@ -668,7 +932,7 @@ function bindEvents() {
                 method: 'POST',
                 body: JSON.stringify({ card: cardId, cell: Number(btn.dataset.cell) })
             });
-            state = { ...res.state, enabled: state.enabled };
+            applyStateUpdate(res.state);
             renderLiveTab();
             syncPreview();
         } else if (act === 'regen') {
@@ -676,7 +940,7 @@ function bindEvents() {
                 method: 'POST',
                 body: JSON.stringify({ card: cardId })
             });
-            state = { ...res.state, enabled: state.enabled };
+            applyStateUpdate(res.state);
             renderLiveTab();
             showNotice('Generated a fresh player link');
         } else if (act === 'remove') {
@@ -685,7 +949,7 @@ function bindEvents() {
                 body: JSON.stringify({ card: cardId })
             });
             expandedOverrides.delete(cardId);
-            state = { ...res.state, enabled: state.enabled };
+            applyStateUpdate(res.state);
             renderLiveTab();
             syncPreview();
             showNotice('Removed player card');
@@ -705,7 +969,7 @@ function bindEvents() {
             method: 'POST',
             body: JSON.stringify({ name: `Bingo Pack ${(state.packs?.length || 0) + 1}`, size: 5, claimMode: 'lockout' })
         });
-        state = { ...res.state, enabled: state.enabled };
+        applyStateUpdate(res.state);
         selectedPackId = res.pack.id;
         renderLiveTab();
         renderPacksTab();
@@ -732,7 +996,7 @@ function bindEvents() {
             method: 'PUT',
             body: JSON.stringify(body)
         });
-        state = { ...res.state, enabled: state.enabled };
+        applyStateUpdate(res.state);
         renderLiveTab();
         renderPacksTab();
         syncPreview();
@@ -745,7 +1009,7 @@ function bindEvents() {
             method: 'POST',
             body: JSON.stringify({ id: selectedPackId })
         });
-        state = { ...res.state, enabled: state.enabled };
+        applyStateUpdate(res.state);
         renderLiveTab();
         renderPacksTab();
         syncPreview();
@@ -759,7 +1023,7 @@ function bindEvents() {
             method: 'POST',
             body: JSON.stringify({ ...src, id: undefined, name: `${src.name} (Copy)` })
         });
-        state = { ...res.state, enabled: state.enabled };
+        applyStateUpdate(res.state);
         selectedPackId = res.pack.id;
         renderPacksTab();
         showNotice('Duplicated prompt pack');
@@ -768,7 +1032,7 @@ function bindEvents() {
     $('btn-del-pack').addEventListener('click', async () => {
         if (!selectedPackId || (state.packs?.length || 0) <= 1) return;
         const res = await api(`/api/multiplayer-bingo/packs/${encodeURIComponent(selectedPackId)}`, { method: 'DELETE' });
-        state = { ...res.state, enabled: state.enabled };
+        applyStateUpdate(res.state);
         selectedPackId = state.activePackId;
         renderLiveTab();
         renderPacksTab();
@@ -819,7 +1083,7 @@ function bindEvents() {
             method: 'POST',
             body: JSON.stringify(readAppearanceForm())
         });
-        state = { ...res.state, enabled: state.enabled };
+        applyStateUpdate(res.state);
         syncPreview();
         showNotice('Saved overlay appearance');
     });

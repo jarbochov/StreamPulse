@@ -1,6 +1,51 @@
+const os = require('os');
 const { readRequestBody, sendJson, sendError } = require('./helpers');
 
-module.exports = function createMultiplayerBingoRoutes(service, { isMultiplayerBingoEnabled = () => false } = {}) {
+function lanIpPriority(ip) {
+    if (/^192\.168\./.test(ip)) return 0;
+    if (/^10\./.test(ip)) return 1;
+    if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(ip)) return 2;
+    if (/^169\.254\./.test(ip)) return 4;
+    return 3;
+}
+
+function detectLanNetwork(req, getNetworkInterfaces = os.networkInterfaces) {
+    const rawIfaces = typeof getNetworkInterfaces === 'function' ? (getNetworkInterfaces() || {}) : {};
+    const seen = new Set();
+    const candidates = [];
+    for (const entries of Object.values(rawIfaces)) {
+        if (!Array.isArray(entries)) continue;
+        for (const entry of entries) {
+            if (!entry || entry.internal) continue;
+            if (entry.family !== 'IPv4' && entry.family !== 4) continue;
+            const ip = String(entry.address || '').trim();
+            if (!ip || seen.has(ip)) continue;
+            seen.add(ip);
+            candidates.push({ ip, rank: lanIpPriority(ip), idx: candidates.length });
+        }
+    }
+    candidates.sort((a, b) => (a.rank - b.rank) || (a.idx - b.idx));
+    const lanIps = candidates.map(c => c.ip);
+    const lanIp = lanIps[0] || '';
+
+    const hostHeader = String(req?.headers?.host || '').trim();
+    const hostPortMatch = hostHeader.match(/:(\d+)$/);
+    const port = hostPortMatch
+        ? Number(hostPortMatch[1])
+        : (Number(req?.socket?.localPort) || 0);
+    const lanOrigin = lanIp
+        ? `http://${lanIp}${port && port !== 80 ? `:${port}` : ''}`
+        : '';
+    return { lanIp, lanIps, port, lanOrigin };
+}
+
+function parseBoolParam(val) {
+    if (typeof val === 'boolean') return val;
+    const s = String(val ?? '').trim().toLowerCase();
+    return s === '1' || s === 'true';
+}
+
+module.exports = function createMultiplayerBingoRoutes(service, { isMultiplayerBingoEnabled = () => false, getNetworkInterfaces = os.networkInterfaces } = {}) {
     return async (req, res, url) => {
         // 1. Scoped LAN Player endpoints (token-only access to a single player's card)
         const playMatch = url.pathname.match(/^\/api\/bingo\/play\/([a-f0-9]{12,48})(?:\/(toggle))?$/i);
@@ -41,7 +86,11 @@ module.exports = function createMultiplayerBingoRoutes(service, { isMultiplayerB
         try {
             // GET /api/multiplayer-bingo -> full admin state (includes player tokens for host Copy URL)
             if (sub === '' && req.method === 'GET') {
-                sendJson(res, { ...service.getState(), enabled: isMultiplayerBingoEnabled() });
+                sendJson(res, {
+                    ...service.getState(),
+                    enabled: isMultiplayerBingoEnabled(),
+                    network: detectLanNetwork(req, getNetworkInterfaces)
+                });
                 return true;
             }
             // GET /api/multiplayer-bingo/overlay -> sanitized state (no tokens) for OBS overlay
@@ -128,18 +177,50 @@ module.exports = function createMultiplayerBingoRoutes(service, { isMultiplayerB
                     const patch = {};
                     if (url.searchParams.has('hidden') || body.hidden !== undefined) {
                         patch.hidden = url.searchParams.has('hidden')
-                            ? (url.searchParams.get('hidden') === '1' || url.searchParams.get('hidden') === 'true')
-                            : body.hidden;
+                            ? parseBoolParam(url.searchParams.get('hidden'))
+                            : parseBoolParam(body.hidden);
                     }
                     if (url.searchParams.has('locked') || body.locked !== undefined) {
                         patch.locked = url.searchParams.has('locked')
-                            ? (url.searchParams.get('locked') === '1' || url.searchParams.get('locked') === 'true')
-                            : body.locked;
+                            ? parseBoolParam(url.searchParams.get('locked'))
+                            : parseBoolParam(body.locked);
+                    }
+                    if (url.searchParams.has('fourCorners') || body.fourCorners !== undefined) {
+                        patch.fourCorners = url.searchParams.has('fourCorners')
+                            ? parseBoolParam(url.searchParams.get('fourCorners'))
+                            : parseBoolParam(body.fourCorners);
+                    }
+                    if (url.searchParams.has('confirmCalls') || body.confirmCalls !== undefined) {
+                        patch.confirmCalls = url.searchParams.has('confirmCalls')
+                            ? parseBoolParam(url.searchParams.get('confirmCalls'))
+                            : parseBoolParam(body.confirmCalls);
                     }
                     if (url.searchParams.has('focusedCardId') || body.focusedCardId !== undefined) {
                         patch.focusedCardId = url.searchParams.get('focusedCardId') ?? body.focusedCardId;
                     }
                     sendJson(res, { ok: true, state: service.setFlags(patch) });
+                    return true;
+                }
+                if (sub === '/confirm') {
+                    const all = url.searchParams.has('all')
+                        ? parseBoolParam(url.searchParams.get('all'))
+                        : parseBoolParam(body.all);
+                    const id = url.searchParams.get('id') ?? body.id ?? '';
+                    const rawPrompt = url.searchParams.has('prompt') ? url.searchParams.get('prompt') : body.prompt;
+                    const prompt = rawPrompt !== undefined && rawPrompt !== '' && rawPrompt !== null ? Number(rawPrompt) : undefined;
+                    const card = url.searchParams.get('card') ?? body.card ?? body.cardId ?? '';
+                    sendJson(res, { ok: true, ...service.confirmPendingCalls({ id, prompt, card, all }) });
+                    return true;
+                }
+                if (sub === '/dismiss') {
+                    const all = url.searchParams.has('all')
+                        ? parseBoolParam(url.searchParams.get('all'))
+                        : parseBoolParam(body.all);
+                    const id = url.searchParams.get('id') ?? body.id ?? '';
+                    const rawPrompt = url.searchParams.has('prompt') ? url.searchParams.get('prompt') : body.prompt;
+                    const prompt = rawPrompt !== undefined && rawPrompt !== '' && rawPrompt !== null ? Number(rawPrompt) : undefined;
+                    const card = url.searchParams.get('card') ?? body.card ?? body.cardId ?? '';
+                    sendJson(res, { ok: true, ...service.dismissPendingCalls({ id, prompt, card, all }) });
                     return true;
                 }
                 if (sub === '/focus') {
