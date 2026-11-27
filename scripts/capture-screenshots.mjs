@@ -1,6 +1,7 @@
 import puppeteer from 'puppeteer';
 import path from 'path';
 import fs from 'fs';
+import os from 'node:os';
 import http from 'node:http';
 import { fileURLToPath } from 'url';
 import promoModel from '../public/js/promo-model.js';
@@ -8,6 +9,10 @@ import staticRouter from '../server/static-router.js';
 import alertModel from '../server/services/alerts.js';
 import triviaModel from '../server/services/trivia.js';
 import inventoryFixture from './fixtures/variable-display.cjs';
+import variableDisplaysShared from '../shared/variable-displays.cjs';
+import obsBordersFactory from '../server/services/obs-borders.js';
+import obsPatternsFactory from '../server/services/obs-patterns.js';
+import mpBingoShared from '../shared/multiplayer-bingo.cjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -560,7 +565,9 @@ const dummyStatus = {
     obs: { enabled: true, connected: true, sceneSyncEnabled: false },
     viewers: { live: true, current: 42, peak: 58, average: 36, source: 'twitch' },
     modules: { chatbot: true, clips: true, weather: true, music: true,
-        hashtags: true, polls: true, versus: true, obs: true, variableSets: true },
+        hashtags: true, polls: true, versus: true, trivia: true, obs: true,
+        obsBorders: true, obsPatterns: true, obsLayout: true,
+        multiplayerBingo: true, promoCreator: true, variableSets: true },
     goals: { enabled: 3, completed: 1 },
     goalMetrics: { persistent: { subscribers: 128, followers: 640 },
         session: { subscribers: 3, followers: 5, gift_subs: 2, bits: 500, donations: 12 } },
@@ -923,6 +930,219 @@ const dummyTimersPayload = {
     ]
 };
 
+const dummyPalettesPayload = {
+    palettes: [
+        { id: 'pal-aurora', name: 'Aurora Drift', stops: ['#38bdf8', '#818cf8', '#c084fc', '#f472b6'] },
+        { id: 'pal-sunset', name: 'Sunset Broadcast', stops: ['#f97316', '#f43f5e', '#a855f7'] },
+        { id: 'pal-emerald', name: 'Emerald Arcade', stops: ['#10b981', '#06b6d4', '#3b82f6'] }
+    ]
+};
+
+const dummyOperatorRunbooks = [
+    {
+        id: 'rb-friday',
+        name: 'Friday Expedition Runbook',
+        columns: 2,
+        items: [
+            { id: 'rb-s1', kind: 'section', text: 'Pre-Show Checklist' },
+            { id: 'rb-t1', kind: 'task', text: 'Verify mic levels & OBS Border filter', done: true },
+            { id: 'rb-t2', kind: 'task', text: 'Start Intermission countdown timer (5 min)', done: true },
+            { id: 'rb-n1', kind: 'note', text: '**Sponsor read cue:** Mention *Moon Harbor Launch* before switching to Gameplay scene.\n\n- Share `!discord` in chat\n- Pin tonight\'s bingo link' },
+            { id: 'rb-s2', kind: 'section', text: 'Live Segment Cues' },
+            { id: 'rb-t3', kind: 'task', text: 'Run Audience Poll for next expedition route', done: false },
+            { id: 'rb-t4', kind: 'task', text: 'Trigger Versus Matchup overlay for co-op race', done: false },
+            { id: 'rb-n2', kind: 'note', text: 'If chat hits **500 bits**, activate `Bonus Round` layout in OBS Layout Studio.' }
+        ]
+    }
+];
+
+const dummyDisplayVariables = [
+    { name: 'hearts_river', type: 'number', value: 4.5, min: 0, max: 5, step: 0.5, resetValue: 5, description: 'River Vale hearts' },
+    { name: 'hearts_sky', type: 'number', value: 3, min: 0, max: 5, step: 0.5, resetValue: 5, description: 'Sky Meadow hearts' },
+    { name: 'boss_hp', type: 'number', value: 68, min: 0, max: 100, step: 1, resetValue: 100, description: 'Orbital Boss HP' },
+    { name: 'squad_energy', type: 'number', value: 84, min: 0, max: 100, step: 1, resetValue: 100, description: 'Squad Energy' },
+    {
+        name: 'headlines',
+        type: 'list',
+        value: 'Tonight: Moon Harbor Co-Op Expedition starts at 8:00 PM',
+        items: [
+            'Tonight: Moon Harbor Co-Op Expedition starts at 8:00 PM',
+            'Community Poll open: vote !a or !b for the next boss route',
+            'New Personal Best split: 14:22 in Cloud Ridge'
+        ]
+    }
+];
+
+const dummyExtraDisplays = [
+    variableDisplaysShared.normalizeDisplay({
+        id: 'fictional-counter',
+        name: 'Expedition Hearts Counter',
+        kind: 'counter',
+        counter: {
+            sourceMode: 'variables',
+            style: 'hearts',
+            theme: 'cozy',
+            variables: [
+                { name: 'hearts_river', label: 'River Vale', cap: 5 },
+                { name: 'hearts_sky', label: 'Sky Meadow', cap: 5 }
+            ]
+        }
+    }),
+    variableDisplaysShared.normalizeDisplay({
+        id: 'fictional-meter',
+        name: 'Boss Shield & Hype Meter',
+        kind: 'meter',
+        meter: {
+            sourceMode: 'variables',
+            style: 'bar',
+            theme: 'esports',
+            useThresholds: true,
+            variables: [
+                { name: 'boss_hp', label: 'Orbital Boss HP', cap: 100 },
+                { name: 'squad_energy', label: 'Squad Energy', cap: 100 }
+            ]
+        }
+    }),
+    variableDisplaysShared.normalizeDisplay({
+        id: 'fictional-ticker',
+        name: 'Broadcast News Ticker',
+        kind: 'ticker',
+        ticker: {
+            sourceMode: 'list',
+            listVariable: 'headlines',
+            theme: 'sports',
+            badgeText: 'LIVE UPDATES',
+            speed: 55
+        }
+    }),
+    variableDisplaysShared.normalizeDisplay({
+        id: 'fictional-bingo',
+        name: 'Stream Night Bingo Card',
+        kind: 'bingo',
+        bingo: {
+            theme: 'arcade',
+            size: 5,
+            freeSpace: true,
+            freeSpaceLabel: 'FREE',
+            stampStyle: 'dauber',
+            prompts: mpBingoShared.DEFAULT_PROMPTS
+        }
+    })
+];
+
+const tmpFixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-shots-'));
+const dummyObsBordersService = obsBordersFactory.createObsBordersService({ dataDir: tmpFixtureDir, getVariableValues: () => ({}) });
+const dummyObsBordersState = {
+    ...dummyObsBordersService.getState(),
+    obsConnected: true,
+    luaPath: '/Users/streamer/StreamPulse/data/obs-borders/streampulse-borders.lua',
+    manifestPath: '/Users/streamer/StreamPulse/data/obs-borders/manifest.json'
+};
+const dummyObsPatternsService = obsPatternsFactory.createObsPatternsService({ dataDir: tmpFixtureDir, getVariableValues: () => ({}) });
+const dummyObsPatternsState = {
+    ...dummyObsPatternsService.getState(),
+    obsConnected: true,
+    luaPath: '/Users/streamer/StreamPulse/data/obs-patterns/streampulse-patterns.lua',
+    manifestPath: '/Users/streamer/StreamPulse/data/obs-patterns/manifest.json'
+};
+fs.rmSync(tmpFixtureDir, { recursive: true, force: true });
+
+const dummyObsLayoutState = {
+    enabled: true,
+    obsConnected: true,
+    version: 1,
+    revision: 4,
+    luaPath: '/Users/streamer/StreamPulse/data/obs-layout/streampulse-aspect.lua',
+    manifestPath: '/Users/streamer/StreamPulse/data/obs-layout/manifest.json',
+    sources: {
+        'Facecam': { ratio: '4:3', resizeMode: 'lock-width', anchor: 'tr', zoom: 1, panX: 0, panY: 0 },
+        'Game Capture': { ratio: '16:9', resizeMode: 'fit-slot', anchor: 'cc', zoom: 1, panX: 0, panY: 0 }
+    },
+    itemTransitions: {},
+    layouts: [
+        { id: 'lay-gameplay', name: 'Gameplay 16:9', sceneName: 'Main Show', durationMs: 500, easing: 'ease-in-out', items: [
+            { sourceName: 'Game Capture', rect: { x: 48, y: 48, width: 1380, height: 776 }, visible: true },
+            { sourceName: 'Facecam', rect: { x: 1468, y: 48, width: 404, height: 303 }, visible: true },
+            { sourceName: 'Chat Overlay', rect: { x: 1468, y: 380, width: 404, height: 444 }, visible: true }
+        ] },
+        { id: 'lay-chatting', name: 'Just Chatting Focus', sceneName: 'Main Show', durationMs: 550, easing: 'ease-in-out', items: [
+            { sourceName: 'Facecam', rect: { x: 120, y: 80, width: 1280, height: 720 }, visible: true },
+            { sourceName: 'Chat Overlay', rect: { x: 1440, y: 80, width: 380, height: 720 }, visible: true }
+        ] }
+    ]
+};
+
+const dummyObsLayoutScene = {
+    sceneName: 'Main Show',
+    baseWidth: 1920,
+    baseHeight: 1080,
+    items: [
+        {
+            sceneItemId: 1, sceneItemIndex: 0, sourceName: 'Game Capture', inputKind: 'game_capture', isGroup: false,
+            visible: true, locked: false, hasBorderFilter: true, hasAspectFilter: true, borderPad: 12, borderReach: 12,
+            transform: { positionX: 48, positionY: 64, sourceWidth: 1920, sourceHeight: 1080, width: 1380, height: 776, scaleX: 0.71875, scaleY: 0.7185, boundsType: 'OBS_BOUNDS_NONE', cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0, alignment: 5 },
+            rect: { left: 48, top: 64, width: 1380, height: 776, rotation: 0 },
+            borderOuterRect: { left: 36, top: 52, width: 1404, height: 800 },
+            contentRect: { left: 48, top: 64, width: 1380, height: 776 },
+            aspect: dummyObsLayoutState.sources['Game Capture']
+        },
+        {
+            sceneItemId: 2, sceneItemIndex: 1, sourceName: 'Facecam', inputKind: 'av_capture_input_v2', isGroup: false,
+            visible: true, locked: false, hasBorderFilter: true, hasAspectFilter: true, borderPad: 14, borderReach: 14,
+            transform: { positionX: 1468, positionY: 64, sourceWidth: 1280, sourceHeight: 960, width: 404, height: 303, scaleX: 0.3156, scaleY: 0.3156, boundsType: 'OBS_BOUNDS_NONE', cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0, alignment: 5 },
+            rect: { left: 1468, top: 64, width: 404, height: 303, rotation: 0 },
+            borderOuterRect: { left: 1454, top: 50, width: 432, height: 331 },
+            contentRect: { left: 1468, top: 64, width: 404, height: 303 },
+            aspect: dummyObsLayoutState.sources['Facecam']
+        },
+        {
+            sceneItemId: 3, sceneItemIndex: 2, sourceName: 'Chat Overlay', inputKind: 'browser_source', isGroup: false,
+            visible: true, locked: false, hasBorderFilter: false, hasAspectFilter: false, borderPad: 0, borderReach: 0,
+            transform: { positionX: 1468, positionY: 408, sourceWidth: 404, sourceHeight: 432, width: 404, height: 432, scaleX: 1, scaleY: 1, boundsType: 'OBS_BOUNDS_NONE', cropLeft: 0, cropRight: 0, cropTop: 0, cropBottom: 0, alignment: 5 },
+            rect: { left: 1468, top: 408, width: 404, height: 432, rotation: 0 },
+            aspect: null
+        }
+    ]
+};
+
+const dummyMpBingoPack = mpBingoShared.defaultPack('default-race');
+const dummyMpBingoOrderA = Array.from({ length: 25 }, (_, i) => i);
+const dummyMpBingoOrderB = Array.from({ length: 25 }, (_, i) => (i * 7 + 3) % 25);
+const dummyMpBingoOrderC = Array.from({ length: 25 }, (_, i) => (i * 11 + 5) % 25);
+const dummyMpBingoState = {
+    enabled: true,
+    revision: 8,
+    network: { lanIp: '192.168.1.42', lanIps: ['192.168.1.42'], port: 3000, lanOrigin: 'http://192.168.1.42:3000' },
+    activePackId: dummyMpBingoPack.id,
+    activePack: dummyMpBingoPack,
+    packs: [dummyMpBingoPack],
+    session: {
+        hidden: false,
+        locked: false,
+        fourCorners: true,
+        confirmCalls: true,
+        focusedCardId: '',
+        calledPrompts: [0, 4, 10],
+        cards: [
+            { id: 'card-nova', name: 'Nova', color: '#ef4444', token: 'fictionaltoken0001', order: dummyMpBingoOrderA, stamped: [0, 4, 10, 20] },
+            { id: 'card-echo', name: 'Echo', color: '#3b82f6', token: 'fictionaltoken0002', order: dummyMpBingoOrderB, stamped: [1, 6, 11] },
+            { id: 'card-pixel', name: 'Pixel', color: '#22c55e', token: 'fictionaltoken0003', order: dummyMpBingoOrderC, stamped: [2, 8] }
+        ],
+        claims: {
+            '0': { cardId: 'card-nova', at: Date.now() - 90000 },
+            '4': { cardId: 'card-nova', at: Date.now() - 60000 },
+            '10': { cardId: 'card-echo', at: Date.now() - 45000 },
+            '14': { cardId: 'card-pixel', at: Date.now() - 30000 },
+            '20': { cardId: 'card-nova', at: Date.now() - 20000 }
+        },
+        pendingCalls: [
+            { id: 'pend-1', cardId: 'card-nova', cell: 24, promptIndex: 23, requestedAt: Date.now() - 8000 },
+            { id: 'pend-2', cardId: 'card-echo', cell: 7, promptIndex: 2, requestedAt: Date.now() - 3000 }
+        ]
+    },
+    appearance: mpBingoShared.defaultAppearance()
+};
+
 async function run() {
     const router = staticRouter.createStaticRouter({ rootDir: path.join(__dirname, '..') });
     const serverInstance = http.createServer((req, res) => {
@@ -982,8 +1202,25 @@ async function run() {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
         } else if (page.url().includes('config-editor') && new URL(url).pathname.startsWith('/api/')) {
             const pathname = new URL(url).pathname;
-            const data = pathname === '/api/config' ? { banned_users: ['FictionalManualAccount'], exclude_users: ['FictionalBot'], twitch_ban_sync: { enabled: true },
-                obs: { enabled: true, host: '127.0.0.1', port: 4455, hasPassword: true, motionEngine: 'auto', syncOnSave: false }, speaker_badges_enabled: true, obs_scene_sync_enabled: false }
+            const data = pathname === '/api/config' ? {
+                broadcaster_name: 'FictionalStudio',
+                banned_users: ['FictionalManualAccount'], exclude_users: ['FictionalBot'], twitch_ban_sync: { enabled: true },
+                obs: { enabled: true, host: '127.0.0.1', port: 4455, hasPassword: true, motionEngine: 'auto', syncOnSave: false },
+                speaker_badges_enabled: true, obs_scene_sync_enabled: false,
+                obs_borders_enabled: true, obs_patterns_enabled: true, obs_layout_enabled: true,
+                multiplayer_bingo_enabled: true, promo_creator_enabled: true,
+                connection: {
+                    port: 3000, broadcaster_name: 'FictionalStudio', broadcaster_id: '10042000',
+                    ssn_server: 'wss://io.socialstream.ninja', ssn_session_configured: true,
+                    twitch_client_configured: true, twitch_auth_mode: 'shared_device', subs_source: 'Twitch',
+                    twitch_refresh_minutes: 10, twitch_stream_info_seconds: 30
+                }
+            }
+                : pathname === '/api/twitch/auth/status' ? {
+                    connected: true, mode: 'shared_device', clientId: 'fictional-client',
+                    broadcasterConfigured: true, broadcasterSaved: true,
+                    scopes: ['channel:read:subscriptions', 'channel:read:polls', 'channel:manage:broadcast', 'clips:edit']
+                }
                 : pathname === '/api/obs/status' ? { enabled: true, connected: true, obsVersion: '32.0', host: '127.0.0.1', port: 4455 }
                 : pathname === '/api/twitch/bans' ? { enabled: true, count: 2, users: [{ id: 'fictional-1', login: 'fictionalblockedone' }, { id: 'fictional-2', login: 'fictionalblockedtwo' }], lastSyncAt: '2026-11-03T20:00:00Z', liveUpdates: true }
                 : pathname === '/api/twitch/message-deletions' ? { enabled: true, events: 3, scopeReady: true, connected: true } : {};
@@ -1079,10 +1316,39 @@ async function run() {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ presets: dummyTierList.presets }) });
         } else if (new URL(url).pathname === '/api/tier-list') {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyTierList) });
+        } else if (new URL(url).pathname === '/api/operator/runbooks') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, runbooks: dummyOperatorRunbooks }) });
         } else if (new URL(url).pathname === '/api/operator' || new URL(url).pathname === '/api/operator/profiles') {
-            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ version: 1, activeProfileId: 'main-show', profiles: [dummyOperatorProfile], profile: dummyOperatorProfile }) });
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ version: 1, activeProfileId: 'main-show', profiles: [dummyOperatorProfile], profile: dummyOperatorProfile, runbooks: dummyOperatorRunbooks }) });
         } else if (new URL(url).pathname.startsWith('/api/operator/')) {
-            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, profile: dummyOperatorProfile }) });
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, profile: dummyOperatorProfile, runbook: dummyOperatorRunbooks[0], runbooks: dummyOperatorRunbooks }) });
+        } else if (new URL(url).pathname === '/api/palettes') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyPalettesPayload) });
+        } else if (new URL(url).pathname === '/api/obs-borders' || new URL(url).pathname === '/api/obs-borders/status') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyObsBordersState) });
+        } else if (new URL(url).pathname === '/api/obs-borders/obs-status') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ connected: true, scenes: ['Main Show', 'Intermission'], sources: ['Facecam', 'Game Capture'] }) });
+        } else if (new URL(url).pathname === '/api/obs-patterns' || new URL(url).pathname === '/api/obs-patterns/status') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyObsPatternsState) });
+        } else if (new URL(url).pathname === '/api/obs-patterns/obs-status') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ connected: true, scenes: ['Main Show', 'Intermission'], sources: ['Pattern Backdrop'] }) });
+        } else if (new URL(url).pathname === '/api/obs-layout' || new URL(url).pathname === '/api/obs-layout/status') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyObsLayoutState) });
+        } else if (new URL(url).pathname === '/api/obs-layout/scenes') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ scenes: ['Main Show', 'Intermission', 'Starting Soon'], currentProgramSceneName: 'Main Show' }) });
+        } else if (new URL(url).pathname === '/api/obs-layout/scene') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyObsLayoutScene) });
+        } else if (new URL(url).pathname === '/api/obs-layout/transition-kinds') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ kinds: ['fade_transition', 'slide_transition', 'swipe_transition'] }) });
+        } else if (new URL(url).pathname === '/api/multiplayer-bingo' || new URL(url).pathname === '/api/multiplayer-bingo/overlay') {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyMpBingoState) });
+        } else if (new URL(url).pathname.startsWith('/api/bingo/play/')) {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({
+                pack: dummyMpBingoPack,
+                cardId: 'card-nova',
+                session: dummyMpBingoState.session,
+                appearance: dummyMpBingoState.appearance
+            }) });
         } else if (new URL(url).pathname === '/api/timers') {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyTimersPayload) });
         } else if (new URL(url).pathname === '/api/alerts/rules') {
@@ -1113,9 +1379,11 @@ async function run() {
         } else if (new URL(url).pathname === '/api/features') {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ features: { alerts: true, timers: true, subathon: false, overlays: true, variables: true, music: true, variableSets: true } }) });
         } else if (new URL(url).pathname === '/api/variable-displays') {
-            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ displays: [inventoryFixture.display, inventoryFixture.table, inventoryFixture.badge], revision: 1 }) });
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ displays: [inventoryFixture.display, inventoryFixture.table, inventoryFixture.badge, ...dummyExtraDisplays], revision: 1 }) });
+        } else if (new URL(url).pathname.startsWith('/api/variable-displays/') && new URL(url).pathname.endsWith('/bingo')) {
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'fictional-bingo', state: { order: dummyMpBingoOrderA, stamped: [0, 4, 6, 12, 18, 24] } }) });
         } else if ((page.url().includes('variable-displays.html') || page.url().includes('linked=1')) && new URL(url).pathname === '/api/variables') {
-            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ variables: [], sets: inventoryFixture.sets, variableSetsEnabled: true }) });
+            req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ variables: dummyDisplayVariables, sets: inventoryFixture.sets, variableSetsEnabled: true }) });
         } else if (new URL(url).pathname === '/api/variables') {
             req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(dummyVariablesPayload) });
         } else if (new URL(url).pathname === '/api/variables/sets') {
@@ -1232,7 +1500,10 @@ async function run() {
             file: 'obs-connection.png',
             wait: 1000,
             action: async p => {
+                await p.setViewport({ width: 1440, height: 960, deviceScaleFactor: 2 });
                 await p.waitForSelector('#pane-connection:not([hidden]) #cfg-obs-host');
+                await p.waitForFunction(() => document.getElementById('badge-twitch')?.textContent === 'Connected');
+                await p.evaluate(() => window.scrollTo(0, 0));
             }
         },
         {
@@ -1770,6 +2041,114 @@ async function run() {
                 await p.waitForSelector('#badge-design-controls');
                 await p.waitForSelector('#display-preview .sp-variable-display .sp-image-group');
                 await p.$eval('#ig-zone-blueprint', node => node.scrollIntoView({ block: 'start' }));
+            }
+        },
+        {
+            url: `${baseUrl}/variable-displays.html?id=fictional-counter`,
+            file: 'counter-display-builder.png',
+            wait: 1200,
+            action: async (p) => {
+                await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+                await p.waitForSelector('#display-preview > div > *');
+            }
+        },
+        {
+            url: `${baseUrl}/variable-displays.html?id=fictional-meter`,
+            file: 'meter-display-builder.png',
+            wait: 1200,
+            action: async (p) => {
+                await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+                await p.waitForSelector('#display-preview > div > *');
+            }
+        },
+        {
+            url: `${baseUrl}/variable-displays.html?id=fictional-ticker`,
+            file: 'ticker-display-builder.png',
+            wait: 1200,
+            action: async (p) => {
+                await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+                await p.waitForSelector('#display-preview > div > *');
+            }
+        },
+        {
+            url: `${baseUrl}/variable-displays.html?id=fictional-bingo`,
+            file: 'bingo-display-builder.png',
+            wait: 1200,
+            action: async (p) => {
+                await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+                await p.waitForSelector('#display-preview .sp-variable-display');
+            }
+        },
+        {
+            url: `${baseUrl}/operator.html?profile=main-show#tab=runbook`,
+            file: 'operator-runbook.png',
+            wait: 1500,
+            action: async (p) => {
+                await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+                await p.waitForSelector('.op-rb-item, .op-rb-card, .op-runbook-grid');
+            }
+        },
+        {
+            url: `${baseUrl}/tools/obs-borders.html`,
+            file: 'obs-borders-studio.png',
+            wait: 1200,
+            action: async (p) => {
+                await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+                await p.waitForSelector('[data-ob-tab="designer"]');
+                await p.click('[data-ob-tab="designer"]');
+                await p.waitForSelector('canvas', { visible: true });
+                await new Promise(r => setTimeout(r, 800));
+            }
+        },
+        {
+            url: `${baseUrl}/tools/obs-patterns.html`,
+            file: 'obs-patterns-studio.png',
+            wait: 1200,
+            action: async (p) => {
+                await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+                await p.waitForSelector('[data-op-tab="designer"]');
+                await p.click('[data-op-tab="designer"]');
+                await p.waitForSelector('canvas', { visible: true });
+                await new Promise(r => setTimeout(r, 800));
+            }
+        },
+        {
+            url: `${baseUrl}/tools/obs-layout.html`,
+            file: 'obs-layout-studio.png',
+            wait: 1800,
+            action: async (p) => {
+                await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
+                await p.waitForSelector('.ol-box, #ol-stage-wrap');
+            }
+        },
+        {
+            url: `${baseUrl}/tools/bingo.html`,
+            file: 'multiplayer-bingo-studio.png',
+            wait: 1400,
+            action: async (p) => {
+                await p.setViewport({ width: 1440, height: 960, deviceScaleFactor: 2 });
+                await p.waitForSelector('#btn-toggle-caller');
+                await p.click('#btn-toggle-caller');
+                await p.waitForSelector('#mpb-pending-panel:not([hidden])');
+            }
+        },
+        {
+            url: `${baseUrl}/bingo-play.html?t=fictionaltoken0001`,
+            file: 'multiplayer-bingo-player.png',
+            wait: 1200,
+            action: async (p) => {
+                await p.setViewport({ width: 420, height: 780, deviceScaleFactor: 2 });
+                await p.waitForSelector('.cell.is-pending');
+            }
+        },
+        {
+            url: `${baseUrl}/overlays/multiplayer-bingo.html?view=multi`,
+            file: 'multiplayer-bingo-overlay.png',
+            wait: 1200,
+            action: async (p) => {
+                await p.setViewport({ width: 1280, height: 720, deviceScaleFactor: 2 });
+                await p.waitForSelector('.mp-card');
+                await p.evaluate(() => { document.documentElement.style.background = '#0b1120'; });
             }
         }
     ];

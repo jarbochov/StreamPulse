@@ -11,6 +11,10 @@ StreamPulse **Operator Mode** is your unified live-show control console, built f
     <img src="images/operator-dock.png" alt="Operator Mode in narrow OBS Studio dock mode with expanded Queue and Recent drawer">
     <figcaption><strong>OBS Custom Browser Dock</strong>Compact layout fits comfortably in narrow OBS docks with collapsible drawers.</figcaption>
   </figure>
+  <figure>
+    <img src="images/operator-runbook.png" alt="Operator Mode Runbook tab showing multi-column checkable tasks and Markdown notes">
+    <figcaption><strong>Multi-Column Runbooks</strong>Combine checkable Tasks, rendered Markdown Notes, and Section headers with dedicated share links.</figcaption>
+  </figure>
 </div>
 
 ---

@@ -5,6 +5,21 @@
 > [!NOTE]
 > **Opt-In Module**: Multiplayer Bingo (LAN) is disabled by default. Enable **Multiplayer Bingo (LAN)** under **System → Config → Modules & Services → Overlays & Interactive Games** (`multiplayer_bingo_enabled: true`), then open **Tools → Audience & Interactive → Multiplayer Bingo (LAN)** (`/tools/bingo.html`).
 
+<div class="doc-gallery doc-gallery--2">
+  <figure>
+    <img src="images/multiplayer-bingo-studio.png" alt="Multiplayer Bingo Host Studio showing LAN share URL, Four Corners toggle, and Host Caller pending player calls">
+    <figcaption><strong>Host Studio &amp; Host Caller</strong>Share LAN IP player links, toggle Four Corners, and confirm or dismiss incoming player calls.</figcaption>
+  </figure>
+  <figure class="is-portrait">
+    <img src="images/multiplayer-bingo-player.png" alt="Mobile LAN player bingo card showing stamped squares and pending host confirmation">
+    <figcaption><strong>LAN Player Card</strong>Scoped token-only card on phones or tablets with live stamped and pending states.</figcaption>
+  </figure>
+  <figure>
+    <img src="images/multiplayer-bingo-overlay.png" alt="Multiplayer Bingo OBS broadcast overlay displaying multiple live player cards">
+    <figcaption><strong>OBS Broadcast Overlay</strong>Show all player cards in a Multi-Card Grid, Lockout Master Board, Standings Strip, or Single Card.</figcaption>
+  </figure>
+</div>
+
 ---
 
 ## 1. Prompt Packs & Game Modes

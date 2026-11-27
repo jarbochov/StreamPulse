@@ -5,6 +5,21 @@ StreamPulse includes three dedicated GPU-accelerated studios built directly arou
 > [!NOTE]
 > All three studios connect to OBS through the shared OBS WebSocket v5 setup under **System → Config → Connection & Security → OBS Connection**. You can enable or hide each studio independently under **System → Config → Modules & Services → OBS Studio Integrations**.
 
+<div class="doc-gallery doc-gallery--2">
+  <figure>
+    <img src="images/obs-borders-studio.png" alt="OBS Border Studio showing dual rings, palettes, and live GPU border preview">
+    <figcaption><strong>OBS Border Studio</strong>Design dual-ring GPU borders, Icon Borders, 3D bevels, and 4-mode drop shadows.</figcaption>
+  </figure>
+  <figure>
+    <img src="images/obs-patterns-studio.png" alt="OBS Pattern Studio showing procedural pattern controls and live GPU canvas preview">
+    <figcaption><strong>OBS Pattern Studio</strong>Build native OBS GPU procedural backgrounds and Pattern Tile wallpapers.</figcaption>
+  </figure>
+  <figure>
+    <img src="images/obs-layout-studio.png" alt="OBS Layout and Aspect Studio showing fictional scene sources on a 1920x1080 bounding-box canvas">
+    <figcaption><strong>OBS Layout &amp; Aspect Studio</strong>Arrange scene bounding boxes, morph aspect ratios, and animate Saved Layouts.</figcaption>
+  </figure>
+</div>
+
 ---
 
 ## 1. OBS Border Studio (`/tools/obs-borders.html`)

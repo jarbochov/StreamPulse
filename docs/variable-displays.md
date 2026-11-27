@@ -19,6 +19,22 @@ Build a display once in **Overlays → Display Library**, then place it in any C
     <img src="images/badge-display-builder.png" alt="Badge Builder using fictional members">
     <figcaption><strong>Badge &amp; Strip Builder</strong>Design member nameplates and call-in strips linked to live speakers or rosters.</figcaption>
   </figure>
+  <figure>
+    <img src="images/counter-display-builder.png" alt="Counter and Pips Builder showing cozy hearts display for fictional expedition players">
+    <figcaption><strong>Counter &amp; Pips Builder</strong>Track lives, hearts, pips, custom icons, or tally marks across uniform grids.</figcaption>
+  </figure>
+  <figure>
+    <img src="images/meter-display-builder.png" alt="Meter and Gauge Builder showing HP bar and hype gauge with fictional values">
+    <figcaption><strong>Meter &amp; Gauge Builder</strong>Build HP bars with damage-drain trails, segmented bars, and radial ring gauges.</figcaption>
+  </figure>
+  <figure>
+    <img src="images/ticker-display-builder.png" alt="News Ticker Builder showing scrolling broadcast ribbon with fictional stream updates">
+    <figcaption><strong>News Ticker Builder</strong>Run smooth GPU-composited broadcast ribbons driven by custom items, lists, or Variable Sets.</figcaption>
+  </figure>
+  <figure>
+    <img src="images/bingo-display-builder.png" alt="Bingo Card Builder showing 5x5 Stream Bingo board with fictional prompts">
+    <figcaption><strong>Bingo Card Builder</strong>Embed single-board 3×3, 4×4, or 5×5 Stream Bingo boards directly into Custom Overlays.</figcaption>
+  </figure>
 </div>
 
 **Variable Sets own the data.** Your equipment catalog contains reusable item names, images and optional upgrade levels. Each person's Tracker contains only that person's progress.
