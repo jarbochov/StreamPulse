@@ -1,7 +1,7 @@
 const { readRequestBody, sendJson, sendError } = require('./helpers');
 const { normalize, normalizeTheme } = require('../../public/js/promo-model');
 
-function createPromoRoutes({ service, artworkService }) {
+function createPromoRoutes({ service, artworkService, isPromoCreatorEnabled = () => true }) {
     return async (req, res, pathname) => {
         if (pathname.startsWith('/api/promos/igdb/')) {
             try {
@@ -27,6 +27,10 @@ function createPromoRoutes({ service, artworkService }) {
         }
         const match = pathname.match(/^\/api\/(promos|promo-themes)(?:\/([a-zA-Z0-9-]+))?$/);
         if (!match) return false;
+        if (!isPromoCreatorEnabled()) {
+            sendError(res, 'Promo Creator module is disabled. Enable it in System Config → Modules & Services.', 403);
+            return true;
+        }
         const themes = match[1] === 'promo-themes', id = match[2];
         try {
             if (req.method === 'GET') {

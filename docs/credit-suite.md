@@ -1,6 +1,6 @@
 # Credit Suite
 
-> **Module toggle:** Credit Suite can be enabled or disabled in **System Config → Modules** (`credit_suite_enabled`, on by default). When disabled it disappears from navigation and Operator Mode, and its API returns `403` (except `GET /api/credit-suite/status`, which reports `enabled: false`).
+> **Module toggle:** Credit Suite is an opt-in module disabled by default (`credit_suite_enabled: false`). Enable it under **System Config → Modules & Services → Production & Exports**, then open it from **Tools → Production & Exports → Credit Suite**. When disabled it disappears from navigation and Operator Mode, and its API returns `403` (except `GET /api/credit-suite/status`, which reports `enabled: false`).
 
 **Credit Suite** (`/tools/credit-suite.html`) is an independent cinematic credits studio in StreamPulse built for feature-film-style credit sequences, event rollouts, documentary endings, and live OBS broadcast closings. It is completely separate from the automatic live-session Credits Studio and Custom Overlay Editor while sharing StreamPulse's Asset Library, Font Awesome icons, 31 border styles + 17 border animations, animated patterns, and live Variables.
 

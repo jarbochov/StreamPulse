@@ -678,7 +678,7 @@ registerCardType({
     label: 'Credit Suite Transport',
     description: 'Cue Play, Pause, Restart, Stop, and Marker jumps on any Credit Suite sequence.',
     iconSvg: OP_ICONS.overlays,
-    isEnabled: status => status?.modules?.creditSuite !== false,
+    isEnabled: status => status?.modules?.creditSuite === true,
     async getPickerItems() {
         try {
             const res = await fetch('/api/credit-suite').then(r => r.json());

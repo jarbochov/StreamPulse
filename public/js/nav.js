@@ -163,7 +163,7 @@
             konamiIdx = key === KONAMI_SEQ[0] ? 1 : 0;
         }
     });
-    let moduleState = { chatbot: true, clips: true, weather: true, music: true, hashtags: true, polls: true, versus: true, trivia: true, subathon: false, obsBorders: true, obsPatterns: true };
+    let moduleState = { chatbot: true, clips: true, weather: true, music: true, hashtags: true, polls: true, versus: true, trivia: false, subathon: false, obsBorders: true, obsPatterns: true, obsLayout: false, multiplayerBingo: false, promoCreator: false, creditSuite: false };
     try {
         const cached = localStorage.getItem(MODULE_STORAGE_KEY);
         if (cached) {
@@ -209,8 +209,6 @@
             { label: 'Alerts & SFX', href: '/alerts.html' },
             { label: 'Chat Bot', href: '/chatbot.html', module: 'chatbot' },
             { label: 'Clips', href: '/clips.html', module: 'clips' },
-            { label: 'Promo Creator', href: '/promo-creator.html' },
-            { label: 'Credit Suite', href: '/tools/credit-suite.html', module: 'creditSuite' },
             { heading: 'Audience & Interactive' },
             { label: 'Trivia Studio', href: '/tools/trivia.html', module: 'trivia' },
             { label: 'Tier List Maker', href: '/tools/tier-list.html' },
@@ -224,6 +222,9 @@
             { label: 'Placeholders & Variables', href: '/placeholders.html' },
             { label: 'Operator Mode', href: '/operator.html' },
             { label: 'Hashtag Tools', href: '/manage-hashtags.html', module: 'hashtags' },
+            { heading: 'Production & Exports' },
+            { label: 'Promo Creator', href: '/promo-creator.html', module: 'promoCreator' },
+            { label: 'Credit Suite', href: '/tools/credit-suite.html', module: 'creditSuite' },
             { heading: 'OBS Studios' },
             { label: 'OBS Border Studio', href: '/tools/obs-borders.html', module: 'obsBorders' },
             { label: 'OBS Pattern Studio', href: '/tools/obs-patterns.html', module: 'obsPatterns' },
@@ -240,7 +241,6 @@
         { label: 'System', children: [
             { label: 'Config', href: '/config-editor.html' },
             { label: 'Appearance', href: '/config-editor.html#appearance' },
-            { label: 'Twitch Connect', href: '/twitch-connect.html' },
             { label: 'Backup & Restore', href: '/backup.html' },
             { label: 'System Update', href: '/update.html' }
         ]},
@@ -300,6 +300,7 @@
         'Navigation',
         'Editors & Studios',
         'Stream Tools',
+        'Production & Exports',
         'OBS Studios',
         'URL Wizards (OBS)',
         'System & Settings',
@@ -333,28 +334,32 @@
         list.push({ label: 'Poll Manager', href: '/polls.html', group: 'Stream Tools', module: 'polls' });
         list.push({ label: 'Versus', href: '/versus.html', group: 'Stream Tools', module: 'versus', keywords: 'versus studio matchup scoreboard fight card fightcard' });
         list.push({ label: 'Tournament Manager', href: '/tournament-admin.html', group: 'Stream Tools', module: 'versus', keywords: 'tournament bracket scorekeeper elimination round robin' });
-        list.push({ label: 'Promo Creator', href: '/promo-creator.html', group: 'Stream Tools' });
-        list.push({ label: 'Credit Suite', href: '/tools/credit-suite.html', group: 'Stream Tools', module: 'creditSuite', keywords: 'credit suite cinema film credits crawl timeline scroll mp4 webm prores alpha overlay' });
         list.push({ label: 'Placeholders & Variables', href: '/placeholders.html', group: 'Stream Tools' });
+        list.push({ label: 'Operator Mode', href: '/operator.html', group: 'Stream Tools', keywords: 'operator live deck control board runbook cues' });
         list.push({ label: 'Hashtag Tools', href: '/manage-hashtags.html', group: 'Stream Tools', module: 'hashtags' });
         list.push({ label: 'Chat Commands Cheat Sheet', href: '/commands.html', group: 'Stream Tools', module: 'chatbot' });
         list.push({ label: 'Alert Queue Monitor', href: '/alert-queue.html', group: 'Stream Tools' });
 
-        // 4. OBS Studios
+        // 4. Production & Exports
+        list.push({ label: 'Promo Creator', href: '/promo-creator.html', group: 'Production & Exports', module: 'promoCreator', keywords: 'promo creator announcement graphic export png mp4 social' });
+        list.push({ label: 'Credit Suite', href: '/tools/credit-suite.html', group: 'Production & Exports', module: 'creditSuite', keywords: 'credit suite cinema film credits crawl timeline scroll mp4 webm prores alpha overlay' });
+
+        // 5. OBS Studios
         list.push({ label: 'OBS Border Studio (Beta)', href: '/tools/obs-borders.html', group: 'OBS Studios', module: 'obsBorders', keywords: 'obs border studio shader filter metal lua outset bevel rounded corners' });
         list.push({ label: 'OBS Pattern Studio (Beta)', href: '/tools/obs-patterns.html', group: 'OBS Studios', module: 'obsPatterns', keywords: 'obs pattern studio tile background procedural shader lua gpu kaleidoscope' });
+        list.push({ label: 'OBS Layout & Aspect Studio', href: '/tools/obs-layout.html', group: 'OBS Studios', module: 'obsLayout', keywords: 'obs layout aspect ratio studio bounding box scene crop morph' });
 
-        // 4. URL Wizards (OBS Parameterized Source Generators)
+        // 6. URL Wizards (OBS Parameterized Source Generators)
         list.push({ label: 'Credits, Goals & Stats Wizard', href: '/overlay-url-wizard.html', group: 'URL Wizards (OBS)' });
         list.push({ label: 'Timers Wizard', href: '/timer-url-wizard.html', group: 'URL Wizards (OBS)' });
         list.push({ label: 'Music Wizard', href: '/music-url-wizard.html', group: 'URL Wizards (OBS)', module: 'music' });
         list.push({ label: 'Game Plan Wizard', href: '/game-plan-url-wizard.html', group: 'URL Wizards (OBS)' });
         list.push({ label: 'Milestones Wizard', href: '/milestone-url-wizard.html', group: 'URL Wizards (OBS)' });
 
-        // 5. System & Settings
+        // 7. System & Settings
         list.push({ label: 'System Config', href: '/config-editor.html', group: 'System & Settings' });
         list.push({ label: 'Appearance & Accent Color', href: '/config-editor.html#appearance', group: 'System & Settings' });
-        list.push({ label: 'Twitch Connect', href: '/twitch-connect.html', group: 'System & Settings' });
+        list.push({ label: 'Twitch Connection & Auth', href: '/config-editor.html#connection', group: 'System & Settings', keywords: 'twitch connect oauth auth device code login broadcaster' });
         list.push({ label: 'Backup & Restore', href: '/backup.html', group: 'System & Settings' });
         list.push({ label: 'System Update', href: '/update.html', group: 'System & Settings' });
 
@@ -707,8 +712,8 @@
 
         // Live stream & integration status indicators
         html += `<a href="/dashboard.html" id="nav-live-indicator" class="nav-status-pill" title="Stream status" style="display:none;"><span class="dot"></span><span class="label"></span></a>`;
-        html += `<a href="/twitch-connect.html" id="nav-twitch-indicator" class="nav-status-pill twitch" title="Twitch connection status" style="display:none;"><span class="dot"></span><span class="label">Twitch</span></a>`;
-        html += `<a href="/config-editor.html" id="nav-ssn-indicator" class="nav-status-pill" title="SocialStream connection status" style="display:none;"><span class="dot"></span><span class="label">SocialStream</span></a>`;
+        html += `<a href="/config-editor.html#connection" id="nav-twitch-indicator" class="nav-status-pill twitch" title="Twitch connection status" style="display:none;"><span class="dot"></span><span class="label">Twitch</span></a>`;
+        html += `<a href="/config-editor.html#connection" id="nav-ssn-indicator" class="nav-status-pill" title="SocialStream connection status" style="display:none;"><span class="dot"></span><span class="label">SocialStream</span></a>`;
 
         // Konami Dev Mode controls (compact icon pair so nav stays single-row)
         container.classList.toggle('has-dev', devModeEnabled);
@@ -905,8 +910,8 @@
                 moduleState.versus = event.detail.versus_enabled !== false;
                 changed = true;
             }
-            if (event.detail.trivia_enabled !== undefined && moduleState.trivia !== (event.detail.trivia_enabled !== false)) {
-                moduleState.trivia = event.detail.trivia_enabled !== false;
+            if (event.detail.trivia_enabled !== undefined && moduleState.trivia !== (event.detail.trivia_enabled === true)) {
+                moduleState.trivia = event.detail.trivia_enabled === true;
                 changed = true;
             }
             if (event.detail.subathon_enabled !== undefined && moduleState.subathon !== (event.detail.subathon_enabled === true)) {
@@ -919,6 +924,22 @@
             }
             if (event.detail.obs_patterns_enabled !== undefined && moduleState.obsPatterns !== (event.detail.obs_patterns_enabled !== false)) {
                 moduleState.obsPatterns = event.detail.obs_patterns_enabled !== false;
+                changed = true;
+            }
+            if (event.detail.obs_layout_enabled !== undefined && moduleState.obsLayout !== (event.detail.obs_layout_enabled === true)) {
+                moduleState.obsLayout = event.detail.obs_layout_enabled === true;
+                changed = true;
+            }
+            if (event.detail.multiplayer_bingo_enabled !== undefined && moduleState.multiplayerBingo !== (event.detail.multiplayer_bingo_enabled === true)) {
+                moduleState.multiplayerBingo = event.detail.multiplayer_bingo_enabled === true;
+                changed = true;
+            }
+            if (event.detail.promo_creator_enabled !== undefined && moduleState.promoCreator !== (event.detail.promo_creator_enabled === true)) {
+                moduleState.promoCreator = event.detail.promo_creator_enabled === true;
+                changed = true;
+            }
+            if (event.detail.credit_suite_enabled !== undefined && moduleState.creditSuite !== (event.detail.credit_suite_enabled === true)) {
+                moduleState.creditSuite = event.detail.credit_suite_enabled === true;
                 changed = true;
             }
             if (changed) {
