@@ -965,6 +965,71 @@ details.cs-acc[open] > summary {
     gap: 12px;
 }
 
+.cs-insp-subtabs {
+    position: sticky;
+    top: -12px;
+    z-index: 6;
+    margin: -12px -12px 0;
+    padding: 0 10px;
+    background: var(--bg-card, #161b22);
+    border-bottom: 1px solid var(--border, #30363d);
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.cs-insp-subtab {
+    flex: 1 1 0;
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: var(--text-muted, #8b949e);
+    padding: 9px 6px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 0.14s, border-color 0.14s;
+}
+
+.cs-insp-subtab:hover {
+    color: var(--text, #e6edf3);
+}
+
+.cs-insp-subtab.active {
+    color: var(--accent, #58a6ff);
+    border-bottom-color: var(--accent, #58a6ff);
+}
+
+.cs-insp-subtab svg {
+    flex-shrink: 0;
+}
+
+.cs-insp-badge {
+    font-size: 10px;
+    line-height: 1;
+    padding: 2px 5px;
+    border-radius: 999px;
+    background: rgba(88, 166, 255, 0.16);
+    color: var(--accent, #58a6ff);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.cs-insp-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #34d399;
+    flex-shrink: 0;
+}
+
 .cs-section {
     background: var(--bg-inset, #0d1117);
     border: 1px solid var(--border, #30363d);

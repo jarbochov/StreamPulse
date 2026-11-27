@@ -705,6 +705,7 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
                 const cEl = document.createElement('div');
                 cEl.className = 'cs-inline-caption';
                 cEl.textContent = cap;
+                if (st.subtitleColor) cEl.style.color = resolveColorOrVar(st.subtitleColor, variables, '');
                 wrap.appendChild(cEl);
             }
             inner.appendChild(wrap);
@@ -1352,35 +1353,66 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
         renderAtTime(currentTime);
     }
 
+    function syncVideoElement(v, {
+        mediaTime = 0,
+        targetRate = 1,
+        loop = true,
+        autoplay = true,
+        activeWindow = true,
+        playDriftTolerance = 0.65,
+        pauseDriftTolerance = 0.05
+    }) {
+        if (!v) return;
+        const safeRate = Math.max(0.25, Number(targetRate) || 1);
+        if (Math.abs((v.playbackRate || 1) - safeRate) > 0.01) {
+            try { v.playbackRate = safeRate; } catch {}
+        }
+        if (Boolean(v.loop) !== Boolean(loop)) {
+            try { v.loop = Boolean(loop); } catch {}
+        }
+        const decision = engine.computeVideoSyncAction({
+            mediaTime,
+            duration: v.duration,
+            currentTime: v.currentTime || 0,
+            paused: Boolean(v.paused),
+            ended: Boolean(v.ended),
+            seeking: Boolean(v.seeking),
+            readyState: v.readyState || 0,
+            loop,
+            autoplay,
+            playing,
+            deterministic,
+            activeWindow,
+            playDriftTolerance,
+            pauseDriftTolerance
+        });
+        if (decision.action === 'pause') {
+            if (!v.paused) v.pause();
+            if (decision.seekTo !== null) {
+                try { v.currentTime = decision.seekTo; } catch {}
+            }
+        } else if (decision.action === 'play') {
+            if (decision.seekTo !== null) {
+                try { v.currentTime = decision.seekTo; } catch {}
+            }
+            if (v.paused) v.play().catch(() => {});
+        }
+    }
+
     function syncAmbientVideos(tSec) {
-        const shouldPlayGlobal = playing && !deterministic;
         const syncEntry = (entry, activeWindow = true, localT = tSec) => {
-            const v = entry.el;
             const cfg = entry.cfg || {};
             const rate = Math.max(0.25, Number(cfg.mediaRate) || 1);
-            const targetRate = rate * speedRate;
-            if (Math.abs((v.playbackRate || 1) - targetRate) > 0.01) {
-                try { v.playbackRate = targetRate; } catch {}
-            }
             const startOffset = Number(cfg.mediaStartSec) || 0;
-            const loop = cfg.mediaLoop !== false;
-            const autoplay = cfg.mediaAutoplay !== false;
-            const mediaTime = startOffset + Math.max(0, localT) * rate;
-            const targetT = v.duration && Number.isFinite(v.duration) && v.duration > 0
-                ? (loop ? (mediaTime % v.duration) : Math.min(v.duration, mediaTime))
-                : mediaTime;
-
-            if (!shouldPlayGlobal || !activeWindow || !autoplay) {
-                if (!v.paused) v.pause();
-                if (activeWindow && Math.abs((v.currentTime || 0) - targetT) > 0.05 && v.readyState >= 1) {
-                    try { v.currentTime = targetT; } catch {}
-                }
-            } else {
-                if (v.paused) v.play().catch(() => {});
-                if (Math.abs((v.currentTime || 0) - targetT) > 0.65 && v.readyState >= 1) {
-                    try { v.currentTime = targetT; } catch {}
-                }
-            }
+            syncVideoElement(entry.el, {
+                mediaTime: startOffset + Math.max(0, localT) * rate,
+                targetRate: rate * speedRate,
+                loop: cfg.mediaLoop !== false,
+                autoplay: cfg.mediaAutoplay !== false,
+                activeWindow,
+                playDriftTolerance: 0.65,
+                pauseDriftTolerance: 0.05
+            });
         };
         for (const entry of bgVideos) {
             syncEntry(entry, true, tSec);
@@ -1528,24 +1560,17 @@ export function createCreditSuiteRenderer(mountEl, options = {}) {
             if (entry.videos.length) {
                 const targetRate = (ac.clip.videoRate || 1) * speedRate;
                 const autoplay = ac.clip.videoAutoplay !== false;
+                const loop = ac.clip.videoLoop !== false;
                 for (const v of entry.videos) {
-                    if (Math.abs((v.playbackRate || 1) - targetRate) > 0.01) {
-                        try { v.playbackRate = targetRate; } catch {}
-                    }
-                    const targetT = v.duration && Number.isFinite(v.duration) && v.duration > 0
-                        ? (ac.clip.videoLoop !== false ? (ac.mediaTime % v.duration) : Math.min(v.duration, ac.mediaTime))
-                        : ac.mediaTime;
-                    if (deterministic || !playing || !autoplay) {
-                        if (!v.paused) v.pause();
-                        if (Math.abs((v.currentTime || 0) - targetT) > 0.04 && v.readyState >= 1) {
-                            try { v.currentTime = targetT; } catch {}
-                        }
-                    } else {
-                        if (v.paused) v.play().catch(() => {});
-                        if (Math.abs((v.currentTime || 0) - targetT) > 0.6 && v.readyState >= 1) {
-                            try { v.currentTime = targetT; } catch {}
-                        }
-                    }
+                    syncVideoElement(v, {
+                        mediaTime: ac.mediaTime,
+                        targetRate,
+                        loop,
+                        autoplay,
+                        activeWindow: true,
+                        playDriftTolerance: 0.6,
+                        pauseDriftTolerance: 0.04
+                    });
                 }
             }
         }

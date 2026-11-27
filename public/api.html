@@ -1468,7 +1468,7 @@
                 {
                     method: 'POST', path: '/api/custom-overlays/assets',
                     desc: 'Upload an asset',
-                    details: 'Send the raw file bytes as the body with a Content-Type and an X-Asset-Name header. Maximum 100 MB. Images, video, audio (mp3, wav, m4a, aac, oga) and fonts (ttf, otf, woff, woff2) are accepted.',
+                    details: 'Send the raw file bytes as the body with a Content-Type and an X-Asset-Name header. Streamed directly to disk: up to 1 GB for video (mp4, webm, ogg) and 100 MB for images, audio (mp3, wav, m4a, aac, oga), fonts (ttf, otf, woff, woff2), and text (txt, md).',
                     body: '(raw file bytes)  Headers: Content-Type: image/png, X-Asset-Name: logo.png'
                 },
                 {

@@ -300,8 +300,10 @@ const UPLOAD_TYPES = {
 };
 
 export async function uploadAsset(file) {
-    if (file.size > 100 * 1024 * 1024) throw new Error('That file is larger than the 100 MB limit.');
     const type = UPLOAD_TYPES[(file.name.split('.').pop() || '').toLowerCase()] || file.type;
+    const isVideo = String(type || '').startsWith('video/');
+    const maxBytes = isVideo ? 1024 * 1024 * 1024 : 100 * 1024 * 1024;
+    if (file.size > maxBytes) throw new Error(`That file is larger than the ${isVideo ? '1 GB' : '100 MB'} limit.`);
     if (!Object.values(UPLOAD_TYPES).includes(type)) {
         throw new Error(`${file.name}: only PNG, JPEG, GIF, WebP, SVG, MP4, WebM, OGG, TTF, OTF, WOFF, WOFF2, TXT and MD files are supported.`);
     }

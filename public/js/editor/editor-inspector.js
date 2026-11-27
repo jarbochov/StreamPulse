@@ -579,7 +579,7 @@ export function mediaSourceBlock(el) {
         const accept = (el.type === 'image' || el.type === 'pattern') ? 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml' : 'video/mp4,video/webm,video/ogg';
         const isVisual = el.type === 'image' || el.type === 'pattern';
         body += `<div class="field"><span>${el.type === 'video' ? 'Video' : el.type === 'pattern' ? 'Tile image' : 'Image'} file</span><span class="upload-row"><input readonly value="${esc(friendlyAssetName(el.src))}" placeholder="Nothing chosen"><button type="button" id="open-assets">Library…</button>${isVisual ? '<button type="button" id="open-igdb" title="Import official game artwork, logos, or screenshots from IGDB">IGDB…</button>' : ''}</span></div>`;
-        body += `<div class="field"><span>Upload new</span><input id="prop-upload" type="file" accept="${accept}"><span class="hint">Saved to the StreamPulse overlay asset folder (100 MB max). Transparent PNGs and SVGs work great over a background fill or shape.</span></div>`;
+        body += `<div class="field"><span>Upload new</span><input id="prop-upload" type="file" accept="${accept}"><span class="hint">Saved to the StreamPulse overlay asset folder (${el.type === 'video' ? '1 GB max for video' : '100 MB max'}). Transparent PNGs and SVGs work great over a background fill or shape.</span></div>`;
     }
     if (el.type === 'video') {
         const v = el.video || {};

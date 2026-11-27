@@ -1493,10 +1493,12 @@ export function setupEditorEvents(renderAll) {
             picker.onchange = guard(async () => {
                 const file = picker.files[0];
                 if (!file) return;
-                if (file.size > 100 * 1024 * 1024) throw new Error('File exceeds the 100 MB limit.');
                 const ext = (file.name.split('.').pop() || '').toLowerCase();
                 const types = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', mp4: 'video/mp4', webm: 'video/webm', mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4', aac: 'audio/aac', ogg: key === 'sound' ? 'audio/ogg' : 'video/ogg' };
                 const type = types[ext] || file.type;
+                const isVideo = String(type || '').startsWith('video/');
+                const maxBytes = isVideo ? 1024 * 1024 * 1024 : 100 * 1024 * 1024;
+                if (file.size > maxBytes) throw new Error(`File exceeds the ${isVideo ? '1 GB' : '100 MB'} limit.`);
                 const data = await api('/api/custom-overlays/assets', { method: 'POST', headers: { 'Content-Type': type, 'X-Asset-Name': file.name.replace(/[^\x20-\x7e]+/g, '-') }, body: file });
                 r.variants[i][key] = data.url;
                 setDirty(true);

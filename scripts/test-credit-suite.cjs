@@ -746,4 +746,228 @@ describe('Credit Suite — Independent Cinematic Credits Module', () => {
             await browser.close();
         }
     });
+
+    it('synchronizes non-looping and looping videos cleanly without end ping-pong or seam jumps, and allows long video holds', () => {
+        // 1. Long video card holds up to 3600s are preserved (clamped at 3600s)
+        const longBlock = engine.normalizeBlock({ type: 'media', mediaKind: 'video', presentation: 'card', duration: 600 });
+        assert.equal(longBlock.duration, 600);
+        const clampedBlock = engine.normalizeBlock({ type: 'media', mediaKind: 'video', presentation: 'card', duration: 9999 });
+        assert.equal(clampedBlock.duration, 3600);
+
+        // 2. Non-looping video past duration holds paused at end and NEVER calls play()
+        const endedAtEnd = engine.computeVideoSyncAction({
+            mediaTime: 6.2,
+            duration: 5.0,
+            currentTime: 5.0,
+            paused: true,
+            ended: true,
+            readyState: 4,
+            loop: false,
+            autoplay: true,
+            playing: true
+        });
+        assert.equal(endedAtEnd.action, 'pause');
+        assert.equal(endedAtEnd.seekTo, null);
+        assert.equal(endedAtEnd.endedHold, true);
+
+        // 3. Non-looping video scrubbed directly past end seeks once near final frame and stays paused
+        const scrubbedPastEnd = engine.computeVideoSyncAction({
+            mediaTime: 10.0,
+            duration: 5.0,
+            currentTime: 0,
+            paused: true,
+            ended: false,
+            readyState: 4,
+            loop: false,
+            autoplay: true,
+            playing: true
+        });
+        assert.equal(scrubbedPastEnd.action, 'pause');
+        assert.ok(Math.abs(scrubbedPastEnd.seekTo - 4.98) < 0.01);
+
+        // 4. Non-looping video restarted back to 0 seeks to 0 and resumes playback
+        const restarted = engine.computeVideoSyncAction({
+            mediaTime: 0.05,
+            duration: 5.0,
+            currentTime: 5.0,
+            paused: true,
+            ended: true,
+            readyState: 4,
+            loop: false,
+            autoplay: true,
+            playing: true
+        });
+        assert.equal(restarted.action, 'play');
+        assert.ok(Math.abs(restarted.seekTo - 0.05) < 0.001);
+
+        // 5. Looping video across wrap seam uses circular drift (no false seek jump)
+        const loopSeam = engine.computeVideoSyncAction({
+            mediaTime: 5.02,
+            duration: 5.0,
+            currentTime: 4.98,
+            paused: false,
+            ended: false,
+            readyState: 4,
+            loop: true,
+            autoplay: true,
+            playing: true
+        });
+        assert.equal(loopSeam.action, 'play');
+        assert.equal(loopSeam.seekTo, null);
+
+        // 6. Active seeking prevents overlapping seeks
+        const whileSeeking = engine.computeVideoSyncAction({
+            mediaTime: 2.5,
+            duration: 5.0,
+            currentTime: 0.0,
+            paused: false,
+            seeking: true,
+            readyState: 4,
+            loop: true,
+            autoplay: true,
+            playing: true
+        });
+        assert.equal(whileSeeking.action, 'noop');
+        assert.equal(whileSeeking.seekTo, null);
+    });
+
+    it('surfaces per-element Style Override sub-tabs directly in Credit Suite Studio inspector for both Blocks and Clips', async () => {
+        const puppeteer = require('puppeteer');
+        const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+        try {
+            const page = await browser.newPage();
+            await page.setViewport({ width: 1440, height: 900, deviceScaleFactor: 1 });
+            await page.goto(`http://127.0.0.1:${port}/tools/credit-suite.html`, { waitUntil: 'networkidle0' });
+            await page.waitForSelector('.cs-insp-subtabs [data-b-subtab="style"]', { timeout: 10000 });
+
+            // Open Block Style tab and verify style override inputs are immediately visible without any collapsed <details>
+            await page.click('[data-b-subtab="style"]');
+            await page.waitForSelector('[data-bs="headingFont"]', { timeout: 5000 });
+            const blockStyleCheck = await page.evaluate(() => {
+                const headingFont = document.querySelector('[data-bs="headingFont"]');
+                const headingColor = document.querySelector('input[type="text"][data-bs="headingColor"]');
+                const borderStyle = document.querySelector('[data-bs="borderStyle"]');
+                const insideDetails = Boolean(headingFont?.closest('details'));
+                return {
+                    hasHeadingFont: Boolean(headingFont),
+                    hasHeadingColor: Boolean(headingColor),
+                    hasBorderStyle: Boolean(borderStyle),
+                    insideDetails
+                };
+            });
+            assert.equal(blockStyleCheck.hasHeadingFont, true);
+            assert.equal(blockStyleCheck.hasHeadingColor, true);
+            assert.equal(blockStyleCheck.hasBorderStyle, true);
+            assert.equal(blockStyleCheck.insideDetails, false, 'Block Style overrides must be directly open in the Style tab');
+
+            // Switch to Side & FX Tracks tab, select a floating clip, and verify Clip Style sub-tab exposes Borders & Filters directly
+            await page.click('#cs-outliner-tab-tracks');
+            await page.waitForSelector('.cs-block-row[data-clip-id]', { timeout: 5000 });
+            await page.click('.cs-block-row[data-clip-id]');
+            await page.waitForSelector('[data-c-subtab="style"]', { timeout: 5000 });
+            await page.click('[data-c-subtab="style"]');
+            await page.waitForSelector('[data-c="borderStyle"]', { timeout: 5000 });
+            const clipStyleCheck = await page.evaluate(() => {
+                const borderStyle = document.querySelector('[data-c="borderStyle"]');
+                const bright = document.querySelector('[data-c-num="filterBrightness"]');
+                return {
+                    hasBorderStyle: Boolean(borderStyle),
+                    hasFilterBrightness: Boolean(bright),
+                    insideDetails: Boolean(borderStyle?.closest('details'))
+                };
+            });
+            assert.equal(clipStyleCheck.hasBorderStyle, true);
+            assert.equal(clipStyleCheck.hasFilterBrightness, true);
+            assert.equal(clipStyleCheck.insideDetails, false, 'Clip Style overrides must be directly open in the Style tab');
+        } finally {
+            await browser.close();
+        }
+    });
+
+    it('streams video asset uploads directly to disk with a 1 GB video cap and 100 MB standard cap', async () => {
+        const { createOverlayRoutes } = require('../server/routes/overlays');
+        const assetsDir = path.join(tmpDir, 'streamed-assets');
+        fs.mkdirSync(assetsDir, { recursive: true });
+        const handleOverlay = createOverlayRoutes({ customOverlayAssetsDir: assetsDir });
+        const uploadServer = http.createServer(async (req, res) => {
+            const url = new URL(req.url, 'http://127.0.0.1');
+            if (await handleOverlay(req, res, url, url.pathname)) return;
+            res.writeHead(404);
+            res.end();
+        });
+        await new Promise(resolve => uploadServer.listen(0, '127.0.0.1', resolve));
+        const uPort = uploadServer.address().port;
+
+        const sendUpload = (method, reqPath, headers, bodyBuf, { headersOnly = false } = {}) => new Promise((resolve, reject) => {
+            const req = http.request({ hostname: '127.0.0.1', port: uPort, path: reqPath, method, headers }, res => {
+                const chunks = [];
+                res.on('data', c => chunks.push(c));
+                res.on('end', () => {
+                    const text = Buffer.concat(chunks).toString('utf8');
+                    let json = null;
+                    try { json = JSON.parse(text); } catch {}
+                    if (headersOnly) req.destroy();
+                    resolve({ status: res.statusCode, body: json ?? text });
+                });
+            });
+            req.on('error', err => {
+                if (headersOnly && err.code === 'ECONNRESET') return;
+                reject(err);
+            });
+            if (headersOnly) {
+                req.flushHeaders();
+            } else {
+                if (bodyBuf) req.write(bodyBuf);
+                req.end();
+            }
+        });
+
+        try {
+            // 1. Streamed POST video upload
+            const payload = Buffer.from('FAKE-MP4-BYTES-0123456789'.repeat(64));
+            const postRes = await sendUpload('POST', '/api/custom-overlays/assets', {
+                'Content-Type': 'video/mp4',
+                'X-Asset-Name': 'long-outro.mp4',
+                'Content-Length': String(payload.length)
+            }, payload);
+            assert.equal(postRes.status, 201);
+            assert.equal(postRes.body.size, payload.length);
+            const savedPath = path.join(assetsDir, postRes.body.name);
+            assert.deepEqual(fs.readFileSync(savedPath), payload);
+
+            // 2. Streamed PUT video overwrite
+            const payload2 = Buffer.from('UPDATED-MP4-CONTENT-9876543210'.repeat(16));
+            const putRes = await sendUpload('PUT', `/api/custom-overlays/assets/${encodeURIComponent(postRes.body.name)}`, {
+                'Content-Type': 'video/mp4',
+                'Content-Length': String(payload2.length)
+            }, payload2);
+            assert.equal(putRes.status, 200);
+            assert.equal(putRes.body.size, payload2.length);
+            assert.deepEqual(fs.readFileSync(savedPath), payload2);
+
+            // 3. Oversize non-video rejected at 100 MB without leaving temp files
+            const bigImgRes = await sendUpload('POST', '/api/custom-overlays/assets', {
+                'Content-Type': 'image/png',
+                'X-Asset-Name': 'huge.png',
+                'Content-Length': String(101 * 1024 * 1024)
+            }, null, { headersOnly: true });
+            assert.equal(bigImgRes.status, 413);
+            assert.match(String(bigImgRes.body.error || ''), /100 MB/);
+
+            // 4. Oversize video rejected above 1 GB without leaving temp files
+            const hugeVidRes = await sendUpload('POST', '/api/custom-overlays/assets', {
+                'Content-Type': 'video/mp4',
+                'X-Asset-Name': 'giant.mp4',
+                'Content-Length': String(1025 * 1024 * 1024)
+            }, null, { headersOnly: true });
+            assert.equal(hugeVidRes.status, 413);
+            assert.match(String(hugeVidRes.body.error || ''), /1 GB/);
+
+            // Zero leftover .upload-*.tmp files
+            const leftovers = fs.readdirSync(assetsDir).filter(f => f.startsWith('.upload-'));
+            assert.deepEqual(leftovers, []);
+        } finally {
+            await new Promise(resolve => uploadServer.close(resolve));
+        }
+    });
 });

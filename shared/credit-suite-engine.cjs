@@ -395,7 +395,7 @@ function normalizeBlock(raw = {}, idx = 0) {
         title: String(b.title ?? '').slice(0, 240),
         subtitle: String(b.subtitle ?? '').slice(0, 240),
         content: String(b.content ?? '').slice(0, 20000),
-        duration: clamp(b.duration, 0.5, 120, presentation === 'card' ? 4.5 : 5),
+        duration: clamp(b.duration, 0.5, 3600, presentation === 'card' ? 4.5 : 5),
         transitionIn: TRANSITION_TYPES.includes(b.transitionIn) ? b.transitionIn : 'fade',
         transitionOut: TRANSITION_TYPES.includes(b.transitionOut) ? b.transitionOut : 'fade',
         transitionSec: clamp(b.transitionSec, 0.05, 10, 0.75),
@@ -1924,6 +1924,78 @@ function buildDefaultProjects() {
     ];
 }
 
+/**
+ * Pure video synchronization decision helper shared by inline video blocks,
+ * background videos, and timeline video track clips.
+ * Prevents end-of-video ping-pong on non-looping videos and loop-seam drift jumps.
+ */
+function computeVideoSyncAction({
+    mediaTime = 0,
+    duration = NaN,
+    currentTime = 0,
+    paused = true,
+    ended = false,
+    seeking = false,
+    readyState = 0,
+    loop = true,
+    autoplay = true,
+    playing = false,
+    deterministic = false,
+    activeWindow = true,
+    playDriftTolerance = 0.65,
+    pauseDriftTolerance = 0.05
+} = {}) {
+    const safeMediaTime = Math.max(0, Number(mediaTime) || 0);
+    const hasDur = Number.isFinite(duration) && duration > 0;
+    const cur = Number.isFinite(currentTime) ? currentTime : 0;
+    const canSeek = readyState >= 1 && !seeking;
+
+    if (!activeWindow) {
+        return { action: 'pause', seekTo: null, endedHold: false };
+    }
+
+    const atNonLoopEnd = !loop && hasDur && safeMediaTime >= duration - 0.03;
+    let targetT = safeMediaTime;
+    if (hasDur) {
+        if (loop) {
+            targetT = ((safeMediaTime % duration) + duration) % duration;
+        } else {
+            targetT = atNonLoopEnd ? Math.max(0, duration - 0.02) : Math.min(duration, safeMediaTime);
+        }
+    }
+
+    const rawDiff = Math.abs(cur - targetT);
+    const drift = (loop && hasDur) ? Math.min(rawDiff, Math.max(0, duration - rawDiff)) : rawDiff;
+
+    if (atNonLoopEnd) {
+        const alreadyAtEnd = ended || (hasDur && cur >= duration - 0.15);
+        return {
+            action: 'pause',
+            seekTo: (canSeek && !alreadyAtEnd && rawDiff > 0.15) ? targetT : null,
+            endedHold: true
+        };
+    }
+
+    const shouldPlay = Boolean(playing) && !deterministic && Boolean(autoplay);
+    if (!shouldPlay) {
+        return {
+            action: 'pause',
+            seekTo: (canSeek && drift > pauseDriftTolerance) ? targetT : null,
+            endedHold: false
+        };
+    }
+
+    let seekTo = null;
+    if (canSeek && (drift > playDriftTolerance || (ended && targetT < (hasDur ? duration - 0.1 : Infinity)))) {
+        seekTo = targetT;
+    }
+    return {
+        action: seeking ? 'noop' : 'play',
+        seekTo,
+        endedHold: false
+    };
+}
+
 module.exports = {
     CANVAS_PRESETS,
     GOOGLE_FONT_LIST,
@@ -1959,6 +2031,7 @@ module.exports = {
     evaluateClipScrollPath,
     evaluateEdgeAttachmentTransform,
     evaluateFrame,
+    computeVideoSyncAction,
     formatSrtTimestamp,
     getBlockPlainText,
     generateSrt,

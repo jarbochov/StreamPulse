@@ -690,6 +690,88 @@ function createOverlayRoutes({
             return true;
         }
 
+        const MAX_STANDARD_ASSET_BYTES = 100 * 1024 * 1024; // 100 MB
+        const MAX_VIDEO_ASSET_BYTES = 1024 * 1024 * 1024;   // 1 GB
+
+        const streamAssetUpload = (req, res, { target, maxBytes, limitLabel, onComplete }) => {
+            const declaredLen = Number(req.headers['content-length'] || 0);
+            if (Number.isFinite(declaredLen) && declaredLen > maxBytes) {
+                res.setHeader('Connection', 'close');
+                sendError(res, `Asset exceeds the ${limitLabel} limit`, 413);
+                req.resume();
+                return;
+            }
+            const tmpName = `.upload-${process.pid}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}.tmp`;
+            const tmpPath = path.join(path.dirname(target), tmpName);
+            const ws = fs.createWriteStream(tmpPath);
+            let total = 0;
+            let aborted = false;
+            let responded = false;
+
+            const cleanupTmp = () => {
+                try { if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath); } catch {}
+            };
+            const fail = (message, statusCode) => {
+                if (aborted) return;
+                aborted = true;
+                try { req.pause(); } catch {}
+                try { ws.destroy(); } catch {}
+                cleanupTmp();
+                if (!responded && !res.writableEnded) {
+                    responded = true;
+                    if (statusCode === 413) res.setHeader('Connection', 'close');
+                    sendError(res, message, statusCode);
+                }
+            };
+
+            ws.on('error', err => fail(err.message || 'Write failed', 500));
+
+            req.on('data', chunk => {
+                if (aborted) return;
+                total += chunk.length;
+                if (total > maxBytes) {
+                    fail(`Asset exceeds the ${limitLabel} limit`, 413);
+                    return;
+                }
+                if (!ws.write(chunk)) {
+                    req.pause();
+                    ws.once('drain', () => {
+                        if (!aborted) req.resume();
+                    });
+                }
+            });
+
+            req.on('aborted', () => {
+                if (!aborted && !responded) {
+                    aborted = true;
+                    try { ws.destroy(); } catch {}
+                    cleanupTmp();
+                }
+            });
+
+            req.on('error', err => fail(err.message || 'Upload stream error', 400));
+
+            req.on('end', () => {
+                if (aborted) return;
+                ws.end();
+            });
+
+            ws.on('finish', () => {
+                if (aborted || responded) return;
+                try {
+                    fs.renameSync(tmpPath, target);
+                    responded = true;
+                    onComplete(total);
+                } catch (err) {
+                    cleanupTmp();
+                    if (!responded && !res.writableEnded) {
+                        responded = true;
+                        sendError(res, err.message, 500);
+                    }
+                }
+            });
+        };
+
         // --- 4. Custom Overlays: Asset Upload ---
         if (pathname === '/api/custom-overlays/assets' && req.method === 'POST') {
             const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
@@ -715,23 +797,12 @@ function createOverlayRoutes({
                 sendError(res, 'Only common image, video, audio (MP3, WAV, M4A, AAC, OGG) and font (TTF, OTF, WOFF, WOFF2) and text (TXT, MD) asset types are supported', 415);
                 return true;
             }
-            if (Number(req.headers['content-length'] || 0) > 100 * 1024 * 1024) {
-                sendError(res, 'Asset exceeds the 100 MB limit', 413);
-                return true;
-            }
-            const chunks = [];
-            let total = 0;
-            req.on('data', chunk => {
-                total += chunk.length;
-                if (total <= 100 * 1024 * 1024) chunks.push(chunk);
-            });
-            req.on('end', () => {
-                if (total > 100 * 1024 * 1024) {
-                    sendError(res, 'Asset exceeds the 100 MB limit', 413);
-                    return;
-                }
-                try {
-                    fs.writeFileSync(target, Buffer.concat(chunks));
+            const isVideo = contentType.startsWith('video/');
+            streamAssetUpload(req, res, {
+                target,
+                maxBytes: isVideo ? MAX_VIDEO_ASSET_BYTES : MAX_STANDARD_ASSET_BYTES,
+                limitLabel: isVideo ? '1 GB' : '100 MB',
+                onComplete: total => {
                     const uploadTags = normalizeAssetTagList(decodeURIComponent(String(req.headers['x-asset-tags'] || '')));
                     if (uploadTags.length) {
                         const assetTags = getAssetTags();
@@ -740,12 +811,7 @@ function createOverlayRoutes({
                     }
                     res.writeHead(201, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ url: `/custom-overlay-assets/${encodeURIComponent(filename)}`, name: filename, type: contentType, size: total }));
-                } catch (err) {
-                    sendError(res, err.message, 500);
                 }
-            });
-            req.on('error', err => {
-                sendError(res, err.message, 400);
             });
             return true;
         }
@@ -759,31 +825,16 @@ function createOverlayRoutes({
                 sendError(res, 'Invalid asset name', 400);
                 return true;
             }
-            if (Number(req.headers['content-length'] || 0) > 100 * 1024 * 1024) {
-                sendError(res, 'Asset exceeds the 100 MB limit', 413);
-                return true;
-            }
-            const chunks = [];
-            let total = 0;
-            req.on('data', chunk => {
-                total += chunk.length;
-                if (total <= 100 * 1024 * 1024) chunks.push(chunk);
-            });
-            req.on('end', () => {
-                if (total > 100 * 1024 * 1024) {
-                    sendError(res, 'Asset exceeds the 100 MB limit', 413);
-                    return;
-                }
-                try {
-                    fs.writeFileSync(target, Buffer.concat(chunks));
+            const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+            const isVideo = contentType.startsWith('video/') || /\.(mp4|webm|ogg|ogv|mov)$/i.test(rawName);
+            streamAssetUpload(req, res, {
+                target,
+                maxBytes: isVideo ? MAX_VIDEO_ASSET_BYTES : MAX_STANDARD_ASSET_BYTES,
+                limitLabel: isVideo ? '1 GB' : '100 MB',
+                onComplete: total => {
                     res.writeHead(200, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ url: `/custom-overlay-assets/${encodeURIComponent(rawName)}?t=${Date.now()}`, name: rawName, updated: true, size: total }));
-                } catch (err) {
-                    sendError(res, err.message, 500);
                 }
-            });
-            req.on('error', err => {
-                sendError(res, err.message, 400);
             });
             return true;
         }
