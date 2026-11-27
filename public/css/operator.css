@@ -25,13 +25,18 @@ html, body {
     min-width: 0;
 }
 
-/* Single-Row Top Bar (Tabs + Preset + Live Status) */
+/* Two-Zone Top Chrome: Full-width Domain Tabs + Calm Utility Strip */
 .op-top-bar {
     display: flex;
+    flex-direction: column;
+    gap: .45rem;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.op-tabs-row {
+    display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: .6rem;
-    flex-wrap: nowrap;
     min-width: 0;
     max-width: 100%;
 }
@@ -47,7 +52,7 @@ html, body {
     display: none;
 }
 #op-domain-tabs .tab-btn {
-    padding: .34rem .7rem;
+    padding: .36rem .68rem;
     font-size: .79rem;
     white-space: nowrap;
 }
@@ -55,12 +60,64 @@ html, body {
 .op-top-meta {
     display: flex;
     align-items: center;
-    gap: .38rem;
-    flex-wrap: nowrap;
-    flex: 0 1 auto;
+    justify-content: space-between;
+    gap: .5rem;
+    flex-wrap: wrap;
     min-width: 0;
     max-width: 100%;
+    padding: .32rem .55rem;
+    border-radius: 9px;
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+}
+
+.op-meta-group {
+    display: flex;
+    align-items: center;
+    gap: .36rem;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.op-meta-right {
+    margin-left: auto;
+}
+
+.op-view-seg {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px;
+    border-radius: 7px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+}
+
+.op-seg-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: .28rem;
+    height: 24px;
+    padding: 0 .5rem;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: .74rem;
+    font-weight: 600;
+    cursor: pointer;
     white-space: nowrap;
+    transition: background .12s ease, color .12s ease;
+}
+
+.op-seg-btn:hover {
+    color: var(--text);
+}
+
+.op-seg-btn.active {
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    color: var(--accent);
 }
 
 .op-profile-select,
@@ -95,15 +152,9 @@ html, body {
     color: var(--accent);
 }
 
-@media (max-width: 1120px) {
-    .op-top-bar {
-        flex-wrap: wrap;
-    }
-}
 @media (max-width: 900px) {
-    .op-top-meta {
-        flex-wrap: wrap;
-        white-space: normal;
+    .op-meta-right {
+        margin-left: 0;
     }
 }
 
@@ -203,8 +254,16 @@ html[data-operator-dock="1"] .op-hide-dock {
     display: none !important;
 }
 html[data-operator-dock="1"] .op-top-bar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
     flex-wrap: nowrap;
     gap: .28rem;
+}
+html[data-operator-dock="1"] .op-tabs-row {
+    order: -1;
+    flex: 1 1 auto;
+    min-width: 0;
 }
 html[data-operator-dock="1"] .op-top-meta {
     gap: .22rem;
@@ -213,6 +272,21 @@ html[data-operator-dock="1"] .op-top-meta {
     max-width: none;
     flex-wrap: nowrap;
     white-space: nowrap;
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+html[data-operator-dock="1"] .op-meta-group {
+    flex-wrap: nowrap;
+    gap: .22rem;
+}
+html[data-operator-dock="1"] .op-view-seg {
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+html[data-operator-dock="1"] #op-touch-btn {
+    display: none !important;
 }
 html[data-operator-dock="1"] #op-domain-tabs {
     width: auto;
@@ -1232,6 +1306,7 @@ html[data-operator-dense="1"] .op-group-var-row {
 
 /* Touch / Tablet Density Mode (44px+ tap targets) */
 html[data-op-touch="1"] .op-btn,
+html[data-op-touch="1"] .op-seg-btn,
 html[data-op-touch="1"] .op-slot-btn,
 html[data-op-touch="1"] .op-step-btn {
     min-height: 44px;

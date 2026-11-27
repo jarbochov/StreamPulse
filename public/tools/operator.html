@@ -20,22 +20,30 @@
 
     <main class="op-shell">
         <div class="op-top-bar">
-            <nav class="tabs-nav" id="op-domain-tabs" role="tablist" aria-label="Operator domains"></nav>
             <div class="op-top-meta">
-                <select id="op-global-profile" class="op-profile-select" aria-label="Active Operator preset"></select>
-                <button type="button" class="op-btn sm" id="op-presets-btn" title="Manage presets, import and export">Presets</button>
-                <button type="button" class="op-btn sm" id="op-customize-tabs-btn" title="Customize visible tabs">Tabs</button>
-                <button type="button" class="op-btn sm" id="op-focus-btn" title="Focus mode: expand only one panel at a time">Focus</button>
-                <button type="button" class="op-btn sm" id="op-dense-btn" title="Toggle compact density to fit more controls">Compact</button>
-                <button type="button" class="op-btn sm" id="op-touch-btn" title="Touch mode: larger 44px tap targets for tablets &amp; iPads">Touch</button>
-                <button type="button" class="op-btn sm" id="op-activity-btn" title="Toggle recent live activity log">Activity</button>
-                <select id="op-lock-mode" class="op-lock-select" aria-label="Operator lock mode" title="Lock board layout or switch to read-only Show Mode">
-                    <option value="none">Unlocked</option>
-                    <option value="layout">Lock Layout</option>
-                    <option value="show">Show Mode (Read-Only)</option>
-                </select>
-                <span class="op-pill is-live" id="op-profile-lock-pill" hidden>Pinned</span>
-                <span class="op-pill" id="op-live-pill"><span class="op-badge-dot is-offline"></span> Connecting</span>
+                <div class="op-meta-group">
+                    <select id="op-global-profile" class="op-profile-select" aria-label="Active Operator preset"></select>
+                    <button type="button" class="op-btn sm" id="op-presets-btn" title="Manage presets, import and export">Presets</button>
+                    <button type="button" class="op-btn sm" id="op-customize-tabs-btn" title="Customize visible tabs">Tabs</button>
+                    <span class="op-pill is-live" id="op-profile-lock-pill" hidden>Pinned</span>
+                </div>
+                <div class="op-meta-group op-meta-right">
+                    <div class="op-view-seg" role="group" aria-label="Display density and focus">
+                        <button type="button" class="op-seg-btn" id="op-focus-btn" title="Focus mode: expand only one panel at a time">Focus</button>
+                        <button type="button" class="op-seg-btn" id="op-dense-btn" title="Toggle compact density to fit more controls">Compact</button>
+                        <button type="button" class="op-seg-btn" id="op-touch-btn" title="Touch mode: larger 44px tap targets for tablets &amp; iPads">Touch</button>
+                    </div>
+                    <button type="button" class="op-btn sm" id="op-activity-btn" title="Toggle recent live activity log">Activity</button>
+                    <select id="op-lock-mode" class="op-lock-select" aria-label="Operator lock mode" title="Lock board layout or switch to read-only Show Mode">
+                        <option value="none">Unlocked</option>
+                        <option value="layout">Lock Layout</option>
+                        <option value="show">Show Mode (Read-Only)</option>
+                    </select>
+                    <span class="op-pill" id="op-live-pill"><span class="op-badge-dot is-offline"></span> Connecting</span>
+                </div>
+            </div>
+            <div class="op-tabs-row">
+                <nav class="tabs-nav" id="op-domain-tabs" role="tablist" aria-label="Operator domains"></nav>
             </div>
         </div>
         <div id="op-preset-pills" class="op-preset-pills" aria-label="Quick preset switcher" hidden></div>
