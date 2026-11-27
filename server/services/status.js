@@ -205,6 +205,7 @@ function createStatusService({
                 obsPatterns: config.obs_patterns_enabled !== false,
                 obsLayout: config.obs_layout_enabled === true,
                 multiplayerBingo: config.multiplayer_bingo_enabled === true,
+                promoCreator: config.promo_creator_enabled === true,
                 clips: config.clip_candidates?.enabled !== false,
                 weather: config.weather?.enabled === true,
                 music: Boolean(musicConfig.enabled),

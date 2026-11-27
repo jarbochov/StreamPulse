@@ -300,6 +300,25 @@ function init() {
     }
     Bracket.updateTourneySeedPreview();
 
+    async function syncPromoCreatorButtons() {
+        let enabled = false;
+        try {
+            const res = await fetch('/api/status', { cache: 'no-store' });
+            if (res.ok) {
+                const statusData = await res.json();
+                enabled = statusData?.modules?.promoCreator === true;
+            }
+        } catch { /* ignore */ }
+        document.querySelectorAll('[data-requires-module="promoCreator"]').forEach(el => {
+            el.hidden = !enabled;
+        });
+    }
+    syncPromoCreatorButtons();
+    window.addEventListener('streampulse:config-saved', syncPromoCreatorButtons);
+    window.addEventListener('storage', e => {
+        if (e.key === 'streampulse:modules') syncPromoCreatorButtons();
+    });
+
     try {
         const savedViewMode = localStorage.getItem('versus-tourney-view-mode');
         if (savedViewMode === 'multi' || savedViewMode === 'single') {

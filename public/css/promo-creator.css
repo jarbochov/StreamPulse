@@ -16,6 +16,9 @@ input[type=range]{min-height:20px;padding:0;accent-color:var(--accent)}
 #status[data-error=true]{color:#f87171}
 #promo-content-panel,#appearance-panel{min-width:0}
 #promo-content-panel[hidden],#appearance-panel[hidden]{display:none}
+.promo-disabled-banner{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.65rem 1rem;background:color-mix(in srgb,#d29922 14%,var(--bg-card));border-bottom:1px solid color-mix(in srgb,#d29922 45%,var(--border));font-size:.82rem;color:var(--text)}
+.promo-disabled-banner[hidden]{display:none}
+.promo-disabled-banner a{text-decoration:none;padding:.32rem .7rem;border-radius:6px;white-space:nowrap;background:var(--accent);color:#11111b;font-weight:700}
 .design-name-label{margin-bottom:13px}
 .headline-field span{font-size:9px;letter-spacing:.1em;font-weight:750;color:var(--accent)}
 .headline-field textarea{min-height:88px;font-size:17px;font-weight:600;letter-spacing:-.025em;line-height:1.3}

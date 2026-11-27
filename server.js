@@ -1524,6 +1524,7 @@ const importShareZip = (buffer, selected, conflict) => shareBundleService.import
 
 const handlePromoRoutes = createPromoRoutes({
     service: promoService,
+    isPromoCreatorEnabled: () => config.promo_creator_enabled === true,
     artworkService: createPromoArtworkService({
         assetsDir: CUSTOM_OVERLAY_ASSETS_DIR,
         getTwitchClientId: () => TWITCH_CLIENT_ID,

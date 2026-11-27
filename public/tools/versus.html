@@ -69,7 +69,7 @@
                                 <span id="tourney-active-title">Live Tournament</span>
                             </h2>
                             <div class="vs-toolbar">
-                                <button type="button" class="btn-secondary btn-sm" onclick="openTourneyInPromoCreator()" title="Generate a broadcast promo graphic for this tournament">
+                                <button type="button" class="btn-secondary btn-sm" id="btn-tourney-create-promo" data-requires-module="promoCreator" hidden onclick="openTourneyInPromoCreator()" title="Generate a broadcast promo graphic for this tournament">
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
                                     Create Promo
                                 </button>
@@ -440,7 +440,7 @@
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
                                     Undo
                                 </button>
-                                <button type="button" class="btn-secondary btn-sm" onclick="openMatchupInPromoCreator()" title="Generate a broadcast promo graphic for this matchup">
+                                <button type="button" class="btn-secondary btn-sm" id="btn-matchup-create-promo" data-requires-module="promoCreator" hidden onclick="openMatchupInPromoCreator()" title="Generate a broadcast promo graphic for this matchup">
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
                                     Create Promo
                                 </button>

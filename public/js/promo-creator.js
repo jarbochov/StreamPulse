@@ -101,7 +101,11 @@ const fontGroups = () => [['', 'Use promo font'],
 async function request(url, options) {
     const response = await fetch(url, options);
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || `Request failed (${response.status}).`);
+    if (!response.ok) {
+        const err = new Error(data.error || `Request failed (${response.status}).`);
+        err.status = response.status;
+        throw err;
+    }
     return data;
 }
 
@@ -283,7 +287,11 @@ async function backdropFrame(now) {
         const target = $('preview');
         if (target.width !== canvas.width || target.height !== canvas.height) { target.width = canvas.width; target.height = canvas.height; }
         target.getContext('2d').drawImage(canvas, 0, 0);
-    } catch (error) { status(error.message, true); }
+    } catch (error) {
+        const banner = $('promo-disabled-banner');
+        if (banner && error?.status === 403) banner.hidden = false;
+        status(error.message, true);
+    }
     backdropBusy = false;
     if (backdropDirty && !backdropRaf && !document.hidden) {
         backdropDirty = false;
@@ -1335,7 +1343,11 @@ await (async () => {
         }
         await loadThemes();
         await updateAnimationExport();
-    } catch (error) { status(error.message, true); }
+    } catch (error) {
+        const banner = $('promo-disabled-banner');
+        if (banner && error?.status === 403) banner.hidden = false;
+        status(error.message, true);
+    }
 })();
 
 document.addEventListener('click', event => {

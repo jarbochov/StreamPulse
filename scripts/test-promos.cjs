@@ -1118,4 +1118,43 @@ test('promo creator exposes fill modes, palettes, and background/image effect co
     assert.ok(fallbackChecks.leaves200[0] > fallbackChecks.leaves100[0], 'leaves sway pattern brightness(200%) brightens base & pattern');
 });
 
+test('promo routes return 403 when disabled while keeping IGDB artwork endpoints open', async t => {
+    const dataDir = fs.mkdtempSync(path.join(__dirname, '..', '.test-promo-disabled-'));
+    const assetsDir = path.join(dataDir, 'assets');
+    fs.mkdirSync(assetsDir, { recursive: true });
+    const service = createPromoService({ dataDir });
+    const artworkService = createPromoArtworkService({
+        assetsDir,
+        getTwitchClientId: () => 'fictional-client',
+        getAppToken: async () => 'fictional-token',
+        fetchImpl: async () => Response.json([{ id: 7, name: 'Fictional Quest', cover: { image_id: 'c7' } }])
+    });
+    let enabled = false;
+    const routes = createPromoRoutes({ service, artworkService, isPromoCreatorEnabled: () => enabled });
+    const server = http.createServer(async (req, res) => {
+        const url = new URL(req.url, 'http://fixture.local');
+        if (await routes(req, res, url.pathname)) return;
+        res.writeHead(404);
+        res.end();
+    });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const origin = `http://127.0.0.1:${server.address().port}`;
+    t.after(async () => {
+        await new Promise(resolve => server.close(resolve));
+        fs.rmSync(dataDir, { recursive: true, force: true });
+    });
+
+    assert.equal((await fetch(`${origin}/api/promos`)).status, 403, 'GET /api/promos blocked when disabled');
+    assert.equal((await fetch(`${origin}/api/promo-themes`)).status, 403, 'GET /api/promo-themes blocked when disabled');
+    assert.equal((await fetch(`${origin}/api/promos`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).status, 403, 'POST /api/promos blocked when disabled');
+
+    const igdbRes = await fetch(`${origin}/api/promos/igdb/search?q=quest`);
+    assert.equal(igdbRes.status, 200, 'IGDB artwork search stays open for Custom Overlay Editor when Promo Creator is disabled');
+
+    enabled = true;
+    const listRes = await fetch(`${origin}/api/promos`);
+    assert.equal(listRes.status, 200, 'GET /api/promos succeeds once enabled');
+    assert.deepEqual(await listRes.json(), []);
+});
+
 const clone = value => JSON.parse(JSON.stringify(value));

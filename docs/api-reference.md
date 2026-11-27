@@ -74,6 +74,8 @@ Filtered chat/highlight APIs, search, timelines, exports and direct data reads h
 
 ## Promo Creator
 
+Promo Creator is an opt-in module (`promo_creator_enabled: false` by default). Enable it in **System Config → Modules & Services → Production & Exports** (or via `PUT /api/config` with `{ "promo_creator_enabled": true }`). When disabled, `/api/promos*` and `/api/promo-themes*` return `403`, while `/api/promos/igdb/*` remains available for Custom Overlay Editor artwork search.
+
 Promo designs are static, locally saved documents, not live overlay controls. They do not emit WebSocket events or require Companion actions. See the [Promo Creator guide](promo-creator.md) for the browser workflow.
 
 | Endpoint | Result |

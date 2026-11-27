@@ -41,8 +41,33 @@
 
         /* Module Toolbar & Clean Categorized Grid */
         .module-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.65rem 0.95rem; }
+        .module-search-wrap { position: relative; display: flex; align-items: center; flex: 1 1 240px; max-width: 380px; }
+        .module-search-wrap > svg { position: absolute; left: 0.65rem; width: 14px; height: 14px; color: var(--text-muted); pointer-events: none; }
+        .module-search-input { width: 100%; padding: 0.36rem 2rem 0.36rem 2.1rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.82rem; font-family: inherit; transition: border-color 0.15s; }
+        .module-search-input:focus { outline: none; border-color: var(--accent); }
+        .module-search-clear { position: absolute; right: 0.35rem; background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 0.2rem; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; }
+        .module-search-clear:hover { color: var(--text); background: var(--bg-raised); }
+        .module-search-clear[hidden] { display: none; }
+        .module-toolbar-right { display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap; }
         .module-stats-badge { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); display: inline-flex; align-items: center; gap: 0.45rem; }
         .module-filter-group { display: flex; align-items: center; gap: 0.35rem; }
+        .module-empty-state { background: var(--bg-card); border: 1px dashed var(--border); border-radius: 8px; padding: 2rem 1.25rem; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.65rem; color: var(--text-muted); font-size: 0.86rem; }
+        .module-empty-state[hidden] { display: none; }
+
+        /* Twitch Connection Card */
+        .twitch-conn-summary { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.8rem 0.95rem; background: var(--bg-inset); border: 1px solid var(--border); border-radius: 7px; margin: 0.65rem 0 0.85rem; }
+        .twitch-conn-line { font-size: 0.84rem; color: var(--text); font-weight: 500; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+        .twitch-conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); flex-shrink: 0; }
+        .twitch-conn-dot.connected { background: #3fb950; box-shadow: 0 0 6px rgba(63,185,80,0.55); }
+        .twitch-conn-dot.warn { background: #d29922; box-shadow: 0 0 5px rgba(210,153,34,0.45); }
+        .twitch-conn-meta { font-size: 0.76rem; color: var(--text-muted); display: flex; gap: 0.85rem; flex-wrap: wrap; }
+        .twitch-scopes-wrap { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.15rem; }
+        .twitch-scopes-wrap[hidden] { display: none; }
+        .twitch-scope-chip { font-size: 0.7rem; font-family: ui-monospace, Menlo, monospace; padding: 0.14rem 0.48rem; border-radius: 999px; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-muted); }
+        .twitch-conn-actions { display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap; }
+        .btn-danger-outline { border-color: rgba(248,81,73,0.45); color: #f85149; background: rgba(248,81,73,0.08); }
+        .btn-danger-outline:hover { border-color: #f85149; background: rgba(248,81,73,0.18); color: #ff7b72; }
+        .btn[hidden] { display: none; }
         .module-filter-btn { background: var(--bg-inset); border: 1px solid var(--border); border-radius: 6px; padding: 0.28rem 0.65rem; font-size: 0.76rem; font-weight: 600; color: var(--text-muted); cursor: pointer; transition: all 0.15s; }
         .module-filter-btn:hover { color: var(--text); border-color: var(--accent); }
         .module-filter-btn.active { background: color-mix(in srgb, var(--accent) 15%, var(--bg-card)); border-color: var(--accent); color: var(--accent); font-weight: 700; }
@@ -325,6 +350,10 @@
                             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
                             Automation &amp; Media
                         </button>
+                        <button type="button" class="sub-nav-btn" data-module-cat="production" role="tab" aria-selected="false">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="7" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="17" y2="20"/><line x1="2" y1="9" x2="7" y2="9"/><line x1="2" y1="15" x2="7" y2="15"/><line x1="17" y1="9" x2="22" y2="9"/><line x1="17" y1="15" x2="22" y2="15"/></svg>
+                            Production &amp; Exports
+                        </button>
                         <button type="button" class="sub-nav-btn" data-module-cat="variables" role="tab" aria-selected="false">
                             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5"/><path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3"/></svg>
                             Variables &amp; Data
@@ -335,20 +364,29 @@
                         </button>
                     </div>
                     <div class="sub-nav-actions">
-                        <span class="module-stats-badge" id="module-stats-summary">12 Modules</span>
+                        <span class="module-stats-badge" id="module-stats-summary">17 Modules</span>
                     </div>
                 </div>
             </div>
 
             <div class="module-toolbar">
-                <div class="module-stats-badge">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-                    <span>Filter by Status</span>
+                <div class="module-search-wrap">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input type="search" id="module-search" class="module-search-input" data-no-dirty placeholder="Filter modules &amp; services…" aria-label="Filter modules and services" autocomplete="off" spellcheck="false">
+                    <button type="button" id="module-search-clear" class="module-search-clear" hidden aria-label="Clear search" title="Clear search">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
                 </div>
-                <div class="module-filter-group" role="tablist">
-                    <button type="button" class="module-filter-btn active" data-filter="all">All (12)</button>
-                    <button type="button" class="module-filter-btn" data-filter="active">Active</button>
-                    <button type="button" class="module-filter-btn" data-filter="disabled">Disabled</button>
+                <div class="module-toolbar-right">
+                    <div class="module-stats-badge">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                        <span>Status</span>
+                    </div>
+                    <div class="module-filter-group" role="tablist">
+                        <button type="button" class="module-filter-btn active" data-filter="all">All</button>
+                        <button type="button" class="module-filter-btn" data-filter="active">Active</button>
+                        <button type="button" class="module-filter-btn" data-filter="disabled">Disabled</button>
+                    </div>
                 </div>
             </div>
 
@@ -578,7 +616,35 @@
                 </div>
             </div>
 
-            <!-- Category 3: Variables & Data (Advanced) -->
+            <!-- Category 3: Production & Exports -->
+            <div class="module-section" data-category="production">
+                <div class="module-section-head">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="7" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="17" y2="20"/><line x1="2" y1="9" x2="7" y2="9"/><line x1="2" y1="15" x2="7" y2="15"/><line x1="17" y1="9" x2="22" y2="9"/><line x1="17" y1="15" x2="22" y2="15"/></svg>
+                    <span>Production &amp; Exports</span>
+                </div>
+                <div class="module-grid">
+                    <!-- Promo Creator Card -->
+                    <div class="module-card" data-module="promo-creator">
+                        <div class="module-card-head">
+                            <div class="module-card-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                <span>Promo Creator</span>
+                            </div>
+                            <span class="module-badge" id="badge-promo-creator">Disabled</span>
+                        </div>
+                        <p class="hint">Design coordinated stream announcements and promotional graphics across square, landscape, and portrait layouts with PNG and looping MP4 exports.</p>
+                        <div class="cfg-toggle">
+                            <input type="checkbox" id="cfg-promo-creator-enabled">
+                            <label for="cfg-promo-creator-enabled">Enable Promo Creator module</label>
+                        </div>
+                        <div class="module-links">
+                            <a class="module-link" href="/promo-creator.html">Open Promo Creator <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Category 4: Variables & Data (Advanced) -->
             <div class="module-section" data-category="variables">
                 <div class="module-section-head">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="8" ry="3"></ellipse><path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5"></path><path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3"></path></svg>
@@ -743,10 +809,44 @@
                     </div>
                 </div>
             </div>
+
+            <div class="module-empty-state" id="module-empty-state" hidden>
+                <div id="module-empty-msg">No modules match your current filter.</div>
+                <button type="button" class="btn" id="module-empty-reset">Reset Filters</button>
+            </div>
         </div>
 
         <!-- TAB 4: CONNECTION & SECURITY -->
         <div class="tab-pane" id="pane-connection" hidden>
+            <div class="card" id="twitch-connection">
+                <h2>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2H3v16h5v4l4-4h5l4-4V2z"/><line x1="11" y1="7" x2="11" y2="12"/><line x1="16" y1="7" x2="16" y2="12"/></svg>
+                    <span>Twitch Connection</span>
+                    <span class="module-badge inactive" id="badge-twitch">Checking…</span>
+                </h2>
+                <p class="hint">Authorize StreamPulse with Twitch for live stream detection, subscriber and follower sync, channel point rewards, polls, and chat moderation.</p>
+                <div class="twitch-conn-summary">
+                    <div class="twitch-conn-line">
+                        <span class="twitch-conn-dot" id="cfg-twitch-dot"></span>
+                        <span id="cfg-twitch-auth-status">Checking Twitch authorization status…</span>
+                    </div>
+                    <div class="twitch-conn-meta" id="cfg-twitch-auth-meta"></div>
+                    <div class="twitch-scopes-wrap" id="cfg-twitch-scopes" hidden></div>
+                </div>
+                <div class="twitch-conn-actions">
+                    <a class="btn primary" id="cfg-twitch-device-link" href="/twitch-connect.html">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                        <span id="cfg-twitch-device-label">Connect Twitch (Device Code)</span>
+                    </a>
+                    <a class="btn" id="cfg-twitch-oauth-link" href="/auth/twitch">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        <span id="cfg-twitch-oauth-label">Authorize via Twitch OAuth</span>
+                    </a>
+                    <button type="button" class="btn" id="cfg-twitch-refresh-btn">Refresh Status</button>
+                    <button type="button" class="btn btn-danger-outline" id="cfg-twitch-disconnect-btn" hidden>Disconnect Twitch</button>
+                </div>
+            </div>
+
             <div class="card" id="obs-connection">
                 <h2>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
@@ -999,6 +1099,115 @@
         }
     }
 
+    async function showTwitchAuthStatus() {
+        const badge = document.getElementById('badge-twitch');
+        const dot = document.getElementById('cfg-twitch-dot');
+        const line = document.getElementById('cfg-twitch-auth-status');
+        const meta = document.getElementById('cfg-twitch-auth-meta');
+        const scopesWrap = document.getElementById('cfg-twitch-scopes');
+        const deviceLink = document.getElementById('cfg-twitch-device-link');
+        const deviceLabel = document.getElementById('cfg-twitch-device-label');
+        const oauthLink = document.getElementById('cfg-twitch-oauth-link');
+        const oauthLabel = document.getElementById('cfg-twitch-oauth-label');
+        const disconnectBtn = document.getElementById('cfg-twitch-disconnect-btn');
+        if (!line) return;
+        try {
+            const st = await (await fetch('/api/twitch/auth/status', { cache: 'no-store' })).json();
+            const connected = Boolean(st.connected);
+            const isOwnApp = st.mode === 'own_app';
+            const broadcasterName = loadedConfig?.connection?.broadcaster_name || loadedConfig?.broadcaster_name || '';
+            const broadcasterId = loadedConfig?.connection?.broadcaster_id || '';
+
+            if (badge) {
+                badge.textContent = connected ? 'Connected' : 'Not Connected';
+                badge.className = `module-badge ${connected ? 'active' : 'inactive'}`;
+            }
+            if (dot) {
+                dot.className = `twitch-conn-dot ${connected ? 'connected' : 'warn'}`;
+            }
+
+            if (connected) {
+                const who = broadcasterName ? `${broadcasterName}${broadcasterId ? ` (${broadcasterId})` : ''}` : (st.broadcasterSaved ? 'Broadcaster synced' : 'Authorized account');
+                line.textContent = `Connected to Twitch — ${who}`;
+            } else {
+                line.textContent = 'Twitch is not connected. Authorize an account to sync live stream status, subs, polls, and channel rewards.';
+            }
+
+            if (meta) {
+                const parts = [];
+                parts.push(`Auth mode: ${isOwnApp ? 'Custom Twitch App (OAuth)' : 'Shared StreamPulse App (Device Code)'}`);
+                if (st.broadcasterConfigured || st.broadcasterSaved) {
+                    parts.push(st.broadcasterSaved ? 'Broadcaster ID synced' : 'Broadcaster ID configured');
+                }
+                if (connected) {
+                    const count = Array.isArray(st.scopes) ? st.scopes.length : 0;
+                    parts.push(`${count} permission scope${count === 1 ? '' : 's'} granted`);
+                }
+                meta.textContent = parts.join(' · ');
+            }
+
+            if (scopesWrap) {
+                const scopes = Array.isArray(st.scopes) ? st.scopes.filter(Boolean) : [];
+                if (connected && scopes.length) {
+                    scopesWrap.replaceChildren(...scopes.map(scope => {
+                        const chip = document.createElement('span');
+                        chip.className = 'twitch-scope-chip';
+                        chip.textContent = scope;
+                        return chip;
+                    }));
+                    scopesWrap.hidden = false;
+                } else {
+                    scopesWrap.replaceChildren();
+                    scopesWrap.hidden = true;
+                }
+            }
+
+            if (deviceLink && deviceLabel) {
+                deviceLink.classList.toggle('primary', !connected && !isOwnApp);
+                deviceLabel.textContent = connected ? 'Manage / Reconnect (Device Code)' : 'Connect Twitch (Device Code)';
+            }
+            if (oauthLink && oauthLabel) {
+                oauthLink.classList.toggle('primary', !connected && isOwnApp);
+                oauthLabel.textContent = isOwnApp
+                    ? (connected ? 'Re-authorize via Twitch OAuth' : 'Authorize via Twitch OAuth')
+                    : 'Direct OAuth Link (/auth/twitch)';
+                oauthLink.title = isOwnApp
+                    ? 'Opens Twitch OAuth using your custom Client Secret in config.json'
+                    : 'Redirects to Device Code sign-in unless a custom Twitch Client Secret is configured in config.json';
+            }
+            if (disconnectBtn) {
+                disconnectBtn.hidden = !connected;
+            }
+        } catch {
+            if (badge) {
+                badge.textContent = 'Unavailable';
+                badge.className = 'module-badge inactive';
+            }
+            if (dot) dot.className = 'twitch-conn-dot';
+            line.textContent = 'Twitch connection status unavailable.';
+            if (meta) meta.textContent = '';
+            if (scopesWrap) scopesWrap.hidden = true;
+            if (disconnectBtn) disconnectBtn.hidden = true;
+        }
+    }
+
+    async function disconnectTwitch() {
+        if (!confirm('Disconnect Twitch from StreamPulse? You can reconnect at any time.')) return;
+        const btn = document.getElementById('cfg-twitch-disconnect-btn');
+        if (btn) btn.disabled = true;
+        try {
+            const res = await fetch('/api/twitch/auth/disconnect', { method: 'POST' });
+            if (!res.ok) throw new Error('Disconnect failed');
+            showToast('Twitch disconnected.');
+            await showTwitchAuthStatus();
+            window.dispatchEvent(new CustomEvent('streampulse:config-saved', { detail: {} }));
+        } catch {
+            showToast('Could not disconnect Twitch.');
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    }
+
     async function showObsStatus() {
         const line = document.getElementById('cfg-obs-status');
         if (!line) return;
@@ -1048,6 +1257,15 @@
 
     let activeModuleFilter = 'all';
     let activeModuleCategory = localStorage.getItem('streampulse:config:module-cat') || 'all';
+    let activeModuleSearch = '';
+
+    function cardMatchesSearch(card, query) {
+        if (!query) return true;
+        const secHead = card.closest('.module-section')?.querySelector('.module-section-head')?.textContent || '';
+        const modKey = card.getAttribute('data-module') || '';
+        const haystack = `${modKey} ${secHead} ${card.textContent || ''}`.toLowerCase();
+        return query.split(/\s+/).every(token => haystack.includes(token));
+    }
 
     function applyModuleCategory(cat) {
         if (cat) {
@@ -1067,26 +1285,83 @@
         document.querySelectorAll('.module-filter-btn').forEach(btn => {
             btn.classList.toggle('active', btn.getAttribute('data-filter') === activeModuleFilter);
         });
-        document.querySelectorAll('#pane-modules .module-card').forEach(card => {
-            const status = card.getAttribute('data-status') || 'disabled';
-            if (activeModuleFilter === 'all') {
-                card.style.display = '';
-            } else if (activeModuleFilter === 'active') {
-                card.style.display = status === 'active' ? '' : 'none';
-            } else if (activeModuleFilter === 'disabled') {
-                card.style.display = status === 'disabled' ? '' : 'none';
-            }
-        });
+        const query = activeModuleSearch.trim().toLowerCase();
+        const clearBtn = document.getElementById('module-search-clear');
+        if (clearBtn) clearBtn.hidden = query.length === 0;
+
+        let visibleTotal = 0;
+        let otherCategoryMatches = 0;
+
         document.querySelectorAll('#pane-modules .module-section').forEach(sec => {
             const cat = sec.getAttribute('data-category') || 'all';
             const catMatch = activeModuleCategory === 'all' || cat === activeModuleCategory;
-            const visible = sec.querySelectorAll('.module-card:not([style*="display: none"])');
-            sec.style.display = (!catMatch || visible.length === 0) ? 'none' : '';
+            let sectionVisible = 0;
+
+            sec.querySelectorAll('.module-card').forEach(card => {
+                const status = card.getAttribute('data-status') || 'disabled';
+                const statusMatch = activeModuleFilter === 'all'
+                    || (activeModuleFilter === 'active' && status === 'active')
+                    || (activeModuleFilter === 'disabled' && status === 'disabled');
+                const searchMatch = cardMatchesSearch(card, query);
+                const matches = statusMatch && searchMatch;
+                card.style.display = matches ? '' : 'none';
+                if (matches) {
+                    sectionVisible++;
+                    if (catMatch) visibleTotal++;
+                    else otherCategoryMatches++;
+                }
+            });
+
+            sec.style.display = (!catMatch || sectionVisible === 0) ? 'none' : '';
         });
+
+        const emptyEl = document.getElementById('module-empty-state');
+        const emptyMsg = document.getElementById('module-empty-msg');
+        if (emptyEl) {
+            emptyEl.hidden = visibleTotal > 0;
+            if (visibleTotal === 0 && emptyMsg) {
+                if (query && otherCategoryMatches > 0) {
+                    emptyMsg.textContent = `No modules match "${activeModuleSearch.trim()}" in this category (${otherCategoryMatches} match${otherCategoryMatches === 1 ? '' : 'es'} in other categories).`;
+                } else if (query) {
+                    emptyMsg.textContent = `No modules or services match "${activeModuleSearch.trim()}".`;
+                } else {
+                    emptyMsg.textContent = 'No modules match the selected status filter in this category.';
+                }
+            }
+        }
     }
 
     document.querySelectorAll('#pane-modules [data-module-cat]').forEach(btn => {
         btn.addEventListener('click', () => applyModuleCategory(btn.getAttribute('data-module-cat')));
+    });
+    const moduleSearchEl = document.getElementById('module-search');
+    if (moduleSearchEl) {
+        moduleSearchEl.addEventListener('input', () => {
+            activeModuleSearch = moduleSearchEl.value;
+            applyModuleFilter();
+        });
+        moduleSearchEl.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && moduleSearchEl.value) {
+                e.preventDefault();
+                moduleSearchEl.value = '';
+                activeModuleSearch = '';
+                applyModuleFilter();
+            }
+        });
+    }
+    document.getElementById('module-search-clear')?.addEventListener('click', () => {
+        if (moduleSearchEl) {
+            moduleSearchEl.value = '';
+            moduleSearchEl.focus();
+        }
+        activeModuleSearch = '';
+        applyModuleFilter();
+    });
+    document.getElementById('module-empty-reset')?.addEventListener('click', () => {
+        if (moduleSearchEl) moduleSearchEl.value = '';
+        activeModuleSearch = '';
+        activeModuleFilter = 'all';
+        applyModuleCategory('all');
     });
     applyModuleCategory(activeModuleCategory);
 
@@ -1120,6 +1395,7 @@
         updateBadge('badge-obs-patterns', document.getElementById('cfg-obs-patterns-enabled')?.checked);
         updateBadge('badge-obs-layout', document.getElementById('cfg-obs-layout-enabled')?.checked);
         updateBadge('badge-multiplayer-bingo', document.getElementById('cfg-multiplayer-bingo-enabled')?.checked);
+        updateBadge('badge-promo-creator', document.getElementById('cfg-promo-creator-enabled')?.checked);
         updateBadge('badge-variable-sets', document.getElementById('cfg-variable-sets-enabled')?.checked);
         updateBadge('badge-variable-settings', document.getElementById('cfg-variable-settings-enabled')?.checked);
 
@@ -1214,6 +1490,7 @@
             document.getElementById('cfg-obs-patterns-enabled').checked = cfg.obs_patterns_enabled !== false;
             document.getElementById('cfg-obs-layout-enabled').checked = cfg.obs_layout_enabled === true;
             document.getElementById('cfg-multiplayer-bingo-enabled').checked = cfg.multiplayer_bingo_enabled === true;
+            document.getElementById('cfg-promo-creator-enabled').checked = cfg.promo_creator_enabled === true;
             document.getElementById('cfg-obs-host').value = obs.host || '127.0.0.1';
             document.getElementById('cfg-obs-port').value = obs.port || 4455;
             document.getElementById('cfg-obs-password').value = '';
@@ -1243,6 +1520,7 @@
 
             showWeatherStatus();
             showObsStatus();
+            showTwitchAuthStatus();
             clearDirty();
         } catch (e) {
             console.error('Failed to load system config:', e);
@@ -1284,6 +1562,7 @@
             obs_patterns_enabled: document.getElementById('cfg-obs-patterns-enabled').checked,
             obs_layout_enabled: document.getElementById('cfg-obs-layout-enabled').checked,
             multiplayer_bingo_enabled: document.getElementById('cfg-multiplayer-bingo-enabled').checked,
+            promo_creator_enabled: document.getElementById('cfg-promo-creator-enabled').checked,
             polls_enabled: document.getElementById('cfg-polls-enabled').checked,
             versus_enabled: document.getElementById('cfg-versus-enabled').checked,
             trivia_enabled: document.getElementById('cfg-trivia-enabled').checked,
@@ -1373,6 +1652,10 @@
         });
         localStorage.setItem('streampulse:config:tab', tabId);
         location.hash = tabId;
+        if (tabId === 'connection') {
+            showTwitchAuthStatus();
+            showObsStatus();
+        }
     }
 
     document.querySelectorAll('.tabs-nav .tab-btn').forEach(btn => {
@@ -1382,16 +1665,20 @@
     document.getElementById('top-save-config').addEventListener('click', saveConfig);
     document.getElementById('cfg-ban-sync-now').addEventListener('click', () => showBanStatus(true));
     document.getElementById('ssn-session-toggle').addEventListener('click', toggleSsnSession);
+    document.getElementById('cfg-twitch-refresh-btn')?.addEventListener('click', showTwitchAuthStatus);
+    document.getElementById('cfg-twitch-disconnect-btn')?.addEventListener('click', disconnectTwitch);
 
     // Module toggles update badges live
-    ['cfg-chatbot-enabled', 'cfg-music-enabled', 'cfg-wx-enabled', 'cfg-clips-enabled', 'cfg-polls-enabled', 'cfg-versus-enabled', 'cfg-trivia-enabled', 'cfg-subathon-enabled', 'cfg-variable-sets-enabled', 'cfg-variable-settings-enabled', 'cfg-obs-enabled', 'cfg-obs-scene-sync-enabled', 'cfg-obs-borders-enabled', 'cfg-obs-patterns-enabled', 'cfg-obs-layout-enabled', 'cfg-multiplayer-bingo-enabled', 'cfg-speaker-badges-enabled'].forEach(id => {
+    ['cfg-chatbot-enabled', 'cfg-music-enabled', 'cfg-wx-enabled', 'cfg-clips-enabled', 'cfg-polls-enabled', 'cfg-versus-enabled', 'cfg-trivia-enabled', 'cfg-subathon-enabled', 'cfg-variable-sets-enabled', 'cfg-variable-settings-enabled', 'cfg-obs-enabled', 'cfg-obs-scene-sync-enabled', 'cfg-obs-borders-enabled', 'cfg-obs-patterns-enabled', 'cfg-obs-layout-enabled', 'cfg-multiplayer-bingo-enabled', 'cfg-promo-creator-enabled', 'cfg-speaker-badges-enabled'].forEach(id => {
         document.getElementById(id)?.addEventListener('change', updateModuleBadges);
     });
 
     document.addEventListener('input', e => {
+        if (e.target.closest('[data-no-dirty]')) return;
         if (e.target.closest('.container')) markDirty();
     });
     document.addEventListener('change', e => {
+        if (e.target.closest('[data-no-dirty]')) return;
         if (e.target.closest('.container')) markDirty();
     });
 
