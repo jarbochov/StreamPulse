@@ -1341,8 +1341,8 @@
                 },
                 {
                     method: 'GET', path: '/api/obs-borders/activate?profile=ID&target=BUNDLE',
-                    desc: 'Activate a border profile globally or assign it to a target bundle/source (Companion trigger)',
-                    details: 'Supports both GET query triggers and POST JSON { "profileId": "neon-rotator", "target": "Bundle - Webcam Full w/ Border" }. Omit target to switch the default active profile.'
+                    desc: 'Activate a border profile globally or assign it to one or more OBS sources and scenes (Companion trigger)',
+                    details: 'Supports GET query triggers and POST JSON with single target/scene or batch arrays { "profileId": "neon-rotator", "sourceNames": ["Webcam", "Gameplay"], "sceneNames": ["Main"] }. Omit sources to switch the default active profile.'
                 },
                 {
                     method: 'POST', path: '/api/obs-borders/profile',
@@ -1448,8 +1448,8 @@
                 },
                 {
                     method: 'GET', path: '/api/obs-patterns/activate?profile=ID&target=SOURCE&scene=SCENE',
-                    desc: 'Activate a pattern profile globally or assign it to a pattern source / scene override (Companion trigger)',
-                    details: 'Supports both GET query parameters and POST JSON, and pushes live sync_revision updates to OBS via WebSocket.'
+                    desc: 'Activate a pattern profile globally or assign it to one or more pattern sources / scenes (Companion trigger)',
+                    details: 'Supports GET query parameters and POST JSON (including batch sourceNames / sceneNames arrays), and pushes live sync_revision updates to OBS via WebSocket.'
                 },
                 {
                     method: 'POST', path: '/api/obs-patterns/profile',

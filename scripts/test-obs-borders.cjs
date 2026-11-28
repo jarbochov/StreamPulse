@@ -695,4 +695,19 @@ describe('OBS Border Studio (Beta / Advanced)', () => {
             assert.ok(luaText.includes(token), `streampulse-borders.lua missing ${token}`);
         }
     });
+
+    it('supports batch multi-source and multi-scene assignment via POST /api/obs-borders/activate', async () => {
+        const res = await requestJson(port, 'POST', '/api/obs-borders/activate', {
+            profileId: 'neon-rotator',
+            sourceNames: ['Webcam', 'Gameplay'],
+            sceneNames: ['Main', 'Just Chatting']
+        });
+        assert.equal(res.status, 200);
+        assert.equal(res.body.status, 'assigned');
+        assert.equal(res.body.count, 4);
+        assert.equal(res.body.state.assignments.Webcam.sceneOverrides.Main, 'neon-rotator');
+        assert.equal(res.body.state.assignments.Webcam.sceneOverrides['Just Chatting'], 'neon-rotator');
+        assert.equal(res.body.state.assignments.Gameplay.sceneOverrides.Main, 'neon-rotator');
+        assert.equal(res.body.state.assignments.Gameplay.sceneOverrides['Just Chatting'], 'neon-rotator');
+    });
 });

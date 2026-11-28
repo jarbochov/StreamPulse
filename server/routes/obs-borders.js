@@ -253,22 +253,45 @@ function createObsBordersRoutes({
                 let profileId = url.searchParams.get('profile') || url.searchParams.get('id') || '';
                 let targetName = url.searchParams.get('target') || url.searchParams.get('source') || '';
                 let sceneName = url.searchParams.get('scene') || '';
+                let targetNames = [];
+                let sceneNames = [];
                 if (req.method === 'POST') {
                     const body = JSON.parse(await readRequestBody(req) || '{}');
                     if (body.profileId || body.profile || body.id) profileId = body.profileId || body.profile || body.id;
                     if (body.target || body.sourceName || body.source) targetName = body.target || body.sourceName || body.source;
                     if (body.sceneName || body.scene) sceneName = body.sceneName || body.scene;
+                    if (Array.isArray(body.sourceNames)) targetNames.push(...body.sourceNames);
+                    if (Array.isArray(body.targets)) targetNames.push(...body.targets);
+                    if (Array.isArray(body.sceneNames)) sceneNames.push(...body.sceneNames);
+                    if (Array.isArray(body.scenes)) sceneNames.push(...body.scenes);
                 }
+                if (targetName) targetNames.push(targetName);
+                if (sceneName) sceneNames.push(sceneName);
+                targetNames = [...new Set(targetNames.map(v => String(v || '').trim()).filter(Boolean))];
+                sceneNames = [...new Set(sceneNames.map(v => String(v || '').trim()).filter(Boolean))];
+
                 if (!profileId) throw new Error('Missing profile parameter');
                 const prevManifest = obsBordersService.syncResolvedManifest();
-                if (targetName) {
-                    const nextState = obsBordersService.setSourceAssignment({
-                        sourceName: targetName,
-                        sceneName,
-                        profileId
-                    });
-                    pushSyncToObsSources([targetName], { autoAttachIfAssigned: profileId !== 'none' && profileId !== 'inherit', prevManifest }).catch(() => {});
-                    sendJson(res, { status: 'assigned', target: targetName, sceneName, profileId, state: nextState });
+                if (targetNames.length > 0) {
+                    const effectiveScenes = sceneNames.length > 0 ? sceneNames : [''];
+                    let nextState = obsBordersService.getState();
+                    const applied = [];
+                    for (const src of targetNames) {
+                        for (const scn of effectiveScenes) {
+                            nextState = obsBordersService.setSourceAssignment({
+                                sourceName: src,
+                                sceneName: scn,
+                                profileId
+                            });
+                            applied.push({ sourceName: src, sceneName: scn });
+                        }
+                    }
+                    pushSyncToObsSources(targetNames, { autoAttachIfAssigned: profileId !== 'none' && profileId !== 'inherit', prevManifest }).catch(() => {});
+                    if (applied.length === 1) {
+                        sendJson(res, { status: 'assigned', target: applied[0].sourceName, sceneName: applied[0].sceneName, profileId, state: nextState });
+                    } else {
+                        sendJson(res, { status: 'assigned', count: applied.length, targets: targetNames, scenes: sceneNames, profileId, state: nextState });
+                    }
                 } else {
                     const active = obsBordersService.setActiveProfile(profileId);
                     pushSyncToObsSources([], { prevManifest }).catch(() => {});

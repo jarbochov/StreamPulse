@@ -117,16 +117,40 @@ function createObsPatternsRoutes({ obsPatternsService, obsService, isLoopbackReq
                     if (raw) body = JSON.parse(raw);
                 }
                 const profileId = (url.searchParams.get('profile') || body.profileId || body.profile || '').trim();
-                const target = (url.searchParams.get('target') || url.searchParams.get('source') || body.sourceName || '').trim();
-                const scene = (url.searchParams.get('scene') || body.sceneName || '').trim();
+                const target = (url.searchParams.get('target') || url.searchParams.get('source') || body.sourceName || body.target || '').trim();
+                const scene = (url.searchParams.get('scene') || body.sceneName || body.scene || '').trim();
+                let targetNames = [
+                    ...(Array.isArray(body.sourceNames) ? body.sourceNames : []),
+                    ...(Array.isArray(body.targets) ? body.targets : []),
+                    ...(target ? [target] : [])
+                ];
+                let sceneNames = [
+                    ...(Array.isArray(body.sceneNames) ? body.sceneNames : []),
+                    ...(Array.isArray(body.scenes) ? body.scenes : []),
+                    ...(scene ? [scene] : [])
+                ];
+                targetNames = [...new Set(targetNames.map(v => String(v || '').trim()).filter(Boolean))];
+                sceneNames = [...new Set(sceneNames.map(v => String(v || '').trim()).filter(Boolean))];
                 if (!profileId) {
                     sendError(res, 'profile query parameter or profileId body field is required', 400);
                     return true;
                 }
-                if (target) {
-                    const nextState = obsPatternsService.setSourceAssignment({ sourceName: target, sceneName: scene, profileId });
+                if (targetNames.length > 0) {
+                    const effectiveScenes = sceneNames.length > 0 ? sceneNames : [''];
+                    let nextState = obsPatternsService.getState();
+                    const applied = [];
+                    for (const src of targetNames) {
+                        for (const scn of effectiveScenes) {
+                            nextState = obsPatternsService.setSourceAssignment({ sourceName: src, sceneName: scn, profileId });
+                            applied.push({ sourceName: src, sceneName: scn });
+                        }
+                    }
                     pushSyncToObsSources();
-                    sendJson(res, { status: 'assigned', target, scene: scene || null, profileId, state: nextState });
+                    if (applied.length === 1) {
+                        sendJson(res, { status: 'assigned', target: applied[0].sourceName, scene: applied[0].sceneName || null, profileId, state: nextState });
+                    } else {
+                        sendJson(res, { status: 'assigned', count: applied.length, targets: targetNames, scenes: sceneNames, profileId, state: nextState });
+                    }
                     return true;
                 }
                 const active = obsPatternsService.setActiveProfile(profileId);
